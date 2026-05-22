@@ -25,9 +25,7 @@ export class AIService {
   private static async callOpenRouter(cv: string, job: string): Promise<string> {
     const key = process.env.OPENROUTER_API_KEY;
     if (!key || key.includes("mock-key") || key === "") {
-      // Simular respuesta si no hay clave real para no bloquear pruebas
-      console.warn("Using mock OpenRouter response because key is missing or placeholder");
-      return this.getMockCvResponse(cv, job, "Plan Free (OpenRouter / Qwen)");
+      throw new Error("No se ha configurado una clave de API de OpenRouter válida.");
     }
 
     try {
@@ -38,7 +36,7 @@ export class AIService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3.1-8b-instruct:free",
+          model: "openrouter/free",
           messages: [
             {
               role: "system",
@@ -53,22 +51,25 @@ export class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Error de API de OpenRouter (${response.status}): ${response.statusText || errorText}`);
       }
 
       const data = await response.json();
+      if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
+        throw new Error("La respuesta recibida de OpenRouter no tiene el formato esperado.");
+      }
       return data.choices[0].message.content;
     } catch (e: any) {
       console.error("OpenRouter error:", e);
-      return this.getMockCvResponse(cv, job, "Plan Free (Fallback)");
+      throw new Error(`Ha ocurrido un error al optimizar el CV con OpenRouter: ${e.message}`);
     }
   }
 
   private static async callDeepSeekOficial(cv: string, job: string): Promise<string> {
     const key = process.env.DEEPSEEK_API_KEY;
     if (!key || key.includes("mock-key") || key === "") {
-      console.warn("Using mock DeepSeek response because key is missing or placeholder");
-      return this.getMockCvResponse(cv, job, "Plan Pro (DeepSeek-V3)");
+      throw new Error("No se ha configurado una clave de API de DeepSeek válida.");
     }
 
     try {
@@ -95,22 +96,25 @@ export class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`DeepSeek API error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Error de API de DeepSeek (${response.status}): ${response.statusText || errorText}`);
       }
 
       const data = await response.json();
+      if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
+        throw new Error("La respuesta recibida de DeepSeek no tiene el formato esperado.");
+      }
       return data.choices[0].message.content;
     } catch (e: any) {
       console.error("DeepSeek error:", e);
-      return this.getMockCvResponse(cv, job, "Plan Pro (Fallback DeepSeek)");
+      throw new Error(`Ha ocurrido un error al optimizar el CV con DeepSeek: ${e.message}`);
     }
   }
 
   private static async callGeminiOficial(cv: string, job: string): Promise<string> {
     const key = process.env.GEMINI_API_KEY;
-    if (!key || key.includes("MockKey") || key === "") {
-      console.warn("Using mock Gemini response because key is missing or placeholder");
-      return this.getMockCvResponse(cv, job, "Plan Pro (Gemini-1.5-Pro)");
+    if (!key || key.includes("MockKey") || key.includes("mock-key") || key === "") {
+      throw new Error("No se ha configurado una clave de API de Gemini válida.");
     }
 
     try {
@@ -132,14 +136,18 @@ export class AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Error de API de Gemini (${response.status}): ${response.statusText || errorText}`);
       }
 
       const data = await response.json();
+      if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+        throw new Error("La respuesta recibida de Gemini no tiene el formato esperado.");
+      }
       return data.candidates[0].content.parts[0].text;
     } catch (e: any) {
       console.error("Gemini error:", e);
-      return this.getMockCvResponse(cv, job, "Plan Pro (Fallback Gemini)");
+      throw new Error(`Ha ocurrido un error al optimizar el CV con Gemini: ${e.message}`);
     }
   }
 
