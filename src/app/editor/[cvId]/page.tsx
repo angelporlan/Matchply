@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { cvs, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import EditorClient from '@/components/editor/EditorClient';
+import { isProSubscription } from '@/lib/subscription';
 
 interface EditorPageProps {
   params: {
@@ -40,7 +41,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
     .limit(1);
 
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = subscriptionStatus === 'active';
+  const isPremium = isProSubscription(subscriptionStatus);
 
   return <EditorClient cv={cv} isPremium={isPremium} />;
 }

@@ -3,17 +3,46 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { stripe } from '@/lib/stripe';
+import Stripe from 'stripe';
+
+async function syncSubscription(subscription: Stripe.Subscription) {
+  const customerId = typeof subscription.customer === 'string'
+    ? subscription.customer
+    : subscription.customer.id;
+  const userId = subscription.metadata.userId;
+
+  const values = {
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: subscription.id,
+    subscriptionStatus: subscription.status,
+  };
+
+  if (userId) {
+    await db.update(users).set(values).where(eq(users.id, userId));
+    return;
+  }
+
+  await db
+    .update(users)
+    .set(values)
+    .where(eq(users.stripeCustomerId, customerId));
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('Stripe-Signature') || '';
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event;
+  if (!webhookSecret) {
+    return new NextResponse('Stripe webhook secret not configured', { status: 500 });
+  }
+
+  let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET || ''
+      webhookSecret
     );
   } catch (err: any) {
     console.error(`Webhook signature verification failed: ${err.message}`);
@@ -21,73 +50,45 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const session = event.data.object as any;
-
     switch (event.type) {
       case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
         const subscriptionId = session.subscription;
-        const customerId = session.customer;
 
-        // Si se define userId en metadata, asociarlo directamente
-        const userId = session.metadata?.userId;
-
-        if (userId) {
-          await db
-            .update(users)
-            .set({
-              stripeSubscriptionId: subscriptionId,
-              subscriptionStatus: 'active',
-            })
-            .where(eq(users.id, userId));
-        } else if (customerId) {
-          await db
-            .update(users)
-            .set({
-              stripeSubscriptionId: subscriptionId,
-              subscriptionStatus: 'active',
-            })
-            .where(eq(users.stripeCustomerId, customerId));
+        if (typeof subscriptionId === 'string') {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          await syncSubscription(subscription);
         }
         break;
       }
 
       case 'invoice.payment_succeeded': {
-        const subscriptionId = session.subscription;
-        if (subscriptionId) {
-          await db
-            .update(users)
-            .set({
-              subscriptionStatus: 'active',
-            })
-            .where(eq(users.stripeSubscriptionId, subscriptionId));
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = invoice.subscription;
+
+        if (typeof subscriptionId === 'string') {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          await syncSubscription(subscription);
         }
         break;
       }
 
       case 'customer.subscription.updated': {
-        const subscriptionId = session.id;
-        const status = session.status;
-        const subscriptionStatus = status === 'active' ? 'active' : 'canceled';
-
-        await db
-          .update(users)
-          .set({
-            subscriptionStatus,
-          })
-          .where(eq(users.stripeSubscriptionId, subscriptionId));
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncSubscription(subscription);
         break;
       }
 
       case 'customer.subscription.deleted': {
-        const subscriptionId = session.id;
+        const subscription = event.data.object as Stripe.Subscription;
 
         await db
           .update(users)
           .set({
             stripeSubscriptionId: null,
-            subscriptionStatus: 'none',
+            subscriptionStatus: 'canceled',
           })
-          .where(eq(users.stripeSubscriptionId, subscriptionId));
+          .where(eq(users.stripeSubscriptionId, subscription.id));
         break;
       }
 

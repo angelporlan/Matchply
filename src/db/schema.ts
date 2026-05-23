@@ -11,7 +11,7 @@ export const users = pgTable('user', {
   image: text('image'),
   stripeCustomerId: text('stripeCustomerId').unique(),
   stripeSubscriptionId: text('stripeSubscriptionId'),
-  subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // 'active', 'none', 'canceled'
+  subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 

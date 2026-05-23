@@ -7,6 +7,7 @@ import { eq, desc } from 'drizzle-orm';
 import { Sparkles, Plus, FileText, Trash2, ArrowRight, Kanban, CreditCard, CheckCircle2, Crown, LogOut } from 'lucide-react';
 import { createBaseCv, deleteCv } from './actions';
 import { revalidatePath } from 'next/cache';
+import { isProSubscription } from '@/lib/subscription';
 
 // Acción para crear CV rápido
 async function handleCreateCv(formData: FormData) {
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
     .limit(1);
 
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = subscriptionStatus === 'active';
+  const isPremium = isProSubscription(subscriptionStatus);
 
   // 2. Obtener lista de currículums del usuario
   const userCvs = await db
@@ -126,7 +127,15 @@ export default async function DashboardPage() {
               </p>
             </div>
           </div>
-          {!isPremium && (
+          {isPremium ? (
+            <a
+              href="/api/stripe/portal"
+              className="w-full md:w-auto bg-slate-900 border border-slate-700 hover:border-slate-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <CreditCard className="w-4 h-4" />
+              Gestionar suscripción
+            </a>
+          ) : (
             <a
               href="/api/stripe/checkout"
               className="w-full md:w-auto bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-md shadow-amber-500/15 shrink-0 flex items-center justify-center gap-1.5"

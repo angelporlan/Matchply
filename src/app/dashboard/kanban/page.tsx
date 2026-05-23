@@ -4,8 +4,9 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, jobOffers } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { Sparkles, ArrowLeft, LogOut, LayoutDashboard, Crown, CreditCard } from 'lucide-react';
+import { Sparkles, LogOut, LayoutDashboard, Crown } from 'lucide-react';
 import KanbanBoard from '@/components/kanban/KanbanBoard';
+import { isProSubscription } from '@/lib/subscription';
 
 export default async function KanbanPage() {
   const session = await auth();
@@ -23,7 +24,7 @@ export default async function KanbanPage() {
     .limit(1);
 
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = subscriptionStatus === 'active';
+  const isPremium = isProSubscription(subscriptionStatus);
 
   // 2. Obtener lista de currículums del usuario
   const userCvs = await db
