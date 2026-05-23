@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import { db } from "./db";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
@@ -7,6 +8,10 @@ import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
     Credentials({
       name: "Credentials",
       credentials: {
@@ -36,6 +41,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google") {
+        if (!user.email) return false;
+        try {
+          const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, user.email))
+            .limit(1);
+
+          if (!existingUser) {
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                name: user.name || "Usuario de Google",
+                email: user.email,
+                image: user.image || null,
+                role: "user",
+                subscriptionStatus: "none",
+              })
+              .returning();
+            user.id = newUser.id;
+            (user as any).role = newUser.role;
+          } else {
+            user.id = existingUser.id;
+            (user as any).role = existingUser.role;
+          }
+        } catch (error) {
+          console.error("Error linking Google OAuth user:", error);
+          return false;
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -55,5 +94,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
+    signOut: "/logout",
   }
 });

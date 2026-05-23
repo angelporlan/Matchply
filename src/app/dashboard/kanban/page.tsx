@@ -92,13 +92,13 @@ export default async function KanbanPage() {
               <span>Volver al Panel</span>
             </Link>
             
-            <a
-              href="/api/auth/signout"
+            <Link
+              href="/logout"
               className="text-slate-400 hover:text-rose-400 p-2 rounded-xl transition-colors"
               title="Cerrar Sesión"
             >
               <LogOut className="w-4.5 h-4.5" />
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
