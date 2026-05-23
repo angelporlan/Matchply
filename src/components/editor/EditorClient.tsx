@@ -458,12 +458,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
                       onChange={(e) => setAiFormData(prev => ({ ...prev, promptId: e.target.value }))}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-all cursor-pointer"
                     >
-                      <option value="">Por defecto (Configurado por el Administrador)</option>
-                      {availablePrompts.map((prompt) => (
-                        <option key={prompt.id} value={prompt.id}>
-                          {prompt.name} {prompt.isActive ? '(Predeterminado)' : ''}
-                        </option>
-                      ))}
+                      {availablePrompts.length === 0 ? (
+                        <option value="">Por defecto (Estilo Harvard)</option>
+                      ) : (
+                        availablePrompts.map((prompt) => (
+                          <option key={prompt.id} value={prompt.id}>
+                            {prompt.name} {prompt.isActive ? '(Predeterminado)' : ''}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 
