@@ -1,3 +1,7 @@
+import { db } from '@/db';
+import { settings, prompts } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
+
 export interface OptimizeRequest {
   baseCvMarkdown: string;
   jobDescription: string;
@@ -5,27 +9,103 @@ export interface OptimizeRequest {
 }
 
 export class AIService {
+  private static async getSetting(key: string, defaultValue: string): Promise<string> {
+    try {
+      const [setting] = await db
+        .select()
+        .from(settings)
+        .where(eq(settings.key, key))
+        .limit(1);
+      return setting ? setting.value : defaultValue;
+    } catch (e) {
+      console.error(`[AIService] Error al leer setting "${key}" de la DB. Usando default "${defaultValue}":`, e);
+      return defaultValue;
+    }
+  }
+
+  private static templatePrompt(template: string, cv: string, job: string): string {
+    return template
+      .replace(/\{\{cv\}\}/g, cv)
+      .replace(/\{\{job\}\}/g, job);
+  }
+
   static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus }: OptimizeRequest): Promise<string> {
     const isPro = userSubscriptionStatus === 'active';
 
+    // 1. Cargar el prompt activo para 'optimize_cv' desde la DB si existe
+    let systemPrompt: string | null = null;
+    let userPromptTemplate: string | null = null;
+
+    try {
+      const [dbPrompt] = await db
+        .select()
+        .from(prompts)
+        .where(and(eq(prompts.key, 'optimize_cv'), eq(prompts.isActive, true)))
+        .limit(1);
+
+      if (dbPrompt) {
+        systemPrompt = dbPrompt.systemPrompt;
+        userPromptTemplate = dbPrompt.userPrompt;
+      }
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt activo de la DB:", err);
+    }
+
     if (!isPro) {
-      // 🟢 Enrutamiento Plan FREE (OpenRouter)
-      return await this.callOpenRouter(baseCvMarkdown, jobDescription);
-    } else {
-      // 💎 Enrutamiento Plan PRO (DeepSeek o Gemini Oficial)
-      const provider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
+      // 🟢 Enrutamiento Plan FREE
+      const provider = await this.getSetting('free_provider', 'openrouter');
+      const model = await this.getSetting('free_model', 'openrouter/free');
+
+      const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
+      const finalSystemPrompt = systemPrompt || defaultSystem;
+      const finalUserPrompt = userPromptTemplate
+        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
+
       if (provider === 'gemini') {
-        return await this.callGeminiOficial(baseCvMarkdown, jobDescription);
+        return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'deepseek') {
+        return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else {
-        return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription);
+        return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      }
+    } else {
+      // 💎 Enrutamiento Plan PRO
+      const defaultProProvider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
+      const provider = await this.getSetting('pro_provider', defaultProProvider);
+      
+      const defaultProModel = provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat';
+      const model = await this.getSetting('pro_model', defaultProModel);
+
+      const defaultSystem = provider === 'gemini'
+        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
+        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
+
+      const finalSystemPrompt = systemPrompt || defaultSystem;
+      const finalUserPrompt = userPromptTemplate
+        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
+
+      if (provider === 'gemini') {
+        return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openrouter') {
+        return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else {
+        return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
     }
   }
 
-  private static async callOpenRouter(cv: string, job: string): Promise<string> {
+  private static async callOpenRouter(
+    cv: string, 
+    job: string, 
+    model: string, 
+    systemPrompt: string, 
+    userPrompt: string
+  ): Promise<string> {
     const key = process.env.OPENROUTER_API_KEY;
     if (!key || key.includes("mock-key") || key === "") {
-      throw new Error("No se ha configurado una clave de API de OpenRouter válida.");
+      return this.getMockCvResponse(cv, job, `OpenRouter (Modelo: ${model})`);
     }
 
     try {
@@ -36,15 +116,15 @@ export class AIService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "openrouter/free",
+          model: model,
           messages: [
             {
               role: "system",
-              content: "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código."
+              content: systemPrompt
             },
             {
               role: "user",
-              content: `CV Base:\n${cv}\n\nOferta de Empleo:\n${job}`
+              content: userPrompt
             }
           ]
         })
@@ -66,10 +146,16 @@ export class AIService {
     }
   }
 
-  private static async callDeepSeekOficial(cv: string, job: string): Promise<string> {
+  private static async callDeepSeekOficial(
+    cv: string, 
+    job: string, 
+    model: string, 
+    systemPrompt: string, 
+    userPrompt: string
+  ): Promise<string> {
     const key = process.env.DEEPSEEK_API_KEY;
     if (!key || key.includes("mock-key") || key === "") {
-      throw new Error("No se ha configurado una clave de API de DeepSeek válida.");
+      return this.getMockCvResponse(cv, job, `DeepSeek Oficial (Modelo: ${model})`);
     }
 
     try {
@@ -80,16 +166,16 @@ export class AIService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: model,
           temperature: 0.2,
           messages: [
             {
               role: "system",
-              content: "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones."
+              content: systemPrompt
             },
             {
               role: "user",
-              content: `CV Base:\n${cv}\n\nOferta de Trabajo:\n${job}`
+              content: userPrompt
             }
           ]
         })
@@ -111,14 +197,20 @@ export class AIService {
     }
   }
 
-  private static async callGeminiOficial(cv: string, job: string): Promise<string> {
+  private static async callGeminiOficial(
+    cv: string, 
+    job: string, 
+    model: string, 
+    systemPrompt: string, 
+    userPrompt: string
+  ): Promise<string> {
     const key = process.env.GEMINI_API_KEY;
     if (!key || key.includes("MockKey") || key.includes("mock-key") || key === "") {
-      throw new Error("No se ha configurado una clave de API de Gemini válida.");
+      return this.getMockCvResponse(cv, job, `Gemini Oficial (Modelo: ${model})`);
     }
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -126,9 +218,14 @@ export class AIService {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick.\n\nCV Base:\n${cv}\n\nOferta de Trabajo:\n${job}`
+              text: userPrompt
             }]
           }],
+          systemInstruction: {
+            parts: [{
+              text: systemPrompt
+            }]
+          },
           generationConfig: {
             temperature: 0.2,
           }
@@ -153,7 +250,6 @@ export class AIService {
 
   private static getMockCvResponse(cv: string, job: string, providerName: string): string {
     // Generador de CV optimizado simulado de alta calidad
-    // Extrae el nombre, contacto y secciones del CV original
     const lines = cv.split('\n');
     let name = "Tu Nombre";
     const contactLines: string[] = [];
@@ -176,7 +272,6 @@ export class AIService {
       }
     }
     
-    // Simular un acoplamiento estratégico con la oferta
     const jobKeywords = job.toLowerCase().match(/\b(react|typescript|node|next\.js|tailwindcss|drizzle|docker|postgresql|stripe|api|cloud|gestion|liderazgo)\b/g) || [];
     const uniqueKeywords = Array.from(new Set(jobKeywords)).map(k => k.charAt(0).toUpperCase() + k.slice(1));
     
@@ -185,7 +280,7 @@ export class AIService {
       : "";
 
     return `# ${name}
-
+ 
 ${contactLines.join('\n')}
 
 ## Perfil Profesional
