@@ -5,7 +5,6 @@ services:
   db:
     image: postgres:15-alpine
     container_name: nextprof_postgres
-    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: nextprof_secure_pwd
@@ -26,7 +25,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: nextprof_web
-    restart: always
     ports:
       - "3000:3000"
     environment:
