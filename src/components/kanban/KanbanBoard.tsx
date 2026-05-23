@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
 import { createJobOffer } from '@/app/dashboard/kanban/actions';
@@ -20,6 +21,7 @@ interface Column {
 }
 
 export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
         platform: 'linkedin',
         description: '',
       });
+      router.refresh();
     }
   };
 

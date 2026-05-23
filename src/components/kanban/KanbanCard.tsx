@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer } from '@/app/dashboard/kanban/actions';
 import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Briefcase } from 'lucide-react';
@@ -12,6 +13,7 @@ interface KanbanCardProps {
 }
 
 export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedCv, setSelectedCv] = useState<string>(offer.cvId || '');
 
@@ -31,7 +33,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
 
   const handleStatusChange = async (newStatus: string) => {
     setLoading(true);
-    await updateJobOfferStatus(offer.id, newStatus);
+    const result = await updateJobOfferStatus(offer.id, newStatus);
+    if (result.success) {
+      router.refresh();
+    }
     setLoading(false);
   };
 
@@ -39,14 +44,20 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
     const cvId = e.target.value;
     setSelectedCv(cvId);
     setLoading(true);
-    await updateJobOfferCv(offer.id, cvId === '' ? null : cvId);
+    const result = await updateJobOfferCv(offer.id, cvId === '' ? null : cvId);
+    if (result.success) {
+      router.refresh();
+    }
     setLoading(false);
   };
 
   const handleDelete = async () => {
     if (confirm('¿Seguro que deseas eliminar esta postulación?')) {
       setLoading(true);
-      await deleteJobOffer(offer.id);
+      const result = await deleteJobOffer(offer.id);
+      if (result.success) {
+        router.refresh();
+      }
       setLoading(false);
     }
   };
