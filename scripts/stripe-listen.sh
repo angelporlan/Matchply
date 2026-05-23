@@ -13,6 +13,20 @@ if [ -z "$STRIPE_SECRET_KEY" ] || [ "$STRIPE_SECRET_KEY" = "sk_test_..." ]; then
   exit 1
 fi
 
+case "$STRIPE_SECRET_KEY" in
+  sk_live_*)
+    echo "STRIPE_SECRET_KEY is a live key. Local subscription tests must use a test key: sk_test_..."
+    echo "Copy it from Stripe Dashboard with Test mode enabled, then restart: docker compose restart web"
+    exit 1
+    ;;
+  sk_test_*)
+    ;;
+  *)
+    echo "STRIPE_SECRET_KEY must start with sk_test_ for local tests."
+    exit 1
+    ;;
+esac
+
 TTY_FLAGS=""
 if [ -t 0 ]; then
   TTY_FLAGS="-it"

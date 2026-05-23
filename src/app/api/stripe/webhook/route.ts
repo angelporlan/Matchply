@@ -4,29 +4,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
-
-async function syncSubscription(subscription: Stripe.Subscription) {
-  const customerId = typeof subscription.customer === 'string'
-    ? subscription.customer
-    : subscription.customer.id;
-  const userId = subscription.metadata.userId;
-
-  const values = {
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: subscription.id,
-    subscriptionStatus: subscription.status,
-  };
-
-  if (userId) {
-    await db.update(users).set(values).where(eq(users.id, userId));
-    return;
-  }
-
-  await db
-    .update(users)
-    .set(values)
-    .where(eq(users.stripeCustomerId, customerId));
-}
+import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -57,7 +35,7 @@ export async function POST(req: NextRequest) {
 
         if (typeof subscriptionId === 'string') {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          await syncSubscription(subscription);
+          await syncStripeSubscription(subscription);
         }
         break;
       }
@@ -68,14 +46,14 @@ export async function POST(req: NextRequest) {
 
         if (typeof subscriptionId === 'string') {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          await syncSubscription(subscription);
+          await syncStripeSubscription(subscription);
         }
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncSubscription(subscription);
+        await syncStripeSubscription(subscription);
         break;
       }
 

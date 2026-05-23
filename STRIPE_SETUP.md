@@ -35,10 +35,10 @@ En local, puedes reenviar eventos con Stripe CLI via Docker:
 ./scripts/stripe-listen.sh
 ```
 
-Copia el `whsec_...` que devuelve Stripe CLI a `STRIPE_WEBHOOK_SECRET` y reinicia el contenedor web:
+Copia el `whsec_...` que devuelve Stripe CLI a `STRIPE_WEBHOOK_SECRET` y recrea el contenedor web para que Docker vuelva a leer `.env`:
 
 ```bash
-docker compose restart web
+docker compose up -d --force-recreate web
 ```
 
 ## Flujo implementado

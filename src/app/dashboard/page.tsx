@@ -8,6 +8,8 @@ import { Sparkles, Plus, FileText, Trash2, ArrowRight, Kanban, CreditCard, Check
 import { createBaseCv, deleteCv } from './actions';
 import { revalidatePath } from 'next/cache';
 import { isProSubscription } from '@/lib/subscription';
+import { stripe } from '@/lib/stripe';
+import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
 
 // Acción para crear CV rápido
 async function handleCreateCv(formData: FormData) {
@@ -27,13 +29,31 @@ async function handleDeleteCv(formData: FormData) {
   revalidatePath('/dashboard');
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams?: {
+    checkout?: string;
+    session_id?: string;
+  };
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect('/login');
   }
 
   const userId = session.user.id;
+
+  if (searchParams?.checkout === 'success' && searchParams.session_id) {
+    const checkoutSession = await stripe.checkout.sessions.retrieve(searchParams.session_id);
+    if (
+      checkoutSession.metadata?.userId === userId &&
+      typeof checkoutSession.subscription === 'string'
+    ) {
+      const subscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
+      await syncStripeSubscription(subscription);
+    }
+  }
 
   // 1. Obtener información actualizada del usuario de la base de datos
   const [dbUser] = await db

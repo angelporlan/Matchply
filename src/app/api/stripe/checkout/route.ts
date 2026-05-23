@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${origin}/dashboard?checkout=success`,
+      success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard?checkout=cancel`,
       allow_promotion_codes: true,
       customer_update: {
