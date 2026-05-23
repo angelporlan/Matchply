@@ -292,6 +292,13 @@ export function parseCvMarkdown(content: string): CVContent {
       continue;
     }
 
+    if (currentEntry && !currentEntry.subheading && line.includes('|')) {
+      const parts = line.split('|');
+      currentEntry.subheading = cleanMarkdownInline(parts[0]);
+      currentEntry.date = cleanMarkdownInline(parts.slice(1).join('|'));
+      continue;
+    }
+
     if (line.startsWith('**') && line.endsWith('**') && currentEntry && !currentEntry.subheading) {
       currentEntry.subheading = cleanMarkdownInline(line);
       continue;
