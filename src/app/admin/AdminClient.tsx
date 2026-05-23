@@ -39,6 +39,7 @@ import {
   getAIConfig,
   togglePromptArchive
 } from './actions';
+import AlertModal from '@/components/ui/AlertModal';
 
 interface AdminClientProps {
   initialStats: {
@@ -115,6 +116,16 @@ export default function AdminClient({
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // Dynamic Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'info' | 'warning' | 'danger' | 'success';
+    confirmLabel: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+
   const [isPending, startTransition] = useTransition();
 
   // Refresh Stats and Configs
@@ -154,19 +165,28 @@ export default function AdminClient({
   // User Actions: Role Toggle
   const handleToggleUserRole = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    if (!confirm(`¿Estás seguro de cambiar el rol de este usuario a "${newRole}"?`)) return;
-
-    const res = await updateUserRole(userId, newRole);
-    if (res.success) {
-      showToast('Rol de usuario actualizado');
-      // Update local state
-      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      if (selectedUser?.id === userId) {
-        setSelectedUser((prev: any) => ({ ...prev, role: newRole }));
+    
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cambiar Rol de Usuario 🔑',
+      message: `¿Estás seguro de cambiar el rol de este usuario a "${newRole}"?`,
+      type: 'warning',
+      confirmLabel: 'Confirmar Cambio',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const res = await updateUserRole(userId, newRole);
+        if (res.success) {
+          showToast('Rol de usuario actualizado');
+          // Update local state
+          setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+          if (selectedUser?.id === userId) {
+            setSelectedUser((prev: any) => ({ ...prev, role: newRole }));
+          }
+        } else {
+          showToast(res.error || 'Error al actualizar rol', 'error');
+        }
       }
-    } else {
-      showToast(res.error || 'Error al actualizar rol', 'error');
-    }
+    });
   };
 
   // User Actions: Subscription Update
@@ -229,15 +249,23 @@ export default function AdminClient({
 
   // Prompt Actions: Delete
   const handleDeletePrompt = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar permanentemente este prompt?')) return;
-
-    const res = await deletePrompt(id);
-    if (res.success) {
-      showToast('Prompt eliminado correctamente');
-      setPromptsList(prev => prev.filter(p => p.id !== id));
-    } else {
-      showToast(res.error || 'Error al eliminar prompt', 'error');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Eliminar Prompt 🗑️',
+      message: '¿Estás seguro de que deseas eliminar permanentemente este prompt?\n\nEsta acción borrará la plantilla del prompt de la base de datos y no se podrá recuperar.',
+      type: 'danger',
+      confirmLabel: 'Eliminar permanentemente',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        const res = await deletePrompt(id);
+        if (res.success) {
+          showToast('Prompt eliminado correctamente');
+          setPromptsList(prev => prev.filter(p => p.id !== id));
+        } else {
+          showToast(res.error || 'Error al eliminar prompt', 'error');
+        }
+      }
+    });
   };
 
   // Prompt Form Actions: Save/Create
@@ -1267,6 +1295,18 @@ export default function AdminClient({
             </form>
           </div>
         </div>
+      )}
+
+      {confirmModal && (
+        <AlertModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal(null)}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type}
+          confirmLabel={confirmModal.confirmLabel}
+          onConfirm={confirmModal.onConfirm}
+        />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import {
   Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw 
 } from 'lucide-react';
 import LinkNext from 'next/link';
+import AlertModal from '../ui/AlertModal';
 
 interface EditorClientProps {
   cv: CV;
@@ -29,6 +30,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
   const [fontFamily, setFontFamily] = useState(cv.fontFamily || 'helvetica');
   const [pageMargin, setPageMargin] = useState(cv.pageMargin || 36);
   const [scale, setScale] = useState(cv.scale || 1.0);
+
+  // Estado para el modal de alerta premium
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Estado del Cajón de Optimización por IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -63,7 +67,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
     const val = e.target.value;
     // Comprobar suscripción para plantillas premium
     if (!isPremium && val !== 'harvard') {
-      alert('Las plantillas Modern, Minimal, Creative y Swiss son funciones PRO. ¡Actualiza tu cuenta en el Dashboard para utilizarlas!');
+      setIsUpgradeModalOpen(true);
       return;
     }
     setTemplateName(val);
@@ -512,6 +516,21 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
           </div>
         </div>
       )}
+
+      <AlertModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        title="Plantilla Premium 👑"
+        message={`Las plantillas Modern, Minimal, Creative y Swiss son exclusivas para socios PRO.
+
+¡Actualiza tu cuenta en el Dashboard para utilizarlas y potenciar tu impacto profesional!`}
+        type="warning"
+        confirmLabel="Ir al Dashboard"
+        onConfirm={() => {
+          setIsUpgradeModalOpen(false);
+          router.push('/dashboard');
+        }}
+      />
     </div>
   );
 }

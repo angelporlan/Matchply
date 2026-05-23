@@ -6,6 +6,7 @@ import { JobOffer, CV } from '@/db/schema';
 import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer } from '@/app/dashboard/kanban/actions';
 import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Briefcase } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import AlertModal from '../ui/AlertModal';
 
 interface KanbanCardProps {
   offer: JobOffer;
@@ -16,6 +17,7 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedCv, setSelectedCv] = useState<string>(offer.cvId || '');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Determinar colores de plataforma
   const getPlatformStyle = (platform: string) => {
@@ -51,15 +53,18 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
     setLoading(false);
   };
 
-  const handleDelete = async () => {
-    if (confirm('¿Seguro que deseas eliminar esta postulación?')) {
-      setLoading(true);
-      const result = await deleteJobOffer(offer.id);
-      if (result.success) {
-        router.refresh();
-      }
-      setLoading(false);
+  const handleDelete = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setIsDeleteModalOpen(false);
+    setLoading(true);
+    const result = await deleteJobOffer(offer.id);
+    if (result.success) {
+      router.refresh();
     }
+    setLoading(false);
   };
 
   // Estados ordenados del pipeline para controles de dirección
@@ -145,6 +150,20 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
           )}
         </div>
       </div>
+
+      <AlertModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Eliminar Candidatura 🗑️"
+        message={`¿Estás seguro de que deseas eliminar la candidatura para "${offer.title}" en "${offer.company}"?
+
+Esta acción es permanente y no se puede deshacer.`}
+        type="danger"
+        confirmLabel="Eliminar permanentemente"
+        cancelLabel="Cancelar"
+        onConfirm={confirmDelete}
+        isPending={loading}
+      />
     </div>
   );
 }
