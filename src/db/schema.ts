@@ -12,6 +12,7 @@ export const users = pgTable('user', {
   stripeCustomerId: text('stripeCustomerId').unique(),
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
+  role: text('role').default('user').notNull(), // 'user' o 'admin'
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
@@ -45,6 +46,25 @@ export const jobOffers = pgTable('job_offer', {
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
+// Tabla de Configuración de la Aplicación (Configuración de IA)
+export const settings = pgTable('setting', {
+  key: text('key').primaryKey(), // 'free_provider', 'free_model', 'pro_provider', 'pro_model'
+  value: text('value').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// Tabla de Prompts Dinámicos
+export const prompts = pgTable('prompt', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(), // Ej: "Optimización Estilo Harvard"
+  key: text('key').default('optimize_cv').notNull(), // Clave de la función asociada (ej. 'optimize_cv')
+  systemPrompt: text('systemPrompt').notNull(),
+  userPrompt: text('userPrompt').notNull(), // Template con variables {{cv}} y {{job}}
+  isActive: boolean('isActive').default(false).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
 // Definición de Relaciones para Drizzle
 export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
@@ -60,6 +80,9 @@ export const jobOffersRelations = relations(jobOffers, ({ one }) => ({
   user: one(users, { fields: [jobOffers.userId], references: [users.id] }),
   cv: one(cvs, { fields: [jobOffers.cvId], references: [cvs.id] }),
 }));
+
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
+export type Setting = typeof settings.$inferSelect;
+export type Prompt = typeof prompts.$inferSelect;
