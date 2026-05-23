@@ -154,6 +154,7 @@ export async function savePrompt(data: {
   userPrompt: string;
   isActive: boolean;
   isArchived?: boolean;
+  isStrict?: boolean;
 }) {
   await verifyAdmin();
 
@@ -165,6 +166,7 @@ export async function savePrompt(data: {
     const isCreating = !data.id;
     const now = new Date();
     const isArchivedVal = data.isArchived ?? false;
+    const isStrictVal = data.isStrict ?? false;
 
     let targetId = data.id;
 
@@ -178,6 +180,7 @@ export async function savePrompt(data: {
           userPrompt: data.userPrompt,
           isActive: data.isActive,
           isArchived: isArchivedVal,
+          isStrict: isStrictVal,
           createdAt: now,
           updatedAt: now,
         })
@@ -193,6 +196,7 @@ export async function savePrompt(data: {
           userPrompt: data.userPrompt,
           isActive: data.isActive,
           isArchived: isArchivedVal,
+          isStrict: isStrictVal,
           updatedAt: now,
         })
         .where(eq(prompts.id, data.id!));

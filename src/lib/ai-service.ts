@@ -57,6 +57,9 @@ export class AIService {
 
       if (dbPrompt) {
         systemPrompt = dbPrompt.systemPrompt;
+        if (dbPrompt.isStrict) {
+          systemPrompt += "\n\n¡REGLA DE FORMATO SUPERESTRICTA!: Debes devolver única y exclusivamente el contenido del currículum optimizado en formato Markdown (.MD). No incluyas explicaciones, introducciones, preámbulos, saludos, comentarios iniciales ni finales. NO envuelvas el resultado en bloques de código de triple acento grave (evita ```markdown y ```). Tu respuesta completa debe ser directamente el currículum parseable.";
+        }
         userPromptTemplate = dbPrompt.userPrompt;
       }
     } catch (err) {

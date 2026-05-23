@@ -62,6 +62,7 @@ export const prompts = pgTable('prompt', {
   userPrompt: text('userPrompt').notNull(), // Template con variables {{cv}} y {{job}}
   isActive: boolean('isActive').default(false).notNull(),
   isArchived: boolean('isArchived').default(false).notNull(), // Para archivar prompts
+  isStrict: boolean('isStrict').default(false).notNull(), // Regra superestricta para formato .MD
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });

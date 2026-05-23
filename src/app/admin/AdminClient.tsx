@@ -86,6 +86,7 @@ export default function AdminClient({
     userPrompt: string;
     isActive: boolean;
     isArchived: boolean;
+    isStrict: boolean;
   }>({
     name: '',
     key: 'optimize_cv',
@@ -93,6 +94,7 @@ export default function AdminClient({
     userPrompt: '',
     isActive: false,
     isArchived: false,
+    isStrict: false,
   });
 
   // IA Settings form state (local fields)
@@ -260,6 +262,7 @@ export default function AdminClient({
       userPrompt: 'CV Base:\n{{cv}}\n\nOferta de Trabajo:\n{{job}}',
       isActive: false,
       isArchived: false,
+      isStrict: false,
     });
     setIsPromptModalOpen(true);
   };
@@ -274,6 +277,7 @@ export default function AdminClient({
       userPrompt: prompt.userPrompt,
       isActive: prompt.isActive,
       isArchived: prompt.isArchived || false,
+      isStrict: prompt.isStrict || false,
     });
     setIsPromptModalOpen(true);
   };
@@ -835,6 +839,11 @@ export default function AdminClient({
                         <span className="text-[10px] bg-slate-900 border border-slate-850 text-slate-400 font-mono px-2 py-0.5 rounded-md">
                           Función: {prompt.key}
                         </span>
+                        {prompt.isStrict && (
+                          <span className="ml-2 text-[10px] bg-indigo-950/40 border border-indigo-500/20 text-indigo-400 font-mono px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 animate-pulse" /> MD Estricto
+                          </span>
+                        )}
                       </div>
 
                       {/* Prompts actions toolbar */}
@@ -1158,6 +1167,26 @@ export default function AdminClient({
                   <span className="text-[10px] text-slate-500 font-light block mt-0.5">
                     * Actualmente, solo existe la función de optimización de CV. En un futuro, si agregas nuevas características, podrás ligar sus prompts con claves únicas desde aquí.
                   </span>
+                </div>
+
+                {/* Strict Mode Checkbox */}
+                <div className="flex items-center gap-3 bg-indigo-950/20 border border-indigo-500/10 p-3.5 rounded-xl mb-4">
+                  <input
+                    type="checkbox"
+                    id="isStrict"
+                    checked={promptForm.isStrict}
+                    onChange={(e) => setPromptForm(prev => ({ ...prev, isStrict: e.target.checked }))}
+                    className="rounded bg-slate-950 border-slate-800 text-indigo-500 focus:ring-indigo-500/20 w-4 h-4 cursor-pointer"
+                  />
+                  <div className="flex flex-col">
+                    <label htmlFor="isStrict" className="text-xs font-bold text-indigo-300 cursor-pointer select-none flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                      Regla superestricta de formato Markdown (.MD)
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-light mt-0.5">
+                      Fuerza al modelo de IA a omitir explicaciones adicionales y bloques de código, devolviendo únicamente Markdown estructurado.
+                    </span>
+                  </div>
                 </div>
 
                 {/* System Prompt */}
