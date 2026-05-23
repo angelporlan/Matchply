@@ -6,13 +6,13 @@ export default async function LandingPage() {
   const session = await auth();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#030712]">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#030712] pt-16">
       {/* Background radial glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-sky-950/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-10%] w-[45%] h-[45%] rounded-full bg-purple-950/25 blur-[130px] pointer-events-none" />
 
       {/* Navigation Header */}
-      <header className="sticky top-0 z-50 glass-nav">
+      <header className="fixed inset-x-0 top-0 z-50 glass-nav-ios">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-gradient-to-tr from-sky-400 to-indigo-500 p-2 rounded-xl text-white shadow-md">
@@ -90,7 +90,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-24 border-t border-slate-900 bg-slate-950/40 relative">
+      <section id="features" className="py-24 border-t border-slate-900 bg-slate-950/40 relative scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-white mb-4">
@@ -136,7 +136,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Showcase of 5 templates */}
-      <section id="templates" className="py-24 border-t border-slate-900">
+      <section id="templates" className="py-24 border-t border-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-white mb-4">
@@ -227,7 +227,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Pricing Grid */}
-      <section id="pricing" className="py-24 border-t border-slate-900 bg-slate-950/30 relative">
+      <section id="pricing" className="py-24 border-t border-slate-900 bg-slate-950/30 relative scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-white mb-4">
