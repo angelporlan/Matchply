@@ -2,6 +2,44 @@ import { db } from '@/db';
 import { settings, prompts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
+const MARKDOWN_STRUCTURE_INSTRUCTIONS = `
+¡REGLA DE ESTRUCTURA Y FORMATO CRÍTICA PARA EL RENDERIZADO DE PDF!:
+Debes devolver el currículum formateado estrictamente bajo las siguientes especificaciones de Markdown para que el motor de PDF pueda parsearlo e imprimirlo correctamente. De lo contrario, se romperá el diseño visual del PDF.
+
+1. ENCABEZADO DE CONTACTO (Al inicio del documento, antes de cualquier sección '##'):
+   - Las líneas de contacto deben estar en una o dos líneas al principio, formateadas usando el separador ' | ' y negrita para los nombres de los campos.
+   - Ejemplo exacto:
+     **Email:** angelporlandev@gmail.com | **Teléfono:** +34 652 68 49 26 | **Ubicación:** Murcia, España
+     **LinkedIn:** linkedin.com/in/angelporlan | **GitHub:** github.com/angelporlan | **Web:** angelporlan.vercel.app
+
+2. SECCIONES PRINCIPALES:
+   - Deben empezar siempre con '## ' (ejemplo: ## Experiencia Profesional, ## Educación, ## Habilidades Técnicas, ## Perfil Profesional).
+
+3. ENTRADAS DE EXPERIENCIA, EDUCACIÓN O PROYECTOS (ESTRUCTURA OBLIGATORIA EN DOS LÍNEAS):
+   - Cada puesto de trabajo, titulación académica o proyecto DEBE estar estructurado en exactamente DOS líneas consecutivas e independientes (sin líneas en blanco entre ellas):
+     - LÍNEA 1 (Título/Puesto): Debe comenzar exactamente con '### ' seguido ÚNICAMENTE del nombre del puesto o título (ejemplo: ### Desarrollador Full Stack). NO incluyas nombres de empresas, de instituciones, fechas, separadores '|' ni formato adicional en la línea que empieza por '### '.
+     - LÍNEA 2 (Empresa y Fecha - Línea inmediatamente posterior): Debe contener el nombre de la Empresa o Institución en negrita, seguido exactamente del separador ' | ' (espacio, barra vertical, espacio), seguido del rango de fechas en cursiva.
+       Ejemplo exacto:
+       ### Desarrollador Full Stack
+       **ENAE Business School** | *Abril 2025 – Presente*
+       
+       Ejemplo exacto:
+       ### Técnico Superior en Desarrollo de Aplicaciones Web (DAW)
+       **IES Ramón Arcas Meca** | *2022 – 2024*
+
+   ¡NUNCA mezcles el puesto/título y la empresa/fecha en la misma línea del '### '! Deben estar estrictamente en líneas separadas.
+
+4. SECCIÓN DE HABILIDADES:
+   - El título de la sección debe contener la palabra 'habilidades' o 'skills' (ejemplo: ## Habilidades Técnicas).
+   - Los elementos dentro de esta sección deben presentarse como viñetas con '-' (o líneas simples) con la categoría en negrita seguida de dos puntos (':') y la lista de tecnologías.
+   - Ejemplo exacto:
+     - **Backend & APIs:** Node.js, Express, TypeScript, REST APIs
+     - **Frontend:** Angular, Astro, Tailwind CSS, HTML5, CSS3
+
+¡REGLA DE ENTREGA SUPERESTRICTA!: Devuelve única y exclusivamente el contenido del currículum optimizado en formato Markdown (.MD). No incluyas explicaciones, preámbulos, comentarios iniciales ni finales, ni envuelvas tu respuesta en bloques de código triple acento grave (\`\`\`markdown o \`\`\`). Tu respuesta completa debe ser directamente el currículum parseable.
+`;
+
+
 export interface OptimizeRequest {
   baseCvMarkdown: string;
   jobDescription: string;
@@ -58,7 +96,7 @@ export class AIService {
       if (dbPrompt) {
         systemPrompt = dbPrompt.systemPrompt;
         if (dbPrompt.isStrict) {
-          systemPrompt += "\n\n¡REGLA DE FORMATO SUPERESTRICTA!: Debes devolver única y exclusivamente el contenido del currículum optimizado en formato Markdown (.MD). No incluyas explicaciones, introducciones, preámbulos, saludos, comentarios iniciales ni finales. NO envuelvas el resultado en bloques de código de triple acento grave (evita ```markdown y ```). Tu respuesta completa debe ser directamente el currículum parseable.\n\nEstructura de formato de currículum requerida:\n- Usa '## Título' para los títulos de secciones principales (ej. ## Experiencia, ## Educación, ## Habilidades)\n- Usa '### Título' para las entradas de puestos, instituciones o proyectos (ej. ### Desarrollador Frontend)\n- Usa '**Negrita**' para nombres de empresas, etiquetas o categorías\n- Usa '*Cursiva*' para fechas, subgrupos o descripciones secundarias\n- Usa '- Listas' con guiones simples para los bullets de logros y responsabilidades.";
+          systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
         }
         userPromptTemplate = dbPrompt.userPrompt;
       }
@@ -72,7 +110,7 @@ export class AIService {
       const model = await this.getSetting('free_model', 'openrouter/free');
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = systemPrompt || defaultSystem;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
@@ -96,7 +134,7 @@ export class AIService {
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
         : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
-      const finalSystemPrompt = systemPrompt || defaultSystem;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
