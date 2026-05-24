@@ -6,8 +6,8 @@ import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
 import PdfViewer from './PdfViewer';
 import { updateCvStyling } from '@/app/dashboard/actions';
-import { 
-  Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette, 
+import {
+  Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette,
   Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw,
   AlertCircle
 } from 'lucide-react';
@@ -121,7 +121,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
     }
 
     setAiLoading(true);
-    
+
     // Simular pasos fluidos de IA para dar un feedback ultra-premium
     const steps = [
       'Extrayendo palabras clave de la oferta...',
@@ -166,7 +166,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
       }
 
       const result = await response.json();
-      
+
       setAiStep('¡Completado con éxito! Redirigiendo...');
       setTimeout(() => {
         setIsAiOpen(false);
@@ -354,7 +354,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity">
           <div className="w-full max-w-2xl bg-[#070b17] border border-slate-800/80 rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
-            
+
             {/* Adornos visuales de fondo */}
             <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-sky-500/5 rounded-full filter blur-3xl pointer-events-none" />
             <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-indigo-500/5 rounded-full filter blur-3xl pointer-events-none" />
@@ -406,7 +406,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
                     <Crown className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold block mb-0.5">Atención: Plan Gratuito Activo</span>
-                      El motor gratuito utiliza **OpenRouter** para el análisis. Los socios PRO disfrutan de la máxima precisión semántica y velocidad de redacción con los modelos oficiales avanzados (DeepSeek / Gemini Pro).
+                      El motor gratuito utiliza análisis estándar. Los socios PRO disfrutan de la máxima precisión semántica y velocidad de redacción con modelos de IA más avanzados.
                     </div>
                   </div>
                 )}

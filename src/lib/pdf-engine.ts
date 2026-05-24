@@ -365,26 +365,8 @@ export function parseCvMarkdown(content: string): CVContent {
 
 function drawSmallCapsText(doc: any, text: string, x: number, y: number, baseSize: number, fontBold: string, color: string) {
   doc.y = y;
-  let isFirst = true;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
-    const size = isUpper ? baseSize : baseSize * 0.75;
-    
-    doc.font(fontBold).fontSize(size).fillColor(color);
-    
-    const options: any = {
-      continued: i < text.length - 1,
-      lineBreak: false
-    };
-    
-    if (isFirst) {
-      doc.text(char.toUpperCase(), x, y, options);
-      isFirst = false;
-    } else {
-      doc.text(char.toUpperCase(), options);
-    }
-  }
+  doc.font(fontBold).fontSize(baseSize).fillColor(color);
+  doc.text(text.toUpperCase(), x, y, { lineBreak: false });
   doc.fontSize(baseSize);
   doc.y = y + baseSize + 2;
 }

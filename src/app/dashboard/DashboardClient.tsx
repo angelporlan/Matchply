@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
-import { 
-  Sparkles, Plus, FileText, Trash2, ArrowRight, Star, X, 
-  Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle, 
+import {
+  Sparkles, Plus, FileText, Trash2, ArrowRight, Star, X,
+  Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
   Crown, Lock
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv } from './actions';
@@ -18,10 +18,10 @@ interface DashboardClientProps {
   availablePrompts: { id: string; name: string; isActive: boolean }[];
 }
 
-export default function DashboardClient({ 
-  initialCvs, 
-  isPremium, 
-  availablePrompts 
+export default function DashboardClient({
+  initialCvs,
+  isPremium,
+  availablePrompts
 }: DashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -105,7 +105,7 @@ export default function DashboardClient({
 
   const handleConfirmDelete = async () => {
     if (!cvToDelete) return;
-    
+
     setIsDeleteOpen(false);
     const targetId = cvToDelete;
     setCvToDelete(null);
@@ -147,7 +147,7 @@ export default function DashboardClient({
     }
 
     setAiLoading(true);
-    
+
     // Simular pasos fluidos de IA para dar un feedback ultra-premium
     const steps = [
       'Extrayendo palabras clave de la oferta...',
@@ -192,7 +192,7 @@ export default function DashboardClient({
       }
 
       const result = await response.json();
-      
+
       setAiStep('¡Completado con éxito! Redirigiendo...');
       setTimeout(() => {
         setIsAiOpen(false);
@@ -257,11 +257,10 @@ export default function DashboardClient({
           {/* Botón premium de Generar con IA */}
           <button
             onClick={handleAiButtonClick}
-            className={`font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-lg transform hover:-translate-y-0.5 ${
-              principalCv 
+            className={`font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-lg transform hover:-translate-y-0.5 ${principalCv
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white shadow-purple-500/10 hover:shadow-purple-500/20'
                 : 'bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-700/60 cursor-pointer'
-            }`}
+              }`}
           >
             {principalCv ? (
               <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
@@ -288,11 +287,10 @@ export default function DashboardClient({
           {userCvs.map((cv) => (
             <div
               key={cv.id}
-              className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden group flex flex-col justify-between ${
-                cv.isPrincipal 
-                  ? 'border-sky-500/30 bg-sky-950/5 shadow-md shadow-sky-500/5 hover:border-sky-500/40' 
+              className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden group flex flex-col justify-between ${cv.isPrincipal
+                  ? 'border-sky-500/30 bg-sky-950/5 shadow-md shadow-sky-500/5 hover:border-sky-500/40'
                   : 'border-slate-800 hover:border-slate-700'
-              }`}
+                }`}
             >
               {/* Decorative glowing accent */}
               <div
@@ -304,14 +302,13 @@ export default function DashboardClient({
                 <div className="flex items-start justify-between mb-4 pl-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
-                        cv.isBase 
-                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' 
+                      <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
+                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
                           : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                      }`}>
+                        }`}>
                         {cv.isBase ? 'Base' : 'Copia'}
                       </span>
-                      
+
                       {cv.isPrincipal && (
                         <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-0.5 animate-pulse">
                           <Star className="w-2.5 h-2.5 fill-indigo-400" />
@@ -328,11 +325,10 @@ export default function DashboardClient({
                   {/* Acciones de estrella principal */}
                   <button
                     onClick={() => !cv.isPrincipal && handleMarkAsPrincipal(cv.id)}
-                    className={`p-1.5 rounded-lg border transition-all ${
-                      cv.isPrincipal
+                    className={`p-1.5 rounded-lg border transition-all ${cv.isPrincipal
                         ? 'bg-sky-500/10 text-sky-400 border-sky-500/20 shadow-md shadow-sky-500/5'
                         : 'bg-slate-900/60 text-slate-500 border-slate-800/80 hover:text-sky-400 hover:border-sky-500/20 opacity-0 group-hover:opacity-100 transition-opacity'
-                    }`}
+                      }`}
                     title={cv.isPrincipal ? "CV Principal" : "Establecer como Principal"}
                     disabled={cv.isPrincipal || isPending}
                   >
@@ -381,7 +377,7 @@ export default function DashboardClient({
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity">
           <div className="w-full max-w-2xl bg-[#070b17] border border-slate-800/80 rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
-            
+
             {/* Adornos visuales de fondo */}
             <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-sky-500/5 rounded-full filter blur-3xl pointer-events-none" />
             <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-indigo-500/5 rounded-full filter blur-3xl pointer-events-none" />
@@ -433,7 +429,7 @@ export default function DashboardClient({
                     <Crown className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold block mb-0.5">Atención: Plan Gratuito Activo</span>
-                      El motor gratuito utiliza **OpenRouter** para el análisis. Los socios PRO disfrutan de la máxima precisión semántica y velocidad de redacción con los modelos oficiales avanzados (DeepSeek / Gemini Pro).
+                      El motor gratuito utiliza análisis estándar. Los socios PRO disfrutan de la máxima precisión semántica y velocidad de redacción con modelos de IA más avanzados.
                     </div>
                   </div>
                 )}
