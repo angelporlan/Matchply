@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
-import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap, Lightbulb } from 'lucide-react';
 
 export default async function SubscriptionPage() {
   const session = await auth();
@@ -233,7 +233,10 @@ export default async function SubscriptionPage() {
                 </p>
                 
                 <div className="p-4 bg-slate-950/70 border border-slate-850 rounded-2xl mt-4">
-                  <span className="font-bold text-white text-xs block mb-1">💡 ¿Sabías qué?</span>
+                  <span className="font-bold text-white text-xs flex items-center gap-1.5 mb-1">
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-400 animate-pulse-subtle" />
+                    ¿Sabías qué?
+                  </span>
                   <span className="block text-slate-400">
                     Los candidatos que adaptan minuciosamente su currículum para cada oferta específica **multiplican por 3 la tasa de llamadas para entrevistas**. Tu capacidad para generar rápidamente CVs optimizados con IA te otorga una ventaja competitiva excepcional en el mercado laboral actual.
                   </span>

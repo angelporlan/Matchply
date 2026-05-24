@@ -154,7 +154,7 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
       <AlertModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="Eliminar Candidatura 🗑️"
+        title="Eliminar Candidatura"
         message={`¿Estás seguro de que deseas eliminar la candidatura para "${offer.title}" en "${offer.company}"?
 
 Esta acción es permanente y no se puede deshacer.`}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
 import { createJobOffer } from '@/app/dashboard/kanban/actions';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban } from 'lucide-react';
 
 interface KanbanBoardProps {
   offers: JobOffer[];
@@ -39,7 +39,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     { id: 'interested', title: 'Interesado', color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
     { id: 'applied', title: 'Postulado', color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
     { id: 'interview', title: 'Entrevista', color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
-    { id: 'offer', title: 'Ofrecido 🎉', color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
+    { id: 'offer', title: 'Ofrecido', color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
     { id: 'rejected', title: 'Rechazado', color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
   ];
 
@@ -114,7 +114,12 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               {/* Cabecera de la columna */}
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${column.color}`}>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${column.color}`}>
+                    {column.id === 'interested' && <Bookmark className="w-3.5 h-3.5" />}
+                    {column.id === 'applied' && <Send className="w-3.5 h-3.5" />}
+                    {column.id === 'interview' && <Calendar className="w-3.5 h-3.5" />}
+                    {column.id === 'offer' && <PartyPopper className="w-3.5 h-3.5" />}
+                    {column.id === 'rejected' && <Ban className="w-3.5 h-3.5" />}
                     {column.title}
                   </span>
                 </div>

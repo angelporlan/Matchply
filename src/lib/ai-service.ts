@@ -67,7 +67,7 @@ export class AIService {
     }
 
     if (!isPro) {
-      // 🟢 Enrutamiento Plan FREE
+      // [FREE] Enrutamiento Plan FREE
       const provider = await this.getSetting('free_provider', 'openrouter');
       const model = await this.getSetting('free_model', 'openrouter/free');
 
@@ -85,7 +85,7 @@ export class AIService {
         return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
     } else {
-      // 💎 Enrutamiento Plan PRO
+      // [PRO] Enrutamiento Plan PRO
       const defaultProProvider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
       const provider = await this.getSetting('pro_provider', defaultProProvider);
       

@@ -570,12 +570,12 @@ export default function DashboardClient({
       <AlertModal
         isOpen={isAlertOpen}
         onClose={() => setIsAlertOpen(false)}
-        title="Se requiere un CV Principal 🌟"
+        title="Se requiere un CV Principal"
         message={`Para generar un nuevo currículum personalizado con IA desde el Dashboard, primero debes configurar uno de tus currículums como principal.
 
 Esto nos sirve como base con toda tu información para que la IA realice una excelente adaptación.
 
-👉 Puedes marcar cualquiera de tus currículums haciendo clic en su icono de estrella (🌟) en su tarjeta correspondiente.`}
+Puedes marcar cualquiera de tus currículums haciendo clic en su icono de estrella en su tarjeta correspondiente.`}
         type="warning"
         confirmLabel="Entendido"
       />

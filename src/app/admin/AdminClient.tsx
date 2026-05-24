@@ -25,7 +25,8 @@ import {
   RefreshCw,
   ArrowLeft,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  PartyPopper
 } from 'lucide-react';
 import {
   updateAISetting,
@@ -168,7 +169,7 @@ export default function AdminClient({
     
     setConfirmModal({
       isOpen: true,
-      title: 'Cambiar Rol de Usuario 🔑',
+      title: 'Cambiar Rol de Usuario',
       message: `¿Estás seguro de cambiar el rol de este usuario a "${newRole}"?`,
       type: 'warning',
       confirmLabel: 'Confirmar Cambio',
@@ -251,7 +252,7 @@ export default function AdminClient({
   const handleDeletePrompt = async (id: string) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Eliminar Prompt 🗑️',
+      title: 'Eliminar Prompt',
       message: '¿Estás seguro de que deseas eliminar permanentemente este prompt?\n\nEsta acción borrará la plantilla del prompt de la base de datos y no se podrá recuperar.',
       type: 'danger',
       confirmLabel: 'Eliminar permanentemente',
@@ -1120,7 +1121,11 @@ export default function AdminClient({
                               {offer.status === 'interested' ? 'Interesado' :
                                offer.status === 'applied' ? 'Postulado' :
                                offer.status === 'interview' ? 'Entrevista' :
-                               offer.status === 'offer' ? 'Oferta 🎉' :
+                               offer.status === 'offer' ? (
+                                 <span className="flex items-center gap-1">
+                                   Oferta <PartyPopper className="w-3 h-3 text-emerald-400" />
+                                 </span>
+                               ) :
                                offer.status === 'rejected' ? 'Rechazado' : offer.status}
                             </span>
                           </div>

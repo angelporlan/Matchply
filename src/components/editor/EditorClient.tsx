@@ -238,10 +238,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
               className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 font-medium focus:outline-none focus:border-sky-500 transition-all cursor-pointer h-7"
             >
               <option value="harvard">Harvard (Básico)</option>
-              <option value="modern" className={!isPremium ? 'text-slate-500' : ''}>Modern (Pro) 👑</option>
-              <option value="minimal" className={!isPremium ? 'text-slate-500' : ''}>Minimal (Pro) 👑</option>
-              <option value="creative" className={!isPremium ? 'text-slate-500' : ''}>Creative (Pro) 👑</option>
-              <option value="swiss" className={!isPremium ? 'text-slate-500' : ''}>Swiss (Pro) 👑</option>
+              <option value="modern" className={!isPremium ? 'text-slate-500' : ''}>Modern (Pro)</option>
+              <option value="minimal" className={!isPremium ? 'text-slate-500' : ''}>Minimal (Pro)</option>
+              <option value="creative" className={!isPremium ? 'text-slate-500' : ''}>Creative (Pro)</option>
+              <option value="swiss" className={!isPremium ? 'text-slate-500' : ''}>Swiss (Pro)</option>
             </select>
           </div>
 
@@ -542,7 +542,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
       <AlertModal
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
-        title="Plantilla Premium 👑"
+        title="Plantilla Premium"
         message={`Las plantillas Modern, Minimal, Creative y Swiss son exclusivas para socios PRO.
 
 ¡Actualiza tu cuenta en el Dashboard para utilizarlas y potenciar tu impacto profesional!`}

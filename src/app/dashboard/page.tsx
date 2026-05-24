@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, jobOffers, prompts } from '@/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
-import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText } from 'lucide-react';
+import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText, PartyPopper } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
@@ -203,7 +203,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             <div className="glass-card p-6 rounded-2xl border border-slate-800 flex items-center justify-between">
               <div>
-                <span className="text-slate-400 text-xs font-medium">Ofertas Conseguidas 🎉</span>
+                <span className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+                  Ofertas Conseguidas <PartyPopper className="w-3.5 h-3.5 text-emerald-400" />
+                </span>
                 <h3 className="text-3xl font-black text-emerald-400 mt-1">{successfulOffers}</h3>
               </div>
               <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/10">
