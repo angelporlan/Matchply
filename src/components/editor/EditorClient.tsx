@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
@@ -51,6 +51,55 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
     jobDescription: '',
     promptId: availablePrompts.find(p => p.isActive)?.id || '',
   });
+
+  // Resizer Split Screen states
+  const [leftWidth, setLeftWidth] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isLg, setIsLg] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLg(window.innerWidth >= 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleDoubleClick = () => {
+    setLeftWidth(50);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const relativeX = e.clientX - rect.left;
+      const percentage = (relativeX / rect.width) * 100;
+      const boundedPercentage = Math.max(25, Math.min(percentage, 75));
+      setLeftWidth(boundedPercentage);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Efecto para actualizar el PDF al guardar cambios de Markdown
   const handleEditorSave = () => {
@@ -332,8 +381,14 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
       </div>
 
       {/* Panel del Editor y Visor en Split Screen */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 overflow-hidden h-[calc(100vh-165px)]">
-        <div className="h-full min-h-[350px] lg:min-h-0">
+      <div 
+        ref={containerRef}
+        className={`flex-1 flex flex-col lg:flex-row p-6 overflow-hidden h-[calc(100vh-165px)] ${isResizing ? 'select-none' : ''}`}
+      >
+        <div 
+          style={{ width: isLg ? `${leftWidth}%` : '100%' }}
+          className="h-full min-h-[350px] lg:min-h-0 flex flex-col"
+        >
           <MarkdownEditor
             cvId={cv.id}
             initialContent={cv.content}
@@ -342,7 +397,24 @@ export default function EditorClient({ cv, isPremium, availablePrompts }: Editor
             setSaveStatus={setSaveStatus}
           />
         </div>
-        <div className="h-full min-h-[400px] lg:min-h-0">
+
+        {isLg ? (
+          <div
+            onMouseDown={handleMouseDown}
+            onDoubleClick={handleDoubleClick}
+            className="w-2 hover:bg-sky-500/30 bg-slate-900/30 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
+            title="Arrastra para ajustar el tamaño, doble clic para centrar"
+          >
+            <div className="w-[2px] h-6 bg-slate-800 group-hover:bg-sky-400 rounded-full transition-colors" />
+          </div>
+        ) : (
+          <div className="h-6 shrink-0" />
+        )}
+
+        <div 
+          style={{ width: isLg ? `${100 - leftWidth}%` : '100%' }}
+          className={`h-full min-h-[400px] lg:min-h-0 flex flex-col ${isResizing ? 'pointer-events-none' : ''}`}
+        >
           <PdfViewer
             cvId={cv.id}
             version={pdfVersion}

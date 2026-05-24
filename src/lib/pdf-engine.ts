@@ -158,6 +158,11 @@ function normalizeLine(line: string): string {
   return line.replace(/\r/g, '').trimEnd();
 }
 
+function isSkillsSection(title: string): boolean {
+  const t = title.toLowerCase();
+  return t.includes('skills') || t.includes('habilidades') || t.includes('aptitudes') || t.includes('competencias') || t.includes('habilidad') || t.includes('aptitud');
+}
+
 function getIconType(label: string, value: string = ''): string | null {
   const nl = label.toLowerCase();
   const nv = value.toLowerCase();
@@ -241,10 +246,24 @@ export function parseCvMarkdown(content: string): CVContent {
       return;
     }
 
-    const paragraph = cleanMarkdownInline(currentParagraphs.join(' ').trim());
-    if (!paragraph) {
+    const rawParagraph = currentParagraphs.join(' ').trim();
+    if (!rawParagraph) {
       currentParagraphs = [];
       return;
+    }
+
+    // Check if it starts with **label**
+    const boldMatch = rawParagraph.match(/^\*\*([^*]+)\*\*(.*)$/);
+    let paragraph = '';
+    if (boldMatch) {
+      const label = boldMatch[1].trim();
+      let value = boldMatch[2].trim();
+      if (value.startsWith(':')) {
+        value = value.substring(1).trim();
+      }
+      paragraph = `${label}: ${value}`;
+    } else {
+      paragraph = cleanMarkdownInline(rawParagraph);
     }
 
     if (!target.paragraphs) {
@@ -326,7 +345,21 @@ export function parseCvMarkdown(content: string): CVContent {
 
     if (line.startsWith('- ')) {
       flushParagraphs(currentEntry || currentSection);
-      const bullet = cleanMarkdownInline(line.slice(2));
+      const content = line.slice(2).trim();
+      
+      const boldMatch = content.match(/^\*\*([^*]+)\*\*(.*)$/);
+      let bullet = '';
+      if (boldMatch) {
+        const label = boldMatch[1].trim();
+        let value = boldMatch[2].trim();
+        if (value.startsWith(':')) {
+          value = value.substring(1).trim();
+        }
+        bullet = `${label}: ${value}`;
+      } else {
+        bullet = cleanMarkdownInline(content);
+      }
+      
       if (currentEntry) {
         currentEntry.bullets.push(bullet);
       } else if (currentSection) {
@@ -646,7 +679,7 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
   doc.y = headerRuleY + 10;
 
   for (const section of cv.sections) {
-    if (section.title.toLowerCase() === 'skills' || section.title.toLowerCase() === 'habilidades') {
+    if (isSkillsSection(section.title)) {
       drawSkillsSection(doc, section, layout, cust);
     } else {
       drawSectionHeading(doc, section.title, layout, cust);
@@ -685,10 +718,12 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
   // 2. Split Content
   const sidebarSections: Section[] = [];
   const mainSections: Section[] = [];
-  const sidebarTitles = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'contact', 'contacto', 'competencias'];
+  const sidebarKeywords = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'contact', 'contacto', 'competencias', 'habilidad', 'aptitud'];
 
   for (const section of cv.sections) {
-    if (sidebarTitles.includes(section.title.toLowerCase())) {
+    const t = section.title.toLowerCase();
+    const isSidebar = sidebarKeywords.some(kw => t.includes(kw));
+    if (isSidebar) {
       sidebarSections.push(section);
     } else {
       mainSections.push(section);
@@ -979,7 +1014,7 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
       y += 6;
     }
 
-    const isSkills = section.title.toLowerCase() === 'skills' || section.title.toLowerCase() === 'habilidades';
+    const isSkills = isSkillsSection(section.title);
     if (isSkills) {
       const items = [...(section.paragraphs || []), ...(section.bullets || [])];
       for (const item of items) {
@@ -1076,11 +1111,13 @@ function renderCreativeCvPdf(doc: any, cv: CVContent, scale: number, showIcons: 
   }
 
   // Sidebar sections
-  const sidebarTitles = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'competencias'];
   const sidebarSections: Section[] = [];
   const mainSections: Section[] = [];
+  const sidebarKeywords = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'competencias', 'habilidad', 'aptitud'];
   for (const section of cv.sections) {
-    if (sidebarTitles.includes(section.title.toLowerCase())) {
+    const t = section.title.toLowerCase();
+    const isSidebar = sidebarKeywords.some(kw => t.includes(kw));
+    if (isSidebar) {
       sidebarSections.push(section);
     } else {
       mainSections.push(section);
@@ -1256,11 +1293,13 @@ function renderSwissCvPdf(doc: any, cv: CVContent, scale: number, showIcons: boo
   }
 
   // Sidebar Sections
-  const sidebarTitles = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'competencias'];
   const sidebarSections: Section[] = [];
   const mainSections: Section[] = [];
+  const sidebarKeywords = ['skills', 'habilidades', 'idiomas', 'languages', 'aptitudes', 'competencias', 'habilidad', 'aptitud'];
   for (const section of cv.sections) {
-    if (sidebarTitles.includes(section.title.toLowerCase())) {
+    const t = section.title.toLowerCase();
+    const isSidebar = sidebarKeywords.some(kw => t.includes(kw));
+    if (isSidebar) {
       sidebarSections.push(section);
     } else {
       mainSections.push(section);
