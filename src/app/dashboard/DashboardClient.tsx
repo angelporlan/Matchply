@@ -379,8 +379,8 @@ export default function DashboardClient({
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end p-0 bg-black/75 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-xl bg-[#070b17] border-l border-slate-800 h-full p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity">
+          <div className="w-full max-w-2xl bg-[#070b17] border border-slate-800/80 rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
             
             {/* Adornos visuales de fondo */}
             <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-sky-500/5 rounded-full filter blur-3xl pointer-events-none" />
