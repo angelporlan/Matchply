@@ -2,32 +2,13 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, jobOffers } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { Sparkles, Plus, FileText, Trash2, ArrowRight, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield } from 'lucide-react';
-import { createBaseCv, deleteCv } from './actions';
-import { revalidatePath } from 'next/cache';
+import { cvs, users, jobOffers, prompts } from '@/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
+import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
-
-// Acción para crear CV rápido
-async function handleCreateCv(formData: FormData) {
-  'use server';
-  const title = formData.get('title') as string;
-  const res = await createBaseCv(title);
-  if (res.cvId) {
-    redirect(`/editor/${res.cvId}`);
-  }
-}
-
-// Acción para borrar CV rápido
-async function handleDeleteCv(formData: FormData) {
-  'use server';
-  const id = formData.get('id') as string;
-  await deleteCv(id);
-  revalidatePath('/dashboard');
-}
+import DashboardClient from './DashboardClient';
 
 interface DashboardPageProps {
   searchParams?: {
@@ -65,12 +46,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
-  // 2. Obtener lista de currículums del usuario
+  // 2. Obtener lista de currículums del usuario (Principal primero, luego más recientes)
   const userCvs = await db
     .select()
     .from(cvs)
     .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.createdAt));
+    .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
 
   // 3. Contar candidaturas
   const offers = await db
@@ -81,6 +62,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const totalOffers = offers.length;
   const interviewOffers = offers.filter(o => o.status === 'interview').length;
   const successfulOffers = offers.filter(o => o.status === 'offer').length;
+
+  // 4. Obtener prompts no archivados para optimización de CV
+  const availablePrompts = await db
+    .select({
+      id: prompts.id,
+      name: prompts.name,
+      isActive: prompts.isActive,
+    })
+    .from(prompts)
+    .where(
+      and(
+        eq(prompts.key, 'optimize_cv'),
+        eq(prompts.isArchived, false)
+      )
+    )
+    .orderBy(prompts.name);
 
   return (
     <div className="min-h-screen bg-[#030712] relative overflow-x-hidden">
@@ -217,106 +214,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
 
         {/* Sección de Currículums */}
-        <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-white">Tus Currículums</h3>
-              <p className="text-slate-400 text-xs font-light">Crea tu currículum base o diseña copias optimizadas.</p>
-            </div>
-
-            {/* Crear nuevo CV rápido */}
-            <form action={handleCreateCv} className="flex gap-2 w-full sm:w-auto">
-              <input
-                type="text"
-                name="title"
-                required
-                placeholder="Nombre del CV..."
-                className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all w-full sm:w-48"
-              />
-              <button
-                type="submit"
-                className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md shadow-sky-500/10 flex items-center justify-center gap-1.5 shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                Crear CV
-              </button>
-            </form>
-          </div>
-
-          {userCvs.length === 0 ? (
-            <div className="glass-card border border-slate-800 border-dashed rounded-3xl p-12 text-center">
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-full text-slate-500 w-fit mx-auto mb-4">
-                <FileText className="w-8 h-8" />
-              </div>
-              <h4 className="text-base font-bold text-white mb-1.5">No tienes ningún currículum todavía</h4>
-              <p className="text-slate-400 text-xs font-light max-w-sm mx-auto mb-6">
-                Escribe un título en el campo superior derecho y presiona &quot;Crear CV&quot; para generar tu primer borrador en Markdown.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userCvs.map((cv) => (
-                <div
-                  key={cv.id}
-                  className="glass-card p-6 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-all relative overflow-hidden group"
-                >
-                  {/* Decorative glowing accent */}
-                  <div
-                    className="absolute top-0 left-0 w-1.5 h-full"
-                    style={{ backgroundColor: cv.accentColor || '#1a5f7a' }}
-                  />
-
-                  <div>
-                    <div className="flex items-start justify-between mb-4 pl-2">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
-                          {cv.isBase ? 'Base principal' : 'Copia personalizada'}
-                        </span>
-                        <h4 className="font-bold text-white text-base leading-snug group-hover:text-sky-400 transition-colors">
-                          {cv.title}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-slate-400 mb-6">
-                      <div className="bg-slate-900/60 border border-slate-850 px-2.5 py-1.5 rounded-lg">
-                        <span className="block text-[9px] text-slate-500 font-bold uppercase">Plantilla</span>
-                        <span className="text-slate-300 font-medium capitalize">{cv.templateName}</span>
-                      </div>
-                      <div className="bg-slate-900/60 border border-slate-850 px-2.5 py-1.5 rounded-lg">
-                        <span className="block text-[9px] text-slate-500 font-bold uppercase">Creado</span>
-                        <span className="text-slate-300 font-medium">
-                          {cv.createdAt.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-850 pt-4 pl-2">
-                    <Link
-                      href={`/editor/${cv.id}`}
-                      className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1.5 group/link"
-                    >
-                      Editar CV
-                      <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
-                    </Link>
-
-                    <form action={handleDeleteCv}>
-                      <input type="hidden" name="id" value={cv.id} />
-                      <button
-                        type="submit"
-                        className="text-slate-500 hover:text-rose-400 p-2 rounded-xl transition-all"
-                        title="Borrar Currículum"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <DashboardClient 
+          initialCvs={userCvs} 
+          isPremium={isPremium} 
+          availablePrompts={availablePrompts || []} 
+        />
       </main>
     </div>
   );

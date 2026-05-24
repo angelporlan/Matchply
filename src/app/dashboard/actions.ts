@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { cvs, jobOffers } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
@@ -36,12 +36,59 @@ Ingeniero de Software Full Stack apasionado por construir productos SaaS eficien
 - **Herramientas & Cloud:** Docker, AWS, Git, GitHub Actions, Linux
 `;
 
+export async function setPrincipalCv(cvId: string) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    // 1. Comprobar que el CV existe y pertenece al usuario
+    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    if (!cv || cv.userId !== userId) {
+      throw new Error("Forbidden or CV not found");
+    }
+
+    // 2. Transacción para desmarcar los demás y marcar este
+    await db.transaction(async (tx) => {
+      // Poner todos los del usuario a false
+      await tx
+        .update(cvs)
+        .set({ isPrincipal: false })
+        .where(eq(cvs.userId, userId));
+
+      // Poner este a true
+      await tx
+        .update(cvs)
+        .set({ isPrincipal: true })
+        .where(eq(cvs.id, cvId));
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error setting principal CV:", error);
+    return { error: error.message || "Failed to set principal CV" };
+  }
+}
+
 export async function createBaseCv(title: string) {
   try {
     const session = await auth();
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+
+    // Contar cuántos CVs base tiene el usuario ya
+    const existingCvs = await db
+      .select({ id: cvs.id })
+      .from(cvs)
+      .where(eq(cvs.userId, session.user.id))
+      .limit(1);
+
+    const isFirst = existingCvs.length === 0;
 
     const [newCv] = await db
       .insert(cvs)
@@ -50,6 +97,7 @@ export async function createBaseCv(title: string) {
         title: title || "Mi Currículum Base",
         content: DEFAULT_MARKDOWN,
         isBase: true,
+        isPrincipal: isFirst,
         templateName: "harvard",
         accentColor: "#1a5f7a",
         fontFamily: "helvetica",
@@ -79,7 +127,27 @@ export async function deleteCv(cvId: string) {
       throw new Error("Forbidden or CV not found");
     }
 
-    await db.delete(cvs).where(eq(cvs.id, cvId));
+    await db.transaction(async (tx) => {
+      // Borrar el CV
+      await tx.delete(cvs).where(eq(cvs.id, cvId));
+
+      // Si el CV que acabamos de borrar era el principal, elegir otro
+      if (cv.isPrincipal) {
+        const [nextBaseCv] = await tx
+          .select()
+          .from(cvs)
+          .where(eq(cvs.userId, session.user.id))
+          .orderBy(desc(cvs.createdAt))
+          .limit(1);
+
+        if (nextBaseCv) {
+          await tx
+            .update(cvs)
+            .set({ isPrincipal: true })
+            .where(eq(cvs.id, nextBaseCv.id));
+        }
+      }
+    });
 
     revalidatePath("/dashboard");
     return { success: true };
