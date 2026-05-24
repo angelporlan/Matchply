@@ -170,6 +170,36 @@ function getIconType(label: string, value: string = ''): string | null {
   return null;
 }
 
+function getLinkUrl(value: string, label: string = ''): string | null {
+  const v = value.trim();
+  const l = label.toLowerCase();
+  
+  if (v.includes('@') || l.includes('email') || l.includes('correo')) {
+    const email = v.replace(/^mailto:/i, '');
+    return `mailto:${email}`;
+  }
+  
+  if (v.startsWith('http://') || v.startsWith('https://')) {
+    return v;
+  }
+  
+  if (
+    v.includes('linkedin.com') || 
+    v.includes('github.com') || 
+    v.includes('vercel.app') ||
+    v.includes('.com') ||
+    v.includes('.net') ||
+    v.includes('.org') ||
+    v.includes('.app') ||
+    v.includes('.dev') ||
+    v.includes('.es')
+  ) {
+    return `https://${v}`;
+  }
+  
+  return null;
+}
+
 function drawIcon(doc: any, type: string, x: number, y: number, size: number, color: string = '#000000'): boolean {
   const p = SVG_ICONS[type];
   if (!p) return false;
@@ -251,13 +281,26 @@ export function parseCvMarkdown(content: string): CVContent {
       continue;
     }
 
-    const contactMatch = line.match(/^\*\*([^*]+):\*\*\s*(.+)$/);
-    if (contactMatch && !currentSection) {
-      cv.contact.push({
-        label: cleanMarkdownInline(contactMatch[1]),
-        value: cleanMarkdownInline(contactMatch[2])
-      });
-      continue;
+    if (!currentSection) {
+      const parts = line.split('|');
+      let isContactLine = false;
+      const parsedItems: ContactInfo[] = [];
+      
+      for (const part of parts) {
+        const match = part.trim().match(/^\*\*([^*]+):\*\*\s*(.+)$/);
+        if (match) {
+          isContactLine = true;
+          parsedItems.push({
+            label: cleanMarkdownInline(match[1]),
+            value: cleanMarkdownInline(match[2])
+          });
+        }
+      }
+      
+      if (isContactLine) {
+        cv.contact.push(...parsedItems);
+        continue;
+      }
     }
 
     if (line.startsWith('## ')) {
@@ -481,8 +524,11 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
   let currentLineWidth = 0;
 
   contact.forEach((item, i) => {
-    const text = `${item.label}: ${item.value}`;
-    const textWidth = doc.widthOfString(text);
+    const labelPart = `${item.label}: `;
+    const valuePart = item.value;
+    const labelWidth = doc.widthOfString(labelPart);
+    const valueWidth = doc.widthOfString(valuePart);
+    const textWidth = labelWidth + valueWidth;
     const iconType = showIcons ? getIconType(item.label, item.value) : null;
     const iconWidth = iconType ? iconSize + iconGap : 0;
     const sepWidth = doc.widthOfString(sep);
@@ -492,13 +538,13 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
 
     if (currentLine.length > 0 && currentLineWidth + widthToAdd > cWidth) {
       lines.push({ items: currentLine, width: currentLineWidth });
-      currentLine = [{ text, textWidth, iconType, iconWidth, sepWidth: 0 }];
+      currentLine = [{ labelPart, valuePart, labelWidth, valueWidth, iconType, iconWidth, sepWidth: 0, linkUrl: getLinkUrl(valuePart, item.label) }];
       currentLineWidth = itemWidth;
     } else {
       if (currentLine.length > 0) {
         currentLine[currentLine.length - 1].sepWidth = sepWidth;
       }
-      currentLine.push({ text, textWidth, iconType, iconWidth, sepWidth: 0 });
+      currentLine.push({ labelPart, valuePart, labelWidth, valueWidth, iconType, iconWidth, sepWidth: 0, linkUrl: getLinkUrl(valuePart, item.label) });
       currentLineWidth += widthToAdd;
     }
   });
@@ -515,8 +561,18 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
         drawIcon(doc, data.iconType, currentX, currentY - 0.5, iconSize, COLORS.muted);
         currentX += data.iconWidth;
       }
-      doc.text(data.text, currentX, currentY, { lineBreak: false });
-      currentX += data.textWidth;
+      
+      doc.text(data.labelPart, currentX, currentY, { lineBreak: false });
+      currentX += data.labelWidth;
+      
+      const textOpts: any = { lineBreak: false };
+      doc.text(data.valuePart, currentX, currentY, textOpts);
+      
+      if (data.linkUrl) {
+        doc.link(currentX, currentY, data.valueWidth, layout.contactSize, data.linkUrl);
+      }
+      currentX += data.valueWidth;
+      
       if (data.sepWidth > 0) {
         doc.text(sep, currentX, currentY, { lineBreak: false });
         currentX += data.sepWidth;
@@ -690,11 +746,17 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
         textX += iconSize + 5;
       }
       
-      const contactText = `${label}: ${value}`;
-      doc.text(contactText, textX, currentY, { 
+      const linkUrl = getLinkUrl(value, label);
+      const textOpts: any = { 
         width: sidebarWidth - sidebarPadding - textX + sidebarPadding, 
         lineGap: 2 
-      });
+      };
+      if (linkUrl) {
+        textOpts.link = linkUrl;
+      }
+      
+      const contactText = `${label}: ${value}`;
+      doc.text(contactText, textX, currentY, textOpts);
       currentY = doc.y + 4;
     }
     currentY += 15;
@@ -824,26 +886,64 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
 
   // Contact
   if (cv.contact.length) {
+    const sep = '  |  ';
     doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.mutedColor);
-    const parts = cv.contact.map(c => `${c.label}: ${c.value}`);
-    doc.text(parts.join('  |  '), cfg.marginSide, y, { width: contentWidth, align: 'center', lineGap: 2 });
-    y = doc.y + 6;
-
-    if (showIcons) {
-      const iconSize = fs(8);
-      const fullText = parts.join('  |  ');
-      const totalWidth = doc.widthOfString(fullText);
-      let iconX = cfg.marginSide + (contentWidth - totalWidth) / 2;
-      for (const c of cv.contact) {
-        const iconType = getIconType(c.label, c.value);
-        const itemText = `${c.label}: ${c.value}`;
-        const itemWidth = doc.widthOfString(itemText);
-        if (iconType) {
-          drawIcon(doc, iconType, iconX - iconSize - 3, y - doc.currentLineHeight() - 5, iconSize, cfg.mutedColor);
-        }
-        iconX += itemWidth + doc.widthOfString('  |  ');
+    
+    // Calculate total width and parts
+    const itemsData: any[] = [];
+    let totalWidth = 0;
+    const sepWidth = doc.widthOfString(sep);
+    const iconSize = fs(8);
+    const iconGap = 3;
+    
+    cv.contact.forEach((c, idx) => {
+      const labelPart = `${c.label}: `;
+      const valuePart = c.value;
+      const labelWidth = doc.widthOfString(labelPart);
+      const valueWidth = doc.widthOfString(valuePart);
+      const iconType = showIcons ? getIconType(c.label, c.value) : null;
+      const iconWidth = iconType ? iconSize + iconGap : 0;
+      
+      const itemWidth = iconWidth + labelWidth + valueWidth;
+      totalWidth += itemWidth;
+      if (idx > 0) totalWidth += sepWidth;
+      
+      itemsData.push({
+        labelPart,
+        valuePart,
+        labelWidth,
+        valueWidth,
+        iconType,
+        iconWidth,
+        linkUrl: getLinkUrl(c.value, c.label)
+      });
+    });
+    
+    let currentX = cfg.marginSide + (contentWidth - totalWidth) / 2;
+    itemsData.forEach((data, idx) => {
+      if (idx > 0) {
+        doc.text(sep, currentX, y, { lineBreak: false });
+        currentX += sepWidth;
       }
-    }
+      
+      if (data.iconType) {
+        drawIcon(doc, data.iconType, currentX, y - 0.5, iconSize, cfg.mutedColor);
+        currentX += data.iconWidth;
+      }
+      
+      doc.text(data.labelPart, currentX, y, { lineBreak: false });
+      currentX += data.labelWidth;
+      
+      const textOpts: any = { lineBreak: false };
+      doc.text(data.valuePart, currentX, y, textOpts);
+      
+      if (data.linkUrl) {
+        doc.link(currentX, y, data.valueWidth, fs(8.5), data.linkUrl);
+      }
+      currentX += data.valueWidth;
+    });
+    
+    y = y + fs(8.5) + 6;
   }
 
   y += 10;
@@ -977,9 +1077,17 @@ function renderCreativeCvPdf(doc: any, cv: CVContent, scale: number, showIcons: 
         drawIcon(doc, iconType, sideContentX, sideY + 1, iconSize, cfg.sidebarTextColor);
         textX += iconSize + 5;
       }
-      doc.text(`${info.label}: ${info.value}`, textX, sideY, {
-        width: sideContentWidth - (textX - sideContentX), lineGap: 2
-      });
+      
+      const linkUrl = getLinkUrl(info.value, info.label);
+      const textOpts: any = {
+        width: sideContentWidth - (textX - sideContentX),
+        lineGap: 2
+      };
+      if (linkUrl) {
+        textOpts.link = linkUrl;
+      }
+      
+      doc.text(`${info.label}: ${info.value}`, textX, sideY, textOpts);
       sideY = doc.y + 4;
     }
     sideY += 12;
@@ -1148,8 +1256,18 @@ function renderSwissCvPdf(doc: any, cv: CVContent, scale: number, showIcons: boo
       doc.font(ff.regular).fontSize(fs(7.5)).fillColor(cfg.sidebarMutedColor)
         .text(info.label, textX, sideY, { width: sideContentWidth - (textX - sideContentX) });
       sideY = doc.y;
+      
+      const linkUrl = getLinkUrl(info.value, info.label);
+      const textOpts: any = {
+        width: sideContentWidth - (textX - sideContentX),
+        lineGap: 1.5
+      };
+      if (linkUrl) {
+        textOpts.link = linkUrl;
+      }
+      
       doc.font(ff.regular).fontSize(fs(7.5)).fillColor(cfg.sidebarTextColor)
-        .text(info.value, textX, sideY, { width: sideContentWidth - (textX - sideContentX), lineGap: 1.5 });
+        .text(info.value, textX, sideY, textOpts);
       sideY = doc.y + 6;
     }
     sideY += 8;
