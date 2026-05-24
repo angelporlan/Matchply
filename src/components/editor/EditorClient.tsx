@@ -14,6 +14,52 @@ import {
 import LinkNext from 'next/link';
 import AlertModal from '../ui/AlertModal';
 
+const promptConfigs: Record<
+  string,
+  {
+    color: string;
+    hoverBg: string;
+    text: string;
+    bg: string;
+    activeBorder: string;
+    desc: string;
+  }
+> = {
+  'Modo Fidelidad': {
+    color: '#38bdf8', // Azulito (sky-400)
+    hoverBg: 'hover:bg-sky-500/5',
+    text: 'text-sky-400',
+    bg: 'bg-sky-500/10',
+    activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
+    desc: 'Fidelidad absoluta a tu trayectoria real. No inventa habilidades ni herramientas; optimiza tu redacción e integra palabras clave para pasar filtros ATS.'
+  },
+  'Modo Rendimiento': {
+    color: '#eab308', // Amarillo (yellow-500)
+    hoverBg: 'hover:bg-yellow-500/5',
+    text: 'text-yellow-400',
+    bg: 'bg-yellow-500/10',
+    activeBorder: 'border-yellow-500 ring-2 ring-yellow-500/20',
+    desc: 'Amplía y potencia tu experiencia de forma realista. Si dominas tecnologías equivalentes, las integra estratégicamente y optimiza la densidad ATS.'
+  },
+  'Modo Extremo': {
+    color: '#ea580c', // Naranjado casi rojo (orange-600)
+    hoverBg: 'hover:bg-orange-500/5',
+    text: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
+    desc: 'Foco absoluto en superar el filtro ATS. Adapta tu CV e inyecta cualquier tecnología o requisito crítico exigido por la oferta para un match del 100%.'
+  }
+};
+
+const defaultPromptConfig = {
+  color: '#38bdf8',
+  hoverBg: 'hover:bg-sky-500/5',
+  text: 'text-sky-400',
+  bg: 'bg-sky-500/10',
+  activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
+  desc: 'Optimiza tu currículum de acuerdo a la oferta elegida.'
+};
+
 interface EditorClientProps {
   cv: CV;
   isPremium: boolean;
@@ -67,6 +113,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (availablePrompts.length > 0 && !aiFormData.promptId) {
+      const activePrompt = availablePrompts.find(p => p.isActive);
+      setAiFormData(prev => ({ ...prev, promptId: activePrompt?.id || availablePrompts[0].id }));
+    }
+  }, [availablePrompts, aiFormData.promptId]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -548,26 +601,68 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                      Modo de Optimización (Prompt)
+                      <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                      Modo de Optimización Inteligente
                     </label>
-                    <select
-                      value={aiFormData.promptId}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, promptId: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-all cursor-pointer"
-                    >
-                      {availablePrompts.length === 0 ? (
-                        <option value="">Por defecto (Estilo Harvard)</option>
-                      ) : (
-                        availablePrompts.map((prompt) => (
-                          <option key={prompt.id} value={prompt.id}>
-                            {prompt.name} {prompt.isActive ? '(Predeterminado)' : ''}
-                          </option>
-                        ))
-                      )}
-                    </select>
+                    {availablePrompts.length === 0 ? (
+                      <div className="w-full bg-slate-950 border border-slate-850 rounded-xl px-4 py-3 text-xs text-slate-400">
+                        Por defecto (Estilo Harvard)
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {availablePrompts.map((prompt) => {
+                          const config = promptConfigs[prompt.name] || defaultPromptConfig;
+                          const isSelected = aiFormData.promptId === prompt.id;
+                          const shadowClass = prompt.name === 'Modo Fidelidad' 
+                            ? 'shadow-sky-500/5' 
+                            : prompt.name === 'Modo Rendimiento' 
+                              ? 'shadow-yellow-500/5' 
+                              : 'shadow-orange-500/5';
+                          
+                          return (
+                            <div
+                              key={prompt.id}
+                              onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
+                              className={`relative p-3.5 rounded-xl border bg-[#050812]/80 cursor-pointer transition-all duration-200 group flex flex-col justify-between min-h-[120px] select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `${config.activeBorder} shadow-lg ${shadowClass}` : 'border-slate-800 hover:border-slate-700'}`}
+                              title={config.desc}
+                            >
+                              <div>
+                                {/* Header / Color dot */}
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className={`text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${config.bg} ${config.text}`}>
+                                    {prompt.name.replace('Modo ', '')}
+                                  </span>
+                                  <div 
+                                    className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
+                                    style={{ backgroundColor: config.color }}
+                                  />
+                                </div>
+                                
+                                {/* Title */}
+                                <h4 className="text-[11px] font-bold text-white mb-1 group-hover:text-slate-200 transition-colors">
+                                  {prompt.name}
+                                </h4>
+                              </div>
+
+                              {/* Description / Summary */}
+                              <p className="text-[9.5px] text-slate-450 leading-normal font-light line-clamp-3">
+                                {config.desc}
+                              </p>
+
+                              {/* Selected checkmark dot glow */}
+                              {isSelected && (
+                                <div 
+                                  className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
+                                  style={{ backgroundColor: config.color }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
