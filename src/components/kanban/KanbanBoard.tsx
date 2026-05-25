@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer } from '@/app/dashboard/kanban/actions';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks } from 'lucide-react';
+import { createJobOffer, restoreArchivedJobOffer } from '@/app/dashboard/kanban/actions';
+import { formatDate } from '@/lib/utils';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, RotateCcw, Eye, Inbox } from 'lucide-react';
 
 interface KanbanBoardProps {
   offers: JobOffer[];
@@ -23,15 +24,24 @@ interface Column {
   glowColor: string;
 }
 
+const ARCHIVED_STATUS_PREFIX = 'archived:';
+
+function isArchivedStatus(status: string) {
+  return status.startsWith(ARCHIVED_STATUS_PREFIX);
+}
+
 export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBacklogOpen, setIsBacklogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [backlogSearchQuery, setBacklogSearchQuery] = useState('');
   const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
+  const [restoringOfferId, setRestoringOfferId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -51,9 +61,11 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   ];
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const linkedOffers = offers.filter((offer) => Boolean(offer.cvId)).length;
-  const activeOffers = offers.filter((offer) => offer.status !== 'rejected').length;
-  const filteredOffers = offers.filter((offer) => {
+  const normalizedBacklogSearch = backlogSearchQuery.trim().toLowerCase();
+  const boardOffers = offers.filter((offer) => !isArchivedStatus(offer.status));
+  const archivedOffers = offers.filter((offer) => isArchivedStatus(offer.status));
+  const linkedOffers = boardOffers.filter((offer) => Boolean(offer.cvId)).length;
+  const filteredOffers = boardOffers.filter((offer) => {
     const matchesSearch = !normalizedSearch || [offer.title, offer.company, offer.platform]
       .some((value) => value?.toLowerCase().includes(normalizedSearch));
     const matchesCvFilter =
@@ -63,7 +75,27 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
 
     return matchesSearch && matchesCvFilter;
   });
+  const filteredArchivedOffers = archivedOffers.filter((offer) => {
+    return !normalizedBacklogSearch || [offer.title, offer.company, offer.platform]
+      .some((value) => value?.toLowerCase().includes(normalizedBacklogSearch));
+  });
   const hasActiveFilters = Boolean(normalizedSearch) || cvFilter !== 'all';
+
+  const getOriginalStatusLabel = (status: string) => {
+    const originalStatus = status.startsWith(ARCHIVED_STATUS_PREFIX)
+      ? status.slice(ARCHIVED_STATUS_PREFIX.length)
+      : status;
+    return columns.find((column) => column.id === originalStatus)?.title || 'Interesado';
+  };
+
+  const handleRestoreArchivedOffer = async (offerId: string) => {
+    setRestoringOfferId(offerId);
+    const result = await restoreArchivedJobOffer(offerId);
+    if (result.success) {
+      router.refresh();
+    }
+    setRestoringOfferId(null);
+  };
 
   const renderColumnIcon = (columnId: Column['id']) => {
     switch (columnId) {
@@ -128,23 +160,36 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-semibold text-sm shadow-lg shadow-sky-500/15 hover:shadow-sky-500/25 transition-all duration-300 transform hover:-translate-y-0.5"
-        >
-          <Plus className="w-4 h-4" />
-          Nueva Candidatura
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => setIsBacklogOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/30 text-slate-300 hover:text-white font-semibold text-sm transition-all"
+          >
+            <Archive className="w-4 h-4 text-amber-300" />
+            Backlog archivadas
+            <span className="text-[10px] font-bold text-amber-200 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+              {archivedOffers.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-semibold text-sm shadow-lg shadow-sky-500/15 hover:shadow-sky-500/25 transition-all duration-300 transform hover:-translate-y-0.5"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva Candidatura
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <div className="rounded-xl border border-slate-800/80 bg-slate-950/45 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Total</p>
-          <p className="text-xl font-bold text-white mt-1">{offers.length}</p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Activas</p>
+          <p className="text-xl font-bold text-white mt-1">{boardOffers.length}</p>
         </div>
         <div className="rounded-xl border border-slate-800/80 bg-slate-950/45 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Activas</p>
-          <p className="text-xl font-bold text-sky-300 mt-1">{activeOffers}</p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Archivadas</p>
+          <p className="text-xl font-bold text-amber-300 mt-1">{archivedOffers.length}</p>
         </div>
         <div className="rounded-xl border border-slate-800/80 bg-slate-950/45 px-4 py-3">
           <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Con CV</p>
@@ -235,7 +280,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       <div className="-mx-4 px-4 overflow-x-auto pb-4 scrollbar-custom">
         <div className="grid min-w-[1180px] grid-cols-5 gap-4 items-start">
           {columns.map((column) => {
-            const rawColumnOffers = offers.filter((offer) => offer.status === column.id);
+            const rawColumnOffers = boardOffers.filter((offer) => offer.status === column.id);
             const columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
 
             return (
@@ -325,6 +370,121 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
           })}
         </div>
       </div>
+
+      {/* Backlog de candidaturas archivadas */}
+      {isBacklogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md transition-opacity">
+          <div className="relative w-full max-w-4xl max-h-[88vh] glass-card border border-slate-800 bg-[#070b17] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="shrink-0 p-5 md:p-6 border-b border-slate-800 bg-slate-950/40">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Archive className="w-5 h-5 text-amber-300" />
+                    Backlog de Archivadas
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Revisa candidaturas retiradas del tablero activo y rescátalas cuando vuelvan a interesarte.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsBacklogOpen(false)}
+                  className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-900 transition-all"
+                  aria-label="Cerrar backlog"
+                  title="Cerrar backlog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="relative mt-5">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="search"
+                  value={backlogSearchQuery}
+                  onChange={(event) => setBacklogSearchQuery(event.target.value)}
+                  placeholder="Buscar archivadas por puesto, empresa o plataforma"
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                />
+                {backlogSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setBacklogSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+                    aria-label="Limpiar búsqueda de archivadas"
+                    title="Limpiar búsqueda"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto scrollbar-custom p-4 md:p-6">
+              {archivedOffers.length === 0 ? (
+                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-800 rounded-2xl text-slate-500">
+                  <Inbox className="w-8 h-8 mb-3 text-slate-700" />
+                  <p className="text-sm font-bold text-slate-300">No hay postulaciones archivadas</p>
+                  <p className="text-xs text-slate-500 mt-1">Cuando archives una candidatura, aparecerá aquí.</p>
+                </div>
+              ) : filteredArchivedOffers.length === 0 ? (
+                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-800 rounded-2xl text-slate-500">
+                  <Search className="w-8 h-8 mb-3 text-slate-700" />
+                  <p className="text-sm font-bold text-slate-300">Sin resultados</p>
+                  <p className="text-xs text-slate-500 mt-1">Prueba con otro puesto, empresa o plataforma.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredArchivedOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 hover:border-slate-700 transition-all"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/20">
+                              Archivada
+                            </span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-slate-800/70 text-slate-300 border-slate-700">
+                              Antes: {getOriginalStatusLabel(offer.status)}
+                            </span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-slate-900 text-slate-400 border-slate-800">
+                              {offer.platform}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-white text-sm leading-snug truncate">{offer.title}</h4>
+                          <p className="text-xs text-slate-400 mt-0.5 truncate">{offer.company}</p>
+                          <p className="text-[10px] text-slate-600 mt-2">Archivada: {formatDate(offer.updatedAt)}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOfferForDetails(offer)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Ver
+                          </button>
+                          <button
+                            type="button"
+                            disabled={restoringOfferId === offer.id}
+                            onClick={() => handleRestoreArchivedOffer(offer.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all disabled:opacity-50"
+                          >
+                            <RotateCcw className={`w-3.5 h-3.5 ${restoringOfferId === offer.id ? 'animate-spin' : ''}`} />
+                            Rescatar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
