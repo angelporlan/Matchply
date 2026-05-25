@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
+import JobOfferDetailsModal from './JobOfferDetailsModal';
 import { createJobOffer } from '@/app/dashboard/kanban/actions';
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -141,6 +143,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                       key={offer.id}
                       offer={offer}
                       userCvs={userCvs}
+                      onOpenDetails={setSelectedOfferForDetails}
                     />
                   ))
                 )}
@@ -290,6 +293,14 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             </form>
           </div>
         </div>
+      )}
+      {selectedOfferForDetails && (
+        <JobOfferDetailsModal
+          isOpen={!!selectedOfferForDetails}
+          onClose={() => setSelectedOfferForDetails(null)}
+          offer={offers.find(o => o.id === selectedOfferForDetails.id) || selectedOfferForDetails}
+          userCvs={userCvs}
+        />
       )}
     </div>
   );

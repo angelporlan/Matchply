@@ -7,13 +7,13 @@ import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer } from '@/app/da
 import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Briefcase } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AlertModal from '../ui/AlertModal';
-
 interface KanbanCardProps {
   offer: JobOffer;
   userCvs: CV[];
+  onOpenDetails: (offer: JobOffer) => void;
 }
 
-export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
+export default function KanbanCard({ offer, userCvs, onOpenDetails }: KanbanCardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedCv, setSelectedCv] = useState<string>(offer.cvId || '');
@@ -72,7 +72,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
   const currentIndex = statuses.indexOf(offer.status);
 
   return (
-    <div className={`glass-card p-5 rounded-2xl border border-slate-800 transition-all hover:border-slate-700 relative group overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div 
+      onClick={() => onOpenDetails(offer)}
+      className={`glass-card p-5 rounded-2xl border border-slate-800 transition-all hover:border-slate-700 relative group overflow-hidden cursor-pointer ${loading ? 'opacity-50 pointer-events-none' : ''}`}
+    >
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${getPlatformStyle(offer.platform)}`}>
@@ -89,6 +92,7 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
             href={offer.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="text-slate-500 hover:text-white p-1 rounded-lg transition-colors shrink-0"
             title="Ver oferta original"
           >
@@ -102,7 +106,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
       </p>
 
       {/* Selector de CV Personalizado */}
-      <div className="mb-4 bg-slate-950/60 border border-slate-850 p-2.5 rounded-xl flex items-center gap-2">
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="mb-4 bg-slate-950/60 border border-slate-850 p-2.5 rounded-xl flex items-center gap-2"
+      >
         <LinkIcon className="w-3 h-3 text-slate-500 shrink-0" />
         <select
           value={selectedCv}
@@ -121,7 +128,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
       {/* Controles de cambio de estado y eliminación */}
       <div className="flex items-center justify-between border-t border-slate-850 pt-3">
         <button
-          onClick={handleDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete();
+          }}
           className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg transition-colors"
           title="Eliminar candidatura"
         >
@@ -131,7 +141,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
         <div className="flex items-center gap-1">
           {currentIndex > 0 && (
             <button
-              onClick={() => handleStatusChange(statuses[currentIndex - 1])}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStatusChange(statuses[currentIndex - 1]);
+              }}
               className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white p-1.5 rounded-lg transition-colors"
               title="Mover columna izquierda"
             >
@@ -141,7 +154,10 @@ export default function KanbanCard({ offer, userCvs }: KanbanCardProps) {
 
           {currentIndex < statuses.length - 1 && (
             <button
-              onClick={() => handleStatusChange(statuses[currentIndex + 1])}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStatusChange(statuses[currentIndex + 1]);
+              }}
               className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white p-1.5 rounded-lg transition-colors"
               title="Mover columna derecha"
             >

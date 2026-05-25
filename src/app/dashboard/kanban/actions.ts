@@ -131,3 +131,50 @@ export async function createJobOffer(offerData: {
     return { error: error.message || "Failed to create manual offer" };
   }
 }
+
+export async function updateJobOfferDetails(
+  offerId: string,
+  offerData: {
+    title: string;
+    company: string;
+    url?: string | null;
+    platform: string;
+    description?: string | null;
+  }
+) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const [offer] = await db
+      .select()
+      .from(jobOffers)
+      .where(eq(jobOffers.id, offerId))
+      .limit(1);
+
+    if (!offer || offer.userId !== session.user.id) {
+      throw new Error("Forbidden or Offer not found");
+    }
+
+    await db
+      .update(jobOffers)
+      .set({
+        title: offerData.title,
+        company: offerData.company,
+        url: offerData.url || null,
+        platform: offerData.platform || "other",
+        description: offerData.description || null,
+        updatedAt: new Date()
+      })
+      .where(eq(jobOffers.id, offerId));
+
+    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating offer details:", error);
+    return { error: error.message || "Failed to update offer details" };
+  }
+}
