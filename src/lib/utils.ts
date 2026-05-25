@@ -11,6 +11,7 @@ export function formatDate(date: string | Date | null) {
   return d.toLocaleDateString('es-ES', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: 'Europe/Madrid',
   });
 }

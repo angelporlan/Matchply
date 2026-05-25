@@ -103,7 +103,7 @@ export default async function KanbanPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
 
         {/* Tablero Kanban */}
         <KanbanBoard offers={offers} userCvs={userCvs} />
