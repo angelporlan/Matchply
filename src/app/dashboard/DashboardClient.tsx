@@ -351,7 +351,7 @@ export default function DashboardClient({
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
-                          ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-350 border-[#1e1b4b]/10 dark:border-white/10'
+                          ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10'
                           : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                         }`}>
                         {cv.isBase ? 'Base' : 'Copia'}

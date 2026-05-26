@@ -89,7 +89,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {!isPremium && (
           <div className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-[12px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm">
             <div className="flex items-start gap-4">
-              <div className="p-3.5 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/70 dark:text-slate-350 border border-[#1e1b4b]/5 dark:border-white/5">
+              <div className="p-3.5 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/70 dark:text-slate-300 border border-[#1e1b4b]/5 dark:border-white/5">
                 <CreditCard className="w-6 h-6 stroke-[1.75]" />
               </div>
               <div>

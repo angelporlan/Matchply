@@ -107,7 +107,7 @@ export default function PdfViewer({ cvId, version }: PdfViewerProps) {
           </div>
 
           {/* Page number */}
-          <div className="text-[10px] font-bold text-slate-350 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl shadow-sm font-mono">
+          <div className="text-[10px] font-bold text-slate-300 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl shadow-sm font-mono">
             Pág. 1 de 1
           </div>
 

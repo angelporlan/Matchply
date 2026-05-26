@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sparkles, Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
 interface SidebarProps {
@@ -53,6 +54,16 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
       return pathname === '/dashboard';
     }
     return pathname.startsWith(href);
+  };
+
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await signOut({ callbackUrl: '/' });
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
   };
 
   return (
@@ -159,13 +170,37 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
             )}
           </div>
 
-          <Link
-            href="/logout"
-            className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-450 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
-          >
-            <LogOut className="w-3.5 h-3.5 stroke-[1.75]" />
-            <span>Cerrar Sesión</span>
-          </Link>
+          <div className="relative">
+            {showConfirm && (
+              <div className="absolute bottom-full left-0 right-0 mb-3 p-4 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] shadow-xl z-50 animate-fadeIn backdrop-blur-md text-center">
+                <p className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-2.5 font-display">
+                  ¿Estás seguro de cerrar sesión?
+                </p>
+                <div className="flex items-center gap-2 font-display">
+                  <button
+                    onClick={handleLogout}
+                    className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-1.5 px-3 rounded-[8px] text-[10px] transition-all flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    Sí, salir
+                  </button>
+                  <button
+                    onClick={() => setShowConfirm(false)}
+                    className="flex-1 bg-[#fafafa] dark:bg-[#0b0f19] hover:bg-[#fafafa]/80 text-[#1e1b4b]/60 dark:text-slate-400 border border-[#1e1b4b]/10 dark:border-white/10 font-bold py-1.5 px-3 rounded-[8px] text-[10px] transition-all flex items-center justify-center"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[#1e1b4b]/60 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-450 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+            >
+              <LogOut className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       </aside>
     </>

@@ -439,7 +439,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       {/* Panel del Editor y Visor en Split Screen */}
       <div 
         ref={containerRef}
-        className={`flex-1 flex flex-col lg:flex-row p-6 overflow-hidden h-[calc(100vh-165px)] ${isResizing ? 'select-none' : ''}`}
+        className={`flex-1 min-h-0 flex flex-col lg:flex-row p-6 overflow-y-auto lg:overflow-hidden editor-scrollbar ${isResizing ? 'select-none' : ''}`}
       >
         <div 
           style={{ width: isLg ? `${leftWidth}%` : '100%' }}
@@ -754,7 +754,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           <span className="text-slate-700">|</span>
           <span className="font-semibold text-white">**Negrita**</span>
           <span className="text-slate-700">|</span>
-          <span className="italic text-slate-350">*Cursiva*</span>
+          <span className="italic text-slate-300">*Cursiva*</span>
           <span className="text-slate-700">|</span>
           <span className="font-semibold text-sky-400">- Listas</span>
         </div>

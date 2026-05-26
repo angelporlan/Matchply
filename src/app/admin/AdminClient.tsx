@@ -883,7 +883,7 @@ export default function AdminClient({
                         </button>
                         <button
                           onClick={() => openEditPromptModal(prompt)}
-                          className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 text-[#1e1b4b]/80 dark:text-slate-355 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 transition-colors"
+                          className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 text-[#1e1b4b]/80 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 transition-colors"
                           title="Editar"
                         >
                           <Edit className="w-3.5 h-3.5 stroke-[1.75]" />
