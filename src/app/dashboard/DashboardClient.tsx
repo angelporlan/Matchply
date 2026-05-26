@@ -417,7 +417,11 @@ export default function DashboardClient({
                 </button>
               </div>
             </div>
-         {/* Cajón Lateral / Modal de Optimización por IA */}
+          ))}
+        </div>
+      )}
+
+      {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
           <div className="w-full max-w-2xl bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
