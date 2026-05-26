@@ -17,10 +17,10 @@ export default async function AdminPage() {
 
   if (!statsRes.success || !aiConfigRes.success) {
     return (
-      <div className="min-h-screen bg-[#030712] text-white flex flex-col items-center justify-center p-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md text-center">
-          <h2 className="text-xl font-bold text-rose-400 mb-2">Error de Carga</h2>
-          <p className="text-slate-400 text-xs font-light">
+      <div className="min-h-screen bg-[#FAFAFA] text-[#1E1B4B] flex flex-col items-center justify-center p-6 font-sans">
+        <div className="bg-white border border-[#1E1B4B]/10 rounded-[12px] p-8 max-w-md text-center shadow-sm">
+          <h2 className="text-xl font-bold font-display text-rose-500 mb-2">Error de Carga</h2>
+          <p className="text-[#1E1B4B]/60 text-sm font-light">
             No se han podido cargar los datos de administración de la base de datos.
           </p>
         </div>

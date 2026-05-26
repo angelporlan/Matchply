@@ -7,6 +7,7 @@ node_modules
 /coverage
 /notes.md
 /desing_notes.md
+/IMPLEMENTATION_PLAN.md
 
 # Next.js build output
 /.next/
