@@ -33,7 +33,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-[8px] bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 text-[#1E1B4B]/70 dark:text-slate-300 hover:text-[#1E1B4B] dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+      className="p-2 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
       aria-label="Toggle dark mode"
       title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
     >

@@ -82,21 +82,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background blur */}
-      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
         {!isPremium && (
-          <div className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-[12px] bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/5 shadow-sm">
+          <div className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-[12px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm">
             <div className="flex items-start gap-4">
-              <div className="p-3.5 rounded-[8px] bg-[#FAFAFA] dark:bg-[#0B0F19] text-[#1E1B4B]/70 dark:text-slate-350 border border-[#1E1B4B]/5 dark:border-white/5">
+              <div className="p-3.5 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/70 dark:text-slate-350 border border-[#1e1b4b]/5 dark:border-white/5">
                 <CreditCard className="w-6 h-6 stroke-[1.75]" />
               </div>
               <div>
-                <h2 className="text-xl font-bold font-display text-[#1E1B4B] dark:text-white flex items-center gap-2">
+                <h2 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white flex items-center gap-2">
                   Hola, {session.user.name || 'Candidato'}
                 </h2>
-                <p className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
+                <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
                   Estás en el Plan Gratuito. El motor de IA gratuito usa OpenRouter. Desbloquea plantillas profesionales e integraciones de IA avanzadas actualizando tu cuenta.
                 </p>
               </div>
@@ -114,19 +114,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {/* Panel de Estadísticas Rápidas */}
         {isPremium && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 animate-fadeIn">
-            <div className="bg-white dark:bg-[#1F2937] p-6 rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+            <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs font-medium font-sans">Postulaciones Activas</span>
-                <h3 className="text-3xl font-bold font-display text-[#1E1B4B] dark:text-white mt-1">{totalOffers}</h3>
+                <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium font-sans">Postulaciones Activas</span>
+                <h3 className="text-3xl font-bold font-display text-[#1e1b4b] dark:text-white mt-1">{totalOffers}</h3>
               </div>
-              <div className="p-3 bg-[#8B5CF6]/10 text-[#8B5CF6] rounded-xl border border-[#8B5CF6]/10">
+              <div className="p-3 bg-[#8b5cf6]/10 text-[#8b5cf6] rounded-xl border border-[#8b5cf6]/10">
                 <FileText className="w-5 h-5 stroke-[1.75]" />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1F2937] p-6 rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+            <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs font-medium font-sans">En Proceso de Entrevista</span>
+                <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium font-sans">En Proceso de Entrevista</span>
                 <h3 className="text-3xl font-bold font-display text-amber-500 dark:text-amber-400 mt-1">{interviewOffers}</h3>
               </div>
               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/10">
@@ -134,14 +134,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1F2937] p-6 rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+            <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs font-medium font-sans flex items-center gap-1.5">
-                  Ofertas Conseguidas <PartyPopper className="w-3.5 h-3.5 text-[#2ECC71]" />
+                <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium font-sans flex items-center gap-1.5">
+                  Ofertas Conseguidas <PartyPopper className="w-3.5 h-3.5 text-[#2ecc71]" />
                 </span>
-                <h3 className="text-3xl font-bold font-display text-[#2ECC71] mt-1">{successfulOffers}</h3>
+                <h3 className="text-3xl font-bold font-display text-[#2ecc71] mt-1">{successfulOffers}</h3>
               </div>
-              <div className="p-3 bg-[#2ECC71]/10 text-[#2ECC71] rounded-xl border border-[#2ECC71]/10">
+              <div className="p-3 bg-[#2ecc71]/10 text-[#2ecc71] rounded-xl border border-[#2ecc71]/10">
                 <CheckCircle2 className="w-5 h-5 stroke-[1.75]" />
               </div>
             </div>

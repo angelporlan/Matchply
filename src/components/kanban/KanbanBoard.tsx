@@ -151,11 +151,11 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       {/* Cabecera del Tablero */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
-          <h2 className="text-2xl font-bold text-[#1E1B4B] dark:text-white tracking-tight flex items-center gap-2 font-display">
-            <Briefcase className="w-6 h-6 text-[#8B5CF6] dark:text-violet-400 stroke-[1.75]" />
+          <h2 className="text-2xl font-bold text-[#1e1b4b] dark:text-white tracking-tight flex items-center gap-2 font-display">
+            <Briefcase className="w-6 h-6 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
             Embudo de Candidaturas
           </h2>
-          <p className="text-[#1E1B4B]/60 dark:text-slate-400 text-sm mt-1 font-sans">
+          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm mt-1 font-sans">
             Gestiona tus ofertas por etapa y encuentra rápido la candidatura que necesitas.
           </p>
         </div>
@@ -163,7 +163,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto font-display">
           <button
             onClick={() => setIsBacklogOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/5 hover:border-amber-500/30 text-[#1E1B4B]/70 dark:text-slate-300 hover:text-[#1E1B4B] dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-amber-500/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
           >
             <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
             Backlog archivadas
@@ -174,7 +174,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-[#1E1B4B] hover:bg-[#1E1B4B]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0B0F19] font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
           >
             <Plus className="w-4 h-4 stroke-[1.75]" />
             Nueva Candidatura
@@ -183,39 +183,39 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 font-display">
-        <div className="rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 bg-white dark:bg-[#1F2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1E1B4B]/40 dark:text-slate-500 font-bold">Activas</p>
-          <p className="text-xl font-bold text-[#1E1B4B] dark:text-white mt-1">{boardOffers.length}</p>
+        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Activas</p>
+          <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{boardOffers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 bg-white dark:bg-[#1F2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1E1B4B]/40 dark:text-slate-500 font-bold">Archivadas</p>
+        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Archivadas</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{archivedOffers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 bg-white dark:bg-[#1F2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1E1B4B]/40 dark:text-slate-500 font-bold">Con CV</p>
-          <p className="text-xl font-bold text-[#2ECC71] mt-1">{linkedOffers}</p>
+        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Con CV</p>
+          <p className="text-xl font-bold text-[#2ecc71] mt-1">{linkedOffers}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 bg-white dark:bg-[#1F2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1E1B4B]/40 dark:text-slate-500 font-bold">Mostrando</p>
-          <p className="text-xl font-bold text-[#1E1B4B] dark:text-white mt-1">{filteredOffers.length}</p>
+        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Mostrando</p>
+          <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{filteredOffers.length}</p>
         </div>
       </div>
 
       <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between mb-5">
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1E1B4B]/40 dark:text-slate-500 stroke-[1.75]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Buscar por puesto, empresa o plataforma"
-            className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all font-sans"
+            className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1E1B4B]/40 dark:text-slate-500 hover:text-[#1E1B4B] dark:hover:text-white hover:bg-[#FAFAFA] dark:hover:bg-[#1F2937] transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#1f2937] transition-colors"
               aria-label="Limpiar búsqueda"
               title="Limpiar búsqueda"
             >
@@ -225,8 +225,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          <div className="flex items-center gap-1 rounded-[8px] border border-[#1E1B4B]/10 dark:border-white/10 bg-white dark:bg-[#1F2937] p-1 shadow-sm font-display">
-            <SlidersHorizontal className="w-4 h-4 text-[#1E1B4B]/40 dark:text-slate-500 ml-2 hidden sm:block stroke-[1.75]" />
+          <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
+            <SlidersHorizontal className="w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 ml-2 hidden sm:block stroke-[1.75]" />
             {[
               { value: 'all', label: 'Todas' },
               { value: 'linked', label: 'Con CV' },
@@ -238,8 +238,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 onClick={() => setCvFilter(filter.value as 'all' | 'linked' | 'unlinked')}
                 className={`px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                   cvFilter === filter.value
-                    ? 'bg-[#1E1B4B] dark:bg-white text-white dark:text-[#0B0F19] shadow-sm'
-                    : 'text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white'
+                    ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
+                    : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
                 }`}
               >
                 {filter.label}
@@ -247,14 +247,14 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             ))}
           </div>
 
-          <div className="flex items-center gap-1 rounded-[8px] border border-[#1E1B4B]/10 dark:border-white/10 bg-white dark:bg-[#1F2937] p-1 shadow-sm font-display">
+          <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
             <button
               type="button"
               onClick={() => setViewMode('compact')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                 viewMode === 'compact'
-                  ? 'bg-[#1E1B4B] dark:bg-white text-white dark:text-[#0B0F19] shadow-sm'
-                  : 'text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white'
+                  ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
+                  : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
               }`}
             >
               <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -265,8 +265,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               onClick={() => setViewMode('comfortable')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                 viewMode === 'comfortable'
-                  ? 'bg-[#1E1B4B] dark:bg-white text-white dark:text-[#0B0F19] shadow-sm'
-                  : 'text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white'
+                  ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
+                  : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
               }`}
             >
               <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -287,29 +287,29 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               <div
                 key={column.id}
                 aria-label={`Columna ${column.title}`}
-                className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-white dark:bg-[#1F2937] rounded-[12px] border ${column.borderColor} relative overflow-hidden shadow-sm hover:shadow-md transition-all`}
+                className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-white dark:bg-[#1f2937] rounded-[12px] border ${column.borderColor} relative overflow-hidden shadow-sm hover:shadow-md transition-all`}
               >
                 {/* Cabecera de la columna */}
-                <div className="shrink-0 p-3.5 pb-3 border-b border-[#1E1B4B]/10 dark:border-white/5 bg-[#FAFAFA] dark:bg-[#0B0F19]/45">
+                <div className="shrink-0 p-3.5 pb-3 border-b border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/45">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 ${column.color}`}>
                         {renderColumnIcon(column.id)}
                         {column.shortTitle}
                       </span>
-                      <p className="text-[11px] text-[#1E1B4B]/50 dark:text-slate-400 mt-2 truncate font-sans">{column.description}</p>
+                      <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 mt-2 truncate font-sans">{column.description}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 font-display">
-                      <span className="text-sm font-bold text-[#1E1B4B] dark:text-white bg-white dark:bg-[#0B0F19] px-2.5 py-1 rounded-[8px] border border-[#1E1B4B]/10 dark:border-white/10 shadow-sm">
+                      <span className="text-sm font-bold text-[#1e1b4b] dark:text-white bg-white dark:bg-[#0b0f19] px-2.5 py-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 shadow-sm">
                         {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
                       </span>
-                      <span className="text-[10px] font-medium text-[#1E1B4B]/40 dark:text-slate-500">
+                      <span className="text-[10px] font-medium text-[#1e1b4b]/40 dark:text-slate-500">
                         ofertas
                       </span>
                     </div>
                   </div>
                   {rawColumnOffers.length > 0 && (
-                    <div className="mt-3 h-1.5 rounded-full bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 overflow-hidden">
+                    <div className="mt-3 h-1.5 rounded-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${column.color.split(' ')[1]}`}
                         style={{
@@ -324,15 +324,15 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 {/* Lista de tarjetas */}
                 <div className={`flex-1 overflow-y-auto scrollbar-custom p-3 pr-2 ${viewMode === 'compact' ? 'space-y-2.5' : 'space-y-4'}`}>
                   {columnOffers.length === 0 ? (
-                    <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] p-6 text-center text-[#1E1B4B]/40 dark:text-slate-500">
+                    <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 text-center text-[#1e1b4b]/40 dark:text-slate-500">
                       {hasActiveFilters ? (
                         <>
-                          <Search className="w-6 h-6 mb-2 text-[#1E1B4B]/30 dark:text-slate-600 opacity-70 stroke-[1.75]" />
+                          <Search className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-70 stroke-[1.75]" />
                           <p className="text-[11px] font-bold uppercase tracking-wider font-display">Sin resultados</p>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-6 h-6 mb-2 text-[#1E1B4B]/30 dark:text-slate-600 opacity-60 stroke-[1.75]" />
+                          <CheckCircle2 className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-60 stroke-[1.75]" />
                           <p className="text-[11px] font-bold uppercase tracking-wider font-display">Vacío</p>
                         </>
                       )}
@@ -350,8 +350,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                   )}
                 </div>
 
-                <div className="shrink-0 border-t border-[#1E1B4B]/10 dark:border-white/5 bg-[#FAFAFA] dark:bg-[#0B0F19]/45 px-3.5 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[10px] text-[#1E1B4B]/40 dark:text-slate-500 font-sans">
+                <div className="shrink-0 border-t border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/45 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-sans">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <ListChecks className="w-3.5 h-3.5 shrink-0 stroke-[1.75]" />
                       <span className="truncate">{columnOffers.length} visibles</span>
@@ -371,21 +371,21 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       {/* Backlog de candidaturas archivadas */}
       {isBacklogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="relative w-full max-w-4xl max-h-[88vh] bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] shadow-2xl overflow-hidden flex flex-col">
-            <div className="shrink-0 p-5 md:p-6 border-b border-[#1E1B4B]/10 dark:border-white/5 bg-[#FAFAFA] dark:bg-[#0B0F19]/35">
+          <div className="relative w-full max-w-4xl max-h-[88vh] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] shadow-2xl overflow-hidden flex flex-col">
+            <div className="shrink-0 p-5 md:p-6 border-b border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/35">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-bold text-[#1E1B4B] dark:text-white flex items-center gap-2 font-display">
+                  <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
                     <Archive className="w-5 h-5 text-amber-500 stroke-[1.75]" />
                     Backlog de Archivadas
                   </h3>
-                  <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-1 font-sans">
+                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
                     Revisa candidaturas retiradas del tablero activo y rescátalas cuando vuelvan a interesarte.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsBacklogOpen(false)}
-                  className="text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white p-2 rounded-[8px] hover:bg-[#FAFAFA] dark:hover:bg-[#0B0F19]/45 transition-all"
+                  className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all"
                   aria-label="Cerrar backlog"
                   title="Cerrar backlog"
                 >
@@ -394,19 +394,19 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               </div>
 
               <div className="relative mt-5">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1E1B4B]/40 dark:text-slate-500 stroke-[1.75]" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
                 <input
                   type="search"
                   value={backlogSearchQuery}
                   onChange={(event) => setBacklogSearchQuery(event.target.value)}
                   placeholder="Buscar archivadas por puesto, empresa o plataforma"
-                  className="w-full bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all font-sans"
+                  className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all font-sans"
                 />
                 {backlogSearchQuery && (
                   <button
                     type="button"
                     onClick={() => setBacklogSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1E1B4B]/40 dark:text-slate-500 hover:text-[#1E1B4B] dark:hover:text-white hover:bg-[#FAFAFA] dark:hover:bg-[#0B0F19]/45 transition-colors"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-colors"
                     aria-label="Limpiar búsqueda de archivadas"
                     title="Limpiar búsqueda"
                   >
@@ -418,23 +418,23 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
 
             <div className="flex-1 overflow-y-auto scrollbar-custom p-4 md:p-6">
               {archivedOffers.length === 0 ? (
-                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] text-[#1E1B4B]/40 dark:text-slate-500">
-                  <Inbox className="w-8 h-8 mb-3 text-[#1E1B4B]/30 dark:text-slate-600 stroke-[1.75]" />
-                  <p className="text-sm font-bold text-[#1E1B4B] dark:text-white font-display">No hay postulaciones archivadas</p>
-                  <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-1 font-sans">Cuando archives una candidatura, aparecerá aquí.</p>
+                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] text-[#1e1b4b]/40 dark:text-slate-500">
+                  <Inbox className="w-8 h-8 mb-3 text-[#1e1b4b]/30 dark:text-slate-600 stroke-[1.75]" />
+                  <p className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">No hay postulaciones archivadas</p>
+                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">Cuando archives una candidatura, aparecerá aquí.</p>
                 </div>
               ) : filteredArchivedOffers.length === 0 ? (
-                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] text-[#1E1B4B]/40 dark:text-slate-500">
-                  <Search className="w-8 h-8 mb-3 text-[#1E1B4B]/30 dark:text-slate-600 stroke-[1.75]" />
-                  <p className="text-sm font-bold text-[#1E1B4B] dark:text-white font-display">Sin resultados</p>
-                  <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-1 font-sans">Prueba con otro puesto, empresa o plataforma.</p>
+                <div className="min-h-[320px] flex flex-col items-center justify-center text-center border-2 border-dashed border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] text-[#1e1b4b]/40 dark:text-slate-500">
+                  <Search className="w-8 h-8 mb-3 text-[#1e1b4b]/30 dark:text-slate-600 stroke-[1.75]" />
+                  <p className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">Sin resultados</p>
+                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">Prueba con otro puesto, empresa o plataforma.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {filteredArchivedOffers.map((offer) => (
                     <div
                       key={offer.id}
-                      className="rounded-[12px] border border-[#1E1B4B]/10 dark:border-white/5 bg-[#FAFAFA] dark:bg-[#0B0F19]/45 p-4 hover:border-[#1E1B4B]/20 dark:hover:border-white/10 shadow-sm hover:shadow-md transition-all"
+                      className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/45 p-4 hover:border-[#1e1b4b]/20 dark:hover:border-white/10 shadow-sm hover:shadow-md transition-all"
                     >
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div className="min-w-0">
@@ -442,23 +442,23 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                             <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20">
                               Archivada
                             </span>
-                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#1E1B4B]/5 dark:bg-white/5 text-[#1E1B4B]/70 dark:text-slate-350 border-[#1E1B4B]/10 dark:border-white/10">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-350 border-[#1e1b4b]/10 dark:border-white/10">
                               Antes: {getOriginalStatusLabel(offer.status)}
                             </span>
-                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#FAFAFA] dark:bg-[#0B0F19] text-[#1E1B4B]/50 dark:text-slate-400 border border-[#1E1B4B]/10 dark:border-white/10">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/50 dark:text-slate-400 border border-[#1e1b4b]/10 dark:border-white/10">
                               {offer.platform}
                             </span>
                           </div>
-                          <h4 className="font-bold text-[#1E1B4B] dark:text-white text-sm leading-snug truncate font-display">{offer.title}</h4>
-                          <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-0.5 truncate font-sans">{offer.company}</p>
-                          <p className="text-[10px] text-[#1E1B4B]/50 dark:text-slate-500 mt-2 font-sans">Archivada: {formatDate(offer.updatedAt)}</p>
+                          <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm leading-snug truncate font-display">{offer.title}</h4>
+                          <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-0.5 truncate font-sans">{offer.company}</p>
+                          <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 mt-2 font-sans">Archivada: {formatDate(offer.updatedAt)}</p>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 font-display">
                           <button
                             type="button"
                             onClick={() => setSelectedOfferForDetails(offer)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 text-[#1E1B4B]/75 dark:text-slate-300 hover:text-[#1E1B4B] dark:hover:text-white text-xs font-bold transition-all shadow-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/75 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white text-xs font-bold transition-all shadow-sm"
                           >
                             <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
                             Ver
@@ -467,7 +467,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                             type="button"
                             disabled={restoringOfferId === offer.id}
                             onClick={() => handleRestoreArchivedOffer(offer.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-[#2ECC71]/10 border border-[#2ECC71]/20 hover:border-[#2ECC71]/40 text-[#2ECC71] hover:text-[#2ECC71]/90 text-xs font-bold transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-[#2ecc71]/10 border border-[#2ecc71]/20 hover:border-[#2ecc71]/40 text-[#2ecc71] hover:text-[#2ecc71]/90 text-xs font-bold transition-all disabled:opacity-50"
                           >
                             <RotateCcw className={`w-3.5 h-3.5 ${restoringOfferId === offer.id ? 'animate-spin' : ''} stroke-[1.75]`} />
                             Rescatar
@@ -486,25 +486,25 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="relative w-full max-w-lg bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-lg bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl overflow-hidden">
             
             {/* Adornos visuales */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1E1B4B] dark:text-white flex items-center gap-2 font-display">
-                  <Briefcase className="w-5 h-5 text-[#8B5CF6] dark:text-violet-400 stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
+                  <Briefcase className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
                   Agregar Candidatura
                 </h3>
-                <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-1 font-sans">
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
                   Registra los datos de la oferta. Luego podrás optimizar tu CV para este puesto.
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#FAFAFA] dark:hover:bg-[#0B0F19]/45 transition-all"
+                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all"
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
               </button>
@@ -519,8 +519,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <FileText className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                    <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                     Puesto *
                   </label>
                   <input
@@ -530,13 +530,13 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     value={formData.title}
                     onChange={handleInputChange}
                     placeholder="Ej. Senior React Developer"
-                    className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all font-sans"
+                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <Building2 className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                    <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                     Empresa *
                   </label>
                   <input
@@ -546,15 +546,15 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     value={formData.company}
                     onChange={handleInputChange}
                     placeholder="Ej. Stripe"
-                    className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all font-sans"
+                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <Link className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                    <Link className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                     Enlace de la Oferta
                   </label>
                   <input
@@ -563,17 +563,17 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     value={formData.url}
                     onChange={handleInputChange}
                     placeholder="https://..."
-                    className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all font-sans"
+                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 font-display">Plataforma</label>
+                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">Plataforma</label>
                   <select
                     name="platform"
                     value={formData.platform}
                     onChange={handleInputChange}
-                    className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all cursor-pointer font-sans"
+                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
                   >
                     <option value="linkedin">LinkedIn</option>
                     <option value="infojobs">InfoJobs</option>
@@ -584,7 +584,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 font-display">
+                <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">
                   Descripción / Requisitos de la Oferta (Opcional)
                 </label>
                 <textarea
@@ -593,22 +593,22 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                   onChange={handleInputChange}
                   rows={4}
                   placeholder="Pega aquí la descripción del puesto. El motor de IA comparará esta descripción con tu CV para optimizarlo y adaptarlo a la oferta."
-                  className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all resize-none font-sans"
+                  className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[#1E1B4B]/10 dark:border-white/5 font-display">
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 font-display">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-semibold text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white transition-colors"
+                  className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#1E1B4B] hover:bg-[#1E1B4B]/90 dark:bg-white dark:hover:bg-slate-100 dark:text-[#0B0F19] rounded-[8px] transition-all disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 dark:text-[#0b0f19] rounded-[8px] transition-all disabled:opacity-50"
                 >
                   {loading ? (
                     <>

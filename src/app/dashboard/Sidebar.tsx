@@ -58,20 +58,20 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
   return (
     <>
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between h-16 px-4 bg-white dark:bg-[#0B0F19] border-b border-[#1E1B4B]/10 dark:border-white/10 w-full sticky top-0 z-40 transition-colors duration-300">
+      <div className="md:hidden flex items-center justify-between h-16 px-4 bg-white dark:bg-[#0b0f19] border-b border-[#1e1b4b]/10 dark:border-white/10 w-full sticky top-0 z-40 transition-colors duration-300">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="bg-gradient-to-tr from-[#8B5CF6] to-[#1E1B4B] p-1.5 rounded-lg text-white">
+          <div className="bg-gradient-to-tr from-[#8b5cf6] to-[#1e1b4b] p-1.5 rounded-lg text-white">
             <Sparkles className="w-4 h-4 stroke-[1.75]" />
           </div>
-          <span className="font-display font-bold text-base tracking-tight text-[#1E1B4B] dark:text-white">
-            NextProf <span className="text-[#8B5CF6]">AI</span>
+          <span className="font-display font-bold text-base tracking-tight text-[#1e1b4b] dark:text-white">
+            NextProf <span className="text-[#8b5cf6]">AI</span>
           </span>
         </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-[8px] border border-[#1E1B4B]/10 dark:border-white/10 text-[#1E1B4B]/70 dark:text-slate-300"
+            className="p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300"
             aria-label="Toggle Menu"
           >
             {isOpen ? <X className="w-5 h-5 stroke-[1.75]" /> : <Menu className="w-5 h-5 stroke-[1.75]" />}
@@ -82,14 +82,14 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
       {/* Sidebar Velo overlay on mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-[#1E1B4B]/40 dark:bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-[#1e1b4b]/40 dark:bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
           onClick={toggleSidebar}
         />
       )}
 
       {/* Sidebar Panel */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-[#0B0F19] border-r border-[#1E1B4B]/10 dark:border-white/10 z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-[#0b0f19] border-r border-[#1e1b4b]/10 dark:border-white/10 z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } flex flex-col justify-between p-6 select-none`}
       >
@@ -97,11 +97,11 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
           {/* Logo */}
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="bg-gradient-to-tr from-[#8B5CF6] to-[#1E1B4B] p-2 rounded-xl text-white shadow-sm transition-all duration-300 hover:scale-105 group/logo">
+              <div className="bg-gradient-to-tr from-[#8b5cf6] to-[#1e1b4b] p-2 rounded-xl text-white shadow-sm transition-all duration-300 hover:scale-105 group/logo">
                 <Sparkles className="w-5 h-5 stroke-[1.75]" />
               </div>
-              <span className="font-display font-bold text-lg tracking-tight text-[#1E1B4B] dark:text-white">
-                NextProf <span className="text-[#8B5CF6]">AI</span>
+              <span className="font-display font-bold text-lg tracking-tight text-[#1e1b4b] dark:text-white">
+                NextProf <span className="text-[#8b5cf6]">AI</span>
               </span>
             </Link>
             <div className="hidden md:block">
@@ -121,8 +121,8 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-all ${
                     active
-                      ? 'bg-[#1E1B4B] text-white shadow-sm'
-                      : 'text-[#1E1B4B]/70 dark:text-slate-300 hover:text-[#1E1B4B] dark:hover:text-white hover:bg-[#FAFAFA] dark:hover:bg-[#1F2937]/50'
+                      ? 'bg-[#1e1b4b] text-white shadow-sm'
+                      : 'text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/50'
                   }`}
                 >
                   <Icon
@@ -131,7 +131,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
                         ? 'text-white'
                         : item.premiumIcon
                         ? 'text-amber-500'
-                        : 'text-[#1E1B4B]/50 dark:text-slate-400'
+                        : 'text-[#1e1b4b]/50 dark:text-slate-400'
                     }`}
                   />
                   <span>{item.name}</span>
@@ -142,13 +142,13 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
         </div>
 
         {/* User profile & logout */}
-        <div className="pt-4 border-t border-[#1E1B4B]/10 dark:border-white/10 space-y-4">
+        <div className="pt-4 border-t border-[#1e1b4b]/10 dark:border-white/10 space-y-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-[#1E1B4B] dark:text-white truncate">
+              <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate">
                 {user.name || 'Candidato'}
               </span>
-              <span className="block text-[11px] text-[#1E1B4B]/50 dark:text-slate-400 truncate">
+              <span className="block text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 truncate">
                 {user.email}
               </span>
             </div>
@@ -161,7 +161,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
 
           <Link
             href="/logout"
-            className="flex items-center justify-center gap-2 w-full bg-[#FAFAFA] dark:bg-[#1F2937]/30 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[#1E1B4B]/60 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-450 border border-[#1E1B4B]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-450 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Cerrar Sesión</span>

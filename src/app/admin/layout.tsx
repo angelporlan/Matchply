@@ -34,7 +34,7 @@ export default async function AdminLayout({
   const isPremium = isProSubscription(subscriptionStatus);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#0B0F19] flex flex-col md:flex-row transition-colors duration-300 text-[#1E1B4B] dark:text-[#F3F4F6] font-sans">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col md:flex-row transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
       <Sidebar user={{ name: session.user.name, email: session.user.email, role: dbUser?.role }} isPremium={isPremium} />
       <div className="flex-1 min-h-screen relative overflow-y-auto">
         {children}

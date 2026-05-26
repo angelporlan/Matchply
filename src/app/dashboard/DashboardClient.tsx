@@ -260,16 +260,16 @@ export default function DashboardClient({
       {/* Cabecera Tus Currículums */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="text-lg font-bold text-[#1E1B4B] dark:text-white flex items-center gap-2 font-display">
+          <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
             Tus Currículums
             {principalCv && (
-              <span className="text-[10px] py-0.5 px-2 bg-[#8B5CF6]/10 text-[#8B5CF6] dark:text-violet-400 border border-[#8B5CF6]/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
-                <Star className="w-2.5 h-2.5 fill-[#8B5CF6]" />
+              <span className="text-[10px] py-0.5 px-2 bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 border border-[#8b5cf6]/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
+                <Star className="w-2.5 h-2.5 fill-[#8b5cf6]" />
                 Principal: {principalCv.title}
               </span>
             )}
           </h3>
-          <p className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs font-light font-sans">Crea tu currículum base, marca tu principal o genera copias optimizadas.</p>
+          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light font-sans">Crea tu currículum base, marca tu principal o genera copias optimizadas.</p>
         </div>
 
         {/* Acciones principales */}
@@ -282,13 +282,13 @@ export default function DashboardClient({
               value={newCvTitle}
               onChange={(e) => setNewCvTitle(e.target.value)}
               placeholder="Nombre del nuevo CV..."
-              className="bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-4 py-2 text-xs text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all w-full sm:w-44"
+              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-4 py-2 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all w-full sm:w-44"
               disabled={createLoading}
             />
             <button
               type="submit"
               disabled={createLoading}
-              className="bg-[#1E1B4B] hover:bg-[#1E1B4B]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0B0F19] font-bold px-4 py-2 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
+              className="bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-bold px-4 py-2 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
             >
               {createLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -300,20 +300,20 @@ export default function DashboardClient({
           </form>
 
           {/* Separador */}
-          <div className="hidden sm:block h-6 w-[1px] bg-[#1E1B4B]/10 dark:bg-white/10 mx-1" />
+          <div className="hidden sm:block h-6 w-[1px] bg-[#1e1b4b]/10 dark:bg-white/10 mx-1" />
 
           {/* Botón premium de Generar con IA */}
           <button
             onClick={handleAiButtonClick}
             className={`font-bold px-4 py-2.5 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm font-display hover:-translate-y-0.5 ${principalCv
-                ? 'bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white border border-[#8B5CF6]/20'
-                : 'bg-white dark:bg-[#1F2937] text-[#1E1B4B]/40 dark:text-slate-500 border border-[#1E1B4B]/10 dark:border-white/5 cursor-not-allowed'
+                ? 'bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white border border-[#8b5cf6]/20'
+                : 'bg-white dark:bg-[#1f2937] text-[#1e1b4b]/40 dark:text-slate-500 border border-[#1e1b4b]/10 dark:border-white/5 cursor-not-allowed'
               }`}
           >
             {principalCv ? (
               <Sparkles className="w-4 h-4 text-purple-200 animate-pulse stroke-[1.75]" />
             ) : (
-              <Lock className="w-3.5 h-3.5 text-[#1E1B4B]/40 dark:text-slate-500 stroke-[1.75]" />
+              <Lock className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
             )}
             <span>Generar con IA</span>
           </button>
@@ -321,12 +321,12 @@ export default function DashboardClient({
       </div>
 
       {userCvs.length === 0 ? (
-        <div className="bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/5 border-dashed rounded-[12px] p-12 text-center shadow-sm">
-          <div className="bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 p-4 rounded-full text-[#1E1B4B]/50 dark:text-slate-400 w-fit mx-auto mb-4">
+        <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 border-dashed rounded-[12px] p-12 text-center shadow-sm">
+          <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-full text-[#1e1b4b]/50 dark:text-slate-400 w-fit mx-auto mb-4">
             <FileText className="w-8 h-8 stroke-[1.75]" />
           </div>
-          <h4 className="text-base font-bold text-[#1E1B4B] dark:text-white mb-1.5 font-display">No tienes ningún currículum todavía</h4>
-          <p className="text-[#1E1B4B]/60 dark:text-slate-400 text-xs font-light max-w-sm mx-auto mb-6 font-sans">
+          <h4 className="text-base font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">No tienes ningún currículum todavía</h4>
+          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light max-w-sm mx-auto mb-6 font-sans">
             Escribe un título en el campo superior derecho y presiona &quot;Crear CV&quot; para generar tu primer borrador en Markdown. ¡Se marcará como principal automáticamente!
           </p>
         </div>
@@ -335,9 +335,9 @@ export default function DashboardClient({
           {userCvs.map((cv) => (
             <div
               key={cv.id}
-              className={`bg-white dark:bg-[#1F2937] p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
-                  ? 'border-[#8B5CF6]/30 dark:border-[#8B5CF6]/40 bg-[#8B5CF6]/2 dark:bg-[#8B5CF6]/2'
-                  : 'border-[#1E1B4B]/10 dark:border-white/5 hover:border-[#1E1B4B]/20 dark:hover:border-white/10'
+              className={`bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
+                  ? 'border-[#8b5cf6]/30 dark:border-[#8b5cf6]/40 bg-[#8b5cf6]/2 dark:bg-[#8b5cf6]/2'
+                  : 'border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10'
                 }`}
             >
               {/* Decorative glowing accent */}
@@ -351,21 +351,21 @@ export default function DashboardClient({
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
-                          ? 'bg-[#1E1B4B]/5 dark:bg-white/5 text-[#1E1B4B]/70 dark:text-slate-350 border-[#1E1B4B]/10 dark:border-white/10'
+                          ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-350 border-[#1e1b4b]/10 dark:border-white/10'
                           : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                         }`}>
                         {cv.isBase ? 'Base' : 'Copia'}
                       </span>
 
                       {cv.isPrincipal && (
-                        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#8B5CF6]/15 text-[#8B5CF6] dark:text-violet-400 border border-[#8B5CF6]/20 flex items-center gap-0.5 animate-pulse">
-                          <Star className="w-2.5 h-2.5 fill-[#8B5CF6] stroke-[1.75]" />
+                        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#8b5cf6]/15 text-[#8b5cf6] dark:text-violet-400 border border-[#8b5cf6]/20 flex items-center gap-0.5 animate-pulse">
+                          <Star className="w-2.5 h-2.5 fill-[#8b5cf6] stroke-[1.75]" />
                           Principal
                         </span>
                       )}
                     </div>
 
-                    <h4 className="font-bold text-[#1E1B4B] dark:text-white text-base leading-snug group-hover:text-[#8B5CF6] dark:group-hover:text-violet-400 transition-colors pt-0.5 font-display">
+                    <h4 className="font-bold text-[#1e1b4b] dark:text-white text-base leading-snug group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors pt-0.5 font-display">
                       {cv.title}
                     </h4>
                   </div>
@@ -374,34 +374,34 @@ export default function DashboardClient({
                   <button
                     onClick={() => !cv.isPrincipal && handleMarkAsPrincipal(cv.id)}
                     className={`p-1.5 rounded-lg border transition-all ${cv.isPrincipal
-                        ? 'bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/20 shadow-sm'
-                        : 'bg-[#FAFAFA] dark:bg-[#0B0F19] text-[#1E1B4B]/40 dark:text-slate-400 border-[#1E1B4B]/10 dark:border-white/10 hover:text-[#8B5CF6] dark:hover:text-violet-400 hover:border-[#8B5CF6]/20 opacity-0 group-hover:opacity-100 transition-opacity'
+                        ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20 shadow-sm'
+                        : 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/40 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10 hover:text-[#8b5cf6] dark:hover:text-violet-400 hover:border-[#8b5cf6]/20 opacity-0 group-hover:opacity-100 transition-opacity'
                       }`}
                     title={cv.isPrincipal ? "CV Principal" : "Establecer como Principal"}
                     disabled={cv.isPrincipal || isPending}
                   >
-                    <Star className={`w-4 h-4 ${cv.isPrincipal ? 'fill-[#8B5CF6] text-[#8B5CF6] stroke-[1.75]' : 'stroke-[1.75]'}`} />
+                    <Star className={`w-4 h-4 ${cv.isPrincipal ? 'fill-[#8b5cf6] text-[#8b5cf6] stroke-[1.75]' : 'stroke-[1.75]'}`} />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-[#1E1B4B]/60 dark:text-slate-400 mb-6 font-sans">
-                  <div className="bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1E1B4B]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-[#1E1B4B]/40 dark:text-slate-500 font-bold uppercase">Plantilla</span>
-                    <span className="text-[#1E1B4B]/80 dark:text-slate-200 font-medium capitalize">{cv.templateName}</span>
+                <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-[#1e1b4b]/60 dark:text-slate-400 mb-6 font-sans">
+                  <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
+                    <span className="block text-[9px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase">Plantilla</span>
+                    <span className="text-[#1e1b4b]/80 dark:text-slate-200 font-medium capitalize">{cv.templateName}</span>
                   </div>
-                  <div className="bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1E1B4B]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-[#1E1B4B]/40 dark:text-slate-500 font-bold uppercase">Creado</span>
-                    <span className="text-[#1E1B4B]/80 dark:text-slate-200 font-medium">
+                  <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
+                    <span className="block text-[9px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase">Creado</span>
+                    <span className="text-[#1e1b4b]/80 dark:text-slate-200 font-medium">
                       {new Date(cv.createdAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#1E1B4B]/10 dark:border-white/5 pt-4 pl-2">
+              <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4 pl-2">
                 <Link
                   href={`/editor/${cv.id}`}
-                  className="text-xs font-semibold text-[#8B5CF6] dark:text-violet-400 hover:text-[#8B5CF6]/85 dark:hover:text-violet-300 flex items-center gap-1.5 group/link"
+                  className="text-xs font-semibold text-[#8b5cf6] dark:text-violet-400 hover:text-[#8b5cf6]/85 dark:hover:text-violet-300 flex items-center gap-1.5 group/link"
                 >
                   Editar CV
                   <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform stroke-[1.75]" />
@@ -409,7 +409,7 @@ export default function DashboardClient({
 
                 <button
                   onClick={() => triggerDelete(cv.id)}
-                  className="text-[#1E1B4B]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-xl transition-all"
+                  className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-xl transition-all"
                   title="Borrar Currículum"
                   disabled={isPending}
                 >
@@ -424,25 +424,25 @@ export default function DashboardClient({
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#1F2937] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
-            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1E1B4B] dark:text-white flex items-center gap-2 font-display">
-                  <Sparkles className="w-5 h-5 text-[#8B5CF6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
+                  <Sparkles className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
                   Optimización Inteligente por IA
                 </h3>
-                <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 mt-1 font-sans">
-                  Generaremos un currículum adaptado a partir de tu currículum principal: <strong className="text-[#8B5CF6] dark:text-violet-400 font-semibold">{principalCv?.title}</strong>.
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
+                  Generaremos un currículum adaptado a partir de tu currículum principal: <strong className="text-[#8b5cf6] dark:text-violet-400 font-semibold">{principalCv?.title}</strong>.
                 </p>
               </div>
               <button
                 onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#FAFAFA] dark:hover:bg-[#0B0F19]/45 transition-all disabled:opacity-50"
+                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all disabled:opacity-50"
                 disabled={aiLoading}
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
@@ -453,13 +453,13 @@ export default function DashboardClient({
               /* Loader Premium en Proceso */
               <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-full border border-[#8B5CF6]/20 flex items-center justify-center bg-[#8B5CF6]/5 shadow-sm">
-                    <RefreshCw className="w-8 h-8 text-[#8B5CF6] animate-spin stroke-[1.75]" />
+                  <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
+                    <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
                   </div>
-                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8B5CF6] animate-ping opacity-30" />
+                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
                 </div>
-                <h4 className="text-sm font-bold text-[#1E1B4B] dark:text-white mb-2 font-display">Construyendo tu currículum adaptado</h4>
-                <p className="text-xs text-[#1E1B4B]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
+                <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">Construyendo tu currículum adaptado</h4>
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
                   {aiStep}
                 </p>
               </div>
@@ -485,8 +485,8 @@ export default function DashboardClient({
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Nombre del Puesto *
                       </label>
                       <input
@@ -495,13 +495,13 @@ export default function DashboardClient({
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder="Ej. Frontend React Engineer"
-                        className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Building2 className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Empresa *
                       </label>
                       <input
@@ -510,15 +510,15 @@ export default function DashboardClient({
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder="Ej. Stripe"
-                        className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <LinkIcon className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <LinkIcon className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Enlace a la Oferta
                       </label>
                       <input
@@ -526,16 +526,16 @@ export default function DashboardClient({
                         value={aiFormData.url}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
                         placeholder="https://..."
-                        className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 font-display">Plataforma</label>
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">Plataforma</label>
                       <select
                         value={aiFormData.platform}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all cursor-pointer font-sans"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
                       >
                         <option value="linkedin">LinkedIn</option>
                         <option value="infojobs">InfoJobs</option>
@@ -546,12 +546,12 @@ export default function DashboardClient({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
                       Modo de Optimización Inteligente
                     </label>
                     {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-[#FAFAFA] dark:bg-[#0B0F19]/40 border border-[#1E1B4B]/10 dark:border-white/5 rounded-[8px] px-4 py-3 text-xs text-[#1E1B4B]/60 dark:text-slate-400 font-sans">
+                      <div className="w-full bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] px-4 py-3 text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
                         Por defecto (Estilo Harvard)
                       </div>
                     ) : (
@@ -569,7 +569,7 @@ export default function DashboardClient({
                             <div
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-[#FAFAFA] dark:bg-[#0B0F19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8B5CF6] ring-2 ring-[#8B5CF6]/20 shadow-lg ${shadowClass}` : 'border-[#1E1B4B]/10 dark:border-white/10 hover:border-[#1E1B4B]/20 dark:hover:border-white/20'}`}
+                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8b5cf6] ring-2 ring-[#8b5cf6]/20 shadow-lg ${shadowClass}` : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'}`}
                             >
                               <div>
                                 {/* Header / Color dot */}
@@ -584,13 +584,13 @@ export default function DashboardClient({
                                 </div>
                                 
                                 {/* Title */}
-                                <h4 className="text-[11px] font-bold text-[#1E1B4B] dark:text-white mb-1 group-hover:text-[#8B5CF6] dark:group-hover:text-violet-400 transition-colors font-display">
+                                <h4 className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors font-display">
                                   {prompt.name}
                                 </h4>
                               </div>
 
                               {/* Description / Summary */}
-                              <p className="text-[9.5px] text-[#1E1B4B]/60 dark:text-slate-400 leading-normal font-light font-sans">
+                              <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
                                 {config.desc}
                               </p>
 
@@ -608,28 +608,28 @@ export default function DashboardClient({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 bg-[#FAFAFA] dark:bg-[#0B0F19]/30 p-4 rounded-[8px] border border-[#1E1B4B]/10 dark:border-white/5">
+                  <div className="flex items-center gap-3 bg-[#fafafa] dark:bg-[#0b0f19]/30 p-4 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/5">
                     <input
                       type="checkbox"
                       id="addToKanban"
                       checked={aiFormData.addToKanban === 'true'}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
-                      className="rounded bg-white dark:bg-[#0B0F19] border-[#1E1B4B]/20 dark:border-white/20 text-[#8B5CF6] focus:ring-[#8B5CF6]/20 w-4 h-4 cursor-pointer accent-[#8B5CF6]"
+                      className="rounded bg-white dark:bg-[#0b0f19] border-[#1e1b4b]/20 dark:border-white/20 text-[#8b5cf6] focus:ring-[#8b5cf6]/20 w-4 h-4 cursor-pointer accent-[#8b5cf6]"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-[#1E1B4B]/80 dark:text-slate-200 cursor-pointer select-none flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label htmlFor="addToKanban" className="text-xs font-bold text-[#1e1b4b]/80 dark:text-slate-200 cursor-pointer select-none flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Registrar automáticamente en el Kanban
                       </label>
-                      <span className="text-[10px] text-[#1E1B4B]/50 dark:text-slate-400 font-light mt-0.5 font-sans">
+                      <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-light mt-0.5 font-sans">
                         Si está activado, creará una nueva candidatura vinculada a esta oferta en tu tablero Kanban.
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#1E1B4B]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <FileText className="w-3.5 h-3.5 text-[#1E1B4B]/50 dark:text-slate-400 stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                      <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                       Descripción / Requisitos de la Oferta *
                     </label>
                     <textarea
@@ -638,7 +638,7 @@ export default function DashboardClient({
                       value={aiFormData.jobDescription}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
                       placeholder="Pega aquí la descripción detallada de la oferta, incluyendo las responsabilidades y habilidades requeridas."
-                      className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1E1B4B] dark:text-white placeholder-[#1E1B4B]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B5CF6] dark:focus:border-[#8B5CF6] transition-all resize-none font-sans"
+                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
                     />
                   </div>
                 </form>
@@ -646,11 +646,11 @@ export default function DashboardClient({
             )}
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-[#1E1B4B]/10 dark:border-white/5 shrink-0 relative z-10 font-display">
+            <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 shrink-0 relative z-10 font-display">
               <button
                 type="button"
                 onClick={() => setIsAiOpen(false)}
-                className="px-4 py-2.5 text-sm font-semibold text-[#1E1B4B]/60 dark:text-slate-400 hover:text-[#1E1B4B] dark:hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors disabled:opacity-50"
                 disabled={aiLoading}
               >
                 Cerrar
@@ -659,7 +659,7 @@ export default function DashboardClient({
                 <button
                   type="submit"
                   onClick={handleAiOptimize}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 rounded-[8px] shadow-sm transition-all"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm transition-all"
                 >
                   <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
                   Iniciar Optimización por IA

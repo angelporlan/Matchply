@@ -42,8 +42,8 @@ export default async function KanbanPage() {
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background blur */}
-      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8B5CF6]/3 dark:bg-[#8B5CF6]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Tablero Kanban */}
