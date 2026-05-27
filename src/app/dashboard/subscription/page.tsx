@@ -230,6 +230,8 @@ export default async function SubscriptionPage() {
 
                 <a
                   href="/api/stripe/portal"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full sm:w-auto bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 text-[#1e1b4b] dark:text-slate-200 font-bold py-2.5 px-5 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <CreditCard className="w-4 h-4 text-[#1e1b4b]/60 dark:text-slate-400 stroke-[1.75]" />
