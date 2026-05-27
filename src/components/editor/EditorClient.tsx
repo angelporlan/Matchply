@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import LinkNext from 'next/link';
 import AlertModal from '../ui/AlertModal';
+import Sidebar from '@/app/dashboard/Sidebar';
 
 const promptConfigs: Record<
   string,
@@ -65,9 +66,14 @@ interface EditorClientProps {
   isPremium: boolean;
   availablePrompts: { id: string; name: string; isActive: boolean }[];
   baseCvContent?: string | null;
+  user: {
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+  };
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent }: EditorClientProps) {
+export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user }: EditorClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pdfVersion, setPdfVersion] = useState(0);
@@ -287,8 +293,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col relative overflow-hidden h-screen transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
-      {/* Background glow effects */}
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col md:flex-row transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
+      <Sidebar user={user} isPremium={isPremium} />
+      <div className="flex-1 h-screen flex flex-col relative overflow-hidden">
+        {/* Background glow effects */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
@@ -771,6 +779,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           )}
         </div>
       </footer>
+      </div>
     </div>
   );
 }

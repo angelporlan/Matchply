@@ -91,12 +91,19 @@ export default async function EditorPage({ params }: EditorPageProps) {
     )
     .orderBy(prompts.name);
 
+  const user = {
+    name: session.user.name,
+    email: session.user.email,
+    role: dbUser?.role,
+  };
+
   return (
     <EditorClient
       cv={cv}
       isPremium={isPremium}
       availablePrompts={availablePrompts || []}
       baseCvContent={baseCvContent}
+      user={user}
     />
   );
 }
