@@ -40,3 +40,6 @@ yarn-error.log*
 # OS metadata
 .DS_Store
 *.pem
+
+# Video promocional
+promo-video/dist/
