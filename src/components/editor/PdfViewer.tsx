@@ -72,42 +72,42 @@ export default function PdfViewer({ cvId, version }: PdfViewerProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0f1423]/75 border border-slate-900 rounded-3xl overflow-hidden shadow-2xl relative">
+    <div className="flex flex-col h-full bg-white dark:bg-[#0f1423]/75 border border-[#1e1b4b]/10 dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
       
-      {/* Header bar (Premium Dark background) */}
-      <div className="flex items-center justify-between px-6 py-4 bg-[#131a2e] border-b border-slate-900 shrink-0">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-6 py-4 bg-[#fafafa] dark:bg-[#131a2e] border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
-            <Eye className="w-4 h-4" />
+          <div className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg">
+            <Eye className="w-4 h-4 stroke-[1.75]" />
           </div>
-          <span className="text-xs font-bold text-slate-200 tracking-wide uppercase">Vista Previa PDF</span>
+          <span className="text-xs font-bold text-[#1e1b4b] dark:text-slate-200 tracking-wide uppercase font-display">Vista Previa PDF</span>
         </div>
 
         {/* Grouped controls: Zoom, Page Number, and Download Button */}
         <div className="flex items-center gap-3">
           {/* Zoom controls */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5 shadow-sm">
+          <div className="flex items-center bg-white dark:bg-slate-900 border border-[#1e1b4b]/10 dark:border-slate-800 rounded-[8px] p-0.5 shadow-sm">
             <button
               onClick={() => setZoom(prev => Math.max(50, prev - 10))}
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-1 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title="Reducir Zoom"
             >
-              <Minus className="w-3.5 h-3.5" />
+              <Minus className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <span className="text-[10px] font-bold text-slate-200 px-2 min-w-[36px] text-center font-mono">
+            <span className="text-[10px] font-bold text-[#1e1b4b] dark:text-slate-200 px-2 min-w-[36px] text-center font-mono">
               {zoom}%
             </span>
             <button
               onClick={() => setZoom(prev => Math.min(150, prev + 10))}
-              className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-1 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title="Aumentar Zoom"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
           </div>
 
           {/* Page number */}
-          <div className="text-[10px] font-bold text-slate-300 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl shadow-sm font-mono">
+          <div className="text-[10px] font-bold text-[#1e1b4b] dark:text-slate-300 bg-white dark:bg-slate-900 border border-[#1e1b4b]/10 dark:border-slate-800 px-3 py-1.5 rounded-[8px] shadow-sm font-mono">
             Pág. 1 de 1
           </div>
 
@@ -116,50 +116,50 @@ export default function PdfViewer({ cvId, version }: PdfViewerProps) {
             href={`/api/pdf?cvId=${cvId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white transition-all shadow-sm shadow-emerald-950/20"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-sm"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Descargar PDF</span>
           </a>
         </div>
       </div>
 
       {/* Iframe Container */}
-      <div className="flex-1 bg-slate-950/20 relative flex items-center justify-center p-4 overflow-hidden">
+      <div className="flex-1 bg-[#fafafa]/50 dark:bg-slate-950/20 relative flex items-center justify-center p-4 overflow-hidden">
         {loading && errorTimeout ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#030712]/90 backdrop-blur-md z-10 gap-4 text-center px-6">
-            <div className="p-3 bg-amber-500/10 text-amber-455 rounded-full border border-amber-500/20">
-              <AlertTriangle className="w-6 h-6 animate-pulse" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 dark:bg-[#030712]/90 backdrop-blur-md z-10 gap-4 text-center px-6 transition-all">
+            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-455 rounded-full border border-amber-500/20 shadow-sm">
+              <AlertTriangle className="w-6 h-6 animate-pulse stroke-[1.75]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white mb-1">La generación está tardando más de lo habitual</h4>
-              <p className="text-slate-450 text-xs font-light max-w-xs leading-relaxed">
+              <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-1 font-display">La generación está tardando más de lo habitual</h4>
+              <p className="text-[#1e1b4b]/60 dark:text-slate-450 text-xs font-light max-w-xs leading-relaxed font-sans">
                 El motor de renderizado PDF podría estar procesando cambios complejos.
               </p>
             </div>
-            <div className="flex gap-3 mt-2">
+            <div className="flex gap-3 mt-2 font-display">
               <button
                 onClick={handleManualReload}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-white transition-all shadow-md hover:bg-slate-850"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-white dark:bg-slate-900 border border-[#1e1b4b]/10 dark:border-slate-800 hover:border-[#1e1b4b]/20 dark:hover:border-slate-700 text-xs font-bold text-[#1e1b4b] dark:text-white transition-all shadow-sm hover:bg-[#fafafa]"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
+                <RefreshCw className="w-3.5 h-3.5 text-[#8b5cf6] animate-spin stroke-[1.75]" />
                 <span>Reintentar Carga</span>
               </button>
               <a
                 href={`/api/pdf?cvId=${cvId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-950/20 border border-sky-850 text-xs font-bold text-sky-400 hover:text-sky-350 transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 text-xs font-bold text-[#8b5cf6] hover:bg-[#8b5cf6]/20 transition-all shadow-sm"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 stroke-[1.75]" />
                 <span>Ver PDF Directo</span>
               </a>
             </div>
           </div>
         ) : loading ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#030712]/60 backdrop-blur-sm z-10 gap-3">
-            <Loader2 className="w-8 h-8 text-sky-400 animate-spin" />
-            <p className="text-slate-400 text-xs font-semibold tracking-wide uppercase">Generando PDF en tiempo real...</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#030712]/60 backdrop-blur-xs z-10 gap-3 transition-all">
+            <Loader2 className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+            <p className="text-[#1e1b4b]/75 dark:text-slate-400 text-xs font-semibold tracking-wide uppercase font-display">Generando PDF en tiempo real...</p>
           </div>
         ) : null}
         
@@ -167,7 +167,7 @@ export default function PdfViewer({ cvId, version }: PdfViewerProps) {
           <div className="w-full h-full flex items-center justify-center overflow-auto p-2">
             <iframe
               src={pdfBlobUrl || pdfUrl}
-              className="rounded-2xl border border-slate-900 shadow-lg bg-slate-950 transition-transform duration-200"
+              className="rounded-2xl border border-[#1e1b4b]/10 dark:border-slate-900 shadow-lg bg-white dark:bg-slate-950 transition-transform duration-200"
               style={{
                 transform: `scale(${zoom / 100})`,
                 transformOrigin: 'center center',

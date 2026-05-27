@@ -287,30 +287,30 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] flex flex-col relative overflow-hidden h-screen">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col relative overflow-hidden h-screen transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
       {/* Background glow effects */}
-      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-sky-950/20 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-950/15 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
       {/* Cabecera del Editor */}
-      <header className="glass-nav border-b border-slate-900 px-6 py-4 flex items-center justify-between shrink-0 relative z-30">
+      <header className="bg-white/80 dark:bg-[#0b0f19]/80 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-4 flex items-center justify-between shrink-0 relative z-30 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <LinkNext
             href="/dashboard"
-            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-900 transition-colors"
+            className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-xl hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-900 transition-colors"
             title="Volver al Panel"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
           </LinkNext>
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-white tracking-wide">{cv.title}</h1>
-              <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+              <h1 className="text-sm font-bold text-[#1e1b4b] dark:text-white tracking-wide font-display">{cv.title}</h1>
+              <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>
                 {cv.isBase ? 'CV Base' : 'CV Optimizado'}
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-light mt-0.5">
+            <p className="text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-light mt-0.5 font-sans">
               Edita tu contenido Markdown y ajusta la tipografía e interlineado en tiempo real
             </p>
           </div>
@@ -320,27 +320,27 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsAiOpen(true)}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-sky-500/10 hover:shadow-sky-500/20 transition-all transform hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-[8px] bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all font-display hover:-translate-y-0.5"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
             Optimizar con IA
           </button>
         </div>
       </header>
 
       {/* Toolbar Flotante de Estilos (Supercompacta) */}
-      <div className="w-full bg-[#070b19]/90 backdrop-blur-md border-b border-slate-900 px-6 py-2 flex flex-wrap items-center justify-between gap-4 shrink-0 relative z-20">
+      <div className="w-full bg-white/90 dark:bg-[#070b19]/90 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-2 flex flex-wrap items-center justify-between gap-4 shrink-0 relative z-20 transition-colors duration-300">
         <div className="flex flex-wrap items-center">
           {/* Selector de Plantilla */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-slate-800/80">
-            <span className="text-[9px] font-bold text-slate-550 uppercase tracking-wider flex items-center gap-1">
-              <Layout className="w-3 h-3 text-slate-400" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+              <Layout className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
               Diseño
             </span>
             <select
               value={templateName}
               onChange={handleTemplateChange}
-              className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 font-medium focus:outline-none focus:border-sky-500 transition-all cursor-pointer h-7"
+              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-slate-300 font-medium focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer h-7 shadow-sm"
             >
               <option value="harvard">Harvard (Básico)</option>
               <option value="modern" className={!isPremium ? 'text-slate-500' : ''}>Modern (Pro)</option>
@@ -351,15 +351,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           </div>
 
           {/* Selector de Fuente */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-slate-800/80">
-            <span className="text-[9px] font-bold text-slate-550 uppercase tracking-wider flex items-center gap-1">
-              <Type className="w-3 h-3 text-slate-400" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+              <Type className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
               Fuente
             </span>
             <select
               value={fontFamily}
               onChange={handleFontChange}
-              className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 font-medium focus:outline-none focus:border-sky-500 transition-all cursor-pointer capitalize h-7"
+              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-slate-300 font-medium focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer capitalize h-7 shadow-sm"
             >
               <option value="helvetica">Helvetica (Sans)</option>
               <option value="times">Times (Serif)</option>
@@ -368,9 +368,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           </div>
 
           {/* Selector de Margen */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-slate-800/80">
-            <span className="text-[9px] font-bold text-slate-550 uppercase tracking-wider flex items-center gap-1">
-              <Sliders className="w-3 h-3 text-slate-400" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+              <Sliders className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
               Margen ({pageMargin}pt)
             </span>
             <div className="flex items-center h-7">
@@ -381,15 +381,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 step="6"
                 value={pageMargin}
                 onChange={handleMarginChange}
-                className="w-24 accent-sky-500 bg-slate-950 border border-slate-850 rounded-lg h-1.5 cursor-pointer"
+                className="w-24 accent-[#8b5cf6] bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] h-1.5 cursor-pointer shadow-sm"
               />
             </div>
           </div>
 
           {/* Selector de Escala */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-slate-800/80">
-            <span className="text-[9px] font-bold text-slate-550 uppercase tracking-wider flex items-center gap-1">
-              <Grid className="w-3 h-3 text-slate-400" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+              <Grid className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
               Escala ({scale.toFixed(1)}x)
             </span>
             <div className="flex items-center h-7">
@@ -400,7 +400,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 step="0.1"
                 value={scale}
                 onChange={handleScaleChange}
-                className="w-24 accent-sky-500 bg-slate-950 border border-slate-850 rounded-lg h-1.5 cursor-pointer"
+                className="w-24 accent-[#8b5cf6] bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] h-1.5 cursor-pointer shadow-sm"
               />
             </div>
           </div>
@@ -408,22 +408,21 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
         {/* Selector de Color de Acento */}
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-bold text-slate-550 uppercase tracking-wider flex items-center gap-1">
-            <Palette className="w-3 h-3 text-slate-400" />
+          <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+            <Palette className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
             Acento
           </span>
-          <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-850 px-2 py-0.5 rounded-xl h-7">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-2 py-0.5 rounded-[8px] h-7 shadow-sm">
             {colorPresets.map((preset) => (
               <button
                 key={preset.hex}
                 onClick={() => handleAccentChange(preset.hex)}
-                className={`w-4 h-4 rounded-full border border-black/30 transition-transform hover:scale-125 shrink-0 ${accentColor === preset.hex ? 'ring-2 ring-sky-500 ring-offset-1 ring-offset-slate-950' : ''}`}
+                className={`w-4 h-4 rounded-full border border-black/15 transition-transform hover:scale-125 shrink-0 ${accentColor === preset.hex ? 'ring-2 ring-[#8b5cf6] ring-offset-1 ring-offset-white dark:ring-offset-[#0b0f19]' : ''}`}
                 style={{ backgroundColor: preset.hex }}
                 title={preset.name}
               />
             ))}
-            {/* Round 16px manual color picker container */}
-            <div className="relative w-4 h-4 rounded-full border border-slate-800 overflow-hidden cursor-pointer hover:scale-125 transition-all shrink-0">
+            <div className="relative w-4 h-4 rounded-full border border-[#1e1b4b]/20 dark:border-white/20 overflow-hidden cursor-pointer hover:scale-125 transition-all shrink-0">
               <input
                 type="color"
                 value={accentColor}
@@ -439,7 +438,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       {/* Panel del Editor y Visor en Split Screen */}
       <div 
         ref={containerRef}
-        className={`flex-1 min-h-0 flex flex-col lg:flex-row p-6 overflow-y-auto lg:overflow-hidden editor-scrollbar ${isResizing ? 'select-none' : ''}`}
+        className={`flex-1 min-h-0 flex flex-col lg:flex-row p-6 overflow-y-auto lg:overflow-hidden editor-scrollbar transition-colors duration-300 ${isResizing ? 'select-none' : ''}`}
       >
         <div 
           style={{ width: isLg ? `${leftWidth}%` : '100%' }}
@@ -459,10 +458,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           <div
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
-            className="w-2 hover:bg-sky-500/30 bg-slate-900/30 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
+            className="w-2 hover:bg-[#8b5cf6]/30 bg-[#1e1b4b]/5 dark:bg-white/5 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
             title="Arrastra para ajustar el tamaño, doble clic para centrar"
           >
-            <div className="w-[2px] h-6 bg-slate-800 group-hover:bg-sky-400 rounded-full transition-colors" />
+            <div className="w-[2px] h-6 bg-[#1e1b4b]/20 dark:bg-white/20 group-hover:bg-[#8b5cf6] dark:group-hover:bg-[#8b5cf6] rounded-full transition-colors" />
           </div>
         ) : (
           <div className="h-6 shrink-0" />
@@ -481,60 +480,58 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-2xl bg-[#070b17] border border-slate-800/80 rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
-            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-sky-500/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-indigo-500/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-sky-400 animate-pulse" />
+                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
+                  <Sparkles className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
                   Optimización Inteligente por IA
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
                   Adaptaremos una copia de este currículum para que coincida con los requisitos exactos de la oferta.
                 </p>
               </div>
               <button
                 onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-900 transition-all disabled:opacity-50"
+                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all disabled:opacity-50"
                 disabled={aiLoading}
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[1.75]" />
               </button>
             </div>
 
             {aiLoading ? (
-              /* Loader Premium en Proceso con micro-animación fluida */
               <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-full border border-sky-500/20 flex items-center justify-center bg-sky-500/5 shadow-2xl shadow-sky-500/10">
-                    <RefreshCw className="w-8 h-8 text-sky-400 animate-spin" />
+                  <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
+                    <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
                   </div>
-                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-indigo-500 animate-ping opacity-30" />
+                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
                 </div>
-                <h4 className="text-sm font-bold text-white mb-2">Construyendo tu currículum adaptado</h4>
-                <p className="text-xs text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse">
+                <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">Construyendo tu currículum adaptado</h4>
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
                   {aiStep}
                 </p>
               </div>
             ) : (
-              /* Formulario */
               <div className="flex-1 overflow-y-auto pr-1 relative z-10 space-y-4 py-2 scrollbar-custom">
                 {aiError && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl font-medium">
+                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-450 text-xs rounded-[8px] font-medium font-sans">
                     {aiError}
                   </div>
                 )}
 
                 {!isPremium && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-2xl flex items-start gap-3">
-                    <Crown className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-xs rounded-[8px] flex items-start gap-3 font-sans">
+                    <Crown className="w-5 h-5 shrink-0 mt-0.5 stroke-[1.75]" />
                     <div>
-                      <span className="font-bold block mb-0.5">Atención: Plan Gratuito Activo</span>
+                      <span className="font-bold block mb-0.5 font-display">Atención: Plan Gratuito Activo</span>
                       El motor gratuito utiliza análisis estándar. Los socios PRO disfrutan de la máxima precisión semántica y velocidad de redacción con modelos de IA más avanzados.
                     </div>
                   </div>
@@ -543,8 +540,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Nombre del Puesto *
                       </label>
                       <input
@@ -553,13 +550,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder="Ej. Frontend React Engineer"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Empresa *
                       </label>
                       <input
@@ -568,15 +565,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder="Ej. Stripe"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Link className="w-3.5 h-3.5 text-slate-400" />
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                        <Link className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Enlace a la Oferta
                       </label>
                       <input
@@ -584,16 +581,16 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.url}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
                         placeholder="https://..."
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-all"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Plataforma</label>
+                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">Plataforma</label>
                       <select
                         value={aiFormData.platform}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-all cursor-pointer"
+                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
                       >
                         <option value="linkedin">LinkedIn</option>
                         <option value="infojobs">InfoJobs</option>
@@ -603,32 +600,32 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-3 bg-[#fafafa] dark:bg-[#0b0f19]/30 p-4 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/5">
                     <input
                       type="checkbox"
                       id="addToKanban"
                       checked={aiFormData.addToKanban === 'true'}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
-                      className="rounded bg-slate-950 border-slate-800 text-sky-500 focus:ring-sky-500/20 w-4 h-4 cursor-pointer accent-sky-500"
+                      className="rounded bg-white dark:bg-[#0b0f19] border-[#1e1b4b]/20 dark:border-white/20 text-[#8b5cf6] focus:ring-[#8b5cf6]/20 w-4 h-4 cursor-pointer accent-[#8b5cf6]"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-slate-300 cursor-pointer select-none flex items-center gap-1.5">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <label htmlFor="addToKanban" className="text-xs font-bold text-[#1e1b4b]/80 dark:text-slate-200 cursor-pointer select-none flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                         Registrar automáticamente en el Kanban
                       </label>
-                      <span className="text-[10px] text-slate-400 font-light mt-0.5">
+                      <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-light mt-0.5 font-sans">
                         Si está activado, creará una nueva candidatura vinculada a esta oferta en tu tablero Kanban.
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
                       Modo de Optimización Inteligente
                     </label>
                     {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-slate-950 border border-slate-850 rounded-xl px-4 py-3 text-xs text-slate-400">
+                      <div className="w-full bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] px-4 py-3 text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
                         Por defecto (Estilo Harvard)
                       </div>
                     ) : (
@@ -646,11 +643,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                             <div
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-xl border bg-[#050812]/80 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `${config.activeBorder} shadow-lg ${shadowClass}` : 'border-slate-800 hover:border-slate-700'}`}
+                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8b5cf6] ring-2 ring-[#8b5cf6]/20 shadow-lg ${shadowClass}` : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'}`}
                               title={config.desc}
                             >
                               <div>
-                                {/* Header / Color dot */}
                                 <div className="flex items-center justify-between mb-1.5">
                                   <span className={`text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${config.bg} ${config.text}`}>
                                     {prompt.name.replace('Modo ', '')}
@@ -660,19 +656,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                     style={{ backgroundColor: config.color }}
                                   />
                                 </div>
-                                
-                                {/* Title */}
-                                <h4 className="text-[11px] font-bold text-white mb-1 group-hover:text-slate-200 transition-colors">
+                                <h4 className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors font-display">
                                   {prompt.name}
                                 </h4>
                               </div>
-
-                              {/* Description / Summary */}
-                              <p className="text-[9.5px] text-slate-450 leading-normal font-light">
+                              <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
                                 {config.desc}
                               </p>
-
-                              {/* Selected checkmark dot glow */}
                               {isSelected && (
                                 <div 
                                   className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
@@ -687,8 +677,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-slate-400" />
+                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
+                      <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
                       Descripción / Requisitos de la Oferta *
                     </label>
                     <textarea
@@ -697,7 +687,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       value={aiFormData.jobDescription}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
                       placeholder="Pega aquí la descripción detallada de la oferta, incluyendo las responsabilidades y habilidades requeridas."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all resize-none font-sans"
+                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
                     />
                   </div>
                 </form>
@@ -705,11 +695,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             )}
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-900 shrink-0 relative z-10">
+            <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 shrink-0 relative z-10 font-display">
               <button
                 type="button"
                 onClick={() => setIsAiOpen(false)}
-                className="px-4 py-2.5 text-sm font-semibold text-slate-450 hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors disabled:opacity-50"
                 disabled={aiLoading}
               >
                 Cerrar
@@ -718,9 +708,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 <button
                   type="submit"
                   onClick={handleAiOptimize}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 rounded-xl hover:shadow-lg hover:shadow-sky-500/10 transition-all"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm transition-all"
                 >
-                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
                   Iniciar Optimización por IA
                 </button>
               )}
@@ -744,38 +734,38 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         }}
       />
 
-      {/* Barra de estado inferior fija (Fondo oscuro, borde superior fino) */}
-      <footer className="w-full h-9 bg-[#090d16]/90 border-t border-slate-900 px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-slate-400 font-medium">
+      {/* Barra de estado inferior fija */}
+      <footer className="w-full h-9 bg-white/95 dark:bg-[#090d16]/90 border-t border-[#1e1b4b]/10 dark:border-white/10 px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-[#1e1b4b]/70 dark:text-slate-400 font-medium transition-colors">
         <div className="flex items-center gap-1.5">
-          <span className="font-bold text-slate-500">Guía rápida:</span>
-          <span className="font-semibold text-purple-400">## Título 2</span>
-          <span className="text-slate-700">|</span>
-          <span className="font-semibold text-purple-400">### Título 3</span>
-          <span className="text-slate-700">|</span>
-          <span className="font-semibold text-white">**Negrita**</span>
-          <span className="text-slate-700">|</span>
-          <span className="italic text-slate-300">*Cursiva*</span>
-          <span className="text-slate-700">|</span>
-          <span className="font-semibold text-sky-400">- Listas</span>
+          <span className="font-bold text-[#1e1b4b]/40 dark:text-slate-500">Guía rápida:</span>
+          <span className="font-semibold text-[#8b5cf6] dark:text-purple-400">## Título 2</span>
+          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
+          <span className="font-semibold text-[#8b5cf6] dark:text-purple-400">### Título 3</span>
+          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
+          <span className="font-semibold text-[#1e1b4b] dark:text-white">**Negrita**</span>
+          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
+          <span className="italic text-[#1e1b4b]/80 dark:text-slate-300">*Cursiva*</span>
+          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
+          <span className="font-semibold text-sky-600 dark:text-sky-400">- Listas</span>
         </div>
 
         {/* Estado del Guardado */}
         <div className="flex items-center gap-2">
           {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-450">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 stroke-[1.75]" />
               Guardado en la nube
             </span>
           )}
           {saveStatus === 'saving' && (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-sky-400">
-              <RefreshCw className="w-3.5 h-3.5 text-sky-500 animate-spin" />
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#8b5cf6] dark:text-violet-400">
+              <RefreshCw className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-spin stroke-[1.75]" />
               Guardando cambios...
             </span>
           )}
           {saveStatus === 'error' && (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-rose-455">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-500 stroke-[1.75]" />
               Error de conexión
             </span>
           )}
