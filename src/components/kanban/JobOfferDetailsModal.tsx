@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { JobOffer, CV } from '@/db/schema';
 import { 
@@ -29,7 +30,12 @@ export default function JobOfferDetailsModal({
 }: JobOfferDetailsModalProps) {
   const router = useRouter();
   const modalRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,7 +84,7 @@ export default function JobOfferDetailsModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, loading]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Manejar clics fuera del modal para cerrar
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -212,14 +218,14 @@ export default function JobOfferDetailsModal({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  return (
+  return createPortal(
     <div
       onClick={handleOverlayClick}
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
     >
       <div
         ref={modalRef}
-        className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl relative overflow-hidden transition-all duration-300 transform scale-100 max-h-[90vh] flex flex-col"
+        className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-[0_0_50px_rgba(139,92,246,0.15)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-300 transform scale-100 max-h-[90vh] flex flex-col"
       >
         {/* Glow effects de fondo */}
         <div className={`absolute top-[-10%] right-[-10%] w-64 h-64 rounded-full filter blur-[80px] pointer-events-none ${platformStyle.glow}`} />
@@ -521,6 +527,7 @@ export default function JobOfferDetailsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
