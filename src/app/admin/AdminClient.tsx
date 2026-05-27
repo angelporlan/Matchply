@@ -539,7 +539,7 @@ export default function AdminClient({
                     <div className="flex items-center justify-between border-b border-[#1e1b4b]/5 dark:border-white/5 pb-3">
                       <div>
                         <span className="text-xs font-bold text-[#1e1b4b] dark:text-white block">DeepSeek API</span>
-                        <span className="text-[10px] text-[#1e1b4b]/45 dark:text-slate-500">Plan Pro Principal</span>
+                        <span className="text-[10px] text-[#1e1b4b]/45 dark:text-slate-500">Plan PRO Principal</span>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-[8px] bg-[#2ecc71]/10 text-[#2ecc71] border border-[#2ecc71]/20 font-bold">Suscrito</span>
                     </div>
@@ -547,7 +547,7 @@ export default function AdminClient({
                     <div className="flex items-center justify-between pb-1">
                       <div>
                         <span className="text-xs font-bold text-[#1e1b4b] dark:text-white block">Gemini API</span>
-                        <span className="text-[10px] text-[#1e1b4b]/45 dark:text-slate-500">Pro & Multimodal</span>
+                        <span className="text-[10px] text-[#1e1b4b]/45 dark:text-slate-500">PRO & Multimodal</span>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-[8px] bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 font-bold">Configurado</span>
                     </div>
@@ -630,7 +630,7 @@ export default function AdminClient({
                         <td className="px-6 py-4 whitespace-nowrap">
                           {user.subscriptionStatus === 'active' ? (
                             <span className="bg-[#2ecc71]/10 text-[#2ecc71] border border-[#2ecc71]/20 dark:border-[#2ecc71]/30 text-[10px] font-bold px-2.5 py-0.5 rounded-[8px] flex items-center gap-1 w-fit shadow-sm font-display">
-                              <Crown className="w-3.5 h-3.5 text-[#2ecc71] stroke-[1.75]" /> Socio Pro
+                              <Crown className="w-3.5 h-3.5 text-[#2ecc71] stroke-[1.75]" /> PRO
                             </span>
                           ) : (
                             <span className="bg-[#fafafa] dark:bg-[#0b0f19]/40 text-[#1e1b4b]/40 dark:text-slate-500 border border-[#1e1b4b]/10 dark:border-white/10 text-[10px] font-medium px-2 py-0.5 rounded-[8px] w-fit font-display">

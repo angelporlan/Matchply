@@ -26,6 +26,7 @@ export default async function SubscriptionPage() {
 
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
+  const [proTitleBefore, proTitleAfter = ''] = t('subscription.title.pro').split('PRO');
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -52,7 +53,7 @@ export default async function SubscriptionPage() {
           
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white font-display">
             {isPremium ? (
-              <>{t('subscription.title.pro').split(' Pro ')[0]} <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Pro Ejecutiva</span></>
+              <>{proTitleBefore}<span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">PRO</span>{proTitleAfter}</>
             ) : (
               <>{t('subscription.title.free').split(' Éxito ')[0]} <span className="bg-gradient-to-r from-[#8b5cf6] to-[#1e1b4b] dark:to-indigo-300 bg-clip-text text-transparent">Éxito Profesional</span></>
             )}
@@ -203,7 +204,7 @@ export default async function SubscriptionPage() {
 
               <div className="space-y-4 text-xs font-light text-[#1e1b4b]/80 dark:text-slate-300 leading-relaxed font-sans">
                 <p>
-                  {t('subscription.proActive.bodyText').split('acceso')[0].split('executive')[0]}<strong>{t('subscription.proActive.bodyText').includes('acceso') ? 'acceso ejecutivo ilimitado' : 'unlimited executive access'}</strong>{t('subscription.proActive.bodyText').split('ilimitado')[1] || t('subscription.proActive.bodyText').split('access')[1]}
+                  {t('subscription.proActive.bodyText')}
                 </p>
                 
                 <div className="p-4 bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 rounded-[12px] mt-4">

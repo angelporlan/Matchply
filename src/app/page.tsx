@@ -285,7 +285,7 @@ export default async function LandingPage() {
               </Link>
             </div>
 
-            {/* Pro Plan */}
+            {/* PRO Plan */}
             <div className="bg-white dark:bg-[#1f2937] p-8 rounded-[12px] border border-[#8b5cf6]/30 relative flex flex-col justify-between shadow-md shadow-[#8b5cf6]/5">
               <div className="absolute top-4 right-4 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 text-[#8b5cf6] dark:text-[#8b5cf6] text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full font-display">
                 {t('landing.pricing.pro.badge')}

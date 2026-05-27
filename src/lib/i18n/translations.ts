@@ -33,7 +33,7 @@ export const translations = {
         },
         ai: {
           title: 'IA Híbrida Inteligente',
-          desc: 'Utiliza OpenRouter con Qwen de forma gratuita. O escala al plan Pro para canalizar directamente con APIs oficiales de DeepSeek y Gemini para optimizaciones con el método STAR.',
+          desc: 'Utiliza OpenRouter con Qwen de forma gratuita. O escala a PRO para canalizar directamente con APIs oficiales de DeepSeek y Gemini para optimizaciones con el método STAR.',
         },
         kanban: {
           title: 'Tablero Kanban',
@@ -66,7 +66,7 @@ export const translations = {
       },
       pricing: {
         title: 'Precios transparentes diseñados para tu éxito',
-        subtitle: 'Empieza gratis hoy mismo y escala al plan Pro cuando requieras optimizaciones y match semántico ilimitado.',
+        subtitle: 'Empieza gratis hoy mismo y escala a PRO cuando requieras optimizaciones y match semántico ilimitado.',
         free: {
           kicker: 'Plan Invitado',
           name: 'Gratuito',
@@ -79,16 +79,16 @@ export const translations = {
         },
         pro: {
           badge: 'Recomendado',
-          kicker: 'Plan Premium',
-          name: 'Profesional',
+          kicker: 'Plan PRO',
+          name: 'PRO',
           period: '/ al mes',
           feature1: 'Currículums ilimitados',
           feature2: 'Acceso a las 5 Plantillas Premium',
           feature3: 'Optimización IA oficial (DeepSeek o Gemini)',
           feature4: 'Tablero Kanban de candidaturas',
           feature5: 'Alineación de palabras clave con el método STAR',
-          checkoutCta: 'Adquirir Plan Pro',
-          registerCta: 'Registrarse y Comprar Pro',
+          checkoutCta: 'Adquirir PRO',
+          registerCta: 'Registrarse y Comprar PRO',
         },
       },
       footer: {
@@ -115,7 +115,7 @@ export const translations = {
       banner: {
         title: 'Hola, {name}',
         desc: 'Estás en el Plan Gratuito. El motor de IA gratuito usa OpenRouter. Desbloquea plantillas profesionales e integraciones de IA avanzadas actualizando tu cuenta.',
-        upgrade: 'Actualizar a Pro (10 €/mes)',
+        upgrade: 'Actualizar a PRO (10 €/mes)',
       },
       stats: {
         active: 'Postulaciones Activas',
@@ -328,11 +328,11 @@ export const translations = {
     },
     subscription: {
       badges: {
-        activePro: 'Socio Pro Activo',
+        activePro: 'PRO Activo',
         activeFree: 'Plan Gratuito Activo',
       },
       title: {
-        pro: 'Tu Suscripción Pro Ejecutiva',
+        pro: 'Tu Suscripción PRO',
         free: 'Elige tu camino al Éxito Profesional',
       },
       subtitle: {
@@ -352,7 +352,7 @@ export const translations = {
         btn: 'Ir a mis Currículums',
       },
       proCard: {
-        name: 'Socio Pro',
+        name: 'PRO',
         summary: 'Para profesionales serios',
         badge: 'Recomendado',
         price: '10 €',
@@ -362,12 +362,12 @@ export const translations = {
         feature3: 'Velocidad de generación prioritaria en segundos',
         feature4: 'Vinculación ilimitada de CVs dentro del tablero Kanban',
         feature5: 'Soporte prioritario y acceso a mejoras de plantillas',
-        btn: 'Actualizar a Socio Pro (10 €/mes)',
+        btn: 'Actualizar a PRO (10 €/mes)',
       },
       proActive: {
-        header: '¡Gracias por ser Socio Pro!',
+        header: '¡Gracias por ser PRO!',
         subHeader: 'Estás en el camino hacia tu mejor versión profesional.',
-        bodyText: 'Tu cuenta dispone de acceso ejecutivo ilimitado. Esto significa que estás utilizando los motores oficiales líderes del sector (DeepSeek y Gemini Pro) para alinear semánticamente tu perfil con los requisitos específicos que los seleccionadores buscan.',
+        bodyText: 'Tu cuenta dispone de acceso PRO ilimitado. Esto significa que estás utilizando los motores oficiales líderes del sector (DeepSeek y Gemini Pro) para alinear semánticamente tu perfil con los requisitos específicos que los seleccionadores buscan.',
         didYouKnowTitle: '¿Sabías qué?',
         didYouKnowDesc: 'Los candidatos que adaptan minuciosamente su currículum para cada oferta específica **multiplican por 3 la tasa de llamadas para entrevistas**. Tu capacidad para generar rápidamente CVs optimizados con IA te otorga una ventaja competitiva excepcional en el mercado laboral actual.',
         billingStatusLabel: 'Estado de Facturación',
@@ -397,10 +397,10 @@ export const translations = {
         customColor: 'Color personalizado',
         templates: {
           harvard: 'Harvard (Básico)',
-          modern: 'Modern (Pro)',
-          minimal: 'Minimal (Pro)',
-          creative: 'Creative (Pro)',
-          swiss: 'Swiss (Pro)',
+          modern: 'Modern (PRO)',
+          minimal: 'Minimal (PRO)',
+          creative: 'Creative (PRO)',
+          swiss: 'Swiss (PRO)',
         },
         fonts: {
           helvetica: 'Helvetica (Sans)',
@@ -534,7 +534,7 @@ export const translations = {
         },
         ai: {
           title: 'Smart Hybrid AI',
-          desc: 'Use OpenRouter with Qwen for free, or upgrade to Pro to connect directly with official DeepSeek and Gemini APIs for STAR-method optimizations.',
+          desc: 'Use OpenRouter with Qwen for free, or upgrade to PRO to connect directly with official DeepSeek and Gemini APIs for STAR-method optimizations.',
         },
         kanban: {
           title: 'Kanban Board',
@@ -567,7 +567,7 @@ export const translations = {
       },
       pricing: {
         title: 'Transparent pricing designed for your success',
-        subtitle: 'Start free today and upgrade to Pro when you need unlimited optimizations and semantic matching.',
+        subtitle: 'Start free today and upgrade to PRO when you need unlimited optimizations and semantic matching.',
         free: {
           kicker: 'Guest Plan',
           name: 'Free',
@@ -580,16 +580,16 @@ export const translations = {
         },
         pro: {
           badge: 'Recommended',
-          kicker: 'Premium Plan',
-          name: 'Professional',
+          kicker: 'PRO Plan',
+          name: 'PRO',
           period: '/ month',
           feature1: 'Unlimited CVs',
           feature2: 'Access to all 5 Premium Templates',
           feature3: 'Official AI optimization (DeepSeek or Gemini)',
           feature4: 'Application Kanban board',
           feature5: 'STAR-method keyword alignment',
-          checkoutCta: 'Get Pro Plan',
-          registerCta: 'Sign Up and Buy Pro',
+          checkoutCta: 'Get PRO',
+          registerCta: 'Sign Up and Buy PRO',
         },
       },
       footer: {
@@ -616,7 +616,7 @@ export const translations = {
       banner: {
         title: 'Hello, {name}',
         desc: 'You are on the Free Plan. The free AI engine uses OpenRouter. Unlock professional templates and advanced AI integrations by upgrading your account.',
-        upgrade: 'Upgrade to Pro (€10/mo)',
+        upgrade: 'Upgrade to PRO (€10/mo)',
       },
       stats: {
         active: 'Active Applications',
@@ -829,11 +829,11 @@ export const translations = {
     },
     subscription: {
       badges: {
-        activePro: 'Active Pro Member',
+        activePro: 'Active PRO',
         activeFree: 'Active Free Plan',
       },
       title: {
-        pro: 'Your Executive Pro Subscription',
+        pro: 'Your PRO Subscription',
         free: 'Choose your path to Career Success',
       },
       subtitle: {
@@ -853,7 +853,7 @@ export const translations = {
         btn: 'Go to my Resumes',
       },
       proCard: {
-        name: 'Pro Member',
+        name: 'PRO',
         summary: 'For serious professionals',
         badge: 'Recommended',
         price: '10 €',
@@ -863,12 +863,12 @@ export const translations = {
         feature3: 'Priority generation speed in seconds',
         feature4: 'Unlimited resume linking within the Kanban board',
         feature5: 'Priority support and access to template improvements',
-        btn: 'Upgrade to Pro Member (€10/month)',
+        btn: 'Upgrade to PRO (€10/month)',
       },
       proActive: {
-        header: 'Thank you for being a Pro Member!',
+        header: 'Thank you for being PRO!',
         subHeader: 'You are on the path to your best professional self.',
-        bodyText: 'Your account has unlimited executive access. This means you are utilizing the industry-leading official engines (DeepSeek and Gemini Pro) to semantically align your profile with the specific requirements that recruiters look for.',
+        bodyText: 'Your account has unlimited PRO access. This means you are utilizing the industry-leading official engines (DeepSeek and Gemini Pro) to semantically align your profile with the specific requirements that recruiters look for.',
         didYouKnowTitle: 'Did you know?',
         didYouKnowDesc: 'Candidates who meticulously tailor their resume for each specific job offer **multiply their interview call rate by 3**. Your ability to quickly generate AI-optimized resumes grants you an exceptional competitive advantage in today\'s job market.',
         billingStatusLabel: 'Billing Status',
@@ -898,10 +898,10 @@ export const translations = {
         customColor: 'Custom color',
         templates: {
           harvard: 'Harvard (Basic)',
-          modern: 'Modern (Pro)',
-          minimal: 'Minimal (Pro)',
-          creative: 'Creative (Pro)',
-          swiss: 'Swiss (Pro)',
+          modern: 'Modern (PRO)',
+          minimal: 'Minimal (PRO)',
+          creative: 'Creative (PRO)',
+          swiss: 'Swiss (PRO)',
         },
         fonts: {
           helvetica: 'Helvetica (Sans)',

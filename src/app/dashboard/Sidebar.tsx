@@ -178,7 +178,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
             </div>
             {isPremium && (
               <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-[8px] shadow-sm ml-2 shrink-0">
-                Pro
+                PRO
               </span>
             )}
           </div>

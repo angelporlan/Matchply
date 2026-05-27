@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // 3. Obtener Stripe Price ID desde variables de entorno
     const priceId = process.env.STRIPE_PRICE_ID_PRO;
     if (!priceId || priceId.includes("price_...")) {
-      return new NextResponse('Stripe Price ID Pro not configured', { status: 500 });
+      return new NextResponse('Stripe Price ID PRO not configured', { status: 500 });
     }
 
     // 4. Crear sesión de checkout de Stripe
