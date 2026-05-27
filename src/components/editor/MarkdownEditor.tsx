@@ -613,14 +613,14 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               onInput={handleVisualInput}
               className="w-full min-h-full bg-transparent text-[#1e1b4b] dark:text-slate-300 font-sans text-sm leading-relaxed focus:outline-none select-text
                 empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-600 empty:before:pointer-events-none empty:before:block
-                [&_h1]:text-[#8b5cf6] dark:text-purple-300 [&_h1]:text-2xl [&_h1]:font-extrabold [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-[#1e1b4b]/10 dark:[&_h1]:border-slate-800/60 [&_h1]:pb-1
-                [&_h2]:text-[#8b5cf6] dark:text-purple-400 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:tracking-wide
-                [&_h3]:text-[#8b5cf6] dark:text-purple-400 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
+                [&_h1]:text-[#8b5cf6] dark:[&_h1]:text-purple-300 [&_h1]:text-2xl [&_h1]:font-extrabold [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-[#1e1b4b]/10 dark:[&_h1]:border-slate-800/60 [&_h1]:pb-1
+                [&_h2]:text-[#8b5cf6] dark:[&_h2]:text-purple-400 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:tracking-wide
+                [&_h3]:text-[#8b5cf6] dark:[&_h3]:text-purple-400 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
                 [&_p]:mb-3 [&_p]:leading-relaxed
                 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
-                [&_li]:text-[#1e1b4b] dark:text-slate-300 [&_li]:leading-normal
-                [&_strong]:text-[#1e1b4b] dark:text-white [&_strong]:font-bold
-                [&_em]:text-[#1e1b4b]/70 dark:text-slate-400 [&_em]:italic"
+                [&_li]:text-[#1e1b4b] dark:[&_li]:text-slate-350 [&_li]:leading-normal
+                [&_strong]:text-[#1e1b4b] dark:[&_strong]:text-white [&_strong]:font-bold
+                [&_em]:text-[#1e1b4b]/70 dark:[&_em]:text-slate-400 [&_em]:italic"
               data-placeholder="Escribe el contenido de tu CV aquí..."
               style={{ outline: 'none' }}
             />
