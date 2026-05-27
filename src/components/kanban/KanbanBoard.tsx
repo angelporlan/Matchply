@@ -10,6 +10,7 @@ import { createJobOffer, updateJobOfferStatus } from '@/app/dashboard/kanban/act
 import { formatDate } from '@/lib/utils';
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface KanbanBoardProps {
   offers: JobOffer[];
@@ -34,6 +35,7 @@ function isArchivedStatus(status: string) {
 
 export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const router = useRouter();
+  const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +106,11 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   });
 
   const columns: Column[] = [
-    { id: 'interested', title: 'Interesado', shortTitle: 'Interés', description: 'Por valorar', color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
-    { id: 'applied', title: 'Postulado', shortTitle: 'Postulado', description: 'Ya enviada', color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
-    { id: 'interview', title: 'Entrevista', shortTitle: 'Entrevista', description: 'En conversación', color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
-    { id: 'offer', title: 'Ofrecido', shortTitle: 'Oferta', description: 'Resultado positivo', color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
-    { id: 'rejected', title: 'Rechazado', shortTitle: 'Descartado', description: 'Cerradas', color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
+    { id: 'interested', title: t('kanban.columns.interested.title'), shortTitle: t('kanban.columns.interested.shortTitle'), description: t('kanban.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
+    { id: 'applied', title: t('kanban.columns.applied.title'), shortTitle: t('kanban.columns.applied.shortTitle'), description: t('kanban.columns.applied.desc'), color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
+    { id: 'interview', title: t('kanban.columns.interview.title'), shortTitle: t('kanban.columns.interview.shortTitle'), description: t('kanban.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
+    { id: 'offer', title: t('kanban.columns.offer.title'), shortTitle: t('kanban.columns.offer.shortTitle'), description: t('kanban.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
+    { id: 'rejected', title: t('kanban.columns.rejected.title'), shortTitle: t('kanban.columns.rejected.shortTitle'), description: t('kanban.columns.rejected.desc'), color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
   ];
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -153,7 +155,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     e.preventDefault();
     setError(null);
     if (!formData.title || !formData.company) {
-      setError('El puesto y la empresa son campos obligatorios.');
+      setError(t('kanban.modal.requiredError'));
       return;
     }
 
@@ -180,7 +182,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     return (
       <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
         <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
-        <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-3 font-sans">Cargando tablero interactivo...</p>
+        <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-3 font-sans">{t('kanban.board.loading')}</p>
       </div>
     );
   }
@@ -192,10 +194,10 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
         <div>
           <h2 className="text-2xl font-bold text-[#1e1b4b] dark:text-white tracking-tight flex items-center gap-2 font-display">
             <Briefcase className="w-6 h-6 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
-            Embudo de Candidaturas
+            {t('kanban.board.title')}
           </h2>
           <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm mt-1 font-sans">
-            Gestiona tus ofertas por etapa y encuentra rápido la candidatura que necesitas.
+            {t('kanban.board.subtitle')}
           </p>
         </div>
 
@@ -205,7 +207,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-amber-500/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
           >
             <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
-            Archivadas
+            {t('kanban.board.archivedBtn')}
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-200 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
               {archivedOffers.length}
             </span>
@@ -216,38 +218,38 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
           >
             <Plus className="w-4 h-4 stroke-[1.75]" />
-            Nueva Candidatura
+            {t('kanban.board.newApplicationBtn')}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 font-display">
         <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Activas</p>
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.activeBadge')}</p>
           <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{boardOffers.length}</p>
         </div>
         <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Archivadas</p>
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.archivedBadge')}</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{archivedOffers.length}</p>
         </div>
         <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Con CV</p>
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.linkedBadge')}</p>
           <p className="text-xl font-bold text-[#2ecc71] mt-1">{linkedOffers}</p>
         </div>
         <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">Mostrando</p>
+          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.showingBadge')}</p>
           <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{filteredOffers.length}</p>
         </div>
       </div>
 
       <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between mb-5">
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Buscar por puesto, empresa o plataforma"
+            placeholder={t('kanban.board.searchPlaceholder')}
             className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
           />
           {searchQuery && (
@@ -255,8 +257,8 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#1f2937] transition-colors"
-              aria-label="Limpiar búsqueda"
-              title="Limpiar búsqueda"
+              aria-label={t('kanban.board.clearSearch')}
+              title={t('kanban.board.clearSearch')}
             >
               <X className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
@@ -267,9 +269,9 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
           <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
             <SlidersHorizontal className="w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 ml-2 hidden sm:block stroke-[1.75]" />
             {[
-              { value: 'all', label: 'Todas' },
-              { value: 'linked', label: 'Con CV' },
-              { value: 'unlinked', label: 'Sin CV' },
+              { value: 'all', label: t('kanban.board.filterAll') },
+              { value: 'linked', label: t('kanban.board.filterLinked') },
+              { value: 'unlinked', label: t('kanban.board.filterUnlinked') },
             ].map((filter) => (
               <button
                 key={filter.value}
@@ -297,7 +299,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               }`}
             >
               <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              Compacta
+              {t('kanban.board.viewCompact')}
             </button>
             <button
               type="button"
@@ -309,7 +311,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               }`}
             >
               <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              Cómoda
+              {t('kanban.board.viewComfortable')}
             </button>
           </div>
         </div>
@@ -348,7 +350,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                           {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
                         </span>
                         <span className="text-[10px] font-medium text-[#1e1b4b]/40 dark:text-slate-500">
-                          ofertas
+                          {t('kanban.board.offersCount')}
                         </span>
                       </div>
                     </div>
@@ -384,12 +386,12 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                             {hasActiveFilters ? (
                               <>
                                 <Search className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-70 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">Sin resultados</p>
+                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.noResults')}</p>
                               </>
                             ) : (
                               <>
                                 <CheckCircle2 className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-60 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">Vacío</p>
+                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.emptyBoard')}</p>
                               </>
                             )}
                           </div>
@@ -414,7 +416,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     <div className="flex items-center justify-between gap-2 text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-sans">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <ListChecks className="w-3.5 h-3.5 shrink-0 stroke-[1.75]" />
-                        <span className="truncate">{columnOffers.length} visibles</span>
+                        <span className="truncate">{columnOffers.length} {t('kanban.board.visibleText')}</span>
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         <Link2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -444,10 +446,10 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
               <div>
                 <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
                   <Briefcase className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
-                  Agregar Candidatura
+                  {t('kanban.modal.addTitle')}
                 </h3>
                 <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
-                  Registra los datos de la oferta. Luego podrás optimizar tu CV para este puesto.
+                  {t('kanban.modal.addDesc')}
                 </p>
               </div>
               <button
@@ -469,7 +471,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
                     <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
-                    Puesto *
+                    {t('kanban.modal.jobField')}
                   </label>
                   <input
                     type="text"
@@ -477,7 +479,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    placeholder="Ej. Senior React Developer"
+                    placeholder={t('kanban.modal.jobPlaceholder')}
                     className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
                   />
                 </div>
@@ -485,7 +487,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
                     <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
-                    Empresa *
+                    {t('kanban.modal.companyField')}
                   </label>
                   <input
                     type="text"
@@ -493,7 +495,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     required
                     value={formData.company}
                     onChange={handleInputChange}
-                    placeholder="Ej. Stripe"
+                    placeholder={t('kanban.modal.companyPlaceholder')}
                     className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
                   />
                 </div>
@@ -503,7 +505,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
                     <Link className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
-                    Enlace de la Oferta
+                    {t('kanban.modal.linkField')}
                   </label>
                   <input
                     type="url"
@@ -516,7 +518,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">Plataforma</label>
+                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">{t('kanban.modal.platformField')}</label>
                   <select
                     name="platform"
                     value={formData.platform}
@@ -526,21 +528,21 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                     <option value="linkedin">LinkedIn</option>
                     <option value="infojobs">InfoJobs</option>
                     <option value="indeed">Indeed</option>
-                    <option value="other">Otra</option>
+                    <option value="other">{t('kanban.modal.platformOther')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">
-                  Descripción / Requisitos de la Oferta (Opcional)
+                  {t('kanban.modal.descField')}
                 </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={4}
-                  placeholder="Pega aquí la descripción del puesto. El motor de IA comparará esta descripción con tu CV para optimizarlo y adaptarlo a la oferta."
+                  placeholder={t('kanban.modal.descPlaceholder')}
                   className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
                 />
               </div>
@@ -551,7 +553,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -561,10 +563,10 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Guardando...
+                      {t('kanban.modal.savingBtn')}
                     </>
                   ) : (
-                    'Guardar Candidatura'
+                    t('kanban.modal.saveBtn')
                   )}
                 </button>
               </div>

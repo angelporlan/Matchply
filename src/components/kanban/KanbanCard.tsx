@@ -8,6 +8,7 @@ import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Archive 
 import { formatDate } from '@/lib/utils';
 import AlertModal from '../ui/AlertModal';
 import { Draggable } from '@hello-pangea/dnd';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface KanbanCardProps {
   offer: JobOffer;
@@ -25,6 +26,7 @@ export default function KanbanCard({
   index,
 }: KanbanCardProps) {
   const router = useRouter();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [selectedCv, setSelectedCv] = useState<string>(offer.cvId || '');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -90,13 +92,18 @@ export default function KanbanCard({
   // Estados ordenados del pipeline para controles de dirección
   const statuses = ['interested', 'applied', 'interview', 'offer', 'rejected'];
   const statusLabels: Record<string, string> = {
-    interested: 'Interesado',
-    applied: 'Postulado',
-    interview: 'Entrevista',
-    offer: 'Ofrecido',
-    rejected: 'Rechazado',
+    interested: t('kanban.columns.interested.title'),
+    applied: t('kanban.columns.applied.title'),
+    interview: t('kanban.columns.interview.title'),
+    offer: t('kanban.columns.offer.title'),
+    rejected: t('kanban.columns.rejected.title'),
   };
   const currentIndex = statuses.indexOf(offer.status);
+
+  // Dynamic translated tooltip title
+  const getMoveToTooltip = (statusKey: string) => {
+    return t('kanban.card.moveTo', { status: statusLabels[statusKey] });
+  };
 
   return (
     <Draggable draggableId={offer.id} index={index}>
@@ -137,8 +144,8 @@ export default function KanbanCard({
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] transition-colors shrink-0"
-                title="Ver oferta original"
-                aria-label="Ver oferta original"
+                title={t('kanban.modal.linkCvOfficial')}
+                aria-label={t('kanban.modal.linkCvOfficial')}
               >
                 <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
               </a>
@@ -156,9 +163,9 @@ export default function KanbanCard({
             <select
               value={selectedCv}
               onChange={handleCvChange}
-              className="w-full bg-transparent text-[10px] text-[#1e1b4b]/80 dark:text-slate-300 font-medium focus:outline-none cursor-pointer"
+              className="w-full bg-transparent text-[10px] text-[#1e1b4b]/80 dark:text-slate-300 font-medium focus:outline-none cursor-pointer font-sans"
             >
-              <option value="" className="bg-white dark:bg-[#0b0f19] text-[#1e1b4b]/45 dark:text-slate-500">Vincular CV...</option>
+              <option value="" className="bg-white dark:bg-[#0b0f19] text-[#1e1b4b]/45 dark:text-slate-550">{t('kanban.card.placeholderCv')}</option>
               {userCvs.map((cv) => (
                 <option key={cv.id} value={cv.id} className="bg-white dark:bg-[#0b0f19] text-[#1e1b4b] dark:text-slate-300">
                   {cv.title.length > 25 ? cv.title.substring(0, 25) + '...' : cv.title}
@@ -176,8 +183,8 @@ export default function KanbanCard({
                   handleArchive();
                 }}
                 className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 p-1.5 rounded-[8px] transition-colors shrink-0"
-                title="Archivar candidatura"
-                aria-label="Archivar candidatura"
+                title={t('kanban.card.archiveBtn')}
+                aria-label={t('kanban.card.archiveBtn')}
               >
                 <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
               </button>
@@ -187,13 +194,13 @@ export default function KanbanCard({
                   handleDelete();
                 }}
                 className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-[8px] transition-colors shrink-0"
-                title="Eliminar candidatura"
-                aria-label="Eliminar candidatura"
+                title={t('kanban.card.deleteBtn')}
+                aria-label={t('kanban.card.deleteBtn')}
               >
                 <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
               </button>
               <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-light truncate font-sans">
-                {formatDate(offer.updatedAt)}
+                {t('kanban.card.updatedAtText')} {new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}
               </span>
             </div>
 
@@ -205,8 +212,8 @@ export default function KanbanCard({
                     handleStatusChange(statuses[currentIndex - 1]);
                   }}
                   className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20 text-[#1e1b4b]/70 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
-                  title={`Mover a ${statusLabels[statuses[currentIndex - 1]]}`}
-                  aria-label={`Mover a ${statusLabels[statuses[currentIndex - 1]]}`}
+                  title={getMoveToTooltip(statuses[currentIndex - 1])}
+                  aria-label={getMoveToTooltip(statuses[currentIndex - 1])}
                 >
                   <ArrowLeft className="w-3.5 h-3.5 stroke-[1.75]" />
                 </button>
@@ -219,8 +226,8 @@ export default function KanbanCard({
                     handleStatusChange(statuses[currentIndex + 1]);
                   }}
                   className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20 text-[#1e1b4b]/70 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
-                  title={`Mover a ${statusLabels[statuses[currentIndex + 1]]}`}
-                  aria-label={`Mover a ${statusLabels[statuses[currentIndex + 1]]}`}
+                  title={getMoveToTooltip(statuses[currentIndex + 1])}
+                  aria-label={getMoveToTooltip(statuses[currentIndex + 1])}
                 >
                   <ArrowRight className="w-3.5 h-3.5 stroke-[1.75]" />
                 </button>
@@ -231,13 +238,11 @@ export default function KanbanCard({
           <AlertModal
             isOpen={isDeleteModalOpen}
             onClose={() => setIsDeleteModalOpen(false)}
-            title="Eliminar Candidatura"
-            message={`¿Estás seguro de que deseas eliminar la candidatura para "${offer.title}" en "${offer.company}"?
-     
-Esta acción es permanente y no se puede deshacer.`}
+            title={t('kanban.card.deleteTitle')}
+            message={t('kanban.card.deleteMessage', { title: offer.title, company: offer.company })}
             type="danger"
-            confirmLabel="Eliminar permanentemente"
-            cancelLabel="Cancelar"
+            confirmLabel={t('kanban.card.deleteConfirm')}
+            cancelLabel={t('common.cancel')}
             onConfirm={confirmDelete}
             isPending={loading}
           />
