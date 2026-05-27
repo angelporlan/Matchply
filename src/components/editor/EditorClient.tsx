@@ -57,8 +57,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         text: 'text-sky-400',
         bg: 'bg-sky-500/10',
         activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-        desc: t.dashboard.modes.fidelity.desc,
-        displayName: t.dashboard.modes.fidelity.name,
+        desc: t('dashboard.modes.fidelity.desc'),
+        displayName: t('dashboard.modes.fidelity.name'),
       },
       'Modo Rendimiento': {
         color: '#eab308',
@@ -66,8 +66,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         text: 'text-yellow-400',
         bg: 'bg-yellow-500/10',
         activeBorder: 'border-yellow-500 ring-2 ring-yellow-500/20',
-        desc: t.dashboard.modes.performance.desc,
-        displayName: t.dashboard.modes.performance.name,
+        desc: t('dashboard.modes.performance.desc'),
+        displayName: t('dashboard.modes.performance.name'),
       },
       'Modo Extremo': {
         color: '#ea580c',
@@ -75,8 +75,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         text: 'text-orange-400',
         bg: 'bg-orange-500/10',
         activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
-        desc: t.dashboard.modes.extreme.desc,
-        displayName: t.dashboard.modes.extreme.name,
+        desc: t('dashboard.modes.extreme.desc'),
+        displayName: t('dashboard.modes.extreme.name'),
       }
     };
 
@@ -86,7 +86,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       text: 'text-sky-400',
       bg: 'bg-sky-500/10',
       activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-      desc: t.dashboard.modes.default.desc,
+      desc: t('dashboard.modes.default.desc'),
       displayName: name,
     };
   };
