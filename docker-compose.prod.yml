@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Servicio de la Base de Datos PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: nextprof_postgres_prod
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: nextprof_secure_pwd
+      POSTGRES_DB: nextprof_db
+    ports:
+      # Binding a 127.0.0.1 por seguridad, para que no sea accesible desde internet públicamente
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # Servicio de la Aplicación Web Next.js
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: nextprof_web_prod
+    ports:
+      - "127.0.0.1:3000:3000" # Exponer localmente, se conectará con Nginx/Caddy en el puerto 80/443
+    environment:
+      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  postgres_prod_data:

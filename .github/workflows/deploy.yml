@@ -1,0 +1,27 @@
+name: Deploy to VPS
+
+on:
+  workflow_dispatch: # Habilita el botón manual "Run workflow" en la pestaña Actions de GitHub
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            # Ir al directorio del proyecto en el VPS
+            cd /app/NextProf-AI
+            
+            # Traer los últimos cambios de GitHub
+            git pull origin main
+            
+            # Levantar los contenedores de producción (reconstruyendo si hay cambios)
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d --build
