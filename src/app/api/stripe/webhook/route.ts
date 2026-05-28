@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { stripe } from '@/lib/stripe';
+import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
 import Stripe from 'stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('Stripe-Signature') || '';
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
     return new NextResponse('Stripe webhook secret not configured', { status: 500 });

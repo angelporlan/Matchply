@@ -3,11 +3,11 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { stripe } from '@/lib/stripe';
+import { stripe, STRIPE_SECRET_KEY } from '@/lib/stripe';
 
 export async function GET(req: NextRequest) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!STRIPE_SECRET_KEY) {
       return new NextResponse('Stripe secret key not configured', { status: 500 });
     }
 

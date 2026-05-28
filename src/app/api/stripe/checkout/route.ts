@@ -3,12 +3,12 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { stripe } from '@/lib/stripe';
+import { stripe, STRIPE_SECRET_KEY, STRIPE_PRICE_ID_PRO } from '@/lib/stripe';
 import { isProSubscription } from '@/lib/subscription';
 
 export async function GET(req: NextRequest) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!STRIPE_SECRET_KEY) {
       return new NextResponse('Stripe secret key not configured', { status: 500 });
     }
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Obtener Stripe Price ID desde variables de entorno
-    const priceId = process.env.STRIPE_PRICE_ID_PRO;
+    const priceId = STRIPE_PRICE_ID_PRO;
     if (!priceId || priceId.includes("price_...")) {
       return new NextResponse('Stripe Price ID PRO not configured', { status: 500 });
     }
