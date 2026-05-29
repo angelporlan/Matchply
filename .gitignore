@@ -13,6 +13,9 @@ node_modules
 /.next/
 /out/
 
+# Sensitive scripts
+/scripts/db-tunnel.sh
+
 # Production build artifacts
 build
 
