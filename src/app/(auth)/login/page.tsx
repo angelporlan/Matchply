@@ -71,29 +71,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-[#FAFAFA] dark:bg-[#0B0F19] flex items-center justify-center p-4 transition-colors duration-300">
       {/* Radial glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8B5CF6]/3 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#8B5CF6]/5 blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-[0_4px_20px_-4px_rgba(30,27,75,0.05)] border border-[#1E1B4B]/5 relative z-10">
+      <div className="w-full max-w-md bg-white dark:bg-[#1F2937] p-8 rounded-xl shadow-[0_4px_20px_-4px_rgba(30,27,75,0.05)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] border border-[#1E1B4B]/5 dark:border-[#F3F4F6]/5 relative z-10 transition-all duration-300">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
             <div className="bg-[#8B5CF6]/10 p-2.5 rounded-xl text-[#8B5CF6] shadow-sm">
               <Sparkles className="w-5 h-5" strokeWidth={1.75} />
             </div>
-            <span className="font-display font-bold text-lg tracking-tight text-[#1E1B4B]">
+            <span className="font-display font-bold text-lg tracking-tight text-[#1E1B4B] dark:text-[#F3F4F6]">
               Matchply
             </span>
           </Link>
-          <h2 className="text-2xl font-bold text-[#1E1B4B] tracking-tight font-display">{t('auth.login.welcomeBack')}</h2>
-          <p className="text-[#1E1B4B]/60 text-xs mt-1.5 font-light font-sans">
+          <h2 className="text-2xl font-bold text-[#1E1B4B] dark:text-[#F3F4F6] tracking-tight font-display">{t('auth.login.welcomeBack')}</h2>
+          <p className="text-[#1E1B4B]/60 dark:text-[#F3F4F6]/60 text-xs mt-1.5 font-light font-sans">
             {t('auth.login.subtitle')}
           </p>
         </div>
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-lg mb-6 flex items-start gap-2.5">
+          <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs p-3.5 rounded-lg mb-6 flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
             <span className="font-sans">{getErrorMessage()}</span>
           </div>
@@ -101,37 +101,37 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[#1E1B4B] text-sm font-medium mb-1.5 font-sans">
+            <label className="block text-[#1E1B4B] dark:text-[#F3F4F6]/80 text-sm font-medium mb-1.5 font-sans">
               {t('auth.login.emailLabel')}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40" strokeWidth={1.75} />
+              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40" strokeWidth={1.75} />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('auth.login.emailPlaceholder')}
-                className="w-full bg-white border border-[#1E1B4B]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] placeholder-[#1E1B4B]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
+                className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] dark:text-[#F3F4F6] placeholder-[#1E1B4B]/30 dark:placeholder-[#F3F4F6]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[#1E1B4B] text-sm font-medium font-sans">
+              <label className="block text-[#1E1B4B] dark:text-[#F3F4F6]/80 text-sm font-medium font-sans">
                 {t('auth.login.passwordLabel')}
               </label>
             </div>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40" strokeWidth={1.75} />
+              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40" strokeWidth={1.75} />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('auth.login.passwordPlaceholder')}
-                className="w-full bg-white border border-[#1E1B4B]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] placeholder-[#1E1B4B]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
+                className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] dark:text-[#F3F4F6] placeholder-[#1E1B4B]/30 dark:placeholder-[#F3F4F6]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
               />
             </div>
           </div>
@@ -151,10 +151,10 @@ export default function LoginPage() {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-[#1E1B4B]/10" />
+            <span className="w-full border-t border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-3 text-[#1E1B4B]/40 font-medium font-sans">{t('auth.login.orContinueWith')}</span>
+            <span className="bg-white dark:bg-[#1F2937] px-3 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40 font-medium font-sans">{t('auth.login.orContinueWith')}</span>
           </div>
         </div>
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading || googleLoading}
-          className="w-full bg-white border border-[#1E1B4B]/10 hover:border-[#1E1B4B]/20 text-[#1E1B4B]/80 hover:text-[#1E1B4B] font-semibold py-3.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2.5 font-display"
+          className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 hover:border-[#1E1B4B]/20 dark:hover:border-[#F3F4F6]/20 text-[#1E1B4B]/80 dark:text-[#F3F4F6]/80 hover:text-[#1E1B4B] dark:hover:text-[#F3F4F6] font-semibold py-3.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2.5 font-display"
         >
           {googleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -179,7 +179,7 @@ export default function LoginPage() {
           )}
         </button>
 
-        <p className="text-center text-xs text-[#1E1B4B]/60 mt-8 font-light font-sans">
+        <p className="text-center text-xs text-[#1E1B4B]/60 dark:text-[#F3F4F6]/60 mt-8 font-light font-sans">
           {t('auth.login.noAccountYet')}{' '}
           <Link href="/register" className="text-[#8B5CF6] font-semibold hover:underline">
             {t('auth.login.signUpHere')}
