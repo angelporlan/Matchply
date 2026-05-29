@@ -6,9 +6,11 @@ import Link from 'next/link';
 import { Sparkles, Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { registerUser } from '../actions';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,7 @@ export default function RegisterPage() {
     try {
       await signIn('google', { callbackUrl: '/dashboard' });
     } catch (err) {
-      setError('Ocurrió un error al registrarse con Google');
+      setError('unexpected');
     } finally {
       setGoogleLoading(false);
     }
@@ -52,96 +54,104 @@ export default function RegisterPage() {
         }, 1800);
       }
     } catch (err) {
-      setError('Ocurrió un error inesperado al registrar el usuario');
+      setError('unexpected');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="relative min-h-screen bg-[#030712] flex items-center justify-center p-4">
-      {/* Radial glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-sky-950/20 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-950/20 blur-[100px] pointer-events-none" />
+  const getErrorMessage = () => {
+    if (!error) return null;
+    if (error === 'unexpected') {
+      return t('auth.register.errorUnexpected');
+    }
+    return error;
+  };
 
-      <div className="w-full max-w-md glass-card p-8 rounded-3xl glow-primary relative z-10 border border-slate-800">
+  return (
+    <div className="relative min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
+      {/* Radial glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8B5CF6]/3 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#8B5CF6]/5 blur-[120px] pointer-events-none" />
+
+      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-[0_4px_20px_-4px_rgba(30,27,75,0.05)] border border-[#1E1B4B]/5 relative z-10">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="bg-gradient-to-tr from-sky-400 to-indigo-500 p-2 rounded-xl text-white shadow-md">
-              <Sparkles className="w-5 h-5" />
+            <div className="bg-[#8B5CF6]/10 p-2.5 rounded-xl text-[#8B5CF6] shadow-sm">
+              <Sparkles className="w-5 h-5" strokeWidth={1.75} />
             </div>
-            <span className="font-display font-bold text-lg tracking-tight text-white">
+            <span className="font-display font-bold text-lg tracking-tight text-[#1E1B4B]">
               Matchply
             </span>
           </Link>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Crea tu cuenta</h2>
-          <p className="text-slate-400 text-xs mt-1.5 font-light">
-            Únete a Matchply y empieza a potenciar tu perfil laboral
+          <h2 className="text-2xl font-bold text-[#1E1B4B] tracking-tight font-display">{t('auth.register.title')}</h2>
+          <p className="text-[#1E1B4B]/60 text-xs mt-1.5 font-light font-sans">
+            {t('auth.register.subtitle')}
           </p>
         </div>
 
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs p-3.5 rounded-xl mb-6 flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{error}</span>
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-lg mb-6 flex items-start gap-2.5 font-sans">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+            <span>{getErrorMessage()}</span>
           </div>
         )}
 
         {success && (
-          <div className="bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs p-3.5 rounded-xl mb-6 flex items-start gap-2.5 animate-pulse-subtle">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>¡Cuenta creada con éxito! Redirigiendo al inicio de sesión...</span>
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3.5 rounded-lg mb-6 flex items-start gap-2.5 animate-pulse-subtle font-sans">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+            <span>{t('auth.register.successCreated')}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-1.5">
-              Nombre Completo
+            <label className="block text-[#1E1B4B] text-sm font-medium mb-1.5 font-sans">
+              {t('auth.register.fullNameLabel')}
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+              <User className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40" strokeWidth={1.75} />
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Juan Pérez"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+                placeholder={t('auth.register.fullNamePlaceholder')}
+                className="w-full bg-white border border-[#1E1B4B]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] placeholder-[#1E1B4B]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-1.5">
-              Email
+            <label className="block text-[#1E1B4B] text-sm font-medium mb-1.5 font-sans">
+              {t('auth.register.emailLabel')}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40" strokeWidth={1.75} />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@correo.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+                placeholder={t('auth.register.emailPlaceholder')}
+                className="w-full bg-white border border-[#1E1B4B]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] placeholder-[#1E1B4B]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-slate-300 text-xs font-semibold mb-1.5">
-              Contraseña
+            <label className="block text-[#1E1B4B] text-sm font-medium mb-1.5 font-sans">
+              {t('auth.register.passwordLabel')}
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40" strokeWidth={1.75} />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+                placeholder={t('auth.register.passwordPlaceholder')}
+                className="w-full bg-white border border-[#1E1B4B]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] placeholder-[#1E1B4B]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
               />
             </div>
           </div>
@@ -149,22 +159,22 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || success || googleLoading}
-            className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md shadow-sky-500/10 hover:shadow-sky-500/20 flex items-center justify-center gap-2"
+            className="w-full bg-[#2ECC71] hover:bg-[#27ae60] text-white font-semibold py-3.5 rounded-lg text-sm transition-all shadow-sm shadow-[#2ECC71]/10 hover:shadow-[#2ECC71]/20 flex items-center justify-center gap-2 font-display"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Registrarse'
+              t('auth.register.submitButton')
             )}
           </button>
         </form>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-800/60" />
+            <span className="w-full border-t border-[#1E1B4B]/10" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[#030712] px-3 text-slate-500 font-medium">o continuar con</span>
+            <span className="bg-white px-3 text-[#1E1B4B]/40 font-medium font-sans">{t('auth.login.orContinueWith')}</span>
           </div>
         </div>
 
@@ -172,7 +182,7 @@ export default function RegisterPage() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading || success || googleLoading}
-          className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2.5"
+          className="w-full bg-white border border-[#1E1B4B]/10 hover:border-[#1E1B4B]/20 text-[#1E1B4B]/80 hover:text-[#1E1B4B] font-semibold py-3.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2.5 font-display"
         >
           {googleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -184,15 +194,15 @@ export default function RegisterPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
               </svg>
-              <span>Registrarse con Google</span>
+              <span>{t('auth.register.googleButton')}</span>
             </>
           )}
         </button>
 
-        <p className="text-center text-xs text-slate-400 mt-8 font-light">
-          ¿Ya tienes una cuenta?{' '}
-          <Link href="/login" className="text-sky-400 font-semibold hover:underline">
-            Inicia sesión aquí
+        <p className="text-center text-xs text-[#1E1B4B]/60 mt-8 font-light font-sans">
+          {t('auth.register.alreadyHaveAccount')}{' '}
+          <Link href="/login" className="text-[#8B5CF6] font-semibold hover:underline">
+            {t('auth.register.logInHere')}
           </Link>
         </p>
       </div>
