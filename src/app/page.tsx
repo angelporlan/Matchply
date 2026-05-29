@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, BarChart2 } from 'lucide-react';
-import ThemeToggle from '@/components/ui/ThemeToggle';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { getServerTranslations } from '@/lib/i18n/server';
-import Logo from '@/components/ui/Logo';
+import LandingHeader from '@/components/landing/LandingHeader';
 
 export default async function LandingPage() {
   const session = await auth();
@@ -17,51 +15,15 @@ export default async function LandingPage() {
       <div className="absolute bottom-[20%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 blur-[130px] pointer-events-none" />
 
       {/* Navigation Header */}
-      <header className="fixed inset-x-0 top-0 z-50 bg-[#fafafa]/80 dark:bg-[#0b0f19]/80 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 shadow-sm transition-colors duration-300">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 z-10">
-            <Link href="/" className="hover:opacity-90 transition-opacity">
-              <Logo textSize="lg" />
-            </Link>
-          </div>
-
-          <nav className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8 text-sm font-medium text-[#1e1b4b]/70 dark:text-slate-300">
-            <a href="#features" className="hover:text-[#1e1b4b] dark:hover:text-white transition-colors">{t('landing.nav.features')}</a>
-            <a href="#templates" className="hover:text-[#1e1b4b] dark:hover:text-white transition-colors">{t('landing.nav.templates')}</a>
-            <a href="#pricing" className="hover:text-[#1e1b4b] dark:hover:text-white transition-colors">{t('landing.nav.pricing')}</a>
-          </nav>
-
-          <div className="flex items-center gap-4 z-10">
-            <LanguageToggle />
-            {/* Theme Toggle Button */}
-            <ThemeToggle />
-
-            {session ? (
-              <Link
-                href="/dashboard"
-                className="bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] hover:bg-[#1e1b4b]/95 dark:hover:bg-slate-100 font-semibold px-4 py-2 rounded-[8px] text-sm transition-all shadow-sm flex items-center gap-1.5 font-display"
-              >
-                {t('landing.nav.dashboard')} <ArrowRight className="w-4 h-4 stroke-[1.75]" />
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-[#1e1b4b]/80 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white font-medium text-sm transition-colors"
-                >
-                  {t('landing.nav.login')}
-                </Link>
-                <Link
-                  href="/register"
-                  className="bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] hover:bg-[#1e1b4b]/90 dark:hover:bg-slate-100 font-semibold px-4 py-2 rounded-[8px] text-sm transition-all shadow-sm font-display"
-                >
-                  {t('landing.nav.register')}
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <LandingHeader
+        isLoggedIn={!!session}
+        navFeatures={t('landing.nav.features')}
+        navTemplates={t('landing.nav.templates')}
+        navPricing={t('landing.nav.pricing')}
+        navDashboard={t('landing.nav.dashboard')}
+        navLogin={t('landing.nav.login')}
+        navRegister={t('landing.nav.register')}
+      />
 
       {/* Hero Section */}
       <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 text-center">
