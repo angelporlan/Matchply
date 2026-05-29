@@ -83,7 +83,7 @@ export default function LandingHeader({
           <ThemeToggle />
           <button
             onClick={toggleMenu}
-            className="p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-305 transition-all hover:bg-[#1e1b4b]/5 dark:hover:bg-white/5"
+            className="p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 transition-all hover:bg-[#1e1b4b]/5 dark:hover:bg-white/5"
             aria-label="Toggle Navigation Menu"
             aria-expanded={isOpen}
           >
