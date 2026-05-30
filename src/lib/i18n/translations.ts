@@ -125,7 +125,7 @@ export const translations = {
         },
       },
       footer: {
-        tagline: 'Diseñado con tecnologías de última generación.',
+        tagline: 'Todos los derechos reservados.',
       },
     },
     sidebar: {
@@ -659,7 +659,7 @@ export const translations = {
         },
       },
       footer: {
-        tagline: 'Designed with next-generation technology.',
+        tagline: 'All rights reserved.',
       },
     },
     sidebar: {

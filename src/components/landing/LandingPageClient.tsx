@@ -823,59 +823,131 @@ export default function LandingPageClient({ session }: { session: any }) {
                   </p>
                 </div>
 
-                {/* Animated AI Radar Match */}
-                <div className="mt-8 flex items-center justify-center relative h-44 overflow-visible select-none">
-                  {/* Glowing purple aura */}
+                {/* Visual conceptual AI Optimization CV & Keyword link Streams */}
+                <div className="mt-8 flex flex-col items-center justify-center relative h-44 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-2xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
+                  {/* Glowing background aura */}
                   <div className="absolute inset-0 bg-[#8b5cf6]/5 rounded-full blur-2xl animate-pulse" />
 
-                  {/* Rotating dashed ring */}
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 16, ease: 'linear' }}
-                    className="absolute w-28 h-28 rounded-full border-2 border-dashed border-[#8b5cf6]/20 flex items-center justify-center"
-                  />
+                  {/* SVG Streams connecting keywords to central CV */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 340 176" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {[
+                      { d: 'M 55 30 L 152 90', color: '#8b5cf6' },
+                      { d: 'M 285 30 L 188 90', color: '#10b981' },
+                      { d: 'M 35 84 L 142 105', color: '#6366f1' },
+                      { d: 'M 305 84 L 198 105', color: '#2ecc71' },
+                      { d: 'M 55 146 L 152 120', color: '#8b5cf6' },
+                      { d: 'M 285 146 L 188 120', color: '#a855f7' }
+                    ].map((line, idx) => (
+                      <g key={idx}>
+                        {/* Static subtle background track */}
+                        <path d={line.d} stroke={line.color} strokeWidth="1" strokeOpacity="0.12" />
+                        {/* Flowing animated stream */}
+                        <motion.path
+                          d={line.d}
+                          stroke={line.color}
+                          strokeWidth="1.2"
+                          strokeOpacity="0.45"
+                          strokeDasharray="4 4"
+                          animate={{ strokeDashoffset: [20, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: idx * 0.2 }}
+                        />
+                      </g>
+                    ))}
+                  </svg>
 
-                  {/* Reverse rotating ring */}
-                  <motion.div
-                    animate={{ rotate: -360 }}
-                    transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
-                    className="absolute w-24 h-24 rounded-full border-2 border-dashed border-emerald-500/20"
-                  />
+                  {/* Center: CV + Match Badge */}
+                  <div className="flex flex-col items-center z-10">
+                    {/* Glowing pill badge above CV */}
+                    <motion.div
+                      animate={{ y: [0, -3, 0] }}
+                      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                      className="bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[8.5px] font-black px-2.5 py-0.5 rounded-full mb-2.5 flex items-center gap-0.5 shadow-sm shadow-emerald-500/5"
+                    >
+                      <Sparkles className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
+                      <span>98% ATS Match</span>
+                    </motion.div>
 
-                  {/* Center glowing Match Sphere */}
-                  <div className="absolute flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-full w-20 h-20 shadow-xl border border-[#8b5cf6]/20 group-hover:scale-105 transition-transform duration-500">
-                    <Sparkles className="w-5 h-5 text-[#8b5cf6] animate-bounce" />
-                    <span className="text-[10px] font-black text-slate-800 dark:text-white mt-1">98% Match</span>
+                    {/* Rectangle CV Card */}
+                    <motion.div
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      className="w-14 h-18 bg-white dark:bg-slate-950 rounded-lg shadow-xl border border-[#8b5cf6]/25 dark:border-[#8b5cf6]/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
+                    >
+                      {/* CV Header: Circular avatar and text lines */}
+                      <div className="flex gap-1 items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#8b5cf6]/15 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]/40" />
+                        </div>
+                        <div className="flex-1 flex flex-col gap-0.5">
+                          <div className="h-1 w-6 bg-[#8b5cf6] rounded-full" />
+                          <div className="h-0.5 w-4 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                        </div>
+                      </div>
+
+                      {/* Experience lines */}
+                      <div className="flex flex-col gap-1 mt-1">
+                        <div className="h-0.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
+                        <div className="h-0.5 w-5/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                        <div className="h-0.5 w-4/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                      </div>
+
+                      {/* Glowing AI Shimmer Highlight */}
+                      <div className="h-2 w-full bg-emerald-500/15 rounded border border-emerald-500/25 overflow-hidden relative flex items-center justify-center mt-auto">
+                        <motion.div
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                        />
+                      </div>
+                    </motion.div>
                   </div>
 
-                  {/* Floating STAR tag chips */}
+                  {/* Absolute Positioned Keywords surrounding the CV */}
                   <motion.div
-                    animate={{ y: [0, -5, 0], x: [0, 2, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut' }}
-                    className="absolute top-2 left-2 bg-[#8b5cf6] text-white text-[7.5px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5 border border-[#8b5cf6]/10"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
+                    className="absolute left-[10%] top-[12%] bg-[#8b5cf6]/8 hover:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 text-[#8b5cf6] dark:text-[#a78bfa] text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                   >
-                    <span>Situation</span>
+                    STAR
                   </motion.div>
+
                   <motion.div
-                    animate={{ y: [0, -5, 0], x: [0, -2, 0] }}
-                    transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut', delay: 0.7 }}
-                    className="absolute top-8 right-2 bg-emerald-500 text-white text-[7.5px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5 border border-emerald-500/10"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.5 }}
+                    className="absolute right-[10%] top-[12%] bg-emerald-500/8 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                   >
-                    <span>Task</span>
+                    Keywords
                   </motion.div>
+
                   <motion.div
-                    animate={{ y: [0, 5, 0], x: [0, 2, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut', delay: 1.4 }}
-                    className="absolute bottom-6 left-4 bg-indigo-500 text-white text-[7.5px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5 border border-indigo-500/10"
+                    animate={{ y: [0, 4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut", delay: 1 }}
+                    className="absolute left-[4%] top-[45%] bg-indigo-500/8 hover:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
                   >
-                    <span>Action</span>
+                    ATS
                   </motion.div>
+
                   <motion.div
-                    animate={{ y: [0, 5, 0], x: [0, -2, 0] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', delay: 2.1 }}
-                    className="absolute bottom-4 right-4 bg-[#2ecc71] text-white text-[7.5px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5 border border-[#2ecc71]/10"
+                    animate={{ y: [0, 4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut", delay: 1.5 }}
+                    className="absolute right-[4%] top-[45%] bg-[#2ecc71]/8 hover:bg-[#2ecc71]/15 border border-[#2ecc71]/20 text-[#2ecc71] dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
                   >
-                    <span>Result</span>
+                    Impacto
+                  </motion.div>
+
+                  <motion.div
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 2 }}
+                    className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                  >
+                    Logros
+                  </motion.div>
+
+                  <motion.div
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 3.3, ease: "easeInOut", delay: 2.5 }}
+                    className="absolute right-[10%] bottom-[12%] bg-purple-500/8 hover:bg-purple-500/15 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                  >
+                    Skills
                   </motion.div>
                 </div>
               </FeatureCard>
