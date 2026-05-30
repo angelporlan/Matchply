@@ -112,7 +112,7 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
 
           {/* Page number */}
           <div className="text-[10px] font-bold text-[#1e1b4b] dark:text-slate-300 bg-white dark:bg-slate-900 border border-[#1e1b4b]/10 dark:border-slate-800 px-3 py-1.5 rounded-[8px] shadow-sm font-mono">
-            {t('editor.pdf.pages').replace('{current}', '1').replace('{total}', '1')}
+            {t('editor.pdf.pageIndicator').replace('{current}', '1').replace('{total}', '1')}
           </div>
 
           {/* Full Screen toggle button */}
@@ -139,7 +139,7 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-sm"
           >
             <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-            <span>{t('editor.pdf.download')}</span>
+            <span>{t('editor.pdf.downloadBtn')}</span>
           </a>
         </div>
       </div>
