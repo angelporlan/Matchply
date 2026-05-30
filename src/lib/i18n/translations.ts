@@ -49,7 +49,7 @@ export const translations = {
         register: 'Registrarse',
       },
       hero: {
-        badge: 'Optimización de CVs impulsada por Inteligencia Artificial Híbrida',
+        badge: 'IA que lee la oferta y reescribe tu CV para pasar el ATS',
         titleBefore: 'Multiplica por',
         titleHighlight: '10x tu Match',
         titleAfter: 'con ofertas de empleo',
@@ -65,8 +65,8 @@ export const translations = {
           desc: 'Escribe en Markdown al lado izquierdo y visualiza los ajustes de diseño, fuentes y márgenes aplicados instantáneamente en el PDF a la derecha.',
         },
         ai: {
-          title: 'IA Híbrida Inteligente',
-          desc: 'Utiliza OpenRouter con Qwen de forma gratuita. O escala a PRO para canalizar directamente con APIs oficiales de DeepSeek y Gemini para optimizaciones con el método STAR.',
+          title: 'Optimización Semántica con IA',
+          desc: 'Analiza la oferta en profundidad y reescribe tu CV para maximizar el match con cada puesto. Método STAR aplicado automáticamente.',
         },
         kanban: {
           title: 'Tablero Kanban',
@@ -107,7 +107,7 @@ export const translations = {
           feature1: '1 Currículum Base en Markdown',
           feature2: 'Editor interactivo en vivo',
           feature3: 'Descarga de PDF (Plantilla Harvard)',
-          feature4: 'Optimización IA básica (OpenRouter)',
+          feature4: 'Optimización IA · análisis básico',
           cta: 'Empezar Gratis',
         },
         pro: {
@@ -117,7 +117,7 @@ export const translations = {
           period: '/ al mes',
           feature1: 'Currículums ilimitados',
           feature2: 'Acceso a las 5 Plantillas Premium',
-          feature3: 'Optimización IA oficial (DeepSeek o Gemini)',
+          feature3: 'Optimización IA avanzada · método STAR completo',
           feature4: 'Tablero Kanban de candidaturas',
           feature5: 'Alineación de palabras clave con el método STAR',
           checkoutCta: 'Adquirir PRO',
@@ -583,7 +583,7 @@ export const translations = {
         register: 'Sign Up',
       },
       hero: {
-        badge: 'Hybrid AI-powered CV optimization',
+        badge: 'AI that reads the job offer and rewrites your CV to pass the ATS',
         titleBefore: 'Multiply your',
         titleHighlight: 'job match by 10x',
         titleAfter: '',
@@ -599,8 +599,8 @@ export const translations = {
           desc: 'Write in Markdown on the left and see layout, font, and margin adjustments applied instantly to the PDF on the right.',
         },
         ai: {
-          title: 'Smart Hybrid AI',
-          desc: 'Use OpenRouter with Qwen for free, or upgrade to PRO to connect directly with official DeepSeek and Gemini APIs for STAR-method optimizations.',
+          title: 'Semantic AI Optimization',
+          desc: 'Deeply analyzes the job offer and rewrites your CV to maximize your match. STAR method applied automatically.',
         },
         kanban: {
           title: 'Kanban Board',
@@ -641,7 +641,7 @@ export const translations = {
           feature1: '1 Base CV in Markdown',
           feature2: 'Live interactive editor',
           feature3: 'PDF download (Harvard template)',
-          feature4: 'Basic AI optimization (OpenRouter)',
+          feature4: 'AI optimization · basic analysis',
           cta: 'Start Free',
         },
         pro: {
@@ -651,7 +651,7 @@ export const translations = {
           period: '/ month',
           feature1: 'Unlimited CVs',
           feature2: 'Access to all 5 Premium Templates',
-          feature3: 'Official AI optimization (DeepSeek or Gemini)',
+          feature3: 'Advanced AI optimization · full STAR method',
           feature4: 'Application Kanban board',
           feature5: 'STAR-method keyword alignment',
           checkoutCta: 'Get PRO',
