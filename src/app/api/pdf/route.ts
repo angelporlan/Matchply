@@ -53,10 +53,15 @@ export async function GET(req: NextRequest) {
       showIcons: true
     });
 
+    const userName = session.user.name || 'User';
+    const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
+    const filename = `CV ${safeName}.pdf`;
+    const encodedFilename = encodeURIComponent(filename);
+
     return new Response(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="cv-${cvId}.pdf"`,
+        'Content-Disposition': `inline; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
         'Cache-Control': 'no-store, max-age=0'
       }
     });
