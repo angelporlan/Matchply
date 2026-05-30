@@ -1151,7 +1151,7 @@ export default function AdminClient({
                     <tbody className="divide-y divide-[#1e1b4b]/5 dark:divide-white/5 bg-white dark:bg-[#1f2937]/50">
                       {filteredAuditLogs.map((log) => (
                         <tr key={log.id} className="hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20 transition-colors">
-                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-350 whitespace-nowrap font-mono">
+                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
                             {new Date(log.createdAt).toLocaleString('es-ES')}
                           </td>
                           <td className="px-6 py-4 font-semibold text-[#1e1b4b] dark:text-slate-200 whitespace-nowrap font-display">
@@ -1174,7 +1174,7 @@ export default function AdminClient({
                               {log.action}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-350 whitespace-nowrap font-mono">
+                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
                             {log.ipAddress || 'Sin IP'}
                           </td>
                           <td className="px-6 py-4 text-[#1e1b4b]/60 dark:text-slate-400 truncate max-w-[200px]" title={log.userAgent}>
