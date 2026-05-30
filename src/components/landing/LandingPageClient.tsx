@@ -345,6 +345,47 @@ export default function LandingPageClient({ session }: { session: any }) {
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const [peekingCardIndex, setPeekingCardIndex] = useState<number | null>(null);
 
+  // Mini Kanban state on landing page
+  const [kanbanCards, setKanbanCards] = useState([
+    { id: '1', title: 'Software Engineer', company: 'Google', template: 'Harvard CV', status: 'postulado' },
+    { id: '2', title: 'Data Analyst', company: 'Netflix', template: 'Modern CV', status: 'postulado' },
+    { id: '3', title: 'Fullstack Dev', company: 'Stripe', template: 'Swiss CV', status: 'entrevista', info: 'Mañana 10:00' },
+    { id: '4', title: 'AI Lead', company: 'OpenAI', template: 'Minimal CV', status: 'oferta', accepted: true },
+  ]);
+  const [activeColumn, setActiveColumn] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e: React.DragEvent, status: string) => {
+    e.preventDefault();
+    setActiveColumn(status);
+  };
+
+  const handleDragLeave = () => {
+    setActiveColumn(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, status: string) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    setKanbanCards(prev => prev.map(card => {
+      if (card.id === id) {
+        if (status === 'oferta') {
+          return { ...card, status, accepted: true };
+        }
+        return { ...card, status, accepted: false };
+      }
+      return card;
+    }));
+    setActiveColumn(null);
+  };
+
   // Auto-rotation animation loop using framer-motion's animate
   useEffect(() => {
     if (isCarouselHovered) return;
@@ -862,51 +903,65 @@ export default function LandingPageClient({ session }: { session: any }) {
                   </div>
 
                   {/* Right Column: Mini Kanban UI Preview */}
-                  <div className="lg:w-7/12 w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-2xl p-5 shadow-inner flex gap-4 h-[210px] select-none overflow-hidden relative">
+                  <div className="lg:w-7/12 w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-2xl p-5 shadow-inner flex gap-4 h-[210px] overflow-hidden relative">
                     
-                    {/* Column 1: Postulado */}
-                    <div className="flex-1 flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between text-[8px] font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-2.5 py-1 rounded-md">
-                        <span>Postulado</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 transform hover:scale-[1.03] transition-transform cursor-grab">
-                        <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">Software Engineer</div>
-                        <div className="text-[7.5px] text-slate-400">Google • Harvard CV</div>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 transform hover:scale-[1.03] transition-transform cursor-grab">
-                        <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">Data Analyst</div>
-                        <div className="text-[7.5px] text-slate-400">Netflix • Modern CV</div>
-                      </div>
-                    </div>
-
-                    {/* Column 2: Entrevista */}
-                    <div className="flex-1 flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between text-[8px] font-bold text-[#8b5cf6] bg-[#8b5cf6]/10 px-2.5 py-1 rounded-md">
-                        <span>Entrevista</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 transform hover:scale-[1.03] transition-transform cursor-grab">
-                        <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">Fullstack Dev</div>
-                        <div className="text-[7.5px] text-slate-400">Stripe • Swiss CV</div>
-                        <div className="flex gap-1.5 mt-0.5">
-                          <span className="bg-[#8b5cf6]/10 text-[#8b5cf6] text-[6.5px] font-bold px-1.5 py-0.5 rounded">Mañana 10:00</span>
+                    {[
+                      { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
+                      { id: 'entrevista', name: 'Entrevista', colorClass: 'text-[#8b5cf6] bg-[#8b5cf6]/10', dotColor: 'bg-[#8b5cf6]' },
+                      { id: 'oferta', name: 'Oferta', colorClass: 'text-emerald-500 bg-emerald-500/10', dotColor: 'bg-emerald-500' },
+                    ].map(col => {
+                      const colCards = kanbanCards.filter(c => c.status === col.id);
+                      const isActive = activeColumn === col.id;
+                      
+                      return (
+                        <div
+                          key={col.id}
+                          onDragOver={handleDragOver}
+                          onDragEnter={(e) => handleDragEnter(e, col.id)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, col.id)}
+                          className={`flex-1 flex flex-col gap-2.5 rounded-xl transition-all duration-200 p-1 select-none ${
+                            isActive ? 'bg-[#8b5cf6]/5 outline-2 outline-dashed outline-[#8b5cf6]/20' : ''
+                          }`}
+                        >
+                          <div className={`flex items-center justify-between text-[8px] font-bold px-2.5 py-1 rounded-md border border-transparent ${col.colorClass}`}>
+                            <span>{col.name}</span>
+                            <span className={`w-1.5 h-1.5 rounded-full ${col.dotColor} ${col.id === 'oferta' ? 'animate-pulse' : ''}`} />
+                          </div>
+                          
+                          <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-none pr-0.5">
+                            {colCards.map(card => (
+                              <motion.div
+                                key={card.id}
+                                layout
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, card.id)}
+                                whileDrag={{ scale: 1.05, rotate: 1.5 }}
+                                className={`bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing transition-all hover:border-[#8b5cf6]/30 ${
+                                  card.accepted ? 'border-l-2 border-l-emerald-500 dark:border-l-emerald-500 shadow-md ring-2 ring-emerald-500/10 dark:ring-emerald-500/20' : ''
+                                }`}
+                              >
+                                <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{card.title}</div>
+                                <div className="text-[7.5px] text-slate-400 leading-none">{card.company} • {card.template}</div>
+                                {card.info && (
+                                  <div className="flex gap-1.5 mt-0.5">
+                                    <span className="bg-[#8b5cf6]/10 text-[#8b5cf6] text-[6.5px] font-bold px-1.5 py-0.5 rounded leading-none">{card.info}</span>
+                                  </div>
+                                )}
+                                {card.accepted && (
+                                  <div className="text-[6.5px] text-emerald-500 font-extrabold mt-0.5 animate-bounce leading-none">🎉 ¡Aceptada!</div>
+                                )}
+                              </motion.div>
+                            ))}
+                            {colCards.length === 0 && (
+                              <div className="flex-1 flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-xl py-6 text-center text-[7px] text-slate-400">
+                                Arrastra aquí
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Column 3: Oferta */}
-                    <div className="flex-1 flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between text-[8px] font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-md">
-                        <span>Oferta</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-md border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 border-l-2 border-l-emerald-500 transform hover:scale-[1.03] transition-transform cursor-grab animate-[pulse_2s_infinite]">
-                        <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">AI Lead</div>
-                        <div className="text-[7.5px] text-slate-400">OpenAI • Minimal CV</div>
-                        <div className="text-[6.5px] text-emerald-500 font-extrabold mt-0.5">🎉 ¡Aceptada!</div>
-                      </div>
-                    </div>
+                      );
+                    })}
 
                   </div>
                 </div>
