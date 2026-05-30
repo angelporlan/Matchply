@@ -158,3 +158,118 @@
 .dark .scrollbar-custom {
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
+
+/* Custom Matchply Animations & Keyframes */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0.5deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-0.5deg);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+/* Shimmer/Shine Effect on Button Hover */
+@keyframes shimmer-shine {
+  0% {
+    left: -150%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.hover-shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-shimmer-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+}
+
+.hover-shimmer-btn:hover::after {
+  animation: shimmer-shine 1s ease-in-out infinite;
+}
+
+/* 3D Card Flip styles */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* 3D Carousel Custom Styles */
+.carousel-container {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+:root {
+  --carousel-radius: 350px;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --carousel-radius: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --carousel-radius: 190px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --carousel-radius: 130px;
+  }
+}
+
+
