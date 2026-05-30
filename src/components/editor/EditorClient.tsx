@@ -19,7 +19,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 interface EditorClientProps {
   cv: CV;
   isPremium: boolean;
-  availablePrompts: { id: string; name: string; isActive: boolean }[];
+  availablePrompts: { id: string; name: string; isActive: boolean; description?: string | null }[];
   baseCvContent?: string | null;
   user: {
     name?: string | null;
@@ -673,7 +673,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
                               className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8b5cf6] ring-2 ring-[#8b5cf6]/20 shadow-lg ${shadowClass}` : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'}`}
-                              title={config.desc}
+                              title={prompt.description || config.desc}
                             >
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
@@ -690,7 +690,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                 </h4>
                               </div>
                               <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
-                                {config.desc}
+                                {prompt.description || config.desc}
                               </p>
                               {isSelected && (
                                 <div 

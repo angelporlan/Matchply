@@ -81,6 +81,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
       id: prompts.id,
       name: prompts.name,
       isActive: prompts.isActive,
+      description: prompts.description,
     })
     .from(prompts)
     .where(

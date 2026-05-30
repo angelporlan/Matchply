@@ -1,0 +1,1 @@
+ALTER TABLE "prompt" ADD COLUMN "description" text;

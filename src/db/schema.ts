@@ -59,6 +59,7 @@ export const prompts = pgTable('prompt', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(), // Ej: "Optimización Estilo Harvard"
   key: text('key').default('optimize_cv').notNull(), // Clave de la función asociada (ej. 'optimize_cv')
+  description: text('description'), // Descripción del modo para mostrarle al usuario
   systemPrompt: text('systemPrompt').notNull(),
   userPrompt: text('userPrompt').notNull(), // Template con variables {{cv}} y {{job}}
   isActive: boolean('isActive').default(false).notNull(),
