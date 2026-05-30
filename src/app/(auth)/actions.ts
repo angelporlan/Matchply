@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { createAuditLog } from "@/lib/audit";
 
 export async function registerUser(prevState: any, formData: FormData) {
   try {
@@ -34,11 +35,20 @@ export async function registerUser(prevState: any, formData: FormData) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insertar usuario
-    await db.insert(users).values({
-      name,
-      email,
-      passwordHash,
-      subscriptionStatus: "none"
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        name,
+        email,
+        passwordHash,
+        subscriptionStatus: "none"
+      })
+      .returning();
+
+    // Log de auditoría para registro tradicional
+    await createAuditLog("user_register", newUser.id, newUser.email, {
+      name: newUser.name,
+      method: "credentials"
     });
 
     return { success: true };

@@ -5,6 +5,8 @@ import { db } from "./db";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { createAuditLog } from "@/lib/audit";
+
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -64,6 +66,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               .returning();
             user.id = newUser.id;
             (user as any).role = newUser.role;
+
+            // Log de auditoría para registro por Google OAuth
+            await createAuditLog("user_register", newUser.id, newUser.email, {
+              name: newUser.name,
+              method: "google_oauth"
+            });
           } else {
             user.id = existingUser.id;
             (user as any).role = existingUser.role;
@@ -73,6 +81,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return false;
         }
       }
+
+      // Log de auditoría para todo inicio de sesión exitoso (Credentials y OAuth)
+      if (user && user.id && user.email) {
+        await createAuditLog("user_login", user.id, user.email, {
+          provider: account?.provider || "credentials"
+        });
+      }
+
       return true;
     },
     async jwt({ token, user }) {
