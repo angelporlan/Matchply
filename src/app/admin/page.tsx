@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { getAdminStats, getAIConfig } from './actions';
+import { getAdminStats, getAIConfig, getAdminAuditLogs, getAdminAuditStats } from './actions';
 import AdminClient from './AdminClient';
 
 export default async function AdminPage() {
@@ -14,6 +14,8 @@ export default async function AdminPage() {
   // Obtener datos iniciales para hidratar el cliente
   const statsRes = await getAdminStats();
   const aiConfigRes = await getAIConfig();
+  const auditLogsRes = await getAdminAuditLogs();
+  const auditStatsRes = await getAdminAuditStats();
 
   if (!statsRes.success || !aiConfigRes.success) {
     return (
@@ -34,6 +36,8 @@ export default async function AdminPage() {
       initialUsers={statsRes.users || []}
       initialSettings={aiConfigRes.settings || []}
       initialPrompts={aiConfigRes.prompts || []}
+      initialAuditLogs={auditLogsRes.success ? auditLogsRes.logs || [] : []}
+      initialAuditStats={auditStatsRes.success ? auditStatsRes.stats! : { registersToday: 0, loginsToday: 0, cvsCreatedToday: 0, downloadsToday: 0 }}
     />
   );
 }

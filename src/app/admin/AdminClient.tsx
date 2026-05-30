@@ -26,7 +26,10 @@ import {
   ArrowLeft,
   Calendar,
   AlertTriangle,
-  PartyPopper
+  PartyPopper,
+  Terminal,
+  Download,
+  Eye
 } from 'lucide-react';
 import {
   updateAISetting,
@@ -38,7 +41,9 @@ import {
   getUserDetails,
   getAdminStats,
   getAIConfig,
-  togglePromptArchive
+  togglePromptArchive,
+  getAdminAuditLogs,
+  getAdminAuditStats
 } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 
@@ -52,6 +57,13 @@ interface AdminClientProps {
   initialUsers: any[];
   initialSettings: any[];
   initialPrompts: any[];
+  initialAuditLogs: any[];
+  initialAuditStats: {
+    registersToday: number;
+    loginsToday: number;
+    cvsCreatedToday: number;
+    downloadsToday: number;
+  };
 }
 
 export default function AdminClient({
@@ -59,15 +71,27 @@ export default function AdminClient({
   initialUsers,
   initialSettings,
   initialPrompts,
+  initialAuditLogs,
+  initialAuditStats,
 }: AdminClientProps) {
   // Navigation / Tabs state
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'ai' | 'prompts'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'ai' | 'prompts' | 'logs'>('stats');
 
   // Hydrated state
   const [stats, setStats] = useState(initialStats);
   const [usersList, setUsersList] = useState(initialUsers);
   const [dbSettings, setDbSettings] = useState(initialSettings);
   const [promptsList, setPromptsList] = useState(initialPrompts);
+  const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
+  const [auditStats, setAuditStats] = useState(initialAuditStats);
+
+  // Audit Logs Filtering State
+  const [logSearchQuery, setLogSearchQuery] = useState('');
+  const [logActionFilter, setLogActionFilter] = useState('all');
+  const [logDateFilter, setLogDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
+
+  // Selected audit log modal for detail view
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +121,58 @@ export default function AdminClient({
     isActive: false,
     isArchived: false,
     isStrict: false,
+  });
+
+  // Exportar logs locales en JSON
+  const handleExportLogs = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(auditLogs, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `matchply_audit_logs_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Logs exportados con éxito');
+    } catch (e) {
+      showToast('Error al exportar logs', 'error');
+    }
+  };
+
+  // Filtrado de logs de auditoría en memoria (rendimiento ultrarrápido y reactivo)
+  const filteredAuditLogs = auditLogs.filter(log => {
+    // 1. Filtro de búsqueda por texto
+    if (logSearchQuery) {
+      const query = logSearchQuery.toLowerCase();
+      const emailMatch = log.userEmail?.toLowerCase().includes(query);
+      const actionMatch = log.action.toLowerCase().includes(query);
+      const ipMatch = log.ipAddress?.toLowerCase().includes(query);
+      if (!emailMatch && !actionMatch && !ipMatch) return false;
+    }
+
+    // 2. Filtro por tipo de acción
+    if (logActionFilter !== 'all') {
+      if (log.action !== logActionFilter) return false;
+    }
+
+    // 3. Filtro de tiempo por fecha
+    if (logDateFilter !== 'all') {
+      const logDate = new Date(log.createdAt);
+      const now = new Date();
+      if (logDateFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (logDate < today) return false;
+      } else if (logDateFilter === '7d') {
+        const sevenDaysAgo = new Date(now.setDate(now.getDate() - 7));
+        if (logDate < sevenDaysAgo) return false;
+      } else if (logDateFilter === '30d') {
+        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+        if (logDate < thirtyDaysAgo) return false;
+      }
+    }
+
+    return true;
   });
 
   // IA Settings form state (local fields)
@@ -133,6 +209,8 @@ export default function AdminClient({
   const refreshData = async () => {
     const sRes = await getAdminStats();
     const aRes = await getAIConfig();
+    const lRes = await getAdminAuditLogs();
+    const astRes = await getAdminAuditStats();
     if (sRes.success) {
       setStats(sRes.stats!);
       setUsersList(sRes.users || []);
@@ -140,6 +218,12 @@ export default function AdminClient({
     if (aRes.success) {
       setDbSettings(aRes.settings || []);
       setPromptsList(aRes.prompts || []);
+    }
+    if (lRes.success) {
+      setAuditLogs(lRes.logs || []);
+    }
+    if (astRes.success) {
+      setAuditStats(astRes.stats!);
     }
     showToast('Datos actualizados de la base de datos');
   };
@@ -363,7 +447,7 @@ export default function AdminClient({
 
         {/* Upper Tabs Navigation */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-8 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 p-2 rounded-[12px] shadow-sm">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full md:w-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full md:w-auto">
             <button
               onClick={() => setActiveTab('stats')}
               className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-[8px] text-xs font-bold transition-all font-display border ${
@@ -407,6 +491,17 @@ export default function AdminClient({
             >
               <Code className="w-4 h-4 stroke-[1.75]" />
               <span>Gestión Prompts</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-[8px] text-xs font-bold transition-all font-display border ${
+                activeTab === 'logs'
+                  ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] border-[#1e1b4b] dark:border-white shadow-sm'
+                  : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 border-transparent'
+              }`}
+            >
+              <Terminal className="w-4 h-4 stroke-[1.75]" />
+              <span>Auditoría</span>
             </button>
           </div>
           
@@ -921,6 +1016,188 @@ export default function AdminClient({
             )}
           </div>
         )}
+
+        {/* Tab: Logs / Auditoría */}
+        {activeTab === 'logs' && (
+          <div className="space-y-6 animate-fadeIn text-[#1e1b4b] dark:text-[#f3f4f6]">
+            {/* Tarjetas de Estadísticas de Hoy */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white dark:bg-[#1f2937] p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+                <div>
+                  <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-[11px] font-medium font-sans">Registros de Hoy</span>
+                  <h4 className="text-2xl font-bold font-display text-[#1e1b4b] dark:text-white mt-1">
+                    {auditStats.registersToday}
+                  </h4>
+                </div>
+                <div className="p-3 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 text-[#8b5cf6] dark:text-violet-400 rounded-lg">
+                  <Users className="w-4.5 h-4.5 stroke-[1.75]" />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#1f2937] p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+                <div>
+                  <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-[11px] font-medium font-sans">Inicios de Sesión Hoy</span>
+                  <h4 className="text-2xl font-bold font-display text-emerald-600 dark:text-emerald-400 mt-1">
+                    {auditStats.loginsToday}
+                  </h4>
+                </div>
+                <div className="p-3 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                  <UserCheck className="w-4.5 h-4.5 stroke-[1.75]" />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#1f2937] p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+                <div>
+                  <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-[11px] font-medium font-sans">CVs Creados Hoy</span>
+                  <h4 className="text-2xl font-bold font-display text-[#8b5cf6] dark:text-violet-400 mt-1">
+                    {auditStats.cvsCreatedToday}
+                  </h4>
+                </div>
+                <div className="p-3 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 text-[#8b5cf6] dark:text-violet-400 rounded-lg">
+                  <FileText className="w-4.5 h-4.5 stroke-[1.75]" />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#1f2937] p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shadow-sm">
+                <div>
+                  <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-[11px] font-medium font-sans">Descargas PDF Hoy</span>
+                  <h4 className="text-2xl font-bold font-display text-amber-600 dark:text-amber-500 mt-1">
+                    {auditStats.downloadsToday}
+                  </h4>
+                </div>
+                <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500 rounded-lg">
+                  <Download className="w-4.5 h-4.5 stroke-[1.75]" />
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de Filtros Dinámicos */}
+            <div className="bg-white dark:bg-[#1f2937] p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 font-sans">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto flex-1">
+                {/* Búsqueda por Email */}
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-3 w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por correo o acción..."
+                    value={logSearchQuery}
+                    onChange={(e) => setLogSearchQuery(e.target.value)}
+                    className="bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-9 pr-4 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] w-full"
+                  />
+                </div>
+
+                {/* Filtro por Acción */}
+                <select
+                  value={logActionFilter}
+                  onChange={(e) => setLogActionFilter(e.target.value)}
+                  className="bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none"
+                >
+                  <option value="all">Todas las acciones</option>
+                  <option value="user_register">Registros tradicionales</option>
+                  <option value="user_register_oauth">Registros Google OAuth</option>
+                  <option value="user_login">Inicios de sesión</option>
+                  <option value="cv_create_manual">CV creados a mano</option>
+                  <option value="cv_optimize_ai">CV optimizados con IA</option>
+                  <option value="cv_delete">CV eliminados</option>
+                  <option value="job_offer_create">Kanban candidatura creada</option>
+                  <option value="job_offer_status_change">Kanban cambio de estado</option>
+                  <option value="job_offer_update">Kanban candidatura editada</option>
+                  <option value="job_offer_delete">Kanban candidatura borrada</option>
+                  <option value="cv_download_pdf">Descargas de PDF</option>
+                </select>
+
+                {/* Filtro por Fecha */}
+                <select
+                  value={logDateFilter}
+                  onChange={(e: any) => setLogDateFilter(e.target.value)}
+                  className="bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none"
+                >
+                  <option value="all">Todo el historial</option>
+                  <option value="today">Actividad de hoy</option>
+                  <option value="7d">Últimos 7 días</option>
+                  <option value="30d">Últimos 30 días</option>
+                </select>
+              </div>
+
+              {/* Botón de Exportación */}
+              <button
+                onClick={handleExportLogs}
+                className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/30 text-[#8b5cf6] dark:text-violet-400 font-bold px-4 py-2.5 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 font-display w-full md:w-auto"
+              >
+                <Download className="w-3.5 h-3.5 stroke-[1.75]" />
+                <span>Exportar Logs (JSON)</span>
+              </button>
+            </div>
+
+            {/* Listado de Logs de Auditoría */}
+            <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm overflow-hidden">
+              {filteredAuditLogs.length === 0 ? (
+                <div className="p-12 text-center text-[#1e1b4b]/50 dark:text-slate-400 text-xs font-light font-sans">
+                  No se encontraron registros de auditoría coincidentes con los filtros seleccionados.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-[#1e1b4b]/10 dark:divide-white/10 text-left text-xs font-sans font-light">
+                    <thead className="bg-[#fafafa] dark:bg-[#0b0f19]/30 text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-bold uppercase tracking-wider font-display">
+                      <tr>
+                        <th className="px-6 py-4">Fecha & Hora</th>
+                        <th className="px-6 py-4">Usuario</th>
+                        <th className="px-6 py-4">Acción</th>
+                        <th className="px-6 py-4">Red & IP</th>
+                        <th className="px-6 py-4">Navegador / SO</th>
+                        <th className="px-6 py-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1e1b4b]/5 dark:divide-white/5 bg-white dark:bg-[#1f2937]/50">
+                      {filteredAuditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20 transition-colors">
+                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-350 whitespace-nowrap font-mono">
+                            {new Date(log.createdAt).toLocaleString('es-ES')}
+                          </td>
+                          <td className="px-6 py-4 font-semibold text-[#1e1b4b] dark:text-slate-200 whitespace-nowrap font-display">
+                            {log.userEmail || 'Desconocido'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-0.5 rounded-[8px] text-[10px] font-bold font-mono border ${
+                              log.action === 'user_register' || log.action === 'user_register_oauth'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                : log.action === 'user_login'
+                                ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 border-[#8b5cf6]/20'
+                                : log.action === 'cv_optimize_ai'
+                                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                                : log.action === 'cv_download_pdf'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20'
+                                : log.action === 'cv_delete' || log.action === 'job_offer_delete'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+                            }`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-350 whitespace-nowrap font-mono">
+                            {log.ipAddress || 'Sin IP'}
+                          </td>
+                          <td className="px-6 py-4 text-[#1e1b4b]/60 dark:text-slate-400 truncate max-w-[200px]" title={log.userAgent}>
+                            {log.userAgent || 'Sin cabecera'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={() => setSelectedLog(log)}
+                              className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/30 dark:hover:border-[#8b5cf6]/40 text-[#8b5cf6] dark:text-violet-400 font-bold px-3 py-1.5 rounded-[8px] text-[10px] transition-all font-display shadow-sm flex items-center justify-center gap-1 ml-auto"
+                            >
+                              <Eye className="w-3 h-3 stroke-[1.75]" />
+                              <span>Detalles</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* MODAL 1: User Details Modal */}
@@ -1281,6 +1558,80 @@ export default function AdminClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Log Details Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn font-sans">
+          <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/15 dark:border-white/10 rounded-[16px] w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-5 bg-[#fafafa] dark:bg-[#131a2e] border-b border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg">
+                  <Terminal className="w-4 h-4 stroke-[1.75]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">Detalles del Evento</h3>
+                  <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-light mt-0.5">ID: {selectedLog.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-white/5 p-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4 stroke-[1.75]" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs font-sans text-[#1e1b4b] dark:text-[#f3f4f6]">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5">
+                  <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block mb-1">ACCIÓN REGISTRADA</span>
+                  <span className="text-[#8b5cf6] dark:text-violet-400 font-bold font-mono text-[11px] bg-[#8b5cf6]/10 dark:bg-violet-950/40 px-2 py-0.5 rounded-md border border-[#8b5cf6]/10 w-fit block">{selectedLog.action}</span>
+                </div>
+                <div className="p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5">
+                  <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block mb-1">FECHA & HORA</span>
+                  <span className="text-[#1e1b4b] dark:text-slate-200 font-semibold">{new Date(selectedLog.createdAt).toLocaleString('es-ES')}</span>
+                </div>
+                <div className="p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5 col-span-2">
+                  <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block mb-1">USUARIO ASOCIADO</span>
+                  <span className="text-[#1e1b4b] dark:text-slate-200 font-semibold block">{selectedLog.userEmail || 'Desconocido / No Registrado'}</span>
+                  {selectedLog.userId && (
+                    <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 block mt-0.5 font-mono">ID: {selectedLog.userId}</span>
+                  )}
+                </div>
+                <div className="p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5">
+                  <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block mb-1">DIRECCIÓN IP</span>
+                  <span className="text-[#1e1b4b] dark:text-slate-200 font-mono font-semibold">{selectedLog.ipAddress || 'No capturada'}</span>
+                </div>
+                <div className="p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5">
+                  <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block mb-1">DISPOSITIVO (USER AGENT)</span>
+                  <span className="text-[#1e1b4b] dark:text-slate-200 block truncate font-sans" title={selectedLog.userAgent}>{selectedLog.userAgent || 'No capturado'}</span>
+                </div>
+              </div>
+
+              {/* JSON Payload Details */}
+              <div className="space-y-1.5 font-sans">
+                <span className="text-[9px] font-bold text-[#1e1b4b]/45 dark:text-slate-500 uppercase tracking-wider block font-display">PAYLOAD / DETALLES DE LA ACCIÓN</span>
+                <div className="bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-4 font-mono text-[11px] leading-relaxed overflow-x-auto text-[#1e1b4b] dark:text-emerald-300 max-h-52">
+                  <pre>{JSON.stringify(JSON.parse(selectedLog.details || '{}'), null, 2)}</pre>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-[#fafafa] dark:bg-[#131a2e] border-t border-[#1e1b4b]/10 dark:border-white/5 flex justify-end font-display">
+              <button
+                type="button"
+                onClick={() => setSelectedLog(null)}
+                className="bg-[#1e1b4b] dark:bg-white hover:bg-[#1e1b4b]/90 dark:hover:bg-slate-100 border border-[#1e1b4b] dark:border-white text-white dark:text-[#0b0f19] font-bold px-5 py-2.5 rounded-[8px] text-xs transition-all shadow-sm"
+              >
+                Cerrar Detalles
+              </button>
+            </div>
           </div>
         </div>
       )}

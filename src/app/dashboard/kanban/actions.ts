@@ -5,6 +5,7 @@ import { jobOffers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { createAuditLog } from "@/lib/audit";
 
 const ARCHIVED_STATUS_PREFIX = "archived:";
 const VALID_PIPELINE_STATUSES = ["interested", "applied", "interview", "offer", "rejected"] as const;
@@ -48,6 +49,15 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
         updatedAt: new Date()
       })
       .where(eq(jobOffers.id, offerId));
+
+    // Log de auditoría para cambio de estado de candidatura
+    await createAuditLog("job_offer_status_change", session.user.id, session.user.email || null, {
+      offerId: offer.id,
+      title: offer.title,
+      company: offer.company,
+      oldStatus: offer.status,
+      newStatus
+    });
 
     revalidatePath("/dashboard/kanban");
     return { success: true };
@@ -185,6 +195,13 @@ export async function deleteJobOffer(offerId: string) {
 
     await db.delete(jobOffers).where(eq(jobOffers.id, offerId));
 
+    // Log de auditoría para eliminación de candidatura en Kanban
+    await createAuditLog("job_offer_delete", session.user.id, session.user.email || null, {
+      offerId: offer.id,
+      title: offer.title,
+      company: offer.company
+    });
+
     revalidatePath("/dashboard/kanban");
     revalidatePath("/dashboard");
     return { success: true };
@@ -207,14 +224,25 @@ export async function createJobOffer(offerData: {
       throw new Error("Unauthorized");
     }
 
-    await db.insert(jobOffers).values({
-      userId: session.user.id,
-      title: offerData.title,
-      company: offerData.company,
-      url: offerData.url || null,
-      platform: offerData.platform || "other",
-      description: offerData.description || null,
-      status: "interested"
+    const [newOffer] = await db
+      .insert(jobOffers)
+      .values({
+        userId: session.user.id,
+        title: offerData.title,
+        company: offerData.company,
+        url: offerData.url || null,
+        platform: offerData.platform || "other",
+        description: offerData.description || null,
+        status: "interested"
+      })
+      .returning();
+
+    // Log de auditoría para creación de candidatura
+    await createAuditLog("job_offer_create", session.user.id, session.user.email || null, {
+      offerId: newOffer.id,
+      title: newOffer.title,
+      company: newOffer.company,
+      platform: newOffer.platform
     });
 
     revalidatePath("/dashboard/kanban");
@@ -263,6 +291,14 @@ export async function updateJobOfferDetails(
         updatedAt: new Date()
       })
       .where(eq(jobOffers.id, offerId));
+
+    // Log de auditoría para actualización de candidatura
+    await createAuditLog("job_offer_update", session.user.id, session.user.email || null, {
+      offerId: offer.id,
+      title: offer.title,
+      company: offer.company,
+      updatedData: offerData
+    });
 
     revalidatePath("/dashboard/kanban");
     revalidatePath("/dashboard");
