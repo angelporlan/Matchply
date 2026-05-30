@@ -108,6 +108,7 @@ export default function AdminClient({
     id?: string;
     name: string;
     key: string;
+    description: string;
     systemPrompt: string;
     userPrompt: string;
     isActive: boolean;
@@ -116,6 +117,7 @@ export default function AdminClient({
   }>({
     name: '',
     key: 'optimize_cv',
+    description: '',
     systemPrompt: '',
     userPrompt: '',
     isActive: false,
@@ -371,6 +373,7 @@ export default function AdminClient({
     setPromptForm({
       name: '',
       key: 'optimize_cv',
+      description: '',
       systemPrompt: 'Eres un redactor experto en CVs estilo Harvard...',
       userPrompt: 'CV Base:\n{{cv}}\n\nOferta de Trabajo:\n{{job}}',
       isActive: false,
@@ -386,6 +389,7 @@ export default function AdminClient({
       id: prompt.id,
       name: prompt.name,
       key: prompt.key,
+      description: prompt.description || '',
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
       isActive: prompt.isActive,
@@ -996,6 +1000,13 @@ export default function AdminClient({
                     </div>
 
                     <div className="space-y-3 font-mono text-[10px] text-[#1e1b4b]/80 dark:text-slate-300">
+                      {prompt.description && (
+                        <div className="bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/10 rounded-[12px] p-4 border border-[#8b5cf6]/10 dark:border-violet-500/20 text-xs font-light text-[#1e1b4b] dark:text-slate-200 font-sans leading-relaxed">
+                          <span className="block text-[8px] text-[#8b5cf6] dark:text-violet-400 font-bold uppercase tracking-wider mb-1 font-display">DESCRIPCIÓN DE LA OPTIMIZACIÓN (MOSTRADA AL USUARIO)</span>
+                          "{prompt.description}"
+                        </div>
+                      )}
+
                       <div className="bg-[#fafafa] dark:bg-[#0b0f19]/40 rounded-[12px] p-4 border border-[#1e1b4b]/5 dark:border-white/5">
                         <span className="block text-[9px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase tracking-wider mb-2 font-display">SYSTEM INSTRUCTION (Directiva de Sistema)</span>
                         <div className="whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto pr-1">
@@ -1445,6 +1456,21 @@ export default function AdminClient({
                     className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors w-full font-sans"
                     required
                   />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider block font-display">Descripción para el Usuario</label>
+                  <textarea
+                    value={promptForm.description}
+                    onChange={(e) => setPromptForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="e.g. Foco absoluto en superar el filtro ATS. Adapta tu CV e inyecta cualquier tecnología o requisito crítico exigido por la oferta..."
+                    className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors h-20 w-full resize-none font-sans leading-relaxed"
+                    maxLength={300}
+                  />
+                  <span className="text-[9px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5 leading-normal">
+                    * Esta descripción se le mostrará directamente al usuario final en la ventana de selección de optimización por IA. Si se deja vacía, se utilizará una descripción genérica estándar. Máximo 300 caracteres.
+                  </span>
                 </div>
 
                 {/* Key (Associated Function) */}

@@ -147,9 +147,10 @@ export async function updateAISetting(key: string, value: string) {
 
 // 5. Guardar/Editar un Prompt dinámico
 export async function savePrompt(data: {
-  id?: string;
+   id?: string;
   name: string;
   key: string;
+  description?: string;
   systemPrompt: string;
   userPrompt: string;
   isActive: boolean;
@@ -176,6 +177,7 @@ export async function savePrompt(data: {
         .values({
           name: data.name,
           key: data.key,
+          description: data.description || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,
           isActive: data.isActive,
@@ -192,6 +194,7 @@ export async function savePrompt(data: {
         .set({
           name: data.name,
           key: data.key,
+          description: data.description || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,
           isActive: data.isActive,
