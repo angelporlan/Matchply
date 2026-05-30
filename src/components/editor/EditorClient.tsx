@@ -19,7 +19,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 interface EditorClientProps {
   cv: CV;
   isPremium: boolean;
-  availablePrompts: { id: string; name: string; isActive: boolean; description?: string | null }[];
+  availablePrompts: { id: string; name: string; isActive: boolean; description?: string | null; color?: string | null }[];
   baseCvContent?: string | null;
   user: {
     name?: string | null;
@@ -38,56 +38,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
   // Dynamic Prompt Configs Mapper
-  const getPromptConfig = (name: string) => {
-    const configs: Record<
-      string,
-      {
-        color: string;
-        hoverBg: string;
-        text: string;
-        bg: string;
-        activeBorder: string;
-        desc: string;
-        displayName: string;
-      }
-    > = {
-      'Modo Fidelidad': {
-        color: '#38bdf8',
-        hoverBg: 'hover:bg-sky-500/5',
-        text: 'text-sky-400',
-        bg: 'bg-sky-500/10',
-        activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-        desc: t('dashboard.modes.fidelity.desc'),
-        displayName: t('dashboard.modes.fidelity.name'),
-      },
-      'Modo Rendimiento': {
-        color: '#eab308',
-        hoverBg: 'hover:bg-yellow-500/5',
-        text: 'text-yellow-400',
-        bg: 'bg-yellow-500/10',
-        activeBorder: 'border-yellow-500 ring-2 ring-yellow-500/20',
-        desc: t('dashboard.modes.performance.desc'),
-        displayName: t('dashboard.modes.performance.name'),
-      },
-      'Modo Extremo': {
-        color: '#ea580c',
-        hoverBg: 'hover:bg-orange-500/5',
-        text: 'text-orange-400',
-        bg: 'bg-orange-500/10',
-        activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
-        desc: t('dashboard.modes.extreme.desc'),
-        displayName: t('dashboard.modes.extreme.name'),
-      }
-    };
-
-    return configs[name] || {
-      color: '#38bdf8',
-      hoverBg: 'hover:bg-sky-500/5',
-      text: 'text-sky-400',
-      bg: 'bg-sky-500/10',
-      activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-      desc: t('dashboard.modes.default.desc'),
-      displayName: name,
+  const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
+    return {
+      color: prompt.color || '#8b5cf6',
+      desc: prompt.description || '',
+      displayName: prompt.name,
     };
   };
 
@@ -660,24 +615,35 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {availablePrompts.map((prompt) => {
-                          const config = getPromptConfig(prompt.name);
+                          const config = getPromptConfig(prompt);
                           const isSelected = aiFormData.promptId === prompt.id;
-                          const shadowClass = prompt.name === 'Modo Fidelidad' 
-                            ? 'shadow-sky-500/5' 
-                            : prompt.name === 'Modo Rendimiento' 
-                              ? 'shadow-yellow-500/5' 
-                              : 'shadow-orange-500/5';
                           
                           return (
                             <div
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8b5cf6] ring-2 ring-[#8b5cf6]/20 shadow-lg ${shadowClass}` : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'}`}
+                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${
+                                isSelected 
+                                  ? 'shadow-lg border-transparent' 
+                                  : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'
+                              }`}
+                              style={isSelected ? {
+                                borderColor: config.color,
+                                boxShadow: `0 10px 15px -3px ${config.color}15, 0 4px 6px -4px ${config.color}15`,
+                                outline: `2px solid ${config.color}25`,
+                                outlineOffset: '-1px'
+                              } : undefined}
                               title={prompt.description || config.desc}
                             >
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <span className={`text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${config.bg} ${config.text}`}>
+                                  <span 
+                                    className="text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded transition-colors"
+                                    style={{
+                                      backgroundColor: `${config.color}1a`,
+                                      color: config.color
+                                    }}
+                                  >
                                     {config.displayName.replace('Modo ', '').replace(' Mode', '')}
                                   </span>
                                   <div 
@@ -685,7 +651,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                     style={{ backgroundColor: config.color }}
                                   />
                                 </div>
-                                <h4 className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors font-display">
+                                <h4 
+                                  className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 transition-colors font-display"
+                                  style={isSelected ? { color: config.color } : {}}
+                                >
                                   {config.displayName}
                                 </h4>
                               </div>

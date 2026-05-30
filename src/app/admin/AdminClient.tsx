@@ -109,6 +109,7 @@ export default function AdminClient({
     name: string;
     key: string;
     description: string;
+    color: string;
     systemPrompt: string;
     userPrompt: string;
     isActive: boolean;
@@ -118,6 +119,7 @@ export default function AdminClient({
     name: '',
     key: 'optimize_cv',
     description: '',
+    color: '#8b5cf6',
     systemPrompt: '',
     userPrompt: '',
     isActive: false,
@@ -374,6 +376,7 @@ export default function AdminClient({
       name: '',
       key: 'optimize_cv',
       description: '',
+      color: '#8b5cf6',
       systemPrompt: 'Eres un redactor experto en CVs estilo Harvard...',
       userPrompt: 'CV Base:\n{{cv}}\n\nOferta de Trabajo:\n{{job}}',
       isActive: false,
@@ -390,6 +393,7 @@ export default function AdminClient({
       name: prompt.name,
       key: prompt.key,
       description: prompt.description || '',
+      color: prompt.color || '#8b5cf6',
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
       isActive: prompt.isActive,
@@ -929,7 +933,8 @@ export default function AdminClient({
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
                       <div>
                         <div className="flex items-center gap-2.5 mb-1.5">
-                          <h4 className="font-bold font-display text-[#1e1b4b] dark:text-white text-base">
+                          <h4 className="font-bold font-display text-[#1e1b4b] dark:text-white text-base flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full shrink-0 border border-[#1e1b4b]/10 dark:border-white/10" style={{ backgroundColor: prompt.color || '#8b5cf6' }} />
                             {prompt.name}
                           </h4>
                           {prompt.isActive && (
@@ -1470,6 +1475,50 @@ export default function AdminClient({
                   />
                   <span className="text-[9px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5 leading-normal">
                     * Esta descripción se le mostrará directamente al usuario final en la ventana de selección de optimización por IA. Si se deja vacía, se utilizará una descripción genérica estándar. Máximo 300 caracteres.
+                  </span>
+                </div>
+
+                {/* Color Selector */}
+                <div className="space-y-1.5 font-sans">
+                  <label className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider block font-display">Color Temático del Modo</label>
+                  <div className="flex items-center gap-3">
+                    {/* Color Input */}
+                    <div className="relative w-8 h-8 rounded-[8px] overflow-hidden border border-[#1e1b4b]/15 dark:border-white/15 shrink-0 hover:scale-105 active:scale-95 transition-transform">
+                      <input
+                        type="color"
+                        value={promptForm.color}
+                        onChange={(e) => setPromptForm(prev => ({ ...prev, color: e.target.value }))}
+                        className="absolute inset-[-4px] w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer"
+                      />
+                    </div>
+                    {/* Color Presets */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {[
+                        { hex: '#8b5cf6', label: 'Violeta' },
+                        { hex: '#38bdf8', label: 'Cian' },
+                        { hex: '#eab308', label: 'Oro' },
+                        { hex: '#ea580c', label: 'Naranja' },
+                        { hex: '#10b981', label: 'Esmeralda' },
+                        { hex: '#f43f5e', label: 'Rosa' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.hex}
+                          type="button"
+                          onClick={() => setPromptForm(prev => ({ ...prev, color: preset.hex }))}
+                          className="w-5 h-5 rounded-full border transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
+                          style={{ 
+                            backgroundColor: preset.hex,
+                            borderColor: promptForm.color.toLowerCase() === preset.hex.toLowerCase() ? 'white' : 'transparent',
+                            boxShadow: promptForm.color.toLowerCase() === preset.hex.toLowerCase() ? `0 0 0 2px ${preset.hex}` : 'none'
+                          }}
+                          title={preset.label}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] font-mono text-[#1e1b4b]/60 dark:text-slate-400 select-all">{promptForm.color.toUpperCase()}</span>
+                  </div>
+                  <span className="text-[9px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5 leading-normal">
+                    * El color se utilizará para destacar visualmente el modo de optimización en la pantalla del usuario (puntos de estado, bordes seleccionados y brillos).
                   </span>
                 </div>
 

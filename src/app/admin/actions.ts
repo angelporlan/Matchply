@@ -151,6 +151,7 @@ export async function savePrompt(data: {
   name: string;
   key: string;
   description?: string;
+  color?: string;
   systemPrompt: string;
   userPrompt: string;
   isActive: boolean;
@@ -178,6 +179,7 @@ export async function savePrompt(data: {
           name: data.name,
           key: data.key,
           description: data.description || null,
+          color: data.color || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,
           isActive: data.isActive,
@@ -195,6 +197,7 @@ export async function savePrompt(data: {
           name: data.name,
           key: data.key,
           description: data.description || null,
+          color: data.color || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,
           isActive: data.isActive,
