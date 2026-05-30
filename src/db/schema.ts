@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -68,10 +68,27 @@ export const prompts = pgTable('prompt', {
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
+// Tabla de Auditoría (Logs de Actividad)
+export const auditLogs = pgTable('audit_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'set null' }),
+  userEmail: text('userEmail'),
+  action: text('action').notNull(), // e.g. 'user_register', 'user_login', 'cv_create_manual', 'cv_optimize_ai', 'cv_delete', etc.
+  details: text('details'), // JSON string con detalles descriptivos del evento
+  ipAddress: text('ipAddress'),
+  userAgent: text('userAgent'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('audit_log_user_id_idx').on(table.userId),
+  actionIdx: index('audit_log_action_idx').on(table.action),
+  createdAtIdx: index('audit_log_created_at_idx').on(table.createdAt),
+}));
+
 // Definición de Relaciones para Drizzle
 export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
   jobOffers: many(jobOffers),
+  auditLogs: many(auditLogs),
 }));
 
 export const cvsRelations = relations(cvs, ({ one, many }) => ({
@@ -84,8 +101,14 @@ export const jobOffersRelations = relations(jobOffers, ({ one }) => ({
   cv: one(cvs, { fields: [jobOffers.cvId], references: [cvs.id] }),
 }));
 
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Prompt = typeof prompts.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
+

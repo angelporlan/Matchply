@@ -2,8 +2,8 @@
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users, cvs, jobOffers, settings, prompts } from '@/db/schema';
-import { eq, and, not, sql } from 'drizzle-orm';
+import { users, cvs, jobOffers, settings, prompts, auditLogs } from '@/db/schema';
+import { eq, and, not, sql, desc, gte, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 // Helper de seguridad para asegurar que solo los admins llaman a estas acciones
@@ -329,6 +329,90 @@ export async function togglePromptArchive(id: string, isArchived: boolean) {
     return { success: true };
   } catch (error: any) {
     console.error('Error al archivar/desarchivar el prompt:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 11. Obtener logs de auditoría para el panel de administración
+export async function getAdminAuditLogs() {
+  await verifyAdmin();
+  try {
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(1000); // Límite razonable para procesar en cliente
+
+    return { success: true, logs };
+  } catch (error: any) {
+    console.error('Error al obtener logs de auditoría:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 12. Obtener estadísticas de actividad de auditoría de HOY
+export async function getAdminAuditStats() {
+  await verifyAdmin();
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Filtrar conteos rápidos para HOY
+    const [registersCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.action, 'user_register'),
+          gte(auditLogs.createdAt, today)
+        )
+      );
+
+    const [loginsCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.action, 'user_login'),
+          gte(auditLogs.createdAt, today)
+        )
+      );
+
+    // Currículums creados hoy (creación manual + optimización por IA)
+    const [cvsCreatedCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(auditLogs)
+      .where(
+        and(
+          or(
+            eq(auditLogs.action, 'cv_create_manual'),
+            eq(auditLogs.action, 'cv_optimize_ai')
+          ),
+          gte(auditLogs.createdAt, today)
+        )
+      );
+
+    const [downloadsCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.action, 'cv_download_pdf'),
+          gte(auditLogs.createdAt, today)
+        )
+      );
+
+    return {
+      success: true,
+      stats: {
+        registersToday: Number(registersCount?.count || 0),
+        loginsToday: Number(loginsCount?.count || 0),
+        cvsCreatedToday: Number(cvsCreatedCount?.count || 0),
+        downloadsToday: Number(downloadsCount?.count || 0),
+      }
+    };
+  } catch (error: any) {
+    console.error('Error al obtener estadísticas de auditoría:', error);
     return { success: false, error: error.message };
   }
 }

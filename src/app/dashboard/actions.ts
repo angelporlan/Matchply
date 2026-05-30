@@ -5,6 +5,7 @@ import { cvs, jobOffers } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { createAuditLog } from "@/lib/audit";
 
 const DEFAULT_MARKDOWN = `# TU NOMBRE COMPLETO
 
@@ -106,6 +107,12 @@ export async function createBaseCv(title: string) {
       })
       .returning();
 
+    // Log de auditoría para creación manual de CV
+    await createAuditLog("cv_create_manual", session.user.id, session.user.email || null, {
+      cvId: newCv.id,
+      title: newCv.title
+    });
+
     revalidatePath("/dashboard");
     return { success: true, cvId: newCv.id };
   } catch (error: any) {
@@ -147,6 +154,12 @@ export async function deleteCv(cvId: string) {
             .where(eq(cvs.id, nextBaseCv.id));
         }
       }
+    });
+
+    // Log de auditoría para eliminación de CV
+    await createAuditLog("cv_delete", session.user.id, session.user.email || null, {
+      cvId: cv.id,
+      title: cv.title
     });
 
     revalidatePath("/dashboard");
