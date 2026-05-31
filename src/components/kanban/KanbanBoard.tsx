@@ -96,6 +96,10 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     }
   };
 
+  const handleDeleteOffer = (offerId: string) => {
+    setLocalOffers(prev => prev.filter(o => o.id !== offerId));
+  };
+
   // Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -404,6 +408,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                               onOpenDetails={setSelectedOfferForDetails}
                               density={viewMode}
                               index={index}
+                              onDelete={handleDeleteOffer}
                             />
                           ))
                         )}

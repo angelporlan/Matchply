@@ -161,6 +161,23 @@ export class AIService {
       return this.getMockCvResponse(cv, job, `OpenRouter (Modelo: ${model})`);
     }
 
+    // Sanitizar el identificador del modelo para OpenRouter
+    let sanitizedModel = model;
+    
+    // Si empieza por 'openrouter/', analizamos si es un prefijo redundante
+    if (sanitizedModel.startsWith('openrouter/')) {
+      const rest = sanitizedModel.slice('openrouter/'.length);
+      // Si el resto ya contiene una barra (ej. 'google/gemma-...') o empieza por 'gpt-'
+      if (rest.includes('/') || rest.startsWith('gpt-')) {
+        sanitizedModel = rest;
+      }
+    }
+    
+    // Si empieza por 'gpt-', nos aseguramos de que lleve el prefijo de OpenAI para OpenRouter
+    if (sanitizedModel.startsWith('gpt-')) {
+      sanitizedModel = 'openai/' + sanitizedModel;
+    }
+
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -169,7 +186,7 @@ export class AIService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: model,
+          model: sanitizedModel,
           messages: [
             {
               role: "system",

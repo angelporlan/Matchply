@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, X, Sparkles, Loader2 } from 'lucide-react';
 
 export type AlertModalType = 'info' | 'warning' | 'danger' | 'success';
@@ -29,6 +30,11 @@ export default function AlertModal({
   isPending = false,
 }: AlertModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Cerrar al pulsar la tecla Escape
   useEffect(() => {
@@ -53,7 +59,7 @@ export default function AlertModal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Configuración de estilos e iconos basados en el tipo
   const getConfig = () => {
@@ -107,9 +113,21 @@ export default function AlertModal({
     }
   };
 
-  return (
+  // Prevenir propagación de eventos al componente padre (como tarjetas drag-and-drop o contenedores interactivos)
+  const stopPropagation = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  };
+
+  return createPortal(
     <div
-      onClick={handleOverlayClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleOverlayClick(e);
+      }}
+      onMouseDown={stopPropagation}
+      onMouseUp={stopPropagation}
+      onTouchStart={stopPropagation}
+      onTouchEnd={stopPropagation}
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
     >
       <div
@@ -181,6 +199,7 @@ export default function AlertModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

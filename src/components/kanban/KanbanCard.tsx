@@ -16,6 +16,7 @@ interface KanbanCardProps {
   onOpenDetails: (offer: JobOffer) => void;
   density?: 'compact' | 'comfortable';
   index: number;
+  onDelete?: (offerId: string) => void;
 }
 
 export default function KanbanCard({
@@ -24,6 +25,7 @@ export default function KanbanCard({
   onOpenDetails,
   density = 'compact',
   index,
+  onDelete,
 }: KanbanCardProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
@@ -81,9 +83,15 @@ export default function KanbanCard({
 
   const confirmDelete = async () => {
     setIsDeleteModalOpen(false);
+    // Optimistic UI update: hide card instantly
+    if (onDelete) {
+      onDelete(offer.id);
+    }
+    
     setLoading(true);
     const result = await deleteJobOffer(offer.id);
-    if (result.success) {
+    if (!result.success) {
+      alert(result.error || 'Error al eliminar');
       router.refresh();
     }
     setLoading(false);
