@@ -186,6 +186,7 @@ export const translations = {
           stepAi: 'Analizando y estructurando con IA...',
           stepCreate: 'Guardando currículum base en Markdown...',
           successRedirect: '¡Listo! Redirigiendo...',
+          startCta: 'Comenzar',
         },
         card: {
           base: 'Base',
@@ -749,6 +750,7 @@ export const translations = {
           stepAi: 'Analyzing and structuring with AI...',
           stepCreate: 'Saving base resume in Markdown...',
           successRedirect: 'Done! Redirecting...',
+          startCta: 'Get Started',
         },
         card: {
           base: 'Base',

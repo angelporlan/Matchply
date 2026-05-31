@@ -552,7 +552,7 @@ export default function DashboardClient({
                       </p>
                     </div>
                     <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
-                      Comenzar <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                      {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                     </span>
                   </div>
 
@@ -573,7 +573,7 @@ export default function DashboardClient({
                       </p>
                     </div>
                     <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
-                      Comenzar <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                      {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                     </span>
                   </div>
                 </div>
