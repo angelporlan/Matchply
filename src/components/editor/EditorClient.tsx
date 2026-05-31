@@ -250,6 +250,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setTimeout(() => {
         setIsAiOpen(false);
         setAiLoading(false);
+        router.refresh();
         router.push(`/editor/${result.cvId}`);
       }, 1000);
 

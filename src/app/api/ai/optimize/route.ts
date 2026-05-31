@@ -5,6 +5,7 @@ import { cvs, jobOffers, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
+import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
   try {
@@ -94,6 +95,8 @@ export async function POST(req: NextRequest) {
         status: 'interested'
       });
     }
+
+    revalidatePath('/dashboard');
 
     return NextResponse.json({
       success: true,

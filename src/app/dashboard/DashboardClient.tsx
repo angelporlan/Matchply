@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
@@ -74,6 +74,11 @@ export default function DashboardClient({
   const [isPending, startTransition] = useTransition();
   const [userCvs, setUserCvs] = useState<CV[]>(initialCvs);
   const { t, language } = useLanguage();
+
+  // Refresh dashboard data on mount to ensure it's always fresh and shows newly created CVs
+  useEffect(() => {
+    router.refresh();
+  }, [router]);
 
   // Estados de control de modals
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -273,6 +278,7 @@ export default function DashboardClient({
       setTimeout(() => {
         setIsAiOpen(false);
         setAiLoading(false);
+        router.refresh();
         router.push(`/editor/${result.cvId}`);
       }, 1000);
 
