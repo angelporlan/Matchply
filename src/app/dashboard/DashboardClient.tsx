@@ -199,7 +199,7 @@ export default function DashboardClient({
         formData.append('text', pastedText.trim());
       }
 
-      const response = await fetch('/api/cv/import', {
+      const response = await fetch(`/api/cv/import?lang=${language}`, {
         method: 'POST',
         body: formData,
       });

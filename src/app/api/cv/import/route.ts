@@ -6,12 +6,17 @@ import { eq, and, not } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
+import { translations } from '@/lib/i18n/translations';
 
 // @ts-ignore
 import pdf from 'pdf-parse';
 
 export async function POST(req: NextRequest) {
   try {
+    // 0. Resolver idioma del usuario
+    const { searchParams } = new URL(req.url);
+    const lang = (searchParams.get('lang') || 'es') as 'es' | 'en';
+
     // 1. Verificar autenticación
     const session = await auth();
     if (!session || !session.user || !session.user.id) {
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
         console.error('Error al extraer texto del PDF:', err);
         return NextResponse.json({
           success: false,
-          error: `Error al leer el archivo PDF: ${err.message || 'El archivo está corrupto o protegido.'}`
+          error: translations[lang].dashboard.errors.pdfReadError
         }, { status: 400 });
       }
     } else if (text) {
@@ -48,14 +53,16 @@ export async function POST(req: NextRequest) {
     } else {
       return NextResponse.json({
         success: false,
-        error: 'Debe subir un archivo PDF o ingresar el texto de su currículum.'
+        error: lang === 'es' 
+          ? 'Debe subir un archivo PDF o ingresar el texto de su currículum.' 
+          : 'You must upload a PDF file or enter your resume text.'
       }, { status: 400 });
     }
 
     if (!cvText || !cvText.trim()) {
       return NextResponse.json({
         success: false,
-        error: 'El contenido del currículum está vacío o no se pudo extraer ningún texto del PDF.'
+        error: translations[lang].dashboard.errors.emptyCvError
       }, { status: 400 });
     }
 
@@ -79,9 +86,14 @@ export async function POST(req: NextRequest) {
       });
     } catch (err: any) {
       console.error('Error al formatear el CV con IA:', err);
+      const isPromptMissing = err.message === 'IMPORT_PROMPT_MISSING' || err.message.includes('import_cv');
+      const errorMessage = isPromptMissing
+        ? translations[lang].dashboard.errors.importPromptMissing
+        : translations[lang].dashboard.errors.genericAiError;
+
       return NextResponse.json({
         success: false,
-        error: err.message || 'Error al procesar el currículum con Inteligencia Artificial.'
+        error: errorMessage
       }, { status: 500 });
     }
 
@@ -118,7 +130,7 @@ export async function POST(req: NextRequest) {
       console.error('Error al insertar el CV en la DB:', err);
       return NextResponse.json({
         success: false,
-        error: 'Error interno al guardar tu currículum adaptado en la base de datos.'
+        error: translations[lang].dashboard.errors.dbSaveError
       }, { status: 500 });
     }
 

@@ -173,7 +173,7 @@ export class AIService {
     }
 
     if (!systemPrompt || !userPromptTemplate) {
-      throw new Error("El administrador de la plataforma aún no ha configurado o activado un prompt dinámico con la clave 'import_cv' en la base de datos.");
+      throw new Error("IMPORT_PROMPT_MISSING");
     }
 
     const provider = isPro 

@@ -246,6 +246,11 @@ export const translations = {
         required: 'El puesto, empresa y descripción de la oferta son obligatorios.',
         unexpected: 'Ocurrió un error inesperado.',
         createFail: 'Error al crear el currículum.',
+        importPromptMissing: 'El administrador de la plataforma aún no ha configurado o activado un prompt dinámico con la clave "import_cv" en la base de datos.',
+        pdfReadError: 'Error al leer el archivo PDF. Puede estar corrupto o protegido.',
+        emptyCvError: 'El contenido del currículum está vacío o no se pudo extraer texto del PDF.',
+        genericAiError: 'Error al procesar el currículum con Inteligencia Artificial.',
+        dbSaveError: 'Error al guardar tu currículum base en la base de datos.',
       },
       modes: {
         fidelity: {
@@ -802,6 +807,11 @@ export const translations = {
         required: 'The position, company, and job description are required.',
         unexpected: 'An unexpected error occurred.',
         createFail: 'Error creating resume.',
+        importPromptMissing: 'The platform administrator has not yet configured or activated a dynamic prompt with the key "import_cv" in the database.',
+        pdfReadError: 'Error reading the PDF file. It may be corrupted or protected.',
+        emptyCvError: 'The resume content is empty or no text could be extracted from the PDF.',
+        genericAiError: 'Error processing the resume with Artificial Intelligence.',
+        dbSaveError: 'Error saving your base resume to the database.',
       },
       modes: {
         fidelity: {
