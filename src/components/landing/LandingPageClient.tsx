@@ -265,6 +265,8 @@ export function TemplateFlipCard({
           <img
             src={imagePath}
             alt={title}
+            loading="lazy"
+            fetchPriority="low"
             className="w-full h-full object-cover object-top opacity-90 group-hover:scale-105 transition-transform duration-700"
           />
           {/* Overlay containing "Use This Template" Action */}
@@ -833,8 +835,9 @@ export default function LandingPageClient({ session }: { session: any }) {
                 <div className="col-span-7 bg-slate-200/50 dark:bg-slate-900/50 p-3 flex items-center justify-center relative overflow-hidden h-full select-none">
                   <div className="bg-white rounded-md shadow-md w-[92%] aspect-[1/1.414] overflow-hidden relative border border-[#1e1b4b]/5 flex items-center justify-center">
                     <img
-                      src="/assets/images/cvs/harvard.png"
+                      src="/assets/images/cvs/harvard.jpg"
                       alt="Curriculum Preview"
+                      fetchPriority="high"
                       className="w-full h-full object-cover object-top"
                     />
                   </div>
@@ -1241,7 +1244,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                   badgeColorClass="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200 border-slate-200 dark:border-slate-700"
                   desc={t('landing.templates.harvard.desc')}
                   ctaText={t('landing.templates.harvard.cta')}
-                  imagePath="/assets/images/cvs/harvard.png"
+                  imagePath="/assets/images/cvs/harvard.jpg"
                   session={session}
                   t={t}
                   isPeeking={peekingCardIndex === 0}
@@ -1256,7 +1259,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                   badgeColorClass="bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20"
                   desc={t('landing.templates.modern.desc')}
                   ctaText={t('landing.templates.modern.cta')}
-                  imagePath="/assets/images/cvs/modern.png"
+                  imagePath="/assets/images/cvs/modern.jpg"
                   session={session}
                   t={t}
                   isPeeking={peekingCardIndex === 1}
@@ -1271,7 +1274,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                   badgeColorClass="bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b] dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10"
                   desc={t('landing.templates.minimal.desc')}
                   ctaText={t('landing.templates.minimal.cta')}
-                  imagePath="/assets/images/cvs/minimal.png"
+                  imagePath="/assets/images/cvs/minimal.jpg"
                   session={session}
                   t={t}
                   isPeeking={peekingCardIndex === 2}
@@ -1286,7 +1289,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                   badgeColorClass="bg-pink-500/10 text-pink-600 border-pink-500/20"
                   desc={t('landing.templates.creative.desc')}
                   ctaText={t('landing.templates.creative.cta')}
-                  imagePath="/assets/images/cvs/creative.png"
+                  imagePath="/assets/images/cvs/creative.jpg"
                   session={session}
                   t={t}
                   isPeeking={peekingCardIndex === 3}
@@ -1301,7 +1304,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                   badgeColorClass="bg-red-500/10 text-red-600 border-red-500/20"
                   desc={t('landing.templates.swiss.desc')}
                   ctaText={t('landing.templates.swiss.cta')}
-                  imagePath="/assets/images/cvs/swiss.png"
+                  imagePath="/assets/images/cvs/swiss.jpg"
                   session={session}
                   t={t}
                   isPeeking={peekingCardIndex === 4}
