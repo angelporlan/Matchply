@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -89,6 +89,8 @@ export default function AdminClient({
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logActionFilter, setLogActionFilter] = useState('all');
   const [logDateFilter, setLogDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
+  const [logCurrentPage, setLogCurrentPage] = useState(1);
+  const logsPerPage = 50;
 
   // Selected audit log modal for detail view
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
@@ -148,6 +150,11 @@ export default function AdminClient({
     }
   };
 
+  // Reset logs page to 1 when filters change
+  useEffect(() => {
+    setLogCurrentPage(1);
+  }, [logSearchQuery, logActionFilter, logDateFilter]);
+
   // Filtrado de logs de auditoría en memoria (rendimiento ultrarrápido y reactivo)
   const filteredAuditLogs = auditLogs.filter(log => {
     // 1. Filtro de búsqueda por texto
@@ -183,6 +190,12 @@ export default function AdminClient({
 
     return true;
   });
+
+  const totalLogPages = Math.ceil(filteredAuditLogs.length / logsPerPage);
+  const paginatedAuditLogs = filteredAuditLogs.slice(
+    (logCurrentPage - 1) * logsPerPage,
+    logCurrentPage * logsPerPage
+  );
 
   // IA Settings form state (local fields)
   const getSettingValue = (key: string, fallback: string) => {
@@ -1192,52 +1205,139 @@ export default function AdminClient({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1e1b4b]/5 dark:divide-white/5 bg-white dark:bg-[#1f2937]/50">
-                      {filteredAuditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20 transition-colors">
-                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
-                            {new Date(log.createdAt).toLocaleString('es-ES')}
-                          </td>
-                          <td className="px-6 py-4 font-semibold text-[#1e1b4b] dark:text-slate-200 whitespace-nowrap font-display">
-                            {log.userEmail || 'Desconocido'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2.5 py-0.5 rounded-[8px] text-[10px] font-bold font-mono border ${
-                              log.action === 'user_register' || log.action === 'user_register_oauth'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                : log.action === 'user_login'
-                                ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 border-[#8b5cf6]/20'
-                                : log.action === 'cv_optimize_ai'
-                                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
-                                : log.action === 'cv_download_pdf'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20'
-                                : log.action === 'cv_delete' || log.action === 'job_offer_delete'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                                : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
-                            }`}>
-                              {log.action}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
-                            {log.ipAddress || 'Sin IP'}
-                          </td>
-                          <td className="px-6 py-4 text-[#1e1b4b]/60 dark:text-slate-400 truncate max-w-[200px]" title={log.userAgent}>
-                            {log.userAgent || 'Sin cabecera'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => setSelectedLog(log)}
-                              className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/30 dark:hover:border-[#8b5cf6]/40 text-[#8b5cf6] dark:text-violet-400 font-bold px-3 py-1.5 rounded-[8px] text-[10px] transition-all font-display shadow-sm flex items-center justify-center gap-1 ml-auto"
-                            >
-                              <Eye className="w-3 h-3 stroke-[1.75]" />
-                              <span>Detalles</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      {paginatedAuditLogs.map((log) => (
+                         <tr key={log.id} className="hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20 transition-colors">
+                           <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
+                             {new Date(log.createdAt).toLocaleString('es-ES')}
+                           </td>
+                           <td className="px-6 py-4 font-semibold text-[#1e1b4b] dark:text-slate-200 whitespace-nowrap font-display">
+                             {log.userEmail || 'Desconocido'}
+                           </td>
+                           <td className="px-6 py-4 whitespace-nowrap">
+                             <span className={`px-2.5 py-0.5 rounded-[8px] text-[10px] font-bold font-mono border ${
+                               log.action === 'user_register' || log.action === 'user_register_oauth'
+                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                 : log.action === 'user_login'
+                                 ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 border-[#8b5cf6]/20'
+                                 : log.action === 'cv_optimize_ai'
+                                 ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                                 : log.action === 'cv_download_pdf'
+                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20'
+                                 : log.action === 'cv_delete' || log.action === 'job_offer_delete'
+                                 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                 : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+                             }`}>
+                               {log.action}
+                             </span>
+                           </td>
+                           <td className="px-6 py-4 text-[#1e1b4b]/70 dark:text-slate-300 whitespace-nowrap font-mono">
+                             {log.ipAddress || 'Sin IP'}
+                           </td>
+                           <td className="px-6 py-4 text-[#1e1b4b]/60 dark:text-slate-400 truncate max-w-[200px]" title={log.userAgent}>
+                             {log.userAgent || 'Sin cabecera'}
+                           </td>
+                           <td className="px-6 py-4 whitespace-nowrap text-right">
+                             <button
+                               onClick={() => setSelectedLog(log)}
+                               className="bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/30 dark:hover:border-[#8b5cf6]/40 text-[#8b5cf6] dark:text-violet-400 font-bold px-3 py-1.5 rounded-[8px] text-[10px] transition-all font-display shadow-sm flex items-center justify-center gap-1 ml-auto"
+                             >
+                               <Eye className="w-3 h-3 stroke-[1.75]" />
+                               <span>Detalles</span>
+                             </button>
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               )}
+
+               {/* Pagination Controls */}
+               {filteredAuditLogs.length > logsPerPage && (
+                 <div className="bg-[#fafafa] dark:bg-[#0b0f19]/35 px-6 py-4 border-t border-[#1e1b4b]/10 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans text-xs text-[#1e1b4b]/60 dark:text-slate-400">
+                   <div>
+                     Mostrando <span className="font-semibold text-[#1e1b4b] dark:text-white">{(logCurrentPage - 1) * logsPerPage + 1}</span> - <span className="font-semibold text-[#1e1b4b] dark:text-white">{Math.min(logCurrentPage * logsPerPage, filteredAuditLogs.length)}</span> de <span className="font-semibold text-[#1e1b4b] dark:text-white">{filteredAuditLogs.length}</span> registros
+                   </div>
+
+                   <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                     {/* Previous Button */}
+                     <button
+                       type="button"
+                       disabled={logCurrentPage === 1}
+                       onClick={() => setLogCurrentPage(prev => Math.max(prev - 1, 1))}
+                       className="px-3 py-1.5 rounded-[6px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold font-display"
+                     >
+                       Anterior
+                     </button>
+
+                     {/* Page Numbers */}
+                     {(() => {
+                       const pages = [];
+                       const range = 1; // how many pages to show around current page
+
+                       // Always show page 1
+                       pages.push(
+                         <button
+                           key={1}
+                           type="button"
+                           onClick={() => setLogCurrentPage(1)}
+                           className={`w-7 h-7 rounded-[6px] text-[11px] font-semibold transition-all ${logCurrentPage === 1 ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30'}`}
+                         >
+                           1
+                         </button>
+                       );
+
+                       if (logCurrentPage > range + 2) {
+                         pages.push(<span key="ell-start" className="px-1 text-[#1e1b4b]/40 dark:text-slate-500">...</span>);
+                       }
+
+                       // Show pages around current
+                       for (let i = Math.max(2, logCurrentPage - range); i <= Math.min(totalLogPages - 1, logCurrentPage + range); i++) {
+                         pages.push(
+                           <button
+                             key={i}
+                             type="button"
+                             onClick={() => setLogCurrentPage(i)}
+                             className={`w-7 h-7 rounded-[6px] text-[11px] font-semibold transition-all ${logCurrentPage === i ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30'}`}
+                           >
+                             {i}
+                           </button>
+                         );
+                       }
+
+                       if (logCurrentPage < totalLogPages - range - 1) {
+                         pages.push(<span key="ell-end" className="px-1 text-[#1e1b4b]/40 dark:text-slate-500">...</span>);
+                       }
+
+                       // Always show last page if > 1
+                       if (totalLogPages > 1) {
+                         pages.push(
+                           <button
+                             key={totalLogPages}
+                             type="button"
+                             onClick={() => setLogCurrentPage(totalLogPages)}
+                             className={`w-7 h-7 rounded-[6px] text-[11px] font-semibold transition-all ${logCurrentPage === totalLogPages ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30'}`}
+                           >
+                             {totalLogPages}
+                           </button>
+                         );
+                       }
+
+                       return pages;
+                     })()}
+
+                     {/* Next Button */}
+                     <button
+                       type="button"
+                       disabled={logCurrentPage === totalLogPages}
+                       onClick={() => setLogCurrentPage(prev => Math.min(prev + 1, totalLogPages))}
+                       className="px-3 py-1.5 rounded-[6px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold font-display"
+                     >
+                       Siguiente
+                     </button>
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
         )}
