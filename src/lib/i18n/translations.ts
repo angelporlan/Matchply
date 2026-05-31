@@ -147,7 +147,7 @@ export const translations = {
     dashboard: {
       banner: {
         title: 'Hola, {name}',
-        desc: 'Estás en el Plan Gratuito. El motor de IA gratuito usa OpenRouter. Desbloquea plantillas profesionales e integraciones de IA avanzadas actualizando tu cuenta.',
+        desc: 'Estás en el Plan Gratuito. Desbloquea plantillas profesionales e integraciones de IA avanzadas actualizando tu cuenta.',
         upgrade: 'Actualizar a PRO (10 €/mes)',
       },
       stats: {
@@ -393,6 +393,8 @@ export const translations = {
       title: {
         pro: 'Tu Suscripción PRO',
         free: 'Elige tu camino al Éxito Profesional',
+        freeBefore: 'Elige tu camino al ',
+        freeHighlight: 'Éxito Profesional',
       },
       subtitle: {
         pro: 'Gestiona los detalles de tu facturación y sigue impulsando tu carrera con el motor semántico de optimización más avanzado.',
@@ -406,7 +408,7 @@ export const translations = {
         period: '/ para siempre',
         feature1: 'Currículums base ilimitados',
         feature2: 'Plantilla ejecutiva Harvard',
-        feature3: 'Optimización básica por IA (OpenRouter)',
+        feature3: 'Optimización IA · análisis básico',
         feature4: 'Tablero Kanban completo para seguimiento',
         btn: 'Ir a mis Currículums',
       },
@@ -416,7 +418,7 @@ export const translations = {
         badge: 'Recomendado',
         price: '10 €',
         period: '/ mes (IVA inc.)',
-        feature1: 'Acceso a Motores Oficiales: DeepSeek y Gemini Pro para máxima calidad en optimizaciones de IA',
+        feature1: 'Optimización IA avanzada · método STAR completo y Alineación de palabras clave con el método STAR',
         feature2: '5 Plantillas Premium: Harvard, Modern, Minimal, Creative y Swiss',
         feature3: 'Velocidad de generación prioritaria en segundos',
         feature4: 'Vinculación ilimitada de CVs dentro del tablero Kanban',
@@ -426,14 +428,14 @@ export const translations = {
       proActive: {
         header: '¡Gracias por ser PRO!',
         subHeader: 'Estás en el camino hacia tu mejor versión profesional.',
-        bodyText: 'Tu cuenta dispone de acceso PRO ilimitado. Esto significa que estás utilizando los motores oficiales líderes del sector (DeepSeek y Gemini Pro) para alinear semánticamente tu perfil con los requisitos específicos que los seleccionadores buscan.',
+        bodyText: 'Tu cuenta dispone de acceso PRO ilimitado. Esto significa que estás utilizando la optimización de IA avanzada para alinear semánticamente tu perfil con los requisitos específicos que los seleccionadores buscan mediante el método STAR.',
         didYouKnowTitle: '¿Sabías qué?',
         didYouKnowDesc: 'Los candidatos que adaptan minuciosamente su currículum para cada oferta específica **multiplican por 3 la tasa de llamadas para entrevistas**. Tu capacidad para generar rápidamente CVs optimizados con IA te otorga una ventaja competitiva excepcional en el mercado laboral actual.',
         billingStatusLabel: 'Estado de Facturación',
         billingStatusDesc: 'Suscripción activa y al día',
         manageBillingBtn: 'Gestionar Método de Pago & Facturas',
         benefitsTitle: 'Tus Beneficios Activos',
-        benefit1: 'IA Oficial (DeepSeek / Gemini Pro)',
+        benefit1: 'Optimización IA avanzada (Método STAR completo)',
         benefit2: '5 Plantillas Premium de CV',
         benefit3: 'Vinculación ilimitada en Kanban',
         benefit4: 'Descargas e impresión PDF sin límites',
@@ -708,7 +710,7 @@ export const translations = {
     dashboard: {
       banner: {
         title: 'Hello, {name}',
-        desc: 'You are on the Free Plan. The free AI engine uses OpenRouter. Unlock professional templates and advanced AI integrations by upgrading your account.',
+        desc: 'You are on the Free Plan. Unlock professional templates and advanced AI integrations by upgrading your account.',
         upgrade: 'Upgrade to PRO (€10/mo)',
       },
       stats: {
@@ -954,6 +956,8 @@ export const translations = {
       title: {
         pro: 'Your PRO Subscription',
         free: 'Choose your path to Career Success',
+        freeBefore: 'Choose your path to ',
+        freeHighlight: 'Career Success',
       },
       subtitle: {
         pro: 'Manage your billing details and keep boosting your career with the most advanced semantic optimization engine.',
@@ -967,7 +971,7 @@ export const translations = {
         period: '/ forever',
         feature1: 'Unlimited base resumes',
         feature2: 'Executive Harvard template',
-        feature3: 'Basic AI optimization (OpenRouter)',
+        feature3: 'Basic AI optimization · standard analysis',
         feature4: 'Full Kanban board for tracking',
         btn: 'Go to my Resumes',
       },
@@ -977,7 +981,7 @@ export const translations = {
         badge: 'Recommended',
         price: '10 €',
         period: '/ month (VAT inc.)',
-        feature1: 'Access to Official Engines: DeepSeek and Gemini Pro for maximum quality in AI optimizations',
+        feature1: 'Advanced AI optimization · full STAR method and Keyword alignment with the STAR method',
         feature2: '5 Premium Templates: Harvard, Modern, Minimal, Creative and Swiss',
         feature3: 'Priority generation speed in seconds',
         feature4: 'Unlimited resume linking within the Kanban board',
@@ -987,14 +991,14 @@ export const translations = {
       proActive: {
         header: 'Thank you for being PRO!',
         subHeader: 'You are on the path to your best professional self.',
-        bodyText: 'Your account has unlimited PRO access. This means you are utilizing the industry-leading official engines (DeepSeek and Gemini Pro) to semantically align your profile with the specific requirements that recruiters look for.',
+        bodyText: 'Your account has unlimited PRO access. This means you are utilizing advanced AI optimization to semantically align your profile with the specific requirements that recruiters look for using the STAR method.',
         didYouKnowTitle: 'Did you know?',
         didYouKnowDesc: 'Candidates who meticulously tailor their resume for each specific job offer **multiply their interview call rate by 3**. Your ability to quickly generate AI-optimized resumes grants you an exceptional competitive advantage in today\'s job market.',
         billingStatusLabel: 'Billing Status',
         billingStatusDesc: 'Subscription active and up to date',
         manageBillingBtn: 'Manage Payment Method & Invoices',
         benefitsTitle: 'Your Active Benefits',
-        benefit1: 'Official AI (DeepSeek / Gemini Pro)',
+        benefit1: 'Advanced AI Optimization (Full STAR method)',
         benefit2: '5 Premium CV Templates',
         benefit3: 'Unlimited Kanban linking',
         benefit4: 'Unlimited PDF downloads and printing',

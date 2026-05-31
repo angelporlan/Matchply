@@ -36,7 +36,7 @@ export default async function SubscriptionPage() {
 
       {/* Main Container */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-        
+
         {/* HEADER SECTION */}
         <div className="text-center mb-12">
           {isPremium ? (
@@ -50,16 +50,16 @@ export default async function SubscriptionPage() {
               {t('subscription.badges.activeFree')}
             </div>
           )}
-          
+
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white font-display">
             {isPremium ? (
               <>{proTitleBefore}<span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">PRO</span>{proTitleAfter}</>
             ) : (
-              <>{t('subscription.title.free').split(' Éxito ')[0]} <span className="bg-gradient-to-r from-[#8b5cf6] to-[#1e1b4b] dark:to-indigo-300 bg-clip-text text-transparent">Éxito Profesional</span></>
+              <>{t('subscription.title.freeBefore')}<span className="bg-gradient-to-r from-[#8b5cf6] to-[#1e1b4b] dark:to-indigo-300 bg-clip-text text-transparent">{t('subscription.title.freeHighlight')}</span></>
             )}
           </h1>
           <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs md:text-sm mt-3 font-light leading-relaxed max-w-xl mx-auto font-sans">
-            {isPremium 
+            {isPremium
               ? t('subscription.subtitle.pro')
               : t('subscription.subtitle.free')}
           </p>
@@ -68,7 +68,7 @@ export default async function SubscriptionPage() {
         {/* CONTENIDO PRINCIPAL: CASO FREE */}
         {!isPremium && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch mt-8 animate-fadeIn">
-            
+
             {/* CARD PLAN FREE */}
             <div className="bg-white dark:bg-[#1f2937] p-8 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 shadow-sm">
               <div>
@@ -149,7 +149,7 @@ export default async function SubscriptionPage() {
                 <ul className="space-y-4 text-xs font-light text-[#1e1b4b]/80 dark:text-slate-200 font-sans">
                   <li className="flex items-start gap-2.5">
                     <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 stroke-[1.75]" />
-                    <span>{t('subscription.proCard.feature1').split('Officiel')[0].split('Official')[0]}<strong>Acceso a Motores Oficiales</strong>{t('subscription.proCard.feature1').split('Oficiales')[1] || t('subscription.proCard.feature1').split('Engines')[1]}</span>
+                    <span>{t('subscription.proCard.feature1').split('Officiel')[0].split('Official')[0]}{t('subscription.proCard.feature1').split('Oficiales')[1] || t('subscription.proCard.feature1').split('Engines')[1]}</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2ecc71] shrink-0 mt-0.5 stroke-[1.75]" />
@@ -187,11 +187,11 @@ export default async function SubscriptionPage() {
         {/* CONTENIDO PRINCIPAL: CASO PRO */}
         {isPremium && (
           <div className="max-w-2xl mx-auto mt-6 space-y-8 animate-fadeIn">
-            
+
             {/* TARJETA DE BIENVENIDA Y MOTIVACIÓN */}
             <div className="bg-white dark:bg-[#1f2937] p-8 rounded-[12px] border border-[#8b5cf6]/20 shadow-md shadow-[#8b5cf6]/5 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-2xl pointer-events-none" />
-              
+
               <div className="flex items-center gap-4 mb-6">
                 <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/25 shrink-0">
                   <Crown className="w-6 h-6 animate-pulse-subtle stroke-[1.75]" />
@@ -206,7 +206,7 @@ export default async function SubscriptionPage() {
                 <p>
                   {t('subscription.proActive.bodyText')}
                 </p>
-                
+
                 <div className="p-4 bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 rounded-[12px] mt-4">
                   <span className="font-bold text-[#1e1b4b] dark:text-white text-xs flex items-center gap-1.5 mb-1 font-display">
                     <Lightbulb className="w-3.5 h-3.5 text-amber-500 animate-pulse-subtle stroke-[1.75]" />
@@ -244,7 +244,7 @@ export default async function SubscriptionPage() {
             {/* BENEFICIOS ACTIVOS CHECKLIST */}
             <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm">
               <h4 className="text-xs font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider mb-4 font-display">{t('subscription.proActive.benefitsTitle')}</h4>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
                 <div className="flex items-start gap-2.5 text-xs text-[#1e1b4b]/80 dark:text-slate-200">
                   <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 stroke-[1.75]" />
