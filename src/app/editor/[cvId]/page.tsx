@@ -80,8 +80,10 @@ export default async function EditorPage({ params }: EditorPageProps) {
     .select({
       id: prompts.id,
       name: prompts.name,
+      nameEn: prompts.nameEn,
       isActive: prompts.isActive,
       description: prompts.description,
+      descriptionEn: prompts.descriptionEn,
       color: prompts.color,
     })
     .from(prompts)

@@ -58,8 +58,10 @@ export const settings = pgTable('setting', {
 export const prompts = pgTable('prompt', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(), // Ej: "Optimización Estilo Harvard"
+  nameEn: text('nameEn'), // Nombre descriptivo en inglés (opcional)
   key: text('key').default('optimize_cv').notNull(), // Clave de la función asociada (ej. 'optimize_cv')
   description: text('description'), // Descripción del modo para mostrarle al usuario
+  descriptionEn: text('descriptionEn'), // Descripción en inglés (opcional)
   color: text('color'), // Color hexadecimal asociado al modo (ej. '#8b5cf6')
   systemPrompt: text('systemPrompt').notNull(),
   userPrompt: text('userPrompt').notNull(), // Template con variables {{cv}} y {{job}}

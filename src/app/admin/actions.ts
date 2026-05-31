@@ -149,8 +149,10 @@ export async function updateAISetting(key: string, value: string) {
 export async function savePrompt(data: {
    id?: string;
   name: string;
+  nameEn?: string;
   key: string;
   description?: string;
+  descriptionEn?: string;
   color?: string;
   systemPrompt: string;
   userPrompt: string;
@@ -177,8 +179,10 @@ export async function savePrompt(data: {
         .insert(prompts)
         .values({
           name: data.name,
+          nameEn: data.nameEn || null,
           key: data.key,
           description: data.description || null,
+          descriptionEn: data.descriptionEn || null,
           color: data.color || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,
@@ -195,8 +199,10 @@ export async function savePrompt(data: {
         .update(prompts)
         .set({
           name: data.name,
+          nameEn: data.nameEn || null,
           key: data.key,
           description: data.description || null,
+          descriptionEn: data.descriptionEn || null,
           color: data.color || null,
           systemPrompt: data.systemPrompt,
           userPrompt: data.userPrompt,

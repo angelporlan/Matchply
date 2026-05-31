@@ -19,7 +19,15 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 interface EditorClientProps {
   cv: CV;
   isPremium: boolean;
-  availablePrompts: { id: string; name: string; isActive: boolean; description?: string | null; color?: string | null }[];
+  availablePrompts: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+    isActive: boolean;
+    description?: string | null;
+    descriptionEn?: string | null;
+    color?: string | null;
+  }[];
   baseCvContent?: string | null;
   user: {
     name?: string | null;
@@ -30,7 +38,7 @@ interface EditorClientProps {
 
 export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user }: EditorClientProps) {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [pdfVersion, setPdfVersion] = useState(0);
 
@@ -39,10 +47,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
   // Dynamic Prompt Configs Mapper
   const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
+    const isEn = language === 'en';
     return {
       color: prompt.color || '#8b5cf6',
-      desc: prompt.description || '',
-      displayName: prompt.name,
+      desc: (isEn && prompt.descriptionEn) ? prompt.descriptionEn : (prompt.description || ''),
+      displayName: (isEn && prompt.nameEn) ? prompt.nameEn : prompt.name,
     };
   };
 
@@ -634,7 +643,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                 outline: `2px solid ${config.color}25`,
                                 outlineOffset: '-1px'
                               } : undefined}
-                              title={prompt.description || config.desc}
+                              title={config.desc}
                             >
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
@@ -654,7 +663,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                 </div>
                               </div>
                               <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
-                                {prompt.description || config.desc}
+                                {config.desc}
                               </p>
                               {isSelected && (
                                 <div 

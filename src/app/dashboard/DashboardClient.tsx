@@ -62,7 +62,15 @@ const defaultPromptConfig = {
 interface DashboardClientProps {
   initialCvs: CV[];
   isPremium: boolean;
-  availablePrompts: { id: string; name: string; isActive: boolean }[];
+  availablePrompts: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+    isActive: boolean;
+    description?: string | null;
+    descriptionEn?: string | null;
+    color?: string | null;
+  }[];
 }
 
 export default function DashboardClient({
@@ -186,27 +194,40 @@ export default function DashboardClient({
   };
 
   // Helper to translate prompt titles & descs
-  const getPromptTranslation = (name: string) => {
-    if (name === 'Modo Fidelidad') {
+  const getPromptTranslation = (prompt: typeof availablePrompts[0]) => {
+    const isEn = language === 'en';
+
+    // Prioritize custom database configured translations
+    const displayName = (isEn && prompt.nameEn) ? prompt.nameEn : prompt.name;
+    const displayDesc = (isEn && prompt.descriptionEn) ? prompt.descriptionEn : prompt.description;
+
+    if (displayDesc) {
+      return {
+        name: displayName,
+        desc: displayDesc,
+      };
+    }
+
+    if (prompt.name === 'Modo Fidelidad') {
       return {
         name: t('dashboard.modes.fidelity.name'),
         desc: t('dashboard.modes.fidelity.desc'),
       };
     }
-    if (name === 'Modo Rendimiento') {
+    if (prompt.name === 'Modo Rendimiento') {
       return {
         name: t('dashboard.modes.performance.name'),
         desc: t('dashboard.modes.performance.desc'),
       };
     }
-    if (name === 'Modo Extremo') {
+    if (prompt.name === 'Modo Extremo') {
       return {
         name: t('dashboard.modes.extreme.name'),
         desc: t('dashboard.modes.extreme.desc'),
       };
     }
     return {
-      name: name,
+      name: displayName,
       desc: t('dashboard.modes.default.desc'),
     };
   };
@@ -592,6 +613,7 @@ export default function DashboardClient({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {availablePrompts.map((prompt) => {
                           const config = promptConfigs[prompt.name] || defaultPromptConfig;
+                          const promptColor = prompt.color || config.color;
                           const isSelected = aiFormData.promptId === prompt.id;
                           const shadowClass = prompt.name === 'Modo Fidelidad' 
                             ? 'shadow-sky-500/5' 
@@ -599,7 +621,7 @@ export default function DashboardClient({
                               ? 'shadow-yellow-500/5' 
                               : 'shadow-orange-500/5';
                           
-                          const promptInfo = getPromptTranslation(prompt.name);
+                          const promptInfo = getPromptTranslation(prompt);
                           
                           return (
                             <div
@@ -615,7 +637,7 @@ export default function DashboardClient({
                                   </span>
                                   <div 
                                     className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
-                                    style={{ backgroundColor: config.color }}
+                                    style={{ backgroundColor: promptColor }}
                                   />
                                 </div>
                               </div>
@@ -629,7 +651,7 @@ export default function DashboardClient({
                               {isSelected && (
                                 <div 
                                   className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
-                                  style={{ backgroundColor: config.color }}
+                                  style={{ backgroundColor: promptColor }}
                                 />
                               )}
                             </div>

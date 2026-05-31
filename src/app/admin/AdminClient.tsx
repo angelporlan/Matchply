@@ -104,11 +104,14 @@ export default function AdminClient({
   // Prompt Form Modal State
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false); // Mostrar archivados en el listado
+  const [showEnglishFields, setShowEnglishFields] = useState(false);
   const [promptForm, setPromptForm] = useState<{
     id?: string;
     name: string;
+    nameEn: string;
     key: string;
     description: string;
+    descriptionEn: string;
     color: string;
     systemPrompt: string;
     userPrompt: string;
@@ -117,8 +120,10 @@ export default function AdminClient({
     isStrict: boolean;
   }>({
     name: '',
+    nameEn: '',
     key: 'optimize_cv',
     description: '',
+    descriptionEn: '',
     color: '#8b5cf6',
     systemPrompt: '',
     userPrompt: '',
@@ -374,8 +379,10 @@ export default function AdminClient({
   const openCreatePromptModal = () => {
     setPromptForm({
       name: '',
+      nameEn: '',
       key: 'optimize_cv',
       description: '',
+      descriptionEn: '',
       color: '#8b5cf6',
       systemPrompt: 'Eres un redactor experto en CVs estilo Harvard...',
       userPrompt: 'CV Base:\n{{cv}}\n\nOferta de Trabajo:\n{{job}}',
@@ -383,6 +390,7 @@ export default function AdminClient({
       isArchived: false,
       isStrict: false,
     });
+    setShowEnglishFields(false);
     setIsPromptModalOpen(true);
   };
 
@@ -391,8 +399,10 @@ export default function AdminClient({
     setPromptForm({
       id: prompt.id,
       name: prompt.name,
+      nameEn: prompt.nameEn || '',
       key: prompt.key,
       description: prompt.description || '',
+      descriptionEn: prompt.descriptionEn || '',
       color: prompt.color || '#8b5cf6',
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
@@ -400,6 +410,7 @@ export default function AdminClient({
       isArchived: prompt.isArchived || false,
       isStrict: prompt.isStrict || false,
     });
+    setShowEnglishFields(!!prompt.nameEn || !!prompt.descriptionEn);
     setIsPromptModalOpen(true);
   };
 
@@ -1009,6 +1020,22 @@ export default function AdminClient({
                         <div className="bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/10 rounded-[12px] p-4 border border-[#8b5cf6]/10 dark:border-violet-500/20 text-xs font-light text-[#1e1b4b] dark:text-slate-200 font-sans leading-relaxed">
                           <span className="block text-[8px] text-[#8b5cf6] dark:text-violet-400 font-bold uppercase tracking-wider mb-1 font-display">DESCRIPCIÓN DE LA OPTIMIZACIÓN (MOSTRADA AL USUARIO)</span>
                           "{prompt.description}"
+                          {(prompt.nameEn || prompt.descriptionEn) && (
+                            <div className="mt-2.5 pt-2.5 border-t border-[#8b5cf6]/10 dark:border-violet-500/10 space-y-1 text-[10px] text-[#1e1b4b]/70 dark:text-slate-400">
+                              {prompt.nameEn && (
+                                <div className="flex items-start gap-1">
+                                  <span className="font-bold text-[#8b5cf6] dark:text-violet-400 font-display uppercase text-[8px] mt-0.5 shrink-0">🇬🇧 Nombre EN:</span>
+                                  <span className="font-sans leading-tight">{prompt.nameEn}</span>
+                                </div>
+                              )}
+                              {prompt.descriptionEn && (
+                                <div className="flex items-start gap-1">
+                                  <span className="font-bold text-[#8b5cf6] dark:text-violet-400 font-display uppercase text-[8px] mt-0.5 shrink-0">🇬🇧 Descripción EN:</span>
+                                  <span className="font-sans leading-tight">"{prompt.descriptionEn}"</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1476,6 +1503,59 @@ export default function AdminClient({
                   <span className="text-[9px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5 leading-normal">
                     * Esta descripción se le mostrará directamente al usuario final en la ventana de selección de optimización por IA. Si se deja vacía, se utilizará una descripción genérica estándar. Máximo 300 caracteres.
                   </span>
+                </div>
+
+                {/* English Translation Collapsible */}
+                <div className="border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] overflow-hidden font-sans">
+                  <button
+                    type="button"
+                    onClick={() => setShowEnglishFields(!showEnglishFields)}
+                    className="flex items-center justify-between w-full px-3.5 py-2.5 bg-[#f3f4f6]/50 dark:bg-[#1f2937]/30 hover:bg-[#f3f4f6] dark:hover:bg-[#1f2937]/50 text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🇬🇧</span>
+                      <span>Traducción al Inglés (Opcional / Optional)</span>
+                    </div>
+                    <svg
+                      className={`w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 transition-transform duration-200 ${showEnglishFields ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showEnglishFields && (
+                    <div className="p-4 space-y-4 bg-white/50 dark:bg-black/10 border-t border-[#1e1b4b]/10 dark:border-white/10 transition-all duration-300">
+                      {/* Name EN */}
+                      <div className="space-y-1.5 font-sans">
+                        <label className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider block font-display">English Descriptive Name</label>
+                        <input
+                          type="text"
+                          value={promptForm.nameEn}
+                          onChange={(e) => setPromptForm(prev => ({ ...prev, nameEn: e.target.value }))}
+                          placeholder="e.g. Advanced Harvard Advisor with STAR"
+                          className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors w-full font-sans"
+                        />
+                      </div>
+
+                      {/* Description EN */}
+                      <div className="space-y-1.5 font-sans">
+                        <label className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider block font-display">English Description for User</label>
+                        <textarea
+                          value={promptForm.descriptionEn}
+                          onChange={(e) => setPromptForm(prev => ({ ...prev, descriptionEn: e.target.value }))}
+                          placeholder="e.g. Absolute focus on passing ATS filters. Adapts your CV to target key requirements..."
+                          className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors h-20 w-full resize-none font-sans leading-relaxed"
+                          maxLength={300}
+                        />
+                        <span className="text-[9px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5 leading-normal">
+                          * If filled, this will be shown to users who have their language set to English. If left blank, the Spanish description/name will be used as fallback.
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Color Selector */}
