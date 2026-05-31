@@ -652,12 +652,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                     style={{ backgroundColor: config.color }}
                                   />
                                 </div>
-                                <h4 
-                                  className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 transition-colors font-display"
-                                  style={isSelected ? { color: config.color } : {}}
-                                >
-                                  {config.displayName}
-                                </h4>
                               </div>
                               <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
                                 {prompt.description || config.desc}

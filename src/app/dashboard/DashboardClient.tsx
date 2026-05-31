@@ -618,11 +618,6 @@ export default function DashboardClient({
                                     style={{ backgroundColor: config.color }}
                                   />
                                 </div>
-                                
-                                {/* Title */}
-                                <h4 className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-1 group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors font-display">
-                                  {promptInfo.name}
-                                </h4>
                               </div>
 
                               {/* Description / Summary */}
