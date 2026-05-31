@@ -807,25 +807,25 @@ export default function LandingPageClient({ session }: { session: any }) {
                 {/* Left Side: Markdown Mock Editor */}
                 <div className="col-span-5 border-r border-[#1e1b4b]/10 dark:border-white/5 p-4 font-mono text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 flex flex-col gap-3.5 text-left overflow-y-auto scrollbar-custom select-none">
                   <div>
-                    <span className="text-[#8b5cf6] font-bold"># Alejandro Martinez</span>
+                    <span className="text-[#8b5cf6] font-bold">{t('landing.mockup.name')}</span>
                     <br />
-                    <span className="text-slate-400 dark:text-slate-500">Consultor y Arquitecto de Datos</span>
+                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.role')}</span>
                   </div>
                   <div>
-                    <span className="text-indigo-400 font-semibold">## Experiencia</span>
+                    <span className="text-indigo-400 font-semibold">{t('landing.mockup.experienceTitle')}</span>
                     <br />
-                    <span className="text-emerald-500 font-bold">* Administrador Contable</span>
+                    <span className="text-emerald-500 font-bold">{t('landing.mockup.jobTitle')}</span>
                     <br />
-                    <span className="text-slate-400 dark:text-slate-500">AUTONOVA (2017 - Act)</span>
+                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.jobPeriod')}</span>
                     <br />
-                    <span className="text-[8px] sm:text-[9px] text-[#8b5cf6]/80">- Optimización IA STAR activada</span>
+                    <span className="text-[8px] sm:text-[9px] text-[#8b5cf6]/80">{t('landing.mockup.aiBadge')}</span>
                   </div>
                   <div>
-                    <span className="text-indigo-400 font-semibold">## Competencias</span>
+                    <span className="text-indigo-400 font-semibold">{t('landing.mockup.competenciesTitle')}</span>
                     <br />
-                    <span className="text-slate-400 dark:text-slate-500">- Gestión tributaria</span>
+                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.skill1')}</span>
                     <br />
-                    <span className="text-slate-400 dark:text-slate-500">- Conciliación bancaria</span>
+                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.skill2')}</span>
                   </div>
                 </div>
 
@@ -881,7 +881,7 @@ export default function LandingPageClient({ session }: { session: any }) {
               <AnimatedNumber value={15200} suffix="+" />
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              CVs Optimizados
+              {t('landing.stats.cvsOptimized')}
             </p>
           </div>
           <div className="flex flex-col items-center">
@@ -889,7 +889,7 @@ export default function LandingPageClient({ session }: { session: any }) {
               <AnimatedNumber value={94.8} decimals={1} suffix="%" />
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              Éxito ATS (Match)
+              {t('landing.stats.atsSuccess')}
             </p>
           </div>
           <div className="flex flex-col items-center">
@@ -897,7 +897,7 @@ export default function LandingPageClient({ session }: { session: any }) {
               <AnimatedNumber value={10} prefix="+" suffix="x" />
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              Más Entrevistas
+              {t('landing.stats.moreInterviews')}
             </p>
           </div>
           <div className="flex flex-col items-center">
@@ -905,7 +905,7 @@ export default function LandingPageClient({ session }: { session: any }) {
               <AnimatedNumber value={5000} suffix="+" />
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              Ofertas Conseguidas
+              {t('landing.stats.offersSecured')}
             </p>
           </div>
         </div>

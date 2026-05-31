@@ -127,6 +127,23 @@ export const translations = {
       footer: {
         tagline: 'Todos los derechos reservados.',
       },
+      stats: {
+        cvsOptimized: 'CVs Optimizados',
+        atsSuccess: 'Éxito ATS (Match)',
+        moreInterviews: 'Más Entrevistas',
+        offersSecured: 'Ofertas Conseguidas',
+      },
+      mockup: {
+        name: '# Alejandro Martinez',
+        role: 'Consultor y Arquitecto de Datos',
+        experienceTitle: '## Experiencia',
+        jobTitle: '* Administrador Contable',
+        jobPeriod: 'AUTONOVA (2017 - Act)',
+        aiBadge: '- Optimización IA STAR activada',
+        competenciesTitle: '## Competencias',
+        skill1: '- Gestión tributaria',
+        skill2: '- Conciliación bancaria',
+      },
     },
     sidebar: {
       menu: {
@@ -690,6 +707,23 @@ export const translations = {
       },
       footer: {
         tagline: 'All rights reserved.',
+      },
+      stats: {
+        cvsOptimized: 'CVs Optimized',
+        atsSuccess: 'ATS Success (Match)',
+        moreInterviews: 'More Interviews',
+        offersSecured: 'Offers Secured',
+      },
+      mockup: {
+        name: '# Alexander Martinez',
+        role: 'Data Consultant & Architect',
+        experienceTitle: '## Experience',
+        jobTitle: '* Accounting Administrator',
+        jobPeriod: 'AUTONOVA (2017 - Present)',
+        aiBadge: '- STAR AI Optimization active',
+        competenciesTitle: '## Competencies',
+        skill1: '- Tax management',
+        skill2: '- Bank reconciliation',
       },
     },
     sidebar: {
