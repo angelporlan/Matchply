@@ -149,6 +149,53 @@ export class AIService {
     }
   }
 
+  static async importCV({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<string> {
+    const isPro = userSubscriptionStatus === 'active';
+
+    let systemPrompt: string | null = null;
+    let userPromptTemplate: string | null = null;
+    let isStrict = false;
+
+    try {
+      const [dbPrompt] = await db
+        .select()
+        .from(prompts)
+        .where(and(eq(prompts.key, 'import_cv'), eq(prompts.isActive, true)))
+        .limit(1);
+
+      if (dbPrompt) {
+        systemPrompt = dbPrompt.systemPrompt;
+        isStrict = dbPrompt.isStrict;
+        userPromptTemplate = dbPrompt.userPrompt;
+      }
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt de importación de la DB:", err);
+    }
+
+    if (!systemPrompt || !userPromptTemplate) {
+      throw new Error("El administrador de la plataforma aún no ha configurado o activado un prompt dinámico con la clave 'import_cv' en la base de datos.");
+    }
+
+    const provider = isPro 
+      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek') 
+      : await this.getSetting('free_provider', 'openrouter');
+    
+    const model = isPro
+      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
+      : await this.getSetting('free_model', 'openrouter/free');
+
+    const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "");
+    const finalUserPrompt = userPromptTemplate.replace(/\{\{cv\}\}/g, rawText);
+
+    if (provider === 'gemini') {
+      return await this.callGeminiOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else if (provider === 'deepseek') {
+      return await this.callDeepSeekOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else {
+      return await this.callOpenRouter(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    }
+  }
+
   private static async callOpenRouter(
     cv: string, 
     job: string, 

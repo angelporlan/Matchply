@@ -1711,6 +1711,7 @@ export default function AdminClient({
                     className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors w-full font-sans"
                   >
                     <option value="optimize_cv" className="dark:bg-[#1f2937]">optimize_cv (Optimizar CV para Ofertas de Empleo)</option>
+                    <option value="import_cv" className="dark:bg-[#1f2937]">import_cv (Importar/Convertir CV a Markdown)</option>
                   </select>
                   <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5">
                     * Actualmente, solo existe la función de optimización de CV. En un futuro, si agregas nuevas características, podrás ligar sus prompts con claves únicas desde aquí.

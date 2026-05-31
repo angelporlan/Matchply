@@ -7,7 +7,7 @@ import { CV } from '@/db/schema';
 import {
   Sparkles, Plus, FileText, Trash2, ArrowRight, Star, X,
   Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
-  Crown, Lock
+  Crown, Lock, Upload, Clipboard
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
@@ -111,6 +111,121 @@ export default function DashboardClient({
   // Estado para creación rápida de CV
   const [newCvTitle, setNewCvTitle] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
+
+  // Estados para Onboarding de importación de CV
+  const [onboardingMode, setOnboardingMode] = useState<'select' | 'pdf' | 'text'>('select');
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importStep, setImportStep] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+
+  // Drag and drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type === "application/pdf") {
+        setSelectedFile(file);
+        setImportError(null);
+      } else {
+        setImportError(language === 'es' ? 'Solo se admiten archivos PDF.' : 'Only PDF files are supported.');
+      }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type === "application/pdf") {
+        setSelectedFile(file);
+        setImportError(null);
+      } else {
+        setImportError(language === 'es' ? 'Solo se admiten archivos PDF.' : 'Only PDF files are supported.');
+      }
+    }
+  };
+
+  // Manejar importación inteligente con IA
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (importLoading) return;
+    
+    setImportError(null);
+    setImportLoading(true);
+
+    const steps = [
+      t('dashboard.cvs.import.stepExtract'),
+      t('dashboard.cvs.import.stepAi'),
+      t('dashboard.cvs.import.stepCreate'),
+    ];
+
+    let currentStepIndex = 0;
+    setImportStep(steps[currentStepIndex]);
+
+    const stepInterval = setInterval(() => {
+      if (currentStepIndex < steps.length - 1) {
+        currentStepIndex++;
+        setImportStep(steps[currentStepIndex]);
+      }
+    }, 2500);
+
+    try {
+      const formData = new FormData();
+      if (onboardingMode === 'pdf') {
+        if (!selectedFile) {
+          throw new Error(language === 'es' ? 'Debe seleccionar un archivo PDF.' : 'Please select a PDF file.');
+        }
+        formData.append('file', selectedFile);
+      } else {
+        if (!pastedText.trim()) {
+          throw new Error(language === 'es' ? 'Debe pegar el texto de su currículum.' : 'Please paste your resume text.');
+        }
+        formData.append('text', pastedText.trim());
+      }
+
+      const response = await fetch('/api/cv/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      clearInterval(stepInterval);
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || t('dashboard.errors.unexpected'));
+      }
+
+      const result = await response.json();
+
+      setImportStep(t('dashboard.cvs.import.successRedirect'));
+      setTimeout(() => {
+        setImportLoading(false);
+        router.refresh();
+        router.push(`/editor/${result.cvId}`);
+      }, 1000);
+
+    } catch (err: any) {
+      clearInterval(stepInterval);
+      setImportError(err.message || t('dashboard.errors.unexpected'));
+      setImportLoading(false);
+    }
+  };
 
   // Buscar el CV principal actual
   const principalCv = userCvs.find(cv => cv.isPrincipal);
@@ -376,14 +491,231 @@ export default function DashboardClient({
       </div>
 
       {userCvs.length === 0 ? (
-        <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 border-dashed rounded-[12px] p-12 text-center shadow-sm">
-          <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-full text-[#1e1b4b]/50 dark:text-slate-400 w-fit mx-auto mb-4">
-            <FileText className="w-8 h-8 stroke-[1.75]" />
-          </div>
-          <h4 className="text-base font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">{t('dashboard.cvs.empty.title')}</h4>
-          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light max-w-sm mx-auto mb-6 font-sans">
-            {t('dashboard.cvs.empty.desc')}
-          </p>
+        <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] p-6 md:p-8 shadow-sm max-w-4xl mx-auto relative overflow-hidden">
+          {/* Glowing background decor */}
+          <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="absolute bottom-[-20%] left-[-20%] w-80 h-80 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 rounded-full filter blur-3xl pointer-events-none" />
+
+          {importLoading ? (
+            /* Loader premium del onboarding de importación */
+            <div className="py-12 flex flex-col items-center justify-center text-center relative z-10">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
+                  <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+                </div>
+                <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
+              </div>
+              <h4 className="text-base font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">{t('dashboard.cvs.import.processing')}</h4>
+              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
+                {importStep}
+              </p>
+            </div>
+          ) : (
+            <div className="relative z-10">
+              {/* Encabezado */}
+              <div className="text-center max-w-2xl mx-auto mb-8">
+                <div className="inline-flex p-3 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 rounded-xl text-[#8b5cf6] dark:text-violet-400 mb-3.5 shadow-sm">
+                  <Sparkles className="w-6 h-6 stroke-[1.75]" />
+                </div>
+                <h3 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white leading-tight">
+                  {t('dashboard.cvs.import.title')}
+                </h3>
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-2 font-sans">
+                  {t('dashboard.cvs.import.subtitle')}
+                </p>
+              </div>
+
+              {importError && (
+                <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-450 text-xs rounded-[8px] font-medium font-sans flex items-start gap-2.5 max-w-2xl mx-auto">
+                  <AlertCircle className="w-4 h-4 shrink-0 stroke-[1.75]" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {onboardingMode === 'select' && (
+                /* 1. Pantalla de Selección de Modo */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                  {/* Tarjeta Subir PDF */}
+                  <div
+                    onClick={() => { setOnboardingMode('pdf'); setImportError(null); }}
+                    className="group border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
+                        <Upload className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
+                        {t('dashboard.cvs.import.pdfTitle')}
+                      </h4>
+                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
+                        {t('dashboard.cvs.import.pdfDesc')}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
+                      Comenzar <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </div>
+
+                  {/* Tarjeta Pegar Texto */}
+                  <div
+                    onClick={() => { setOnboardingMode('text'); setImportError(null); }}
+                    className="group border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
+                        <Clipboard className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
+                        {t('dashboard.cvs.import.pasteTitle')}
+                      </h4>
+                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
+                        {t('dashboard.cvs.import.pasteDesc')}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
+                      Comenzar <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {onboardingMode === 'pdf' && (
+                /* 2. Drag & Drop PDF Dropzone */
+                <form onSubmit={handleImportSubmit} className="max-w-2xl mx-auto space-y-5">
+                  <div
+                    onDragEnter={handleDrag}
+                    onDragOver={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-[12px] p-10 text-center transition-all ${
+                      dragActive
+                        ? 'border-[#8b5cf6] bg-[#8b5cf6]/5'
+                        : selectedFile
+                        ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
+                        : 'border-[#1e1b4b]/10 dark:border-white/10 bg-[#fafafa] dark:bg-[#0b0f19]/25 hover:border-[#8b5cf6]/30'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      id="pdf-upload"
+                      accept=".pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    
+                    {selectedFile ? (
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 rounded-xl flex items-center justify-center mx-auto shadow-sm">
+                          <FileText className="w-6 h-6 stroke-[1.75]" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase block">{t('dashboard.cvs.import.pdfSelected')}</span>
+                          <span className="text-xs font-bold text-[#1e1b4b] dark:text-white block mt-0.5 max-w-sm mx-auto truncate font-mono">{selectedFile.name}</span>
+                          <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 block mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label htmlFor="pdf-upload" className="cursor-pointer space-y-3 block">
+                        <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-xl flex items-center justify-center mx-auto shadow-sm hover:scale-105 transition-transform duration-300">
+                          <Upload className="w-5 h-5 stroke-[1.75]" />
+                        </div>
+                        <p className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200">
+                          {dragActive ? t('dashboard.cvs.import.pdfZoneActive') : t('dashboard.cvs.import.pdfDesc')}
+                        </p>
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => { setOnboardingMode('select'); setSelectedFile(null); setImportError(null); }}
+                      className="px-4 py-2.5 text-xs font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                    >
+                      {t('dashboard.cvs.import.cancelCta')}
+                    </button>
+                    {selectedFile && (
+                      <button
+                        type="submit"
+                        className="px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5"
+                      >
+                        <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
+                        {t('dashboard.cvs.import.submitCta')}
+                      </button>
+                    )}
+                  </div>
+                </form>
+              )}
+
+              {onboardingMode === 'text' && (
+                /* 3. Textarea Input para pegar texto */
+                <form onSubmit={handleImportSubmit} className="max-w-2xl mx-auto space-y-4">
+                  <div className="space-y-1.5">
+                    <textarea
+                      required
+                      rows={10}
+                      value={pastedText}
+                      onChange={(e) => setPastedText(e.target.value)}
+                      placeholder={t('dashboard.cvs.import.textareaPlaceholder')}
+                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/15 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => { setOnboardingMode('select'); setPastedText(''); setImportError(null); }}
+                      className="px-4 py-2.5 text-xs font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                    >
+                      {t('dashboard.cvs.import.cancelCta')}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!pastedText.trim()}
+                      className={`px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${
+                        !pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
+                      {t('dashboard.cvs.import.submitCta')}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {onboardingMode === 'select' && (
+                /* 4. Opción secundaria de creación rápida (Crear en Blanco) */
+                <div className="mt-10 border-t border-[#1e1b4b]/10 dark:border-white/5 pt-8 text-center">
+                  <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase tracking-wider block mb-4">
+                    {t('dashboard.cvs.import.orBlank')}
+                  </span>
+                  <form onSubmit={handleCreateQuick} className="flex flex-col sm:flex-row gap-2 justify-center items-stretch sm:items-center max-w-md mx-auto">
+                    <input
+                      type="text"
+                      required
+                      value={newCvTitle}
+                      onChange={(e) => setNewCvTitle(e.target.value)}
+                      placeholder={t('dashboard.cvs.import.blankPlaceholder')}
+                      className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-4 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all flex-1"
+                      disabled={createLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={createLoading}
+                      className="bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-bold px-5 py-2.5 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
+                    >
+                      {createLoading ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 stroke-[1.75]" />
+                      )}
+                      {t('dashboard.cvs.import.blankCta')}
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
