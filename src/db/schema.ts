@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -43,6 +43,31 @@ export const jobOffers = pgTable('job_offer', {
   platform: text('platform').default('linkedin').notNull(), // 'linkedin', 'infojobs', 'indeed', 'other'
   description: text('description'), // Descripción completa copiada de la oferta para optimización
   status: text('status').default('interested').notNull(), // 'interested', 'applied', 'interview', 'offer', 'rejected'
+  
+  // Pipeline / Scraping
+  source: text('source'), // ej. 'ashby', 'greenhouse', 'linkedin'
+  livenessStatus: text('livenessStatus').default('active'), // 'active' | 'expired'
+  
+  // Evaluación de IA
+  scoreOverall: doublePrecision('scoreOverall'), // ej. 4.4
+  scoreBreakdown: jsonb('scoreBreakdown'), // Puntuaciones específicas (Tech, Salario, etc.)
+  tldr: text('tldr'), // Resumen ejecutivo
+  redFlags: jsonb('redFlags'), // Array de alertas/riesgos
+  legitimacyTier: text('legitimacyTier'), // Ghost job detection tier
+  rawReport: text('rawReport'), // Reporte completo markdown
+  
+  // CV y Adaptación
+  targetProofPoints: jsonb('targetProofPoints'), // Logros sugeridos a enfatizar
+  
+  // Outreach y Estrategia
+  coverLetter: text('coverLetter'), // Carta de presentación
+  outreachMessage: text('outreachMessage'), // Mensaje de contacto
+  interviewStories: jsonb('interviewStories'), // Historias STAR recomendadas
+  
+  // Seguimiento y Analíticas
+  nextFollowupDate: timestamp('nextFollowupDate', { mode: 'date' }), // Cuándo contactar
+  rejectionPatternTags: jsonb('rejectionPatternTags'), // Etiquetas de rechazo
+  
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
