@@ -13,6 +13,7 @@ export const users = pgTable('user', {
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
   role: text('role').default('user').notNull(), // 'user' o 'admin'
+  apiKey: text('apiKey').unique(), // Personal API Key for external integrations (e.g. Career-Ops)
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 

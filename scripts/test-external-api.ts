@@ -1,16 +1,41 @@
 // Script de pruebas para verificar el Endpoint de Sincronización Externa de Matchply
 // Se ejecuta localmente desde el container: npx tsx scripts/test-external-api.ts
 
+import { db } from '../src/db';
+import { users } from '../src/db/schema';
+import { eq } from 'drizzle-orm';
+
 async function runTest() {
-  console.log('🧪 Iniciando prueba de integración para la API de Matchply...');
+  console.log('🧪 Iniciando pruebas de integración robustas para la API de Matchply...');
 
   const API_URL = 'http://localhost:3000/api/external/applications';
-  const API_KEY = 'matchply_ext_key_8e72fae504c51486bd9d7c0411a76f2d'; // token configurado en .env
-  const TEST_EMAIL = 'angelporlandev@gmail.com'; // usuario registrado real en local
+  const GLOBAL_API_KEY = 'matchply_ext_key_8e72fae504c51486bd9d7c0411a76f2d'; // Token configurado en .env
+  const TEST_EMAIL = 'angelporlandev@gmail.com'; // Usuario registrado real en local
+  const MOCK_PERSONAL_KEY = 'matchply_usr_testkey_1234567890abcdef12345678';
+
+  // 1. Obtener y guardar el estado original del usuario para restaurarlo al final
+  const [testUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_EMAIL))
+    .limit(1);
+
+  if (!testUser) {
+    console.error(`❌ Error Crítico: No se encontró el usuario de pruebas "${TEST_EMAIL}" en la base de datos.`);
+    console.log('Por favor, regístrate en Matchply con este correo antes de correr las pruebas.');
+    process.exit(1);
+  }
+
+  const originalSubscriptionStatus = testUser.subscriptionStatus;
+  const originalApiKey = testUser.apiKey;
+
+  console.log(`👤 Usuario de prueba encontrado: ${testUser.name} (${TEST_EMAIL})`);
+  console.log(`   - Estado de suscripción original: "${originalSubscriptionStatus}"`);
+  console.log(`   - API Key original: ${originalApiKey ? 'Configurada' : 'Ninguna'}`);
 
   const payload = {
     userEmail: TEST_EMAIL,
-    title: 'Forward Deployed AI Engineer',
+    title: 'Senior Forward Deployed AI Engineer',
     company: 'ElevenLabs',
     url: 'https://jobs.ashbyhq.com/elevenlabs/fde-ai-test-1',
     platform: 'linkedin',
@@ -18,141 +43,159 @@ async function runTest() {
     status: 'interested',
     source: 'ashby/elevenlabs',
     livenessStatus: 'active',
-    scoreOverall: 4.6,
+    scoreOverall: 4.8,
     scoreBreakdown: {
       tech_stack: 4.8,
       salary_fit: 4.2,
       culture_alignment: 5.0,
       work_mode: 4.5
     },
-    tldr: 'Excelente encaje técnico y cultural. El perfil cuenta con fuerte experiencia en orquestación de agentes de IA, frameworks modernos de frontend y despliegue robusto, coincidiendo en un 95% con los requisitos.',
+    tldr: 'Excelente encaje técnico y cultural.',
     redFlags: [
-      'Puesto con disponibilidad de guardia ocasional en fines de semana',
-      'Foco intenso en entregas rápidas con clientes corporativos exigentes'
+      'Puesto con disponibilidad de guardia ocasional'
     ],
     legitimacyTier: 'Tier 1 - High Legitimacy',
-    rawReport: `# Informe Detallado de Evaluación - ElevenLabs
-
-## Análisis de stack técnico
-El candidato demuestra un dominio sobresaliente de **Next.js**, **TypeScript** y orquestación avanzada de modelos de lenguaje (LLMs). Las experiencias previas en arquitectura de microservicios y SaaS con integraciones de pasarelas de pago (Stripe) son un gran valor añadido.
-
-## Cultura y alineación STAR
-La alineación del candidato con la velocidad de desarrollo en ElevenLabs se apoya en sus logros STAR documentados de automatización de pipelines y optimización de latencia en renderizado.
-
-## Puntos fuertes detectados
-- **95% de coincidencia** en lenguajes básicos.
-- Experiencia probada integrando APIs complejas de IA.
-- Entorno internacional de colaboración ágil.`,
-    cvMarkdownTailored: `# ANGEL PORLAN
-**Email:** angelporlandev@gmail.com | **LinkedIn:** linkedin.com/in/angelporlan
-
-## Perfil Profesional
-Ingeniero de Software especializado en Inteligencia Artificial y arquitecturas Next.js de alta escala. Apasionado por la voz sintética y la interacción conversacional.
-
-## Experiencia Profesional
-### Forward Deployed AI Engineer
-**AI Enterprise Lab** | *2024 - Presente*
-- Lideré la integración de agentes conversacionales para 4 clientes del sector financiero, disminuyendo latencias de API en un **35%**.
-- Diseñé interfaces responsivas en Next.js App Router optimizando el Core Web Vital INP.`,
+    cvMarkdownTailored: `# ANGEL PORLAN\n**Email:** angelporlandev@gmail.com\n\n## Perfil\nEspecialista en IA y Next.js.`,
     targetProofPoints: [
-      'Reducción de latencia del 35% en integraciones de IA conversacional',
-      'Arquitectura de Next.js App Router de escala para clientes enterprise'
-    ],
-    coverLetter: `Estimado equipo de ElevenLabs,
-
-Les escribo para expresar mi gran interés en la posición de Forward Deployed AI Engineer. He seguido de cerca el liderazgo de ElevenLabs en tecnología de voz generativa y estoy convencido de que mi perfil en Next.js, TypeScript y orquestación de LLMs encaja a la perfección con sus desafíos.
-
-En mi rol actual, logré reducir un 35% las latencias de procesamiento de voz para clientes corporativos...`,
-    outreachMessage: `Hola, vi tu perfil en relación a la búsqueda de FDE en ElevenLabs. Cuento con experiencia en Next.js y orquestación de LLMs, y me encantaría conectar para conversar brevemente sobre cómo puedo aportar valor. ¡Saludos!`,
-    interviewStories: [
-      {
-        title: 'Optimización de Latencia en Voz Conversacional',
-        situation: 'Los clientes corporativos experimentaban pausas de hasta 2 segundos en las respuestas de voz sintética.',
-        task: 'Identificar el cuello de botella y reducir el tiempo de respuesta total por debajo de 500ms.',
-        action: 'Implementé streaming bidireccional mediante WebSockets y optimicé los buffers de audio en TypeScript.',
-        result: 'Reduje la latencia de respuesta en un **35%**, logrando una conversación fluida y natural.',
-        relevance: 'Demuestra habilidades profundas de optimización en tiempo real y manejo de APIs avanzadas de audio.'
-      },
-      {
-        title: 'Lanzamiento de Plataforma SaaS Multiusuario',
-        situation: 'El equipo técnico carecía de una base sólida para gestionar suscripciones de cobro recurrente.',
-        task: 'Integrar Stripe con Drizzle ORM de forma segura y escalable en menos de 2 semanas.',
-        action: 'Diseñé el esquema relacional en PostgreSQL e implementé webhooks idempotentes robustos.',
-        result: 'La plataforma procesó más de 500 transacciones exitosas en las primeras 24 horas sin fallos.',
-        relevance: 'Demuestra capacidad de entrega en plazos exigentes y dominio de bases de datos relacionales.'
-      }
-    ],
-    nextFollowupDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    rejectionPatternTags: ['tech_fit', 'remote_only']
+      'Reducción de latencia del 35% en integraciones de IA conversacional'
+    ]
   };
 
   try {
-    // 1. Probar autenticación denegada (sin token)
-    console.log('\n🔐 Prueba 1: Petición sin cabecera de autenticación...');
-    const res1 = await fetch(API_URL, {
+    // ==========================================
+    // ESCENARIO 1: USUARIO CON PLAN GRATUITO (FREE)
+    // ==========================================
+    console.log('\n--- 🆓 ESCENARIO 1: Pruebas con PLAN GRATUITO (subscriptionStatus = "none") ---');
+    
+    // Configurar usuario como gratuito y con clave personal asignada
+    await db
+      .update(users)
+      .set({ subscriptionStatus: 'none', apiKey: MOCK_PERSONAL_KEY })
+      .where(eq(users.id, testUser.id));
+
+    // A. Probar con API Key Personal
+    console.log('🔌 Prueba 1.1: Petición con API Key Personal en plan Gratuito...');
+    const res1_1 = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MOCK_PERSONAL_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+    console.log(`Resultado: Código HTTP ${res1_1.status} (Esperado: 403)`);
+    const data1_1 = await res1_1.json();
+    console.log('Respuesta:', data1_1);
+
+    // B. Probar con API Key Global
+    console.log('\n🔌 Prueba 1.2: Petición con API Key Global en plan Gratuito...');
+    const res1_2 = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GLOBAL_API_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+    console.log(`Resultado: Código HTTP ${res1_2.status} (Esperado: 403)`);
+    const data1_2 = await res1_2.json();
+    console.log('Respuesta:', data1_2);
+
+
+    // ==========================================
+    // ESCENARIO 2: USUARIO CON PLAN PREMIUM (PRO)
+    // ==========================================
+    console.log('\n--- 👑 ESCENARIO 2: Pruebas con PLAN PREMIUM PRO (subscriptionStatus = "active") ---');
+    
+    // Configurar usuario como PRO
+    await db
+      .update(users)
+      .set({ subscriptionStatus: 'active' })
+      .where(eq(users.id, testUser.id));
+
+    // A. Probar con API Key Personal
+    console.log('🔌 Prueba 2.1: Sincronización exitosa con API Key Personal (PRO)...');
+    const res2_1 = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MOCK_PERSONAL_KEY}`
+      },
+      // En la clave personal, no pasamos userEmail o pasamos uno falso para verificar el aislamiento multitenant
+      body: JSON.stringify({
+        ...payload,
+        userEmail: 'hack_email@gmail.com', // Debe ser ignorado por completo
+        title: 'Senior Forward Deployed AI Engineer (Personal Key PRO)'
+      })
+    });
+    console.log(`Resultado: Código HTTP ${res2_1.status} (Esperado: 200)`);
+    const data2_1 = await res2_1.json();
+    console.log('Respuesta:', data2_1);
+
+    // B. Probar con API Key Global (Retrocompatibilidad)
+    console.log('\n🔌 Prueba 2.2: Sincronización exitosa con API Key Global (PRO)...');
+    const res2_2 = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GLOBAL_API_KEY}`
+      },
+      body: JSON.stringify({
+        ...payload,
+        title: 'Senior Forward Deployed AI Engineer (Global Key PRO)'
+      })
+    });
+    console.log(`Resultado: Código HTTP ${res2_2.status} (Esperado: 200)`);
+    const data2_2 = await res2_2.json();
+    console.log('Respuesta:', data2_2);
+
+
+    // ==========================================
+    // ESCENARIO 3: CLAVES ERRÓNEAS O INEXISTENTES
+    // ==========================================
+    console.log('\n--- 🔐 ESCENARIO 3: Pruebas de Autorización Denegada ---');
+
+    // A. Probar sin cabecera de autorización
+    console.log('🔌 Prueba 3.1: Petición sin cabecera Authorization...');
+    const res3_1 = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    console.log(`Resultado: Código HTTP ${res1.status} (Esperado: 401)`);
-    const data1 = await res1.json();
-    console.log('Respuesta:', data1);
+    console.log(`Resultado: Código HTTP ${res3_1.status} (Esperado: 401)`);
+    const data3_1 = await res3_1.json();
+    console.log('Respuesta:', data3_1);
 
-    // 2. Probar autenticación denegada (token inválido)
-    console.log('\n🔐 Prueba 2: Petición con token inválido...');
-    const res2 = await fetch(API_URL, {
+    // B. Probar con API Key Personal Inválida
+    console.log('\n🔌 Prueba 3.2: Petición con API Key Personal inexistente...');
+    const res3_2 = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer token_incorrecto_123'
+        'Authorization': 'Bearer matchply_usr_incorrectkey'
       },
       body: JSON.stringify(payload)
     });
-    console.log(`Resultado: Código HTTP ${res2.status} (Esperado: 401)`);
-    const data2 = await res2.json();
-    console.log('Respuesta:', data2);
-
-    // 3. Probar sincronización exitosa (Creación de candidatura + CV)
-    console.log('\n🚀 Prueba 3: Petición exitosa de creación (Crear candidatura + tailored CV)...');
-    const res3 = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify(payload)
-    });
-    console.log(`Resultado: Código HTTP ${res3.status} (Esperado: 200)`);
-    const data3 = await res3.json();
-    console.log('Respuesta:', data3);
-
-    if (data3.success) {
-      console.log('✅ Candidatura creada e ID de CV enlazado:', data3.cvId);
-      
-      // 4. Probar idempotencia (Actualización sobre la misma candidatura/URL)
-      console.log('\n🔄 Prueba 4: Petición exitosa de actualización (Idempotencia sobre misma URL)...');
-      const updatedPayload = {
-        ...payload,
-        title: 'Senior Forward Deployed AI Engineer (UPDATED)',
-        scoreOverall: 4.9
-      };
-
-      const res4 = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify(updatedPayload)
-      });
-      console.log(`Resultado: Código HTTP ${res4.status} (Esperado: 200)`);
-      const data4 = await res4.json();
-      console.log('Respuesta:', data4);
-      console.log('✅ Candidatura actualizada correctamente e ID preservado:', data4.offerId === data3.offerId ? 'SÍ' : 'NO');
-    }
+    console.log(`Resultado: Código HTTP ${res3_2.status} (Esperado: 401)`);
+    const data3_2 = await res3_2.json();
+    console.log('Respuesta:', data3_2);
 
   } catch (error) {
-    console.error('❌ Error ejecutando las pruebas de integración:', error);
+    console.error('❌ Error durante la ejecución de las pruebas:', error);
+  } finally {
+    // ==========================================
+    // RESTAURAR ESTADO DE LA BASE DE DATOS
+    // ==========================================
+    console.log('\n⏳ Restaurando los valores originales en la base de datos...');
+    await db
+      .update(users)
+      .set({
+        subscriptionStatus: originalSubscriptionStatus,
+        apiKey: originalApiKey
+      })
+      .where(eq(users.id, testUser.id));
+    console.log('✅ Base de datos restaurada correctamente a su estado original.');
+    process.exit(0);
   }
 }
 

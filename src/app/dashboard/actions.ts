@@ -1,11 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { cvs, jobOffers } from "@/db/schema";
+import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
+import { isProSubscription } from "@/lib/subscription";
 
 const DEFAULT_MARKDOWN = `# TU NOMBRE COMPLETO
 
@@ -228,5 +230,86 @@ export async function saveCvContent(cvId: string, content: string) {
   } catch (error: any) {
     console.error("Error saving CV content:", error);
     return { error: error.message || "Failed to save CV content" };
+  }
+}
+
+export async function generateUserApiKey() {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    // Fetch user from DB to verify subscription status
+    const [dbUser] = await db
+      .select({ subscriptionStatus: users.subscriptionStatus })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const isPremium = isProSubscription(dbUser?.subscriptionStatus);
+    if (!isPremium) {
+      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
+    }
+
+    // Generate a secure API Key prefixing with 'matchply_usr_'
+    const newApiKey = `matchply_usr_${randomBytes(24).toString("hex")}`;
+
+    await db
+      .update(users)
+      .set({ apiKey: newApiKey })
+      .where(eq(users.id, userId));
+
+    // Log de auditoría
+    await createAuditLog("api_key_generate", userId, session.user.email || null, {
+      success: true
+    });
+
+    revalidatePath("/dashboard/subscription");
+    return { success: true, apiKey: newApiKey };
+  } catch (error: any) {
+    console.error("Error generating user API Key:", error);
+    return { error: error.message || "Failed to generate API Key" };
+  }
+}
+
+export async function revokeUserApiKey() {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    // Fetch user from DB to verify subscription status
+    const [dbUser] = await db
+      .select({ subscriptionStatus: users.subscriptionStatus })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const isPremium = isProSubscription(dbUser?.subscriptionStatus);
+    if (!isPremium) {
+      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
+    }
+
+    await db
+      .update(users)
+      .set({ apiKey: null })
+      .where(eq(users.id, userId));
+
+    // Log de auditoría
+    await createAuditLog("api_key_revoke", userId, session.user.email || null, {
+      success: true
+    });
+
+    revalidatePath("/dashboard/subscription");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error revoking user API Key:", error);
+    return { error: error.message || "Failed to revoke API Key" };
   }
 }
