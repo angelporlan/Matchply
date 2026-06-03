@@ -270,7 +270,9 @@ export default async function SubscriptionPage() {
         )}
 
         {/* Api Key Console (integraciones automatizadas) */}
-        <ApiKeyConsole initialApiKey={dbUser?.apiKey || null} isPremium={isPremium} />
+        {isPremium && (
+          <ApiKeyConsole initialApiKey={dbUser?.apiKey || null} isPremium={isPremium} />
+        )}
 
       </main>
     </div>

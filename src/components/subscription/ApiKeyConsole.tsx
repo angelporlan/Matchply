@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Key, Eye, EyeOff, Copy, Check, RefreshCw, Trash2, 
   ShieldAlert, Sparkles, Terminal, ArrowRight, Lock, 
@@ -17,7 +18,7 @@ interface ApiKeyConsoleProps {
 
 export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsoleProps) {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [apiKey, setApiKey] = useState<string | null>(initialApiKey);
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -264,9 +265,18 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
         {/* Interactive Guide for Career-Ops integration */}
         {apiKey && (
           <div className="space-y-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b] dark:text-white">
-              <Terminal className="w-4 h-4 text-[#8b5cf6] stroke-[1.75]" />
-              {t('subscription.apiKey.guideTitle')}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b] dark:text-white">
+                <Terminal className="w-4 h-4 text-[#8b5cf6] stroke-[1.75]" />
+                {t('subscription.apiKey.guideTitle')}
+              </div>
+              <Link 
+                href="/docs/api"
+                className="text-[10px] font-extrabold text-[#8b5cf6] hover:underline flex items-center gap-1 self-start sm:self-auto"
+              >
+                {language === 'es' ? 'Ver Manual Visual de la API' : 'View Visual API Guide'}
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
 
             <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans leading-relaxed font-light">
