@@ -47,6 +47,30 @@ const promptConfigs: Record<
     bg: 'bg-orange-500/10',
     activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
     desc: 'Foco absoluto en superar el filtro ATS. Adapta tu CV e inyecta cualquier tecnología o requisito crítico exigido por la oferta para un match del 100%.'
+  },
+  'MODO 1 — Honesto (cero invención)': {
+    color: '#3b82f6', // Azul (blue-500)
+    hoverBg: 'hover:bg-blue-500/5',
+    text: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    activeBorder: 'border-blue-500 ring-2 ring-blue-500/20',
+    desc: ''
+  },
+  'MODO 2 — Adaptado (con inferencias razonables)': {
+    color: '#f97316', // Naranja (orange-500)
+    hoverBg: 'hover:bg-orange-500/5',
+    text: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
+    desc: ''
+  },
+  'MODO 3 — Agresivo (máximo match, mínima ética 😅)': {
+    color: '#ef4444', // Rojo (red-500)
+    hoverBg: 'hover:bg-red-500/5',
+    text: 'text-red-400',
+    bg: 'bg-red-500/10',
+    activeBorder: 'border-red-500 ring-2 ring-red-500/20',
+    desc: ''
   }
 };
 
@@ -947,11 +971,11 @@ export default function DashboardClient({
                           const config = promptConfigs[prompt.name] || defaultPromptConfig;
                           const promptColor = prompt.color || config.color;
                           const isSelected = aiFormData.promptId === prompt.id;
-                          const shadowClass = prompt.name === 'Modo Fidelidad' 
+                          const shadowClass = (prompt.name === 'Modo Fidelidad' || prompt.name.includes('Honesto'))
                             ? 'shadow-sky-500/5' 
-                            : prompt.name === 'Modo Rendimiento' 
+                            : (prompt.name === 'Modo Rendimiento' || prompt.name.includes('Adaptado'))
                               ? 'shadow-yellow-500/5' 
-                              : 'shadow-orange-500/5';
+                              : 'shadow-red-500/5';
                           
                           const promptInfo = getPromptTranslation(prompt);
                           
