@@ -9,7 +9,7 @@ import {
   Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
   Crown, Lock, Upload, Clipboard
 } from 'lucide-react';
-import { createBaseCv, deleteCv, setPrincipalCv } from './actions';
+import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -122,6 +122,7 @@ export default function DashboardClient({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStep, setAiStep] = useState<string>('');
+  const [aiStreamContent, setAiStreamContent] = useState('');
   const [aiFormData, setAiFormData] = useState({
     jobTitle: '',
     company: '',
@@ -143,6 +144,7 @@ export default function DashboardClient({
   const [pastedText, setPastedText] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importStep, setImportStep] = useState('');
+  const [importStreamContent, setImportStreamContent] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
   // Drag and drop handlers
@@ -185,67 +187,71 @@ export default function DashboardClient({
     }
   };
 
-  // Manejar importación inteligente con IA
+  // Manejar importación inteligente con IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
   const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (importLoading) return;
     
     setImportError(null);
     setImportLoading(true);
-
-    const steps = [
-      t('dashboard.cvs.import.stepExtract'),
-      t('dashboard.cvs.import.stepAi'),
-      t('dashboard.cvs.import.stepCreate'),
-    ];
-
-    let currentStepIndex = 0;
-    setImportStep(steps[currentStepIndex]);
-
-    const stepInterval = setInterval(() => {
-      if (currentStepIndex < steps.length - 1) {
-        currentStepIndex++;
-        setImportStep(steps[currentStepIndex]);
-      }
-    }, 2500);
+    setImportStep(t('dashboard.cvs.import.stepExtract'));
 
     try {
-      const formData = new FormData();
+      let cvText = '';
+      let cvTitle = language === 'es' ? 'Mi Currículum Base' : 'My Base CV';
+
       if (onboardingMode === 'pdf') {
         if (!selectedFile) {
           throw new Error(language === 'es' ? 'Debe seleccionar un archivo PDF.' : 'Please select a PDF file.');
         }
-        formData.append('file', selectedFile);
+        cvTitle = selectedFile.name.replace(/\.[^/.]+$/, "");
+        
+        // 1. Extraer texto del PDF
+        const parseFormData = new FormData();
+        parseFormData.append('file', selectedFile);
+        
+        const parseResponse = await fetch('/api/cv/parse-pdf', {
+          method: 'POST',
+          body: parseFormData
+        });
+        
+        if (!parseResponse.ok) {
+          throw new Error(language === 'es' ? 'Error al leer el archivo PDF.' : 'Error reading the PDF file.');
+        }
+        
+        const parseData = await parseResponse.json();
+        if (!parseData.success || !parseData.text) {
+          throw new Error(parseData.error || (language === 'es' ? 'No se pudo extraer texto del PDF.' : 'Could not extract text from the PDF.'));
+        }
+        cvText = parseData.text;
       } else {
-        if (!pastedText.trim()) {
+        cvText = pastedText.trim();
+        if (!cvText) {
           throw new Error(language === 'es' ? 'Debe pegar el texto de su currículum.' : 'Please paste your resume text.');
         }
-        formData.append('text', pastedText.trim());
       }
 
-      const response = await fetch(`/api/cv/import?lang=${language}`, {
-        method: 'POST',
-        body: formData,
+      setImportStep(language === 'es' ? 'Creando espacio de trabajo...' : 'Creating workspace...');
+
+      // 2. Crear el currículum placeholder en blanco
+      const placeholderRes = await createCvPlaceholder({
+        title: cvTitle,
+        isBase: true,
+        isPrincipal: true
       });
 
-      clearInterval(stepInterval);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || t('dashboard.errors.unexpected'));
+      if (!placeholderRes.success || !placeholderRes.cvId) {
+        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
       }
 
-      const result = await response.json();
+      // 3. Guardar el texto original en sessionStorage para que el editor inicie el streaming
+      sessionStorage.setItem('matchply_import_raw_text', cvText);
 
-      setImportStep(t('dashboard.cvs.import.successRedirect'));
-      setTimeout(() => {
-        setImportLoading(false);
-        router.refresh();
-        router.push(`/editor/${result.cvId}`);
-      }, 1000);
+      // 4. Redirigir al editor con el parámetro de streaming activado
+      router.refresh();
+      router.push(`/editor/${placeholderRes.cvId}?importing=true`);
 
     } catch (err: any) {
-      clearInterval(stepInterval);
       setImportError(err.message || t('dashboard.errors.unexpected'));
       setImportLoading(false);
     }
@@ -371,7 +377,7 @@ export default function DashboardClient({
     };
   };
 
-  // Optimización IA con estados progresivos fluidos
+  // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
   const handleAiOptimize = async (e: React.FormEvent) => {
     e.preventDefault();
     setAiError(null);
@@ -387,63 +393,40 @@ export default function DashboardClient({
     }
 
     setAiLoading(true);
-
-    // Simular pasos fluidos de IA para dar un feedback ultra-premium
-    const steps = [
-      t('dashboard.steps.keywords'),
-      t('dashboard.steps.analyze'),
-      t('dashboard.steps.align'),
-      t('dashboard.steps.generate'),
-      t('dashboard.steps.create')
-    ];
-
-    let currentStepIndex = 0;
-    setAiStep(steps[currentStepIndex]);
-
-    const stepInterval = setInterval(() => {
-      if (currentStepIndex < steps.length - 1) {
-        currentStepIndex++;
-        setAiStep(steps[currentStepIndex]);
-      }
-    }, 2000);
+    setAiStep(t('dashboard.steps.keywords'));
 
     try {
-      const response = await fetch('/api/ai/optimize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          baseCvId: principalCv.id,
-          jobTitle: aiFormData.jobTitle,
-          company: aiFormData.company,
-          url: aiFormData.url,
-          platform: aiFormData.platform,
-          jobDescription: aiFormData.jobDescription,
-          promptId: aiFormData.promptId,
-          addToKanban: aiFormData.addToKanban === 'true',
-        }),
+      // 1. Crear el currículum placeholder para la optimización
+      const placeholderRes = await createCvPlaceholder({
+        title: `Optimizado - ${aiFormData.jobTitle} (${aiFormData.company})`,
+        isBase: false,
+        isPrincipal: false
       });
 
-      clearInterval(stepInterval);
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || t('dashboard.errors.unexpected'));
+      if (!placeholderRes.success || !placeholderRes.cvId) {
+        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
       }
 
-      const result = await response.json();
+      // 2. Guardar los parámetros de optimización en sessionStorage
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+        baseCvId: principalCv.id,
+        jobTitle: aiFormData.jobTitle,
+        company: aiFormData.company,
+        url: aiFormData.url,
+        platform: aiFormData.platform,
+        jobDescription: aiFormData.jobDescription,
+        promptId: aiFormData.promptId,
+        addToKanban: aiFormData.addToKanban === 'true',
+        targetCvId: placeholderRes.cvId
+      }));
 
-      setAiStep(t('dashboard.steps.success'));
-      setTimeout(() => {
-        setIsAiOpen(false);
-        setAiLoading(false);
-        router.refresh();
-        router.push(`/editor/${result.cvId}`);
-      }, 1000);
+      // 3. Redirigir al editor con el parámetro de streaming
+      setIsAiOpen(false);
+      setAiLoading(false);
+      router.refresh();
+      router.push(`/editor/${placeholderRes.cvId}?optimize=true`);
 
     } catch (err: any) {
-      clearInterval(stepInterval);
       setAiError(err.message || t('dashboard.errors.unexpected'));
       setAiLoading(false);
     }
