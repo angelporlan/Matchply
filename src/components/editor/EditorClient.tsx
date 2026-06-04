@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
 import PdfViewer from './PdfViewer';
-import { updateCvStyling } from '@/app/dashboard/actions';
+import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
 import {
   Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette,
   Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw,
@@ -73,6 +73,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStep, setAiStep] = useState<string>('');
+  const [aiStreamContent, setAiStreamContent] = useState('');
+  const [cvContent, setCvContent] = useState(cv.content);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingStep, setStreamingStep] = useState('');
+  const [streamingError, setStreamingError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    setCvContent(cv.content);
+  }, [cv.content]);
   const [aiFormData, setAiFormData] = useState({
     jobTitle: '',
     company: '',
@@ -104,6 +113,160 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setAiFormData(prev => ({ ...prev, promptId: activePrompt?.id || availablePrompts[0].id }));
     }
   }, [availablePrompts, aiFormData.promptId]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const shouldOptimize = searchParams.get('optimize') === 'true';
+    const shouldImport = searchParams.get('importing') === 'true';
+
+    if (shouldOptimize) {
+      window.history.replaceState(null, '', window.location.pathname);
+      const paramsStr = sessionStorage.getItem('matchply_optimize_params');
+      if (paramsStr) {
+        sessionStorage.removeItem('matchply_optimize_params');
+        try {
+          const params = JSON.parse(paramsStr);
+          runOptimizeStream(params);
+        } catch (e) {
+          console.error("Error parsing optimize params from session:", e);
+        }
+      }
+    } else if (shouldImport) {
+      window.history.replaceState(null, '', window.location.pathname);
+      const rawText = sessionStorage.getItem('matchply_import_raw_text');
+      if (rawText) {
+        sessionStorage.removeItem('matchply_import_raw_text');
+        runImportStream(rawText);
+      }
+    }
+  }, []);
+
+  const runOptimizeStream = async (params: any) => {
+    setIsStreaming(true);
+    setStreamingError(null);
+    setSaveStatus('saving');
+    setStreamingStep(t('editor.aiModal.steps.keywords'));
+
+    try {
+      const response = await fetch('/api/ai/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Error en la optimización.');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
+
+      const decoder = new TextDecoder();
+      let done = false;
+      let accumulatedText = '';
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        const chunk = decoder.decode(value, { stream: !done });
+
+        if (chunk.includes('[METADATA:')) {
+          const parts = chunk.split('[METADATA:');
+          accumulatedText += parts[0];
+        } else if (chunk.includes('[ERROR:')) {
+          const parts = chunk.split('[ERROR:');
+          accumulatedText += parts[0];
+          const errorMsg = parts[1].replace(']', '').trim();
+          throw new Error(errorMsg);
+        } else {
+          accumulatedText += chunk;
+        }
+
+        setCvContent(accumulatedText);
+        if (accumulatedText.length > 50) {
+          setStreamingStep(t('editor.aiModal.steps.generate'));
+        }
+      }
+
+      setStreamingStep(t('editor.aiModal.steps.success'));
+      setSaveStatus('saved');
+      setPdfVersion(prev => prev + 1);
+      setTimeout(() => {
+        setIsStreaming(false);
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
+      setSaveStatus('error');
+      setIsStreaming(false);
+    }
+  };
+
+  const runImportStream = async (rawText: string) => {
+    setIsStreaming(true);
+    setStreamingError(null);
+    setSaveStatus('saving');
+    setStreamingStep(language === 'es' ? 'Analizando estructura original...' : 'Analyzing original structure...');
+
+    try {
+      const formData = new FormData();
+      formData.append('text', rawText);
+      formData.append('targetCvId', cv.id);
+
+      const response = await fetch(`/api/cv/import?lang=${language}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Error al importar.');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
+
+      const decoder = new TextDecoder();
+      let done = false;
+      let accumulatedText = '';
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        const chunk = decoder.decode(value, { stream: !done });
+
+        if (chunk.includes('[METADATA:')) {
+          const parts = chunk.split('[METADATA:');
+          accumulatedText += parts[0];
+        } else if (chunk.includes('[ERROR:')) {
+          const parts = chunk.split('[ERROR:');
+          accumulatedText += parts[0];
+          const errorMsg = parts[1].replace(']', '').trim();
+          throw new Error(errorMsg);
+        } else {
+          accumulatedText += chunk;
+        }
+
+        setCvContent(accumulatedText);
+        setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
+      }
+
+      setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
+      setSaveStatus('saved');
+      setPdfVersion(prev => prev + 1);
+      setTimeout(() => {
+        setIsStreaming(false);
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      setStreamingError(err.message || 'Ocurrió un error al importar el currículum.');
+      setSaveStatus('error');
+      setIsStreaming(false);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -198,7 +361,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     { name: 'Warm Amber', hex: '#b45309' },
   ];
 
-  // Optimización IA con estados progresivos
+  // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
   const handleAiOptimize = async (e: React.FormEvent) => {
     e.preventDefault();
     setAiError(null);
@@ -208,63 +371,40 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
 
     setAiLoading(true);
-
-    // Simular pasos fluidos de IA para dar un feedback ultra-premium
-    const steps = [
-      t('editor.aiModal.steps.keywords'),
-      t('editor.aiModal.steps.analyze'),
-      t('editor.aiModal.steps.align'),
-      t('editor.aiModal.steps.generate'),
-      t('editor.aiModal.steps.create')
-    ];
-
-    let currentStepIndex = 0;
-    setAiStep(steps[currentStepIndex]);
-
-    const stepInterval = setInterval(() => {
-      if (currentStepIndex < steps.length - 1) {
-        currentStepIndex++;
-        setAiStep(steps[currentStepIndex]);
-      }
-    }, 2000);
+    setAiStep(t('editor.aiModal.steps.keywords'));
 
     try {
-      const response = await fetch('/api/ai/optimize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          baseCvId: cv.id,
-          jobTitle: aiFormData.jobTitle,
-          company: aiFormData.company,
-          url: aiFormData.url,
-          platform: aiFormData.platform,
-          jobDescription: aiFormData.jobDescription,
-          promptId: aiFormData.promptId,
-          addToKanban: aiFormData.addToKanban === 'true',
-        }),
+      // 1. Crear el currículum placeholder para la optimización
+      const placeholderRes = await createCvPlaceholder({
+        title: `Optimizado - ${aiFormData.jobTitle} (${aiFormData.company})`,
+        isBase: false,
+        isPrincipal: false
       });
 
-      clearInterval(stepInterval);
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || 'Error en la optimización.');
+      if (!placeholderRes.success || !placeholderRes.cvId) {
+        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
       }
 
-      const result = await response.json();
+      // 2. Guardar los parámetros de optimización en sessionStorage
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+        baseCvId: cv.id,
+        jobTitle: aiFormData.jobTitle,
+        company: aiFormData.company,
+        url: aiFormData.url,
+        platform: aiFormData.platform,
+        jobDescription: aiFormData.jobDescription,
+        promptId: aiFormData.promptId,
+        addToKanban: aiFormData.addToKanban === 'true',
+        targetCvId: placeholderRes.cvId
+      }));
 
-      setAiStep(t('editor.aiModal.steps.success'));
-      setTimeout(() => {
-        setIsAiOpen(false);
-        setAiLoading(false);
-        router.refresh();
-        router.push(`/editor/${result.cvId}`);
-      }, 1000);
+      // 3. Redirigir al editor con el parámetro de streaming
+      setIsAiOpen(false);
+      setAiLoading(false);
+      router.refresh();
+      router.push(`/editor/${placeholderRes.cvId}?optimize=true`);
 
     } catch (err: any) {
-      clearInterval(stepInterval);
       setAiError(err.message || t('dashboard.errors.unexpected'));
       setAiLoading(false);
     }
@@ -421,6 +561,37 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </div>
       </div>
 
+      {isStreaming && (
+        <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-[#8b5cf6] text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#8b5cf6] animate-spin" />
+            <span className="font-bold uppercase tracking-wider font-display text-[10px]">Asistente de IA Matchply</span>
+            <span className="text-slate-400">|</span>
+            <span className="font-medium text-slate-700 dark:text-slate-350">{streamingStep}</span>
+          </div>
+          <span className="font-mono text-[10px] px-2 py-0.5 bg-[#8b5cf6]/10 rounded border border-[#8b5cf6]/20 font-bold">
+            {cvContent.split(/\s+/).filter(Boolean).length} palabras
+          </span>
+        </div>
+      )}
+
+      {streamingError && (
+        <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-650 dark:text-rose-455 text-xs rounded-xl flex items-center justify-between z-15">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500" />
+            <span className="font-bold uppercase tracking-wider font-display text-[10px]">Error</span>
+            <span className="text-slate-400">|</span>
+            <span className="font-medium">{streamingError}</span>
+          </div>
+          <button 
+            onClick={() => setStreamingError(null)}
+            className="text-slate-400 hover:text-slate-600 font-bold text-xs"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       {/* Panel del Editor y Visor en Split Screen */}
       <div 
         ref={containerRef}
@@ -433,13 +604,14 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           >
             <MarkdownEditor
               cvId={cv.id}
-              initialContent={cv.content}
+              initialContent={cvContent}
               originalContent={baseCvContent || undefined}
               onSave={handleEditorSave}
               saveStatus={saveStatus}
               setSaveStatus={setSaveStatus}
               isFullScreen={fullscreenPanel === 'editor'}
               onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'editor' ? 'none' : 'editor')}
+              isAiStreaming={isStreaming}
             />
           </div>
         )}
@@ -501,6 +673,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </div>
 
             {aiLoading ? (
+              /* Loader Premium en Proceso */
               <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
                 <div className="relative mb-6">
                   <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">

@@ -313,3 +313,59 @@ export async function revokeUserApiKey() {
     return { error: error.message || "Failed to revoke API Key" };
   }
 }
+
+export async function createCvPlaceholder(updates: {
+  title: string;
+  isBase: boolean;
+  isPrincipal: boolean;
+}) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    let newCvId = '';
+    await db.transaction(async (tx) => {
+      if (updates.isPrincipal) {
+        await tx
+          .update(cvs)
+          .set({ isPrincipal: false })
+          .where(eq(cvs.userId, userId));
+      }
+
+      // Obtener el estilo del currículum principal actual (para copiar el estilo)
+      const [principalCv] = await tx
+        .select()
+        .from(cvs)
+        .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
+        .limit(1);
+
+      const [newCv] = await tx
+        .insert(cvs)
+        .values({
+          userId: userId,
+          title: updates.title,
+          content: "", // Empezamos vacío para que se rellene con streaming
+          isBase: updates.isBase,
+          isPrincipal: updates.isPrincipal,
+          templateName: principalCv?.templateName || "harvard",
+          accentColor: principalCv?.accentColor || "#1a5f7a",
+          fontFamily: principalCv?.fontFamily || "helvetica",
+          pageMargin: principalCv?.pageMargin || 36,
+          scale: principalCv?.scale || 1.0,
+        })
+        .returning();
+
+      newCvId = newCv.id;
+    });
+
+    revalidatePath("/dashboard");
+    return { success: true, cvId: newCvId };
+  } catch (error: any) {
+    console.error("Error creating CV placeholder:", error);
+    return { error: error.message || "Failed to create CV placeholder" };
+  }
+}

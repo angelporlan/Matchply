@@ -18,6 +18,7 @@ interface MarkdownEditorProps {
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
+  isAiStreaming?: boolean;
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -263,7 +264,7 @@ function htmlToMd(html: string): string {
   return cleaned;
 }
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen }: MarkdownEditorProps) {
+export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false }: MarkdownEditorProps) {
   const { t } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>('visual');
@@ -630,7 +631,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           <div className="absolute inset-0 p-6 overflow-auto editor-scrollbar">
             <div
               ref={editableRef}
-              contentEditable
+              contentEditable={!isAiStreaming}
               onInput={handleVisualInput}
               className="w-full min-h-full bg-transparent text-[#1e1b4b] dark:text-slate-300 font-sans text-sm leading-relaxed focus:outline-none select-text
                 empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-600 empty:before:pointer-events-none empty:before:block
@@ -667,6 +668,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-[#8b5cf6] dark:caret-[#8b5cf6] font-mono text-sm leading-relaxed p-6 focus:outline-none resize-none selection:bg-[#8b5cf6]/20 selection:text-transparent overflow-auto editor-scrollbar border-0"
               placeholder={t('editor.markdown.placeholderMarkdown')}
               spellCheck="false"
+              readOnly={isAiStreaming}
             />
           </>
         )}

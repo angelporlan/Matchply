@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const text = formData.get('text') as string | null;
+    const targetCvId = formData.get('targetCvId') as string | null;
 
     let cvText = '';
     let cvTitle = 'Mi Currículum Base';
@@ -77,15 +78,15 @@ export async function POST(req: NextRequest) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    // 4. Llamar al servicio de inteligencia artificial para formatear
-    let formattedMarkdown = '';
+    // 4. Llamar al servicio de inteligencia artificial para obtener el stream
+    let aiStream;
     try {
-      formattedMarkdown = await AIService.importCV({
+      aiStream = await AIService.importCVStream({
         rawText: cvText,
         userSubscriptionStatus: user.subscriptionStatus
       });
     } catch (err: any) {
-      console.error('Error al formatear el CV con IA:', err);
+      console.error('Error al iniciar stream de importación con IA:', err);
       const isPromptMissing = err.message === 'IMPORT_PROMPT_MISSING' || err.message.includes('import_cv');
       const errorMessage = isPromptMissing
         ? translations[lang].dashboard.errors.importPromptMissing
@@ -97,60 +98,99 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // 5. Guardar el nuevo CV Base e inyectarlo en la base de datos
-    let newCvId = '';
-    try {
-      await db.transaction(async (tx) => {
-        // Poner a false todos los demás CVs del usuario (ya que este será el principal)
-        await tx
-          .update(cvs)
-          .set({ isPrincipal: false })
-          .where(eq(cvs.userId, userId));
+    const reader = aiStream.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
 
-        // Insertar el nuevo CV como base e isPrincipal
-        const [insertedCv] = await tx
-          .insert(cvs)
-          .values({
-            userId: userId,
-            title: cvTitle,
-            content: formattedMarkdown,
-            isBase: true,
-            isPrincipal: true,
-            templateName: 'harvard',
-            accentColor: '#1a5f7a',
-            fontFamily: 'helvetica',
-            pageMargin: 36,
-            scale: 1.0,
-          })
-          .returning();
+    const responseStream = new ReadableStream({
+      async start(controller) {
+        let accumulatedContent = '';
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const text = decoder.decode(value);
+            accumulatedContent += text;
+            controller.enqueue(value);
+          }
 
-        newCvId = insertedCv.id;
-      });
-    } catch (err: any) {
-      console.error('Error al insertar el CV en la DB:', err);
-      return NextResponse.json({
-        success: false,
-        error: translations[lang].dashboard.errors.dbSaveError
-      }, { status: 500 });
-    }
+          // 5. Guardar el nuevo CV Base e inyectarlo en la base de datos o actualizar el existente
+          let newCvId = '';
+          await db.transaction(async (tx) => {
+            // Poner a false todos los demás CVs del usuario (ya que este será el principal)
+            await tx
+              .update(cvs)
+              .set({ isPrincipal: false })
+              .where(eq(cvs.userId, userId));
 
-    // 6. Log de auditoría para el onboarding
-    await createAuditLog(
-      file ? "cv_import_pdf" : "cv_import_text",
-      userId,
-      user.email,
-      {
-        cvId: newCvId,
-        title: cvTitle,
-        isPdf: !!file
+            if (targetCvId) {
+              await tx
+                .update(cvs)
+                .set({
+                  content: accumulatedContent,
+                  title: cvTitle,
+                  isBase: true,
+                  isPrincipal: true
+                })
+                .where(eq(cvs.id, targetCvId));
+              newCvId = targetCvId;
+            } else {
+              // Insertar el nuevo CV como base e isPrincipal
+              const [insertedCv] = await tx
+                .insert(cvs)
+                .values({
+                  userId: userId,
+                  title: cvTitle,
+                  content: accumulatedContent,
+                  isBase: true,
+                  isPrincipal: true,
+                  templateName: 'harvard',
+                  accentColor: '#1a5f7a',
+                  fontFamily: 'helvetica',
+                  pageMargin: 36,
+                  scale: 1.0,
+                })
+                .returning();
+              newCvId = insertedCv.id;
+            }
+          });
+
+          // 6. Log de auditoría para el onboarding
+          await createAuditLog(
+            file ? "cv_import_pdf" : "cv_import_text",
+            userId,
+            user.email,
+            {
+              cvId: newCvId,
+              title: cvTitle,
+              isPdf: !!file
+            }
+          );
+
+          revalidatePath('/dashboard');
+
+          // Enviar metadatos al cliente para que sepa el cvId de redirección
+          const metaString = `\n\n[METADATA:{"success":true,"cvId":"${newCvId}"}]`;
+          controller.enqueue(encoder.encode(metaString));
+          controller.close();
+        } catch (error: any) {
+          console.error("Error en streaming/DB save de import CV:", error);
+          const errString = `\n\n[ERROR:${error.message || 'Error guardando datos del CV importado'}]`;
+          controller.enqueue(encoder.encode(errString));
+          controller.close();
+        }
+      },
+      cancel() {
+        reader.cancel();
       }
-    );
+    });
 
-    revalidatePath('/dashboard');
-
-    return NextResponse.json({
-      success: true,
-      cvId: newCvId
+    return new Response(responseStream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      }
     });
 
   } catch (error: any) {

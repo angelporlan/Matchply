@@ -196,6 +196,129 @@ export class AIService {
     }
   }
 
+  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
+    const isPro = userSubscriptionStatus === 'active';
+
+    let systemPrompt: string | null = null;
+    let userPromptTemplate: string | null = null;
+
+    try {
+      let dbPrompt;
+      if (promptId) {
+        [dbPrompt] = await db
+          .select()
+          .from(prompts)
+          .where(eq(prompts.id, promptId))
+          .limit(1);
+      } else {
+        [dbPrompt] = await db
+          .select()
+          .from(prompts)
+          .where(and(eq(prompts.key, 'optimize_cv'), eq(prompts.isActive, true)))
+          .limit(1);
+      }
+
+      if (dbPrompt) {
+        systemPrompt = dbPrompt.systemPrompt;
+        if (dbPrompt.isStrict) {
+          systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+        }
+        userPromptTemplate = dbPrompt.userPrompt;
+      }
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt de la DB:", err);
+    }
+
+    if (!isPro) {
+      const provider = await this.getSetting('free_provider', 'openrouter');
+      const model = await this.getSetting('free_model', 'openrouter/free');
+
+      const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalUserPrompt = userPromptTemplate
+        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
+
+      if (provider === 'gemini') {
+        return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'deepseek') {
+        return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else {
+        return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      }
+    } else {
+      const defaultProProvider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
+      const provider = await this.getSetting('pro_provider', defaultProProvider);
+      
+      const defaultProModel = provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat';
+      const model = await this.getSetting('pro_model', defaultProModel);
+
+      const defaultSystem = provider === 'gemini'
+        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
+        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
+
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalUserPrompt = userPromptTemplate
+        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
+
+      if (provider === 'gemini') {
+        return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openrouter') {
+        return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else {
+        return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      }
+    }
+  }
+
+  static async importCVStream({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<ReadableStream<Uint8Array>> {
+    const isPro = userSubscriptionStatus === 'active';
+
+    let systemPrompt: string | null = null;
+    let userPromptTemplate: string | null = null;
+    let isStrict = false;
+
+    try {
+      const [dbPrompt] = await db
+        .select()
+        .from(prompts)
+        .where(and(eq(prompts.key, 'import_cv'), eq(prompts.isActive, true)))
+        .limit(1);
+
+      if (dbPrompt) {
+        systemPrompt = dbPrompt.systemPrompt;
+        isStrict = dbPrompt.isStrict;
+        userPromptTemplate = dbPrompt.userPrompt;
+      }
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt de importación de la DB:", err);
+    }
+
+    if (!systemPrompt || !userPromptTemplate) {
+      throw new Error("IMPORT_PROMPT_MISSING");
+    }
+
+    const provider = isPro 
+      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek') 
+      : await this.getSetting('free_provider', 'openrouter');
+    
+    const model = isPro
+      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
+      : await this.getSetting('free_model', 'openrouter/free');
+
+    const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "");
+    const finalUserPrompt = userPromptTemplate.replace(/\{\{cv\}\}/g, rawText);
+
+    if (provider === 'gemini') {
+      return await this.streamGeminiOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else if (provider === 'deepseek') {
+      return await this.streamDeepSeekOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else {
+      return await this.streamOpenRouter(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    }
+  }
+
   private static async callOpenRouter(
     cv: string, 
     job: string, 
@@ -363,6 +486,276 @@ export class AIService {
       console.error("Gemini error:", e);
       throw new Error(`Ha ocurrido un error al optimizar el CV con Gemini: ${e.message}`);
     }
+  }
+
+  private static async streamOpenRouter(
+    cv: string,
+    job: string,
+    model: string,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<ReadableStream<Uint8Array>> {
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key || key.includes("mock-key") || key === "") {
+      return this.streamMockResponse(cv, job, `OpenRouter (Modelo: ${model})`);
+    }
+
+    let sanitizedModel = model;
+    if (sanitizedModel.startsWith('openrouter/')) {
+      const rest = sanitizedModel.slice('openrouter/'.length);
+      if (rest.includes('/') || rest.startsWith('gpt-')) {
+        sanitizedModel = rest;
+      }
+    }
+    if (sanitizedModel.startsWith('gpt-')) {
+      sanitizedModel = 'openai/' + sanitizedModel;
+    }
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: sanitizedModel,
+        stream: true,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error de API de OpenRouter (${response.status}): ${response.statusText || errorText}`);
+    }
+
+    return this.createUnifiedSseStream(response.body!);
+  }
+
+  private static async streamDeepSeekOficial(
+    cv: string,
+    job: string,
+    model: string,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<ReadableStream<Uint8Array>> {
+    const key = process.env.DEEPSEEK_API_KEY;
+    if (!key || key.includes("mock-key") || key === "") {
+      return this.streamMockResponse(cv, job, `DeepSeek Oficial (Modelo: ${model})`);
+    }
+
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: model,
+        temperature: 0.2,
+        stream: true,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error de API de DeepSeek (${response.status}): ${response.statusText || errorText}`);
+    }
+
+    return this.createUnifiedSseStream(response.body!);
+  }
+
+  private static async streamGeminiOficial(
+    cv: string,
+    job: string,
+    model: string,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<ReadableStream<Uint8Array>> {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key || key.includes("MockKey") || key.includes("mock-key") || key === "") {
+      return this.streamMockResponse(cv, job, `Gemini Oficial (Modelo: ${model})`);
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${key}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: userPrompt
+          }]
+        }],
+        systemInstruction: {
+          parts: [{
+            text: systemPrompt
+          }]
+        },
+        generationConfig: {
+          temperature: 0.2,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error de API de Gemini (${response.status}): ${response.statusText || errorText}`);
+    }
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = '';
+
+    return new ReadableStream({
+      async pull(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              controller.close();
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            
+            const regex = /"text":\s*"((?:[^"\\]|\\.)*)"/g;
+            let match;
+            let lastIndex = 0;
+            let matchedAny = false;
+            
+            while ((match = regex.exec(buffer)) !== null) {
+              matchedAny = true;
+              try {
+                const rawText = match[1];
+                const text = JSON.parse(`"${rawText}"`);
+                if (text) {
+                  controller.enqueue(encoder.encode(text));
+                }
+              } catch (e) {
+                // Ignore parse errors for incomplete parts
+              }
+              lastIndex = regex.lastIndex;
+            }
+
+            if (matchedAny) {
+              buffer = buffer.substring(lastIndex);
+              break;
+            }
+          }
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+      cancel() {
+        reader.cancel();
+      }
+    });
+  }
+
+  private static streamMockResponse(
+    cv: string,
+    job: string,
+    providerName: string
+  ): ReadableStream<Uint8Array> {
+    const mockContent = this.getMockCvResponse(cv, job, providerName);
+    const encoder = new TextEncoder();
+    
+    let index = 0;
+    const chunkSize = 15;
+    
+    return new ReadableStream({
+      async pull(controller) {
+        if (index >= mockContent.length) {
+          controller.close();
+          return;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 30));
+        
+        const chunk = mockContent.slice(index, index + chunkSize);
+        index += chunkSize;
+        controller.enqueue(encoder.encode(chunk));
+      }
+    });
+  }
+
+  private static createUnifiedSseStream(
+    rawStream: ReadableStream<Uint8Array>
+  ): ReadableStream<Uint8Array> {
+    const reader = rawStream.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = '';
+
+    return new ReadableStream({
+      async pull(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              if (buffer.trim()) {
+                AIService.processSseLine(buffer, controller, encoder);
+              }
+              controller.close();
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            let enqueuedAny = false;
+            for (const line of lines) {
+              const processed = AIService.processSseLine(line, controller, encoder);
+              if (processed) {
+                enqueuedAny = true;
+              }
+            }
+            
+            if (enqueuedAny) {
+              break;
+            }
+          }
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+      cancel() {
+        reader.cancel();
+      }
+    });
+  }
+
+  private static processSseLine(
+    line: string,
+    controller: ReadableStreamDefaultController<Uint8Array>,
+    encoder: TextEncoder
+  ): boolean {
+    const cleanLine = line.trim();
+    if (!cleanLine.startsWith('data:')) return false;
+    const data = cleanLine.slice(5).trim();
+    if (data === '[DONE]') return false;
+    try {
+      const json = JSON.parse(data);
+      const text = json.choices?.[0]?.delta?.content || '';
+      if (text) {
+        controller.enqueue(encoder.encode(text));
+        return true;
+      }
+    } catch (e) {
+      // Ignore parse errors for incomplete JSON lines
+    }
+    return false;
   }
 
   private static getMockCvResponse(cv: string, job: string, providerName: string): string {
