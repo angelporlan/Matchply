@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     const responseStream = new ReadableStream({
       async start(controller) {
         let accumulatedContent = '';
+        let lastWriteTime = Date.now();
         try {
           while (true) {
             const { done, value } = await reader.read();
@@ -70,6 +71,19 @@ export async function POST(req: NextRequest) {
             const text = decoder.decode(value);
             accumulatedContent += text;
             controller.enqueue(value);
+
+            // Guardar parcialmente en la base de datos de manera no bloqueante cada 4 segundos
+            const now = Date.now();
+            if (now - lastWriteTime > 4000) {
+              lastWriteTime = now;
+              if (targetCvId) {
+                db.update(cvs)
+                  .set({ content: accumulatedContent })
+                  .where(eq(cvs.id, targetCvId))
+                  .execute()
+                  .catch(err => console.error("[Optimize API] Error saving partial stream to DB:", err));
+              }
+            }
           }
 
           // 4. Guardar CV Optimizado

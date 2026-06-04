@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   FileEdit, Bold, Italic, List, Heading1, Heading2, Heading3, Eraser, Code, Eye,
-  GitCompare, Columns, Maximize2, Minimize2
+  GitCompare, Columns, Maximize2, Minimize2, RefreshCw
 } from 'lucide-react';
 import { computeDiff, DiffLine } from '@/lib/diff';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -19,6 +19,7 @@ interface MarkdownEditorProps {
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
   isAiStreaming?: boolean;
+  streamingStep?: string;
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -264,8 +265,8 @@ function htmlToMd(html: string): string {
   return cleaned;
 }
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false }: MarkdownEditorProps) {
-  const { t } = useLanguage();
+export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep }: MarkdownEditorProps) {
+  const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>('visual');
   const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
@@ -625,6 +626,22 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Editor area */}
       <div className="flex-1 relative bg-[#fafafa]/40 dark:bg-[#090d16]/40 overflow-hidden">
+        {isAiStreaming && !content.trim() && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/75 dark:bg-[#090d16]/75 backdrop-blur-xs select-none z-30">
+            <div className="relative mb-6">
+              <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
+                <RefreshCw className="w-6 h-6 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+              </div>
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-[#8b5cf6] animate-pulse" />
+            </div>
+            <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display uppercase tracking-wider">
+              {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
+            </h4>
+            <p className="text-xs text-[#1e1b4b]/65 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse leading-relaxed font-sans">
+              {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
+            </p>
+          </div>
+        )}
         
         {/* Visual WYSIWYG Mode */}
         {mode === 'visual' && (

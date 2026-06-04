@@ -165,7 +165,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const decoder = new TextDecoder();
       let done = false;
       let accumulatedText = '';
-
+      let lastPdfReload = Date.now();
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
@@ -186,6 +186,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         setCvContent(accumulatedText);
         if (accumulatedText.length > 50) {
           setStreamingStep(t('editor.aiModal.steps.generate'));
+        }
+
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable
+        const now = Date.now();
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
+          lastPdfReload = now;
+          setPdfVersion(prev => prev + 1);
         }
       }
 
@@ -231,6 +238,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const decoder = new TextDecoder();
       let done = false;
       let accumulatedText = '';
+      let lastPdfReload = Date.now();
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -251,6 +259,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
         setCvContent(accumulatedText);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
+
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable
+        const now = Date.now();
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
+          lastPdfReload = now;
+          setPdfVersion(prev => prev + 1);
+        }
       }
 
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
@@ -612,6 +627,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               isFullScreen={fullscreenPanel === 'editor'}
               onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'editor' ? 'none' : 'editor')}
               isAiStreaming={isStreaming}
+              streamingStep={streamingStep}
             />
           </div>
         )}
