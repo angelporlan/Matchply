@@ -387,6 +387,8 @@ export class AIService {
         headers: {
           "Authorization": `Bearer ${key}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXTAUTH_URL || "https://matchply.com",
+          "X-OpenRouter-Title": "Matchply",
         },
         body: JSON.stringify({
           model: sanitizedModel,
@@ -549,6 +551,8 @@ export class AIService {
       headers: {
         "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXTAUTH_URL || "https://matchply.com",
+        "X-OpenRouter-Title": "Matchply",
       },
       body: JSON.stringify({
         model: sanitizedModel,
