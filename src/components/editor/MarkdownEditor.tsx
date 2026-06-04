@@ -265,6 +265,26 @@ function htmlToMd(html: string): string {
   return cleaned;
 }
 
+const loadingTips = [
+  "Extrayendo palabras clave y requisitos de la oferta...",
+  "Analizando tu experiencia y habilidades del CV Base...",
+  "Alineando tu perfil con los requisitos clave...",
+  "Tip: El formato Harvard destaca tus logros usando verbos de acción.",
+  "Tip: Puedes editar cualquier texto directamente después de la optimización.",
+  "Tip: Recuerda que puedes descargar el PDF en cualquier momento.",
+  "Tip: El motor de IA PRO ofrece una mayor precisión semántica."
+];
+
+const loadingTipsEn = [
+  "Extracting keywords and job description requirements...",
+  "Analyzing your experience and skills from the Base CV...",
+  "Aligning your profile with key job requirements...",
+  "Tip: The Harvard format highlights achievements using action verbs.",
+  "Tip: You can edit any text directly after optimization is complete.",
+  "Tip: Remember you can download the PDF at any time.",
+  "Tip: The PRO AI engine offers greater semantic precision."
+];
+
 export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep }: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
@@ -272,6 +292,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
   const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
     if (originalContent) {
@@ -293,6 +314,20 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
       editableRef.current.innerHTML = mdToHtml(initialContent);
     }
   }, [initialContent]);
+
+  // Rotate loading tips every 2 seconds during AI streaming when empty
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const isContentEmpty = !content || content.trim().length === 0 || content === '<p><br></p>';
+    if (isAiStreaming && isContentEmpty) {
+      interval = setInterval(() => {
+        setTipIndex((prev) => (prev + 1) % (language === 'es' ? loadingTips.length : loadingTipsEn.length));
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAiStreaming, content, language]);
 
   // Handle autosave debounce for both modes
   const triggerAutosave = (value: string) => {
@@ -626,22 +661,6 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Editor area */}
       <div className="flex-1 relative bg-[#fafafa]/40 dark:bg-[#090d16]/40 overflow-hidden">
-        {isAiStreaming && !content.trim() && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/75 dark:bg-[#090d16]/75 backdrop-blur-xs select-none z-30">
-            <div className="relative mb-6">
-              <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
-                <RefreshCw className="w-6 h-6 text-[#8b5cf6] animate-spin stroke-[1.75]" />
-              </div>
-              <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-[#8b5cf6] animate-pulse" />
-            </div>
-            <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display uppercase tracking-wider">
-              {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
-            </h4>
-            <p className="text-xs text-[#1e1b4b]/65 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse leading-relaxed font-sans">
-              {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
-            </p>
-          </div>
-        )}
         
         {/* Visual WYSIWYG Mode */}
         {mode === 'visual' && (
@@ -800,6 +819,33 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Overlay de carga premium de IA */}
+        {isAiStreaming && (!content || content.trim().length === 0 || content === '<p><br></p>') && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-[#090d16]/95 backdrop-blur-md select-none z-50 transition-all duration-300">
+            <div className="relative mb-6">
+              {/* Spinner animado con gradiente */}
+              <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
+                <RefreshCw className="w-6 h-6 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+              </div>
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-[#8b5cf6] animate-pulse" />
+            </div>
+            
+            <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display uppercase tracking-wider">
+              {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
+            </h4>
+            
+            {/* Estado de carga actual del stream */}
+            <p className="text-xs text-[#8b5cf6] dark:text-purple-300 font-semibold tracking-wide h-6 flex items-center justify-center animate-pulse mb-3 font-display">
+              {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
+            </p>
+            
+            {/* Subconsejos rotatorios dinámicos para mayor engagement */}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-light max-w-sm h-10 flex items-center justify-center leading-relaxed font-sans px-4 py-2 bg-slate-500/5 dark:bg-white/5 rounded-xl border border-slate-500/10 dark:border-white/5 shadow-sm">
+              {language === 'es' ? loadingTips[tipIndex] : loadingTipsEn[tipIndex]}
+            </p>
           </div>
         )}
       </div>

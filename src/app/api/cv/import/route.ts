@@ -83,7 +83,8 @@ export async function POST(req: NextRequest) {
     try {
       aiStream = await AIService.importCVStream({
         rawText: cvText,
-        userSubscriptionStatus: user.subscriptionStatus
+        userSubscriptionStatus: user.subscriptionStatus,
+        candidateName: user.name || ''
       });
     } catch (err: any) {
       console.error('Error al iniciar stream de importación con IA:', err);
@@ -114,15 +115,14 @@ export async function POST(req: NextRequest) {
             accumulatedContent += text;
             controller.enqueue(value);
 
-            // Guardar parcialmente en la base de datos de manera no bloqueante cada 4 segundos
+            // Guardar parcialmente en la base de datos de manera no bloqueante cada 3 segundos
             const now = Date.now();
-            if (now - lastWriteTime > 4000) {
+            if (now - lastWriteTime > 3000) {
               lastWriteTime = now;
               if (targetCvId) {
-                db.update(cvs)
+                await db.update(cvs)
                   .set({ content: accumulatedContent })
                   .where(eq(cvs.id, targetCvId))
-                  .execute()
                   .catch(err => console.error("[Import API] Error saving partial stream to DB:", err));
               }
             }

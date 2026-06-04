@@ -188,9 +188,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           setStreamingStep(t('editor.aiModal.steps.generate'));
         }
 
-        // Recargar PDF cada 5 segundos si ya hay contenido razonable
+        // Recargar PDF cada 3 segundos si ya hay contenido razonable
         const now = Date.now();
-        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -260,9 +260,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         setCvContent(accumulatedText);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
 
-        // Recargar PDF cada 5 segundos si ya hay contenido razonable
+        // Recargar PDF cada 3 segundos si ya hay contenido razonable
         const now = Date.now();
-        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -655,6 +655,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               version={pdfVersion}
               isFullScreen={fullscreenPanel === 'pdf'}
               onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'pdf' ? 'none' : 'pdf')}
+              liveContent={cvContent}
+              templateName={templateName}
+              accentColor={accentColor}
+              fontFamily={fontFamily}
+              pageMargin={pageMargin}
+              scale={scale}
+              isAiStreaming={isStreaming}
             />
           </div>
         )}

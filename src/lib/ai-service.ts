@@ -51,9 +51,30 @@ export interface OptimizeRequest {
   jobDescription: string;
   userSubscriptionStatus: string; // 'active' o 'none'
   promptId?: string;
+  candidateName?: string;
 }
 
 export class AIService {
+  private static extractCandidateName(markdown: string): string | null {
+    if (!markdown) return null;
+    const lines = markdown.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('# ')) {
+        const name = trimmed.slice(2)
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/__/g, '')
+          .replace(/_/g, '')
+          .trim();
+        if (name && !/^(curriculum\s*vitae|cv|resumen|resume|curriculum)$/i.test(name)) {
+          return name;
+        }
+      }
+    }
+    return null;
+  }
+
   private static async getSetting(key: string, defaultValue: string): Promise<string> {
     try {
       const [setting] = await db
@@ -202,7 +223,7 @@ export class AIService {
     }
   }
 
-  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
+  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, candidateName }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
     const isPro = userSubscriptionStatus === 'active';
 
     let systemPrompt: string | null = null;
@@ -235,12 +256,15 @@ export class AIService {
       console.error("[AIService] Error al obtener prompt de la DB:", err);
     }
 
+    const resolvedName = this.extractCandidateName(baseCvMarkdown) || candidateName || "Candidato";
+    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
+
     if (!isPro) {
       const provider = await this.getSetting('free_provider', 'openrouter');
       const model = await this.getSetting('free_model', 'openrouter/free');
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
@@ -263,7 +287,7 @@ export class AIService {
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
         : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
@@ -278,7 +302,7 @@ export class AIService {
     }
   }
 
-  static async importCVStream({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<ReadableStream<Uint8Array>> {
+  static async importCVStream({ rawText, userSubscriptionStatus, candidateName }: { rawText: string; userSubscriptionStatus: string; candidateName?: string }): Promise<ReadableStream<Uint8Array>> {
     const isPro = userSubscriptionStatus === 'active';
 
     let systemPrompt: string | null = null;
@@ -313,7 +337,10 @@ export class AIService {
       ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
       : await this.getSetting('free_model', 'openrouter/free');
 
-    const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "");
+    const resolvedName = this.extractCandidateName(rawText) || candidateName || "Candidato";
+    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: Identifica el nombre de la persona en el CV (usualmente al principio). El currículum resultante DEBE comenzar obligatoriamente con ese nombre propio en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
+
+    const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "") + nameDirective;
     const finalUserPrompt = userPromptTemplate.replace(/\{\{cv\}\}/g, rawText);
 
     if (provider === 'gemini') {

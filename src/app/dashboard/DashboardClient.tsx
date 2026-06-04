@@ -140,6 +140,7 @@ export default function DashboardClient({
   // Estados para Onboarding de importación de CV
   const [onboardingMode, setOnboardingMode] = useState<'select' | 'pdf' | 'text'>('select');
   const [dragActive, setDragActive] = useState(false);
+  const [dragActiveDirect, setDragActiveDirect] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [importLoading, setImportLoading] = useState(false);
@@ -155,6 +156,16 @@ export default function DashboardClient({
       setDragActive(true);
     } else if (e.type === "dragleave") {
       setDragActive(false);
+    }
+  };
+
+  const handleDragDirect = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActiveDirect(true);
+    } else if (e.type === "dragleave") {
+      setDragActiveDirect(false);
     }
   };
 
@@ -543,24 +554,64 @@ export default function DashboardClient({
                 /* 1. Pantalla de Selección de Modo */
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                   {/* Tarjeta Subir PDF */}
-                  <div
-                    onClick={() => { setOnboardingMode('pdf'); setImportError(null); }}
-                    className="group border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
-                        <Upload className="w-5 h-5 stroke-[1.75]" />
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="pdf-upload-direct"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          if (file.type === "application/pdf") {
+                            setSelectedFile(file);
+                            setImportError(null);
+                            setOnboardingMode('pdf');
+                          } else {
+                            setImportError(language === 'es' ? 'Solo se admiten archivos PDF.' : 'Only PDF files are supported.');
+                          }
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="pdf-upload-direct"
+                      onDragEnter={handleDragDirect}
+                      onDragOver={handleDragDirect}
+                      onDragLeave={handleDragDirect}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragActiveDirect(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          const file = e.dataTransfer.files[0];
+                          if (file.type === "application/pdf") {
+                            setSelectedFile(file);
+                            setImportError(null);
+                            setOnboardingMode('pdf');
+                          } else {
+                            setImportError(language === 'es' ? 'Solo se admiten archivos PDF.' : 'Only PDF files are supported.');
+                          }
+                        }
+                      }}
+                      className={`group border block border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center h-full flex flex-col justify-between ${
+                        dragActiveDirect ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 ring-2 ring-[#8b5cf6]/20' : ''
+                      }`}
+                    >
+                      <div>
+                        <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
+                          <Upload className="w-5 h-5 stroke-[1.75]" />
+                        </div>
+                        <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
+                          {t('dashboard.cvs.import.pdfTitle')}
+                        </h4>
+                        <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
+                          {dragActiveDirect ? (language === 'es' ? '¡Suelta tu PDF aquí!' : 'Drop your PDF here!') : t('dashboard.cvs.import.pdfDesc')}
+                        </p>
                       </div>
-                      <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
-                        {t('dashboard.cvs.import.pdfTitle')}
-                      </h4>
-                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
-                        {t('dashboard.cvs.import.pdfDesc')}
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
-                      {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
-                    </span>
+                      <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
+                        {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                      </span>
+                    </label>
                   </div>
 
                   {/* Tarjeta Pegar Texto */}

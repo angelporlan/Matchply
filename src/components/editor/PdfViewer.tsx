@@ -9,10 +9,29 @@ interface PdfViewerProps {
   version: number;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
+  liveContent?: string;
+  templateName?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  pageMargin?: number;
+  scale?: number;
+  isAiStreaming?: boolean;
 }
 
-export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScreen }: PdfViewerProps) {
-  const { t } = useLanguage();
+export default function PdfViewer({ 
+  cvId, 
+  version, 
+  isFullScreen, 
+  onToggleFullScreen,
+  liveContent,
+  templateName = 'harvard',
+  accentColor = '#1a5f7a',
+  fontFamily = 'helvetica',
+  pageMargin = 36,
+  scale = 1.0,
+  isAiStreaming = false
+}: PdfViewerProps) {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [errorTimeout, setErrorTimeout] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -28,14 +47,35 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
     setLoading(true);
     setErrorTimeout(false);
 
-    // Configurar un timeout de 7 segundos para evitar bucles infinitos de carga
+    // Configurar un timeout de 7 segundos para evitar bucles infinitos de carga (solo si no hay PDF previo)
     const timer = setTimeout(() => {
-      if (active) setErrorTimeout(true);
+      if (active && !pdfBlobUrl) setErrorTimeout(true);
     }, 7000);
 
     const fetchPdf = async () => {
       try {
-        const response = await fetch(`/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`);
+        let response;
+        if (isAiStreaming && liveContent) {
+          // Usar POST para renderizado en tiempo real a partir del estado de la UI
+          response = await fetch(`/api/pdf`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              content: liveContent,
+              template: templateName,
+              accentColor: accentColor || null,
+              fontFamily: fontFamily || 'helvetica',
+              pageMargin: pageMargin || 36,
+              scale: scale || 1.0
+            })
+          });
+        } else {
+          // Carga estándar mediante GET leyendo de base de datos
+          response = await fetch(`/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`);
+        }
+
         if (!response.ok) {
           throw new Error(`Server returned status: ${response.status}`);
         }
@@ -43,14 +83,21 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
         if (!active) return;
 
         localUrl = URL.createObjectURL(blob);
-        setPdfBlobUrl(localUrl);
+        setPdfBlobUrl(prevUrl => {
+          if (prevUrl) {
+            URL.revokeObjectURL(prevUrl);
+          }
+          return localUrl;
+        });
         setLoading(false);
       } catch (error) {
         console.error('Error fetching PDF preview blob:', error);
         if (active) {
-          // Fallback to direct URL if blob fetching fails to ensure user has something
-          const fallbackUrl = `/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`;
-          setPdfBlobUrl(fallbackUrl);
+          if (!pdfBlobUrl) {
+            // Fallback a URL directa si falla la descarga de blob inicial
+            const fallbackUrl = `/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`;
+            setPdfBlobUrl(fallbackUrl);
+          }
           setLoading(false);
         }
       }
@@ -65,7 +112,7 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
         URL.revokeObjectURL(localUrl);
       }
     };
-  }, [version, cvId, retryKey]);
+  }, [version, cvId, retryKey]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const pdfUrl = `/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`;
 
@@ -85,6 +132,12 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
             <Eye className="w-4 h-4 stroke-[1.75]" />
           </div>
           <span className="text-xs font-bold text-[#1e1b4b] dark:text-slate-200 tracking-wide uppercase font-display">{t('editor.pdf.title')}</span>
+          {loading && pdfBlobUrl && (
+            <span className="flex items-center gap-1 text-[10px] text-purple-650 dark:text-purple-400 font-semibold font-display animate-pulse ml-3 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              {language === 'es' ? 'Actualizando vista previa...' : 'Updating preview...'}
+            </span>
+          )}
         </div>
 
         {/* Grouped controls: Zoom, Page Number, and Download Button */}
@@ -176,7 +229,7 @@ export default function PdfViewer({ cvId, version, isFullScreen, onToggleFullScr
               </a>
             </div>
           </div>
-        ) : loading ? (
+        ) : loading && !pdfBlobUrl ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#030712]/60 backdrop-blur-xs z-10 gap-3 transition-all">
             <Loader2 className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
             <p className="text-[#1e1b4b]/75 dark:text-slate-400 text-xs font-semibold tracking-wide uppercase font-display">{t('editor.pdf.loading')}</p>

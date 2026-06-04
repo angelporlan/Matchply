@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       baseCvMarkdown: baseCv.content,
       jobDescription: jobDescription,
       userSubscriptionStatus: user.subscriptionStatus,
-      promptId: promptId
+      promptId: promptId,
+      candidateName: user.name || ''
     });
 
     const reader = aiStream.getReader();
@@ -72,15 +73,14 @@ export async function POST(req: NextRequest) {
             accumulatedContent += text;
             controller.enqueue(value);
 
-            // Guardar parcialmente en la base de datos de manera no bloqueante cada 4 segundos
+            // Guardar parcialmente en la base de datos de manera no bloqueante cada 3 segundos
             const now = Date.now();
-            if (now - lastWriteTime > 4000) {
+            if (now - lastWriteTime > 3000) {
               lastWriteTime = now;
               if (targetCvId) {
-                db.update(cvs)
+                await db.update(cvs)
                   .set({ content: accumulatedContent })
                   .where(eq(cvs.id, targetCvId))
-                  .execute()
                   .catch(err => console.error("[Optimize API] Error saving partial stream to DB:", err));
               }
             }
