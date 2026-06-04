@@ -466,7 +466,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
             </div>
 
             {error && (
-              <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-455 text-xs rounded-[8px] font-medium font-sans">
+              <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px] font-medium font-sans">
                 {error}
               </div>
             )}

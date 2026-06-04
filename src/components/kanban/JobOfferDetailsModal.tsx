@@ -195,19 +195,19 @@ export default function JobOfferDetailsModal({
       case 'interested':
         return {
           title: t('kanban.columns.interested.title'),
-          style: 'text-indigo-650 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+          style: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
           icon: <Bookmark className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'applied':
         return {
           title: t('kanban.columns.applied.title'),
-          style: 'text-blue-650 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
+          style: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
           icon: <Send className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'interview':
         return {
           title: t('kanban.columns.interview.title'),
-          style: 'text-amber-650 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+          style: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
           icon: <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'offer':
@@ -219,7 +219,7 @@ export default function JobOfferDetailsModal({
       case 'rejected':
         return {
           title: t('kanban.columns.rejected.title'),
-          style: 'text-rose-600 dark:text-rose-455 bg-rose-500/10 border-rose-500/20',
+          style: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
           icon: <Ban className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       default:
@@ -308,7 +308,7 @@ export default function JobOfferDetailsModal({
           
           {/* Alerta de Error */}
           {error && (
-            <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-455 text-xs rounded-[8px] font-medium pr-12 md:pr-16 font-sans">
+            <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs rounded-[8px] font-medium pr-12 md:pr-16 font-sans">
               {error}
             </div>
           )}
@@ -796,7 +796,7 @@ export default function JobOfferDetailsModal({
                               return (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   {flags.map((flag: string, idx: number) => (
-                                    <div key={idx} className="flex items-start gap-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 dark:border-rose-500/20 px-3 py-2 rounded-xl text-[11px] font-medium text-rose-600 dark:text-rose-455 font-sans leading-snug">
+                                    <div key={idx} className="flex items-start gap-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 dark:border-rose-500/20 px-3 py-2 rounded-xl text-[11px] font-medium text-rose-600 dark:text-rose-400 font-sans leading-snug">
                                       <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 stroke-[1.75] mt-0.5" />
                                       <span>{flag}</span>
                                     </div>
@@ -985,7 +985,7 @@ export default function JobOfferDetailsModal({
                                       <div className="p-3.5 border-t border-[#1e1b4b]/5 dark:border-white/5 bg-white/40 dark:bg-black/10 space-y-2.5 text-[10px] font-sans">
                                         {story.situation && (
                                           <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-indigo-650 dark:text-indigo-400">
+                                            <strong className="text-[9px] uppercase font-bold text-indigo-600 dark:text-indigo-400">
                                               📍 {t('kanban.modal.starStoryAccordionSituation')}
                                             </strong>
                                             <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
@@ -1007,7 +1007,7 @@ export default function JobOfferDetailsModal({
 
                                         {story.action && (
                                           <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-amber-650 dark:text-amber-450">
+                                            <strong className="text-[9px] uppercase font-bold text-amber-600 dark:text-amber-400">
                                               ⚡ {t('kanban.modal.starStoryAccordionAction')}
                                             </strong>
                                             <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
@@ -1029,7 +1029,7 @@ export default function JobOfferDetailsModal({
 
                                         {story.relevance && (
                                           <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-pink-650 dark:text-pink-400">
+                                            <strong className="text-[9px] uppercase font-bold text-pink-600 dark:text-pink-400">
                                               💫 {t('kanban.modal.starStoryAccordionRelevance')}
                                             </strong>
                                             <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10 italic">

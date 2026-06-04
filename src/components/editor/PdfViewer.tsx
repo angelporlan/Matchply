@@ -133,7 +133,7 @@ export default function PdfViewer({
           </div>
           <span className="text-xs font-bold text-[#1e1b4b] dark:text-slate-200 tracking-wide uppercase font-display">{t('editor.pdf.title')}</span>
           {loading && pdfBlobUrl && (
-            <span className="flex items-center gap-1 text-[10px] text-purple-650 dark:text-purple-400 font-semibold font-display animate-pulse ml-3 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+            <span className="flex items-center gap-1 text-[10px] text-purple-600 dark:text-purple-400 font-semibold font-display animate-pulse ml-3 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
               <Loader2 className="w-2.5 h-2.5 animate-spin" />
               {language === 'es' ? 'Actualizando vista previa...' : 'Updating preview...'}
             </span>
@@ -201,7 +201,7 @@ export default function PdfViewer({
       <div className="flex-1 bg-[#fafafa]/50 dark:bg-slate-950/20 relative flex items-center justify-center p-4 overflow-hidden">
         {loading && errorTimeout ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 dark:bg-[#030712]/90 backdrop-blur-md z-10 gap-4 text-center px-6 transition-all">
-            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-455 rounded-full border border-amber-500/20 shadow-sm">
+            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full border border-amber-500/20 shadow-sm">
               <AlertTriangle className="w-6 h-6 animate-pulse stroke-[1.75]" />
             </div>
             <div>

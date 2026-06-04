@@ -498,10 +498,10 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               {t('editor.markdown.diff.stats')}
             </span>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-650 dark:text-emerald-455 border border-emerald-500/20 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
                 +{diffLines.filter(l => l.type === 'added').length}
               </span>
-              <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-650 dark:text-rose-455 border border-rose-500/20 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold">
                 -{diffLines.filter(l => l.type === 'removed').length}
               </span>
             </div>
@@ -734,7 +734,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                         {line.newLineNumber || ''}
                       </div>
                       {/* Diff Sign */}
-                      <div className={`w-6 select-none text-center font-bold py-0.5 shrink-0 ${isAdded ? 'text-emerald-600' : isRemoved ? 'text-rose-650' : 'text-[#1e1b4b]/30'}`}>
+                      <div className={`w-6 select-none text-center font-bold py-0.5 shrink-0 ${isAdded ? 'text-emerald-600' : isRemoved ? 'text-rose-600' : 'text-[#1e1b4b]/30'}`}>
                         {isAdded ? '+' : isRemoved ? '-' : ' '}
                       </div>
                       {/* Line Content */}
@@ -750,7 +750,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               <div className="min-w-full flex gap-4 h-full">
                 {/* Left Side: Before (CV Base) */}
                 <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-[#1e1b4b]/10 dark:border-slate-900 bg-white dark:bg-[#070b13]/80 h-full overflow-y-auto">
-                  <div className="sticky top-0 bg-[#fafafa] dark:bg-[#0c1220] border-b border-[#1e1b4b]/10 dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-650 dark:text-rose-455 flex items-center gap-1.5 z-10 uppercase select-none">
+                  <div className="sticky top-0 bg-[#fafafa] dark:bg-[#0c1220] border-b border-[#1e1b4b]/10 dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 z-10 uppercase select-none">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                     {t('editor.markdown.diff.before')}
                   </div>

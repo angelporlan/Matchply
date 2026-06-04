@@ -1349,7 +1349,7 @@ export default function AdminClient({
           <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 w-full max-w-3xl rounded-[12px] overflow-hidden shadow-xl relative text-[#1e1b4b] dark:text-[#f3f4f6]">
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute top-5 right-5 text-[#1e1b4b]/40 dark:text-slate-455 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa]/80 transition-all z-10 shadow-sm"
+              className="absolute top-5 right-5 text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa]/80 transition-all z-10 shadow-sm"
             >
               <X className="w-4 h-4 stroke-[1.75]" />
             </button>
@@ -1559,7 +1559,7 @@ export default function AdminClient({
           <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 w-full max-w-2xl rounded-[12px] overflow-hidden shadow-xl relative text-[#1e1b4b] dark:text-[#f3f4f6]">
             <button
               onClick={() => setIsPromptModalOpen(false)}
-              className="absolute top-5 right-5 text-[#1e1b4b]/40 dark:text-slate-455 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa]/80 transition-all z-10 shadow-sm"
+              className="absolute top-5 right-5 text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-[8px] bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa]/80 transition-all z-10 shadow-sm"
             >
               <X className="w-4 h-4 stroke-[1.75]" />
             </button>

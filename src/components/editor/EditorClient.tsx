@@ -591,7 +591,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       )}
 
       {streamingError && (
-        <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-650 dark:text-rose-455 text-xs rounded-xl flex items-center justify-between z-15">
+        <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-xl flex items-center justify-between z-15">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-500" />
             <span className="font-bold uppercase tracking-wider font-display text-[10px]">Error</span>
@@ -712,7 +712,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             ) : (
               <div className="flex-1 overflow-y-auto pr-1 relative z-10 space-y-4 py-2 scrollbar-custom">
                 {aiError && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-455 text-xs rounded-[8px] font-medium font-sans">
+                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px] font-medium font-sans">
                     {aiError}
                   </div>
                 )}
