@@ -136,10 +136,16 @@ Tu única fuente de verdad es el CV que te proporciona el usuario.
 
 REGLAS ESTRICTAS:
 - No añadas tecnologías, herramientas, métricas ni experiencias que NO aparezcan en el CV.
-- No inferras ni supongas habilidades. Si no está escrito, no existe.
+- No infieras ni supongas habilidades. Si no está escrito, no existe.
 - Debes reescribir la sección de experiencia añadiendo únicamente las palabras clave indicadas si son equivalentes o transferibles lógicamente a lo que el candidato ya realiza.
 - Usa verbos de acción y lenguaje profesional.
-- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.`,
+- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
+
+CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
+- Evita el exceso de números y porcentajes: No repitas métricas o porcentajes en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto (y solo si ya existían en el CV original). Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
+- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "más de X usuarios"), tiempo ahorrado o impacto cualitativo relevante.
+- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
+- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
         userPrompt: `Aquí tienes mi CV actual:
 {{cv}}
 
@@ -172,7 +178,13 @@ REGLAS:
 - Sí puedes reformular logros usando la fórmula XYZ y la terminología de la oferta cuando sean equivalentes.
 - Sí puedes destacar habilidades transferibles o adyacentes que el candidato claramente tiene.
 - Sí puedes añadir 1-2 habilidades si son razonablemente deducibles del stack que ya usa.
-- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.`,
+- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
+
+CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
+- Evita el exceso de números y porcentajes: No metas métricas numéricas o porcentajes inventados en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto (usando solo datos reales del CV o inferencias de impacto muy lógicas y realistas). Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
+- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "procesos diarios", "X integraciones"), tiempo ahorrado ("de días a minutos") o impacto cualitativo relevante.
+- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
+- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
         userPrompt: `Aquí tienes mi CV actual:
 {{cv}}
 
@@ -206,7 +218,13 @@ REGLAS:
 - Puedes añadir tecnologías o herramientas clave del puesto de forma lógica en la experiencia laboral.
 - Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
 
-⚠️ AVISO: Este modo incluye inferencias y adiciones estimadas. El candidato debe validar los datos antes de enviarlos.`,
+⚠️ AVISO: Este modo incluye inferencias y adiciones estimadas. El candidato debe validar los datos antes de enviarlos.
+
+CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
+- Evita el exceso de números y porcentajes: Aunque puedas estimar logros, NO inventes métricas o porcentajes en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto para que destaquen de verdad. Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
+- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "más de X clientes", "X transacciones diarias"), tiempo ahorrado o impacto cualitativo relevante.
+- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
+- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
         userPrompt: `Aquí tienes mi CV actual:
 {{cv}}
 
