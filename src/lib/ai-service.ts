@@ -1,6 +1,14 @@
 import { db } from '@/db';
 import { settings, prompts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import {
+  DEFAULT_FREE_PROVIDER,
+  DEFAULT_FREE_MODEL,
+  DEFAULT_PRO_PROVIDER,
+  DEFAULT_PRO_MODEL,
+  getDefaultModelForProvider
+} from './models';
+
 
 const MARKDOWN_STRUCTURE_INSTRUCTIONS = `
 ¡REGLA DE ESTRUCTURA Y FORMATO CRÍTICA PARA EL RENDERIZADO DE PDF!:
@@ -133,8 +141,8 @@ export class AIService {
 
     if (!isPro) {
       // [FREE] Enrutamiento Plan FREE
-      const provider = await this.getSetting('free_provider', 'openrouter');
-      const model = await this.getSetting('free_model', 'openrouter/free');
+      const provider = await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
+      const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
@@ -151,11 +159,8 @@ export class AIService {
       }
     } else {
       // [PRO] Enrutamiento Plan PRO
-      const defaultProProvider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
-      const provider = await this.getSetting('pro_provider', defaultProProvider);
-      
-      const defaultProModel = provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat';
-      const model = await this.getSetting('pro_model', defaultProModel);
+      const provider = await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER);
+      const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
 
       const defaultSystem = provider === 'gemini'
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
@@ -204,12 +209,12 @@ export class AIService {
     }
 
     const provider = isPro 
-      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek') 
-      : await this.getSetting('free_provider', 'openrouter');
+      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
+      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
     
     const model = isPro
-      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
-      : await this.getSetting('free_model', 'openrouter/free');
+      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
+      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
     const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "");
     const finalUserPrompt = userPromptTemplate.replace(/\{\{cv\}\}/g, rawText);
@@ -260,8 +265,8 @@ export class AIService {
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
 
     if (!isPro) {
-      const provider = await this.getSetting('free_provider', 'openrouter');
-      const model = await this.getSetting('free_model', 'openrouter/free');
+      const provider = await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
+      const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
@@ -277,11 +282,8 @@ export class AIService {
         return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
     } else {
-      const defaultProProvider = process.env.PREFERRED_PRO_PROVIDER || 'deepseek';
-      const provider = await this.getSetting('pro_provider', defaultProProvider);
-      
-      const defaultProModel = provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat';
-      const model = await this.getSetting('pro_model', defaultProModel);
+      const provider = await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER);
+      const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
 
       const defaultSystem = provider === 'gemini'
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
@@ -330,12 +332,12 @@ export class AIService {
     }
 
     const provider = isPro 
-      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek') 
-      : await this.getSetting('free_provider', 'openrouter');
+      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
+      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
     
     const model = isPro
-      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
-      : await this.getSetting('free_model', 'openrouter/free');
+      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
+      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
     const resolvedName = this.extractCandidateName(rawText) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: Identifica el nombre de la persona en el CV (usualmente al principio). El currículum resultante DEBE comenzar obligatoriamente con ese nombre propio en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
@@ -809,12 +811,12 @@ export class AIService {
     const isPro = userSubscriptionStatus === 'active';
     
     const provider = isPro 
-      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek')
-      : await this.getSetting('free_provider', 'openrouter');
+      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
+      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
       
     const model = isPro
-      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
-      : await this.getSetting('free_model', 'openrouter/free');
+      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
+      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
     // 1. Intentar cargar el prompt activo de star_analyze desde la base de datos
     let dbPrompt;
@@ -921,12 +923,12 @@ Responde exactamente con este formato JSON:
     const isPro = userSubscriptionStatus === 'active';
     
     const provider = isPro 
-      ? await this.getSetting('pro_provider', process.env.PREFERRED_PRO_PROVIDER || 'deepseek')
-      : await this.getSetting('free_provider', 'openrouter');
+      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
+      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
       
     const model = isPro
-      ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
-      : await this.getSetting('free_model', 'openrouter/free');
+      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
+      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
     const resolvedName = this.extractCandidateName(cvMarkdown) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;

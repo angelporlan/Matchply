@@ -44,9 +44,9 @@ interface FontSet {
 }
 
 const FONT_FAMILIES: Record<string, FontSet> = {
-  helvetica: { regular: 'Helvetica', bold: 'Helvetica-Bold', italic: 'Helvetica-Oblique', boldItalic: 'Helvetica-BoldOblique' },
-  times: { regular: 'Times-Roman', bold: 'Times-Bold', italic: 'Times-Italic', boldItalic: 'Times-BoldItalic' },
-  courier: { regular: 'Courier', bold: 'Courier-Bold', italic: 'Courier-Oblique', boldItalic: 'Courier-BoldOblique' }
+  helvetica: { regular: 'Custom-Helvetica', bold: 'Custom-Helvetica-Bold', italic: 'Custom-Helvetica-Oblique', boldItalic: 'Custom-Helvetica-BoldOblique' },
+  times: { regular: 'Custom-Times-Roman', bold: 'Custom-Times-Bold', italic: 'Custom-Times-Italic', boldItalic: 'Custom-Times-BoldItalic' },
+  courier: { regular: 'Custom-Courier', bold: 'Custom-Courier-Bold', italic: 'Custom-Courier-Oblique', boldItalic: 'Custom-Courier-BoldOblique' }
 };
 
 interface CustomizeOptions {
@@ -219,6 +219,81 @@ function cleanMarkdownInline(text: string): string {
     .trim();
 }
 
+function normalizeMarkdownLabel(text: string): string {
+  if (/^\*\*([^*]+)\*\*/.test(text)) {
+    const match = text.match(/^\*\*([^*]+)\*\*(.*)$/);
+    if (match) {
+      let label = match[1].trim();
+      let value = match[2].trim();
+      
+      if (label.endsWith(':') || value.startsWith(':')) {
+        if (label.endsWith(':')) {
+          label = label.slice(0, -1).trim();
+        }
+        value = value.replace(/^[:\s]+/, '');
+        return `**${label}**: ${value}`;
+      }
+    }
+  }
+  return text;
+}
+
+function drawMarkdownText(
+  doc: any,
+  text: string,
+  startX: number | null,
+  startY: number | null,
+  width: number,
+  cust: CustomizeOptions,
+  layout: any,
+  options: any = {}
+) {
+  const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
+  const size = options.size || layout?.bodySize || 9;
+  const color = options.color || COLORS.text;
+  const align = options.align || 'left';
+  const lineGap = options.lineGap ?? layout?.lineGap ?? 1.5;
+  const continued = options.continued || false;
+
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  const activeParts = parts.filter(part => part !== '');
+
+  if (activeParts.length === 0) {
+    return;
+  }
+
+  activeParts.forEach((part, index) => {
+    let currentFont = ff.regular;
+    let cleanText = part;
+
+    if (part.startsWith('**') && part.endsWith('**')) {
+      currentFont = ff.bold;
+      cleanText = part.substring(2, part.length - 2);
+    } else if (part.startsWith('*') && part.endsWith('*')) {
+      currentFont = ff.italic;
+      cleanText = part.substring(1, part.length - 1);
+    }
+
+    doc.font(currentFont).fontSize(size).fillColor(color);
+
+    const isLastPart = index === activeParts.length - 1;
+    const partContinued = !isLastPart || continued;
+
+    const textOpts: any = {
+      width,
+      align,
+      lineGap,
+      continued: partContinued
+    };
+
+    if (startX !== null && startY !== null && index === 0) {
+      doc.text(cleanText, startX, startY, textOpts);
+    } else {
+      doc.text(cleanText, textOpts);
+    }
+  });
+}
+
 function slugifyFile(value: string): string {
   return value
     .normalize('NFD')
@@ -252,19 +327,7 @@ export function parseCvMarkdown(content: string): CVContent {
       return;
     }
 
-    // Check if it starts with **label**
-    const boldMatch = rawParagraph.match(/^\*\*([^*]+)\*\*(.*)$/);
-    let paragraph = '';
-    if (boldMatch) {
-      const label = boldMatch[1].trim();
-      let value = boldMatch[2].trim();
-      if (value.startsWith(':')) {
-        value = value.substring(1).trim();
-      }
-      paragraph = `${label}: ${value}`;
-    } else {
-      paragraph = cleanMarkdownInline(rawParagraph);
-    }
+    const paragraph = normalizeMarkdownLabel(rawParagraph);
 
     if (!target.paragraphs) {
       target.paragraphs = [];
@@ -347,18 +410,7 @@ export function parseCvMarkdown(content: string): CVContent {
       flushParagraphs(currentEntry || currentSection);
       const content = line.slice(2).trim();
       
-      const boldMatch = content.match(/^\*\*([^*]+)\*\*(.*)$/);
-      let bullet = '';
-      if (boldMatch) {
-        const label = boldMatch[1].trim();
-        let value = boldMatch[2].trim();
-        if (value.startsWith(':')) {
-          value = value.substring(1).trim();
-        }
-        bullet = `${label}: ${value}`;
-      } else {
-        bullet = cleanMarkdownInline(content);
-      }
+      const bullet = normalizeMarkdownLabel(content);
       
       if (currentEntry) {
         currentEntry.bullets.push(bullet);
@@ -429,20 +481,17 @@ function drawParagraph(doc: any, text: string, layout: any, options: any = {}, c
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
   const cWidth = 595.28 - margin * 2;
-  const font = options.font || ff.regular;
   const size = options.size || layout.bodySize;
   const color = options.color || COLORS.text;
   const gap = options.gap ?? layout.paragraphGap;
   const align = options.align || 'left';
 
-  doc.font(font)
-    .fontSize(size)
-    .fillColor(color)
-    .text(text, margin, doc.y, {
-      width: cWidth,
-      align,
-      lineGap: layout.lineGap
-    });
+  drawMarkdownText(doc, text, margin, doc.y, cWidth, cust, layout, {
+    size,
+    color,
+    align,
+    lineGap: layout.lineGap
+  });
 
   doc.moveDown(gap);
 }
@@ -461,14 +510,12 @@ function drawBullet(doc: any, text: string, layout: any, cust: CustomizeOptions)
     .fillColor(COLORS.text)
     .text('\u2022', bulletX, startY);
 
-  doc.font(ff.regular)
-    .fontSize(layout.bodySize)
-    .fillColor(COLORS.text)
-    .text(text, textX, startY, {
-      width: cWidth - 18,
-      align: 'left',
-      lineGap: layout.lineGap
-    });
+  drawMarkdownText(doc, text, textX, startY, cWidth - 18, cust, layout, {
+    size: layout.bodySize,
+    color: COLORS.text,
+    align: 'left',
+    lineGap: layout.lineGap
+  });
 
   doc.moveDown(layout.bulletGap);
 }
@@ -615,33 +662,30 @@ function drawSkillsSection(doc: any, section: Section, layout: any, cust: Custom
     if (colonIdx !== -1) {
       const label = item.substring(0, colonIdx).trim();
       const value = item.substring(colonIdx + 1).trim();
+      const cleanLabel = cleanMarkdownInline(label);
       const startY = doc.y;
 
       doc.font(ff.bold)
         .fontSize(layout.bodySize)
         .fillColor(accent)
-        .text(label + ': ', margin + 6, startY, {
+        .text(cleanLabel + ': ', margin + 6, startY, {
           continued: true,
           width: cWidth - 6
         });
 
-      doc.font(ff.regular)
-        .fontSize(layout.bodySize)
-        .fillColor(COLORS.text)
-        .text(value, {
-          width: cWidth - 6,
-          lineGap: layout.lineGap
-        });
+      drawMarkdownText(doc, value, null, null, cWidth - 6, cust, layout, {
+        size: layout.bodySize,
+        color: COLORS.text,
+        lineGap: layout.lineGap
+      });
 
       doc.moveDown(0.08);
     } else {
-      doc.font(ff.regular)
-        .fontSize(layout.bodySize)
-        .fillColor(COLORS.text)
-        .text(item, margin + 6, doc.y, {
-          width: cWidth - 6,
-          lineGap: layout.lineGap
-        });
+      drawMarkdownText(doc, item, margin + 6, doc.y, cWidth - 6, cust, layout, {
+        size: layout.bodySize,
+        color: COLORS.text,
+        lineGap: layout.lineGap
+      });
       doc.moveDown(0.08);
     }
   }
@@ -788,14 +832,18 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
       if (colonIdx !== -1) {
         const label = item.substring(0, colonIdx).trim();
         const value = item.substring(colonIdx + 1).trim();
+        const cleanLabel = cleanMarkdownInline(label);
         doc.font(ff.bold).fontSize(9 * scale).fillColor(accentColor)
-          .text('• ' + label + ': ', sidebarPadding + 2, currentY, { continued: true, width: sidebarWidth - sidebarPadding * 2 - 2 });
-        doc.font(ff.regular).fillColor(sidebarTextColor)
-          .text(value, { width: sidebarWidth - sidebarPadding * 2 - 2, lineGap: 2.5 });
+          .text('• ' + cleanLabel + ': ', sidebarPadding + 2, currentY, { continued: true, width: sidebarWidth - sidebarPadding * 2 - 2 });
+        drawMarkdownText(doc, value, null, null, sidebarWidth - sidebarPadding * 2 - 2, cust, null, {
+          size: 9 * scale,
+          color: sidebarTextColor,
+          lineGap: 2.5
+        });
       } else {
-        doc.font(ff.regular).fontSize(9 * scale).fillColor(sidebarTextColor);
-        doc.text('• ' + item, sidebarPadding + 2, currentY, { 
-          width: sidebarWidth - sidebarPadding * 2 - 2,
+        drawMarkdownText(doc, '• ' + item, sidebarPadding + 2, currentY, sidebarWidth - sidebarPadding * 2 - 2, cust, null, {
+          size: 9 * scale,
+          color: sidebarTextColor,
           lineGap: 2.5
         });
       }
@@ -836,8 +884,9 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
 
     // Paragraphs
     for (const p of section.paragraphs || []) {
-      doc.font(ff.regular).fontSize(fs(9.5)).fillColor('#444444').text(p, mainX, currentY, {
-        width: mainWidth,
+      drawMarkdownText(doc, p, mainX, currentY, mainWidth, cust, null, {
+        size: fs(9.5),
+        color: '#444444',
         lineGap: 2,
         align: 'justify'
       });
@@ -859,12 +908,20 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
       }
 
       for (const p of entry.paragraphs || []) {
-        doc.font(ff.regular).fontSize(fs(9)).fillColor('#444444').text(p, mainX, currentY, { width: mainWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, p, mainX, currentY, mainWidth, cust, null, {
+          size: fs(9),
+          color: '#444444',
+          lineGap: 1.5
+        });
         currentY = doc.y + 4;
       }
 
       for (const b of entry.bullets || []) {
-        doc.font(ff.regular).fontSize(fs(9)).fillColor('#444444').text('• ' + b, mainX + 10, currentY, { width: mainWidth - 10, lineGap: 1.5 });
+        drawMarkdownText(doc, '• ' + b, mainX + 10, currentY, mainWidth - 10, cust, null, {
+          size: fs(9),
+          color: '#444444',
+          lineGap: 1.5
+        });
         currentY = doc.y + 2;
       }
       currentY += 8;
@@ -872,7 +929,11 @@ function renderModernCvPdf(doc: any, cv: CVContent, scale: number, showIcons: bo
 
     // General Bullets
     for (const b of section.bullets || []) {
-      doc.font(ff.regular).fontSize(fs(9.5)).fillColor('#444444').text('• ' + b, mainX + 10, currentY, { width: mainWidth - 10, lineGap: 2 });
+      drawMarkdownText(doc, '• ' + b, mainX + 10, currentY, mainWidth - 10, cust, null, {
+        size: fs(9.5),
+        color: '#444444',
+        lineGap: 2
+      });
       currentY = doc.y + 4;
     }
     currentY += 15;
@@ -979,8 +1040,12 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
     y += 8;
 
     for (const p of section.paragraphs || []) {
-      doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.textColor)
-        .text(p, cfg.marginSide, y, { width: contentWidth, lineGap: 2, align: 'justify' });
+      drawMarkdownText(doc, p, cfg.marginSide, y, contentWidth, cust, null, {
+        size: fs(9),
+        color: cfg.textColor,
+        lineGap: 2,
+        align: 'justify'
+      });
       y = doc.y + 5;
     }
 
@@ -1001,14 +1066,20 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
       }
 
       for (const p of entry.paragraphs || []) {
-        doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.textColor)
-          .text(p, cfg.marginSide, y, { width: contentWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, p, cfg.marginSide, y, contentWidth, cust, null, {
+          size: fs(9),
+          color: cfg.textColor,
+          lineGap: 1.5
+        });
         y = doc.y + 3;
       }
 
       for (const b of entry.bullets || []) {
-        doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.textColor)
-          .text('–  ' + b, cfg.marginSide + 12, y, { width: contentWidth - 12, lineGap: 1.5 });
+        drawMarkdownText(doc, '–  ' + b, cfg.marginSide + 12, y, contentWidth - 12, cust, null, {
+          size: fs(8.5),
+          color: cfg.textColor,
+          lineGap: 1.5
+        });
         y = doc.y + 2;
       }
       y += 6;
@@ -1022,12 +1093,20 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
         if (colonIdx !== -1) {
           const label = item.substring(0, colonIdx).trim();
           const value = item.substring(colonIdx + 1).trim();
+          const cleanLabel = cleanMarkdownInline(label);
           doc.font(ff.bold).fontSize(fs(8.5)).fillColor(cfg.accentColor)
-            .text(label + ': ', cfg.marginSide, y, { continued: true, width: contentWidth });
-          doc.font(ff.regular).fillColor(cfg.textColor).text(value, { width: contentWidth, lineGap: 1.5 });
+            .text(cleanLabel + ': ', cfg.marginSide, y, { continued: true, width: contentWidth });
+          drawMarkdownText(doc, value, null, null, contentWidth, cust, null, {
+            size: fs(8.5),
+            color: cfg.textColor,
+            lineGap: 1.5
+          });
         } else {
-          doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.textColor)
-            .text(item, cfg.marginSide, y, { width: contentWidth, lineGap: 1.5 });
+          drawMarkdownText(doc, item, cfg.marginSide, y, contentWidth, cust, null, {
+            size: fs(8.5),
+            color: cfg.textColor,
+            lineGap: 1.5
+          });
         }
         y = doc.y + 2;
       }
@@ -1035,8 +1114,11 @@ function renderMinimalCvPdf(doc: any, cv: CVContent, scale: number, showIcons: b
 
     if (!isSkills) {
       for (const b of section.bullets || []) {
-        doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.textColor)
-          .text('–  ' + b, cfg.marginSide + 12, y, { width: contentWidth - 12, lineGap: 1.5 });
+        drawMarkdownText(doc, '–  ' + b, cfg.marginSide + 12, y, contentWidth - 12, cust, null, {
+          size: fs(8.5),
+          color: cfg.textColor,
+          lineGap: 1.5
+        });
         y = doc.y + 2;
       }
     }
@@ -1132,14 +1214,19 @@ function renderCreativeCvPdf(doc: any, cv: CVContent, scale: number, showIcons: 
       if (colonIdx !== -1) {
         const label = item.substring(0, colonIdx).trim();
         const value = item.substring(colonIdx + 1).trim();
+        const cleanLabel = cleanMarkdownInline(label);
         doc.font(ff.bold).fontSize(fs(8)).fillColor(cfg.accentColor)
-          .text('● ' + label + ': ', sideContentX + 2, sideY, { continued: true, width: sideContentWidth - 4 });
-        doc.font(ff.regular).fillColor(cfg.sidebarTextColor)
-          .text(value, { width: sideContentWidth - 4, lineGap: 2 });
+          .text('● ' + cleanLabel + ': ', sideContentX + 2, sideY, { continued: true, width: sideContentWidth - 4 });
+        drawMarkdownText(doc, value, null, null, sideContentWidth - 4, cust, null, {
+          size: fs(8),
+          color: cfg.sidebarTextColor,
+          lineGap: 2
+        });
       } else {
-        doc.font(ff.regular).fontSize(fs(8)).fillColor(cfg.sidebarTextColor);
-        doc.text('● ' + item, sideContentX + 2, sideY, {
-          width: sideContentWidth - 4, lineGap: 2
+        drawMarkdownText(doc, '● ' + item, sideContentX + 2, sideY, sideContentWidth - 4, cust, null, {
+          size: fs(8),
+          color: cfg.sidebarTextColor,
+          lineGap: 2
         });
       }
       sideY = doc.y + 3;
@@ -1167,8 +1254,12 @@ function renderCreativeCvPdf(doc: any, cv: CVContent, scale: number, showIcons: 
     y += 8;
 
     for (const p of section.paragraphs || []) {
-      doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-        .text(p, mainX, y, { width: mainWidth, lineGap: 2, align: 'justify' });
+      drawMarkdownText(doc, p, mainX, y, mainWidth, cust, null, {
+        size: fs(9),
+        color: cfg.mainTextColor,
+        lineGap: 2,
+        align: 'justify'
+      });
       y = doc.y + 6;
     }
 
@@ -1189,23 +1280,33 @@ function renderCreativeCvPdf(doc: any, cv: CVContent, scale: number, showIcons: 
       }
 
       for (const p of entry.paragraphs || []) {
-        doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-          .text(p, mainX, y, { width: mainWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, p, mainX, y, mainWidth, cust, null, {
+          size: fs(9),
+          color: cfg.mainTextColor,
+          lineGap: 1.5
+        });
         y = doc.y + 3;
       }
 
       for (const b of entry.bullets || []) {
         doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.mainTextColor)
           .text('● ', mainX + 8, y, { continued: true });
-        doc.fillColor(cfg.mainTextColor).text(b, { width: mainWidth - 20, lineGap: 1.5 });
+        drawMarkdownText(doc, b, null, null, mainWidth - 20, cust, null, {
+          size: fs(8.5),
+          color: cfg.mainTextColor,
+          lineGap: 1.5
+        });
         y = doc.y + 2;
       }
       y += 7;
     }
 
     for (const b of section.bullets || []) {
-      doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-        .text('● ' + b, mainX + 8, y, { width: mainWidth - 8, lineGap: 1.5 });
+      drawMarkdownText(doc, '● ' + b, mainX + 8, y, mainWidth - 8, cust, null, {
+        size: fs(9),
+        color: cfg.mainTextColor,
+        lineGap: 1.5
+      });
       y = doc.y + 3;
     }
     y += 12;
@@ -1314,14 +1415,21 @@ function renderSwissCvPdf(doc: any, cv: CVContent, scale: number, showIcons: boo
       if (colonIdx !== -1) {
         const label = item.substring(0, colonIdx).trim();
         const value = item.substring(colonIdx + 1).trim();
+        const cleanLabel = cleanMarkdownInline(label);
         doc.font(ff.bold).fontSize(fs(7.5)).fillColor(cfg.accentColor)
-          .text(label, sideContentX, sideY, { width: sideContentWidth });
+          .text(cleanLabel, sideContentX, sideY, { width: sideContentWidth });
         sideY = doc.y;
-        doc.font(ff.regular).fontSize(fs(7.5)).fillColor(cfg.sidebarTextColor)
-          .text(value, sideContentX, sideY, { width: sideContentWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, value, sideContentX, sideY, sideContentWidth, cust, null, {
+          size: fs(7.5),
+          color: cfg.sidebarTextColor,
+          lineGap: 1.5
+        });
       } else {
-        doc.font(ff.regular).fontSize(fs(7.5)).fillColor(cfg.sidebarTextColor)
-          .text('▸ ' + item, sideContentX, sideY, { width: sideContentWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, '▸ ' + item, sideContentX, sideY, sideContentWidth, cust, null, {
+          size: fs(7.5),
+          color: cfg.sidebarTextColor,
+          lineGap: 1.5
+        });
       }
       sideY = doc.y + 4;
     }
@@ -1348,8 +1456,12 @@ function renderSwissCvPdf(doc: any, cv: CVContent, scale: number, showIcons: boo
     y += 8;
 
     for (const p of section.paragraphs || []) {
-      doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-        .text(p, mainX, y, { width: mainWidth, lineGap: 2, align: 'justify' });
+      drawMarkdownText(doc, p, mainX, y, mainWidth, cust, null, {
+        size: fs(9),
+        color: cfg.mainTextColor,
+        lineGap: 2,
+        align: 'justify'
+      });
       y = doc.y + 6;
     }
 
@@ -1370,22 +1482,31 @@ function renderSwissCvPdf(doc: any, cv: CVContent, scale: number, showIcons: boo
       }
 
       for (const p of entry.paragraphs || []) {
-        doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-          .text(p, mainX, y, { width: mainWidth, lineGap: 1.5 });
+        drawMarkdownText(doc, p, mainX, y, mainWidth, cust, null, {
+          size: fs(9),
+          color: cfg.mainTextColor,
+          lineGap: 1.5
+        });
         y = doc.y + 3;
       }
 
       for (const b of entry.bullets || []) {
-        doc.font(ff.regular).fontSize(fs(8.5)).fillColor(cfg.mainTextColor)
-          .text('▸ ' + b, mainX + 8, y, { width: mainWidth - 8, lineGap: 1.5 });
+        drawMarkdownText(doc, '▸ ' + b, mainX + 8, y, mainWidth - 8, cust, null, {
+          size: fs(8.5),
+          color: cfg.mainTextColor,
+          lineGap: 1.5
+        });
         y = doc.y + 2;
       }
       y += 7;
     }
 
     for (const b of section.bullets || []) {
-      doc.font(ff.regular).fontSize(fs(9)).fillColor(cfg.mainTextColor)
-        .text('▸ ' + b, mainX + 8, y, { width: mainWidth - 8, lineGap: 1.5 });
+      drawMarkdownText(doc, '▸ ' + b, mainX + 8, y, mainWidth - 8, cust, null, {
+        size: fs(9),
+        color: cfg.mainTextColor,
+        lineGap: 1.5
+      });
       y = doc.y + 3;
     }
     y += 12;
@@ -1418,20 +1539,20 @@ export function generatePdfBuffer(markdown: string, options: any = {}): Promise<
 
       // Register standard-compatible TrueType fonts to bypass dynamic AFM file lookup issues in Next.js
       const fontsDir = path.join(process.cwd(), 'src/assets/fonts');
-      doc.registerFont('Helvetica', path.join(fontsDir, 'LiberationSans-Regular.ttf'));
-      doc.registerFont('Helvetica-Bold', path.join(fontsDir, 'LiberationSans-Bold.ttf'));
-      doc.registerFont('Helvetica-Oblique', path.join(fontsDir, 'LiberationSans-Italic.ttf'));
-      doc.registerFont('Helvetica-BoldOblique', path.join(fontsDir, 'LiberationSans-BoldItalic.ttf'));
+      doc.registerFont('Custom-Helvetica', path.join(fontsDir, 'LiberationSans-Regular.ttf'));
+      doc.registerFont('Custom-Helvetica-Bold', path.join(fontsDir, 'LiberationSans-Bold.ttf'));
+      doc.registerFont('Custom-Helvetica-Oblique', path.join(fontsDir, 'LiberationSans-Italic.ttf'));
+      doc.registerFont('Custom-Helvetica-BoldOblique', path.join(fontsDir, 'LiberationSans-BoldItalic.ttf'));
       
-      doc.registerFont('Times-Roman', path.join(fontsDir, 'LiberationSerif-Regular.ttf'));
-      doc.registerFont('Times-Bold', path.join(fontsDir, 'LiberationSerif-Bold.ttf'));
-      doc.registerFont('Times-Italic', path.join(fontsDir, 'LiberationSerif-Italic.ttf'));
-      doc.registerFont('Times-BoldItalic', path.join(fontsDir, 'LiberationSerif-BoldItalic.ttf'));
+      doc.registerFont('Custom-Times-Roman', path.join(fontsDir, 'LiberationSerif-Regular.ttf'));
+      doc.registerFont('Custom-Times-Bold', path.join(fontsDir, 'LiberationSerif-Bold.ttf'));
+      doc.registerFont('Custom-Times-Italic', path.join(fontsDir, 'LiberationSerif-Italic.ttf'));
+      doc.registerFont('Custom-Times-BoldItalic', path.join(fontsDir, 'LiberationSerif-BoldItalic.ttf'));
       
-      doc.registerFont('Courier', path.join(fontsDir, 'LiberationMono-Regular.ttf'));
-      doc.registerFont('Courier-Bold', path.join(fontsDir, 'LiberationMono-Bold.ttf'));
-      doc.registerFont('Courier-Oblique', path.join(fontsDir, 'LiberationMono-Italic.ttf'));
-      doc.registerFont('Courier-BoldOblique', path.join(fontsDir, 'LiberationMono-BoldItalic.ttf'));
+      doc.registerFont('Custom-Courier', path.join(fontsDir, 'LiberationMono-Regular.ttf'));
+      doc.registerFont('Custom-Courier-Bold', path.join(fontsDir, 'LiberationMono-Bold.ttf'));
+      doc.registerFont('Custom-Courier-Oblique', path.join(fontsDir, 'LiberationMono-Italic.ttf'));
+      doc.registerFont('Custom-Courier-BoldOblique', path.join(fontsDir, 'LiberationMono-BoldItalic.ttf'));
 
 
       const chunks: Buffer[] = [];
