@@ -161,6 +161,12 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
   // Buscar el CV seleccionado
   const selectedCv = initialCvs.find(c => c.id === selectedCvId);
 
+  // Calcular valores para el círculo de progreso del match score
+  const scoreVal = parsedData?.score !== undefined ? parsedData.score : 0;
+  const radius = 50;
+  const circumference = 2 * Math.PI * radius; // 314.159
+  const strokeDashoffset = circumference - (circumference * scoreVal) / 100;
+
   // Manejar el submit del análisis
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,6 +226,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
       }
 
       setStreamingComplete(true);
+      setIsAnalyzing(false);
     } catch (err: any) {
       console.error(err);
       setAnalysisError(err.message || 'Ocurrió un error inesperado al analizar el currículum.');
@@ -338,7 +345,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                 <select
                   value={selectedCvId}
                   onChange={(e) => setSelectedCvId(e.target.value)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans disabled:opacity-50 h-10 shadow-xs"
                 >
                   {initialCvs.map(cv => (
@@ -360,7 +367,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   required
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   placeholder={language === 'es' ? 'Ej. Stripe' : 'e.g. Stripe'}
                   className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all disabled:opacity-50 shadow-xs"
                 />
@@ -377,7 +384,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   required
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   placeholder={language === 'es' ? 'Ej. Backend Developer' : 'e.g. Backend Developer'}
                   className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all disabled:opacity-50 shadow-xs"
                 />
@@ -393,7 +400,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   placeholder="https://..."
                   className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all disabled:opacity-50 shadow-xs"
                 />
@@ -406,7 +413,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   id="starAddToKanban"
                   checked={addToKanban}
                   onChange={(e) => setAddToKanban(e.target.checked)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   className="rounded bg-white dark:bg-[#0b0f19] border-[#1e1b4b]/20 dark:border-white/20 text-[#8b5cf6] focus:ring-[#8b5cf6]/20 w-4 h-4 cursor-pointer accent-[#8b5cf6] disabled:opacity-50"
                 />
                 <div>
@@ -430,7 +437,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   required
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || streamingComplete}
                   rows={8}
                   placeholder={language === 'es' 
                     ? 'Pega la descripción completa del puesto aquí...' 
@@ -442,13 +449,22 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
               {/* Botón de Analizar */}
               <button
                 type="submit"
-                disabled={isAnalyzing}
-                className="w-full bg-[#1e1b4b] hover:bg-[#1e1b4b]/95 text-white font-bold py-3 px-4 rounded-[8px] text-xs transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer font-display hover:-translate-y-0.5"
+                disabled={isAnalyzing || streamingComplete}
+                className={`w-full text-white font-bold py-3 px-4 rounded-[8px] text-xs transition-all shadow-md flex items-center justify-center gap-2 font-display ${
+                  streamingComplete 
+                    ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60 text-slate-500 dark:text-slate-450' 
+                    : 'bg-[#1e1b4b] hover:bg-[#1e1b4b]/95 hover:-translate-y-0.5 cursor-pointer'
+                }`}
               >
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
                     {language === 'es' ? 'Analizando Currículum...' : 'Analyzing Resume...'}
+                  </>
+                ) : streamingComplete ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    {language === 'es' ? 'Análisis Completado con Éxito' : 'Analysis Successfully Completed'}
                   </>
                 ) : (
                   <>
@@ -516,10 +532,40 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   </span>
                   
                   <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-                    {/* Gran círculo de puntuación */}
-                    <div className="relative flex items-center justify-center shrink-0 w-28 h-28 rounded-full border-4 border-slate-100 dark:border-slate-800 bg-[#fafafa] dark:bg-[#0b0f19] shadow-xs">
-                      <div className="text-center font-display">
-                        <span className="text-4xl font-extrabold text-amber-500 tracking-tight">
+                    {/* Gran círculo de puntuación con SVG progress ring */}
+                    <div className="relative flex items-center justify-center shrink-0 w-28 h-28 bg-[#fafafa] dark:bg-[#0b0f19] rounded-full shadow-xs">
+                      {/* SVG Progress Circle */}
+                      <svg className="absolute w-full h-full transform -rotate-90">
+                        {/* Background track circle */}
+                        <circle
+                          cx="56"
+                          cy="56"
+                          r="50"
+                          className="stroke-slate-100 dark:stroke-slate-800/60"
+                          strokeWidth="8"
+                          fill="transparent"
+                        />
+                        {/* Foreground animated progress circle */}
+                        <motion.circle
+                          cx="56"
+                          cy="56"
+                          r="50"
+                          stroke={scoreVal >= 70 ? '#2ecc71' : scoreVal >= 40 ? '#f59e0b' : '#f43f5e'}
+                          strokeWidth="8"
+                          fill="transparent"
+                          strokeDasharray={circumference}
+                          initial={{ strokeDashoffset: circumference }}
+                          animate={{ strokeDashoffset: strokeDashoffset }}
+                          transition={{ duration: 1, ease: 'easeOut' }}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+
+                      {/* Text Inside Score Circle */}
+                      <div className="text-center font-display z-10">
+                        <span className={`text-4xl font-extrabold tracking-tight ${
+                          scoreVal >= 70 ? 'text-[#2ecc71]' : scoreVal >= 40 ? 'text-amber-500' : 'text-rose-500'
+                        }`}>
                           {parsedData.score !== undefined ? parsedData.score : '0'}
                         </span>
                         <span className="text-xs text-[#1e1b4b]/50 dark:text-slate-400 font-bold block -mt-1">

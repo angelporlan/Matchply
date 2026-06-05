@@ -43,7 +43,8 @@ import {
   getAIConfig,
   togglePromptArchive,
   getAdminAuditLogs,
-  getAdminAuditStats
+  getAdminAuditStats,
+  getOpenRouterKeyInfo
 } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 
@@ -224,6 +225,34 @@ export default function AdminClient({
     confirmLabel: string;
     onConfirm: () => Promise<void> | void;
   } | null>(null);
+
+  // OpenRouter API key limits & credit info
+  const [openRouterKeyInfo, setOpenRouterKeyInfo] = useState<any | null>(null);
+  const [loadingKeyInfo, setLoadingKeyInfo] = useState(false);
+  const [keyInfoError, setKeyInfoError] = useState<string | null>(null);
+
+  const fetchOpenRouterKeyInfo = async () => {
+    setLoadingKeyInfo(true);
+    setKeyInfoError(null);
+    try {
+      const res = await getOpenRouterKeyInfo();
+      if (res.success) {
+        setOpenRouterKeyInfo(res.data);
+      } else {
+        setKeyInfoError(res.error || 'Error al obtener la información de OpenRouter');
+      }
+    } catch (err: any) {
+      setKeyInfoError(err.message || 'Error de red al conectar con el servidor.');
+    } finally {
+      setLoadingKeyInfo(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ai') {
+      fetchOpenRouterKeyInfo();
+    }
+  }, [activeTab]);
 
   const [isPending, startTransition] = useTransition();
 
@@ -795,6 +824,132 @@ export default function AdminClient({
             <div className="border-b border-[#1e1b4b]/5 dark:border-white/5 pb-4 mb-6">
               <h3 className="text-base font-semibold font-display text-[#1e1b4b] dark:text-white">Configuración del Motor de IA</h3>
               <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light mt-0.5 font-sans">Asigna qué proveedor de API y qué modelo específico se utilizará en cada plan de usuario.</p>
+            </div>
+
+            {/* OpenRouter API Key Info */}
+            <div className="mb-6 bg-[#fafafa] dark:bg-[#0b0f19]/40 p-5 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5">
+              <div className="flex items-center justify-between border-b border-[#1e1b4b]/5 dark:border-white/5 pb-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#8b5cf6]" />
+                  <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">Límites y Créditos de OpenRouter</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchOpenRouterKeyInfo}
+                  disabled={loadingKeyInfo}
+                  className="p-1.5 text-[#1e1b4b]/50 dark:text-slate-400 hover:text-[#8b5cf6] dark:hover:text-[#8b5cf6] rounded-full hover:bg-[#1e1b4b]/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+                  title="Recargar límites"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingKeyInfo ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {loadingKeyInfo ? (
+                <div className="flex items-center justify-center py-4 gap-2 text-[#1e1b4b]/50 dark:text-slate-400 text-xs font-sans animate-pulse">
+                  <RefreshCw className="w-4 h-4 animate-spin text-[#8b5cf6]" />
+                  <span>Obteniendo límites de la API de OpenRouter...</span>
+                </div>
+              ) : keyInfoError ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-[11px] rounded-[8px] flex items-start gap-2.5 font-sans">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Aviso de OpenRouter:</span> {keyInfoError}
+                    <p className="mt-1 text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-light">Asegúrate de que la variable de entorno <code className="font-mono bg-white dark:bg-black/30 px-1 rounded">OPENROUTER_API_KEY</code> esté configurada en tu archivo <code className="font-mono bg-white dark:bg-black/30 px-1 rounded">.env</code>.</p>
+                  </div>
+                </div>
+              ) : openRouterKeyInfo ? (
+                <div className="space-y-4 font-sans text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 p-3 rounded-[8px]">
+                      <span className="text-[9px] font-bold text-[#1e1b4b]/40 dark:text-slate-400 uppercase tracking-wider block font-display">Créditos Restantes</span>
+                      <span className="text-sm font-bold text-[#2ecc71] font-mono mt-1 block">
+                        {openRouterKeyInfo.limit_remaining !== null 
+                          ? `$${Number(openRouterKeyInfo.limit_remaining).toFixed(4)}`
+                          : 'Ilimitado'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 p-3 rounded-[8px]">
+                      <span className="text-[9px] font-bold text-[#1e1b4b]/40 dark:text-slate-400 uppercase tracking-wider block font-display">Crédito Límite</span>
+                      <span className="text-sm font-bold text-[#1e1b4b] dark:text-white font-mono mt-1 block">
+                        {openRouterKeyInfo.limit !== null 
+                          ? `$${Number(openRouterKeyInfo.limit).toFixed(2)}`
+                          : 'Ilimitado'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 p-3 rounded-[8px]">
+                      <span className="text-[9px] font-bold text-[#1e1b4b]/40 dark:text-slate-400 uppercase tracking-wider block font-display">Uso Acumulado</span>
+                      <span className="text-sm font-bold text-amber-500 font-mono mt-1 block">
+                        ${Number(openRouterKeyInfo.usage).toFixed(4)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 p-3 rounded-[8px]">
+                      <span className="text-[9px] font-bold text-[#1e1b4b]/40 dark:text-slate-400 uppercase tracking-wider block font-display">Uso Diario</span>
+                      <span className="text-sm font-bold text-[#8b5cf6] font-mono mt-1 block">
+                        ${Number(openRouterKeyInfo.usage_daily).toFixed(4)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#1e1b4b]/5 dark:border-white/5 pt-3 text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-light">
+                    <div className="flex items-center gap-1.5">
+                      <span>Etiqueta Key:</span>
+                      <span className="font-mono bg-white dark:bg-black/30 px-1.5 py-0.5 rounded text-[#1e1b4b] dark:text-white font-bold">{openRouterKeyInfo.label || 'Sin etiqueta'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span>Nivel:</span>
+                      <span className={`px-1.5 py-0.5 rounded font-bold ${
+                        openRouterKeyInfo.is_free_tier 
+                          ? 'bg-rose-500/10 text-rose-500' 
+                          : 'bg-[#2ecc71]/10 text-[#2ecc71]'
+                      }`}>
+                        {openRouterKeyInfo.is_free_tier ? 'Free Tier (Límite 20 rq/min)' : 'Pro Tier (Saldo cargado)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {openRouterKeyInfo.is_free_tier && (
+                    <div className="mt-3.5 p-3.5 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 dark:border-blue-500/20 rounded-[8px] text-[10px] text-[#1e1b4b]/70 dark:text-slate-300 leading-relaxed space-y-1.5 font-sans">
+                      <div className="font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                        <span>Información de Límites en Cuenta Gratuita (Free Tier)</span>
+                      </div>
+                      <p>
+                        OpenRouter no devuelve un contador de peticiones restantes en su API (se gestiona de manera global), pero aplica las siguientes reglas por día para modelos con terminación <code className="font-mono bg-white dark:bg-black/20 px-1 rounded font-bold">:free</code>:
+                      </p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>
+                          <span className="font-bold">Límite actual:</span> Al no tener saldo cargado en tu cuenta, tu límite es de <span className="font-bold text-rose-500 dark:text-rose-450">50 peticiones al día</span>.
+                        </li>
+                        <li>
+                          <span className="font-bold">Cómo subirlo a 1000/día:</span> Si realizas una recarga mínima de <span className="font-bold text-[#2ecc71]">$10 USD</span> en tu cuenta de OpenRouter, el límite diario de modelos gratuitos subirá automáticamente a <span className="font-bold text-[#2ecc71]">1000 peticiones al día</span>.
+                        </li>
+                        <li>
+                          <span className="font-bold">Límite de velocidad:</span> Máximo 20 peticiones por minuto.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {!openRouterKeyInfo.is_free_tier && (
+                    <div className="mt-3.5 p-3.5 bg-[#2ecc71]/5 dark:bg-[#2ecc71]/10 border border-[#2ecc71]/10 dark:border-[#2ecc71]/20 rounded-[8px] text-[10px] text-[#1e1b4b]/70 dark:text-slate-300 leading-relaxed space-y-1.5 font-sans">
+                      <div className="font-bold flex items-center gap-1.5 text-[#2ecc71]">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Información de Límites en Cuenta de Pago (Paid Tier)</span>
+                      </div>
+                      <p>
+                        Tu cuenta está marcada como de pago (has recargado saldo anteriormente). Tus límites diarios para modelos con terminación <code className="font-mono bg-white dark:bg-black/20 px-1 rounded font-bold">:free</code> son de <span className="font-bold text-[#2ecc71]">1000 peticiones al día</span>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-2 text-[#1e1b4b]/40 dark:text-slate-500 text-xs font-sans">
+                  No se pudo cargar la información de límites.
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSaveSettings} className="space-y-6">

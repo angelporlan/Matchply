@@ -428,3 +428,47 @@ export async function getAdminAuditStats() {
     return { success: false, error: error.message };
   }
 }
+
+// 13. Obtener información y límites de la clave OpenRouter
+export async function getOpenRouterKeyInfo() {
+  await verifyAdmin();
+
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key || key.includes("mock-key") || key === "") {
+    return {
+      success: false,
+      error: 'La API Key de OpenRouter no está configurada o es una clave de prueba.'
+    };
+  }
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/key", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json"
+      },
+      next: { revalidate: 0 } // Deshabilitar caché para tener datos en tiempo real
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `Error de la API de OpenRouter (${response.status}): ${response.statusText || errorText}`
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: true,
+      data: json.data
+    };
+  } catch (error: any) {
+    console.error('Error al obtener info de clave OpenRouter:', error);
+    return {
+      success: false,
+      error: error.message || 'Error al conectar con la API de OpenRouter.'
+    };
+  }
+}
