@@ -149,6 +149,7 @@ export const translations = {
       menu: {
         cvs: 'Mis CVs',
         kanban: 'Kanban',
+        star: 'Método STAR',
         subscription: 'Suscripción',
         adminPanel: 'Panel Admin',
       },
@@ -779,6 +780,7 @@ export const translations = {
       menu: {
         cvs: 'My CVs',
         kanban: 'Kanban',
+        star: 'STAR Method',
         subscription: 'Subscription',
         adminPanel: 'Admin Panel',
       },

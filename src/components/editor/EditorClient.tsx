@@ -118,6 +118,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     const searchParams = new URLSearchParams(window.location.search);
     const shouldOptimize = searchParams.get('optimize') === 'true';
     const shouldImport = searchParams.get('importing') === 'true';
+    const shouldStarOptimize = searchParams.get('star') === 'true';
 
     if (shouldOptimize) {
       window.history.replaceState(null, '', window.location.pathname);
@@ -137,6 +138,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       if (rawText) {
         sessionStorage.removeItem('matchply_import_raw_text');
         runImportStream(rawText);
+      }
+    } else if (shouldStarOptimize) {
+      window.history.replaceState(null, '', window.location.pathname);
+      const paramsStr = sessionStorage.getItem('matchply_star_optimize_params');
+      if (paramsStr) {
+        sessionStorage.removeItem('matchply_star_optimize_params');
+        try {
+          const params = JSON.parse(paramsStr);
+          runStarOptimizeStream(params);
+        } catch (e) {
+          console.error("Error parsing STAR optimize params from session:", e);
+        }
       }
     }
   }, []);
@@ -206,6 +219,76 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
+      setSaveStatus('error');
+      setIsStreaming(false);
+    }
+  };
+
+  const runStarOptimizeStream = async (params: any) => {
+    setIsStreaming(true);
+    setStreamingError(null);
+    setSaveStatus('saving');
+    setStreamingStep(language === 'es' ? 'Optimizando experiencia laboral (Fórmula XYZ)...' : 'Optimizing work experience (XYZ Formula)...');
+
+    try {
+      const response = await fetch('/api/ai/star/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Error en la optimización STAR.');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
+
+      const decoder = new TextDecoder();
+      let done = false;
+      let accumulatedText = '';
+      let lastPdfReload = Date.now();
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        const chunk = decoder.decode(value, { stream: !done });
+
+        if (chunk.includes('[METADATA:')) {
+          const parts = chunk.split('[METADATA:');
+          accumulatedText += parts[0];
+        } else if (chunk.includes('[ERROR:')) {
+          const parts = chunk.split('[ERROR:');
+          accumulatedText += parts[0];
+          const errorMsg = parts[1].replace(']', '').trim();
+          throw new Error(errorMsg);
+        } else {
+          accumulatedText += chunk;
+        }
+
+        setCvContent(accumulatedText);
+        if (accumulatedText.length > 50) {
+          setStreamingStep(language === 'es' ? 'Escribiendo formato Harvard y deteniendo el scroll...' : 'Formatting Harvard style and stopping scroll...');
+        }
+
+        // Recargar PDF cada 3 segundos si ya hay contenido razonable
+        const now = Date.now();
+        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
+          lastPdfReload = now;
+          setPdfVersion(prev => prev + 1);
+        }
+      }
+
+      setStreamingStep(language === 'es' ? '¡CV STAR optimizado con éxito!' : 'STAR Resume optimized successfully!');
+      setSaveStatus('saved');
+      setPdfVersion(prev => prev + 1);
+      setTimeout(() => {
+        setIsStreaming(false);
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum STAR.');
       setSaveStatus('error');
       setIsStreaming(false);
     }

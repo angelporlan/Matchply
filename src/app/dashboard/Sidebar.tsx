@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X } from 'lucide-react';
+import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
@@ -34,6 +34,12 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
       name: t('sidebar.menu.kanban'),
       href: '/dashboard/kanban',
       icon: Kanban,
+    },
+    {
+      name: t('sidebar.menu.star') || 'Método STAR',
+      href: '/dashboard/star',
+      icon: Sparkles,
+      isAi: true,
     },
     {
       name: t('sidebar.menu.subscription'),
@@ -134,6 +140,8 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
                     className={`w-4 h-4 stroke-[1.75] ${
                       active
                         ? 'text-white'
+                        : item.isAi
+                        ? 'text-[#8b5cf6] dark:text-violet-400'
                         : item.premiumIcon
                         ? 'text-amber-500'
                         : 'text-[#1e1b4b]/50 dark:text-slate-400'
