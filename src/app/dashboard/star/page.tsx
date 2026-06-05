@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { cvs, users, prompts } from '@/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import StarClientPage from '@/components/star/StarClientPage';
 
@@ -31,6 +31,26 @@ export default async function StarMethodPage() {
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
 
+  // 3. Obtener los prompts de optimización STAR activos y no archivados
+  const starPrompts = await db
+    .select({
+      id: prompts.id,
+      name: prompts.name,
+      nameEn: prompts.nameEn,
+      isActive: prompts.isActive,
+      description: prompts.description,
+      descriptionEn: prompts.descriptionEn,
+      color: prompts.color,
+    })
+    .from(prompts)
+    .where(
+      and(
+        eq(prompts.key, 'star_optimize'),
+        eq(prompts.isArchived, false)
+      )
+    )
+    .orderBy(prompts.name);
+
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Glow backgrounds */}
@@ -41,6 +61,7 @@ export default async function StarMethodPage() {
         <StarClientPage 
           initialCvs={userCvs} 
           isPremium={isPremium} 
+          availablePrompts={starPrompts || []}
           user={{
             name: session.user.name,
             email: session.user.email,

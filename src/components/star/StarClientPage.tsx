@@ -24,6 +24,15 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 interface StarClientPageProps {
   initialCvs: CV[];
   isPremium: boolean;
+  availablePrompts: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+    isActive: boolean;
+    description?: string | null;
+    descriptionEn?: string | null;
+    color?: string | null;
+  }[];
   user: {
     name?: string | null;
     email?: string | null;
@@ -110,7 +119,7 @@ function parsePartialJson(jsonStr: string): AnalysisResult | null {
   }
 }
 
-export default function StarClientPage({ initialCvs, isPremium, user }: StarClientPageProps) {
+export default function StarClientPage({ initialCvs, isPremium, availablePrompts, user }: StarClientPageProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
 
@@ -123,6 +132,18 @@ export default function StarClientPage({ initialCvs, isPremium, user }: StarClie
   const [platform, setPlatform] = useState('linkedin');
   const [jobDescription, setJobDescription] = useState('');
   const [addToKanban, setAddToKanban] = useState(true);
+
+  // Selector de prompts STAR
+  const [selectedPromptId, setSelectedPromptId] = useState<string>(
+    availablePrompts.find(p => p.isActive)?.id || availablePrompts[0]?.id || ''
+  );
+
+  useEffect(() => {
+    if (availablePrompts.length > 0 && !selectedPromptId) {
+      const activePrompt = availablePrompts.find(p => p.isActive);
+      setSelectedPromptId(activePrompt?.id || availablePrompts[0].id);
+    }
+  }, [availablePrompts, selectedPromptId]);
 
   // Estados del flujo
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -233,6 +254,7 @@ export default function StarClientPage({ initialCvs, isPremium, user }: StarClie
         jobDescription,
         missingKeywords: parsedData.missingKeywords || [],
         redFlags: parsedData.redFlags || [],
+        promptId: selectedPromptId,
         addToKanban,
         targetCvId: placeholderRes.cvId
       }));
@@ -624,6 +646,54 @@ export default function StarClientPage({ initialCvs, isPremium, user }: StarClie
                       {parsedData.verdict}
                     </p>
                   </div>
+                )}
+
+                {/* Panel de Selección de Modo de Optimización */}
+                {streamingComplete && availablePrompts.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white dark:bg-[#1f2937] p-5 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm space-y-4"
+                  >
+                    <div className="flex items-center gap-2 border-b border-[#1e1b4b]/5 dark:border-white/5 pb-2">
+                      <Sparkles className="w-4 h-4 text-[#8b5cf6]" />
+                      <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+                        {language === 'es' ? 'Elige el Modo de Optimización STAR' : 'Choose STAR Optimization Mode'}
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {availablePrompts.map((p) => {
+                        const isSelected = selectedPromptId === p.id;
+                        const displayName = language === 'en' && p.nameEn ? p.nameEn : p.name;
+                        const desc = language === 'en' && p.descriptionEn ? p.descriptionEn : p.description;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setSelectedPromptId(p.id)}
+                            className={`p-4 rounded-[8px] border text-left transition-all relative cursor-pointer ${
+                              isSelected
+                                ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 shadow-2xs'
+                                : 'border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+                                {displayName}
+                              </span>
+                              {isSelected && (
+                                <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6] animate-pulse" />
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans leading-relaxed">
+                              {desc}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
                 )}
 
                 {/* Panel de Acción: Botón Optimizar CV */}

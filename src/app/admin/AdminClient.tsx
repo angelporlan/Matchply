@@ -1712,9 +1712,11 @@ export default function AdminClient({
                   >
                     <option value="optimize_cv" className="dark:bg-[#1f2937]">optimize_cv (Optimizar CV para Ofertas de Empleo)</option>
                     <option value="import_cv" className="dark:bg-[#1f2937]">import_cv (Importar/Convertir CV a Markdown)</option>
+                    <option value="star_analyze" className="dark:bg-[#1f2937]">star_analyze (Método STAR - Análisis de Match)</option>
+                    <option value="star_optimize" className="dark:bg-[#1f2937]">star_optimize (Método STAR - Optimización XYZ)</option>
                   </select>
                   <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5">
-                    * Actualmente, solo existe la función de optimización de CV. En un futuro, si agregas nuevas características, podrás ligar sus prompts con claves únicas desde aquí.
+                    * Selecciona la clave de función correspondiente para asociar el prompt a un flujo específico.
                   </span>
                 </div>
 

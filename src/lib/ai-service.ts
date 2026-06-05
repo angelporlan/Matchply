@@ -792,6 +792,7 @@ export class AIService {
     } catch (e) {
       // Ignore parse errors for incomplete JSON lines
     }
+    return false;
   }
 
   static async analyzeSTARStream({
@@ -815,14 +816,26 @@ export class AIService {
       ? await this.getSetting('pro_model', provider === 'gemini' ? 'gemini-1.5-pro' : 'deepseek-chat')
       : await this.getSetting('free_model', 'openrouter/free');
 
-    const systemPrompt = `Eres un reclutador senior experto de la empresa "${company}". Tu tarea es evaluar el currículum del candidato contra la descripción de la oferta de trabajo y responder con un objeto JSON estructurado que contenga un análisis exhaustivo.
+    // 1. Intentar cargar el prompt activo de star_analyze desde la base de datos
+    let dbPrompt;
+    try {
+      [dbPrompt] = await db
+        .select()
+        .from(prompts)
+        .where(and(eq(prompts.key, 'star_analyze'), eq(prompts.isActive, true)))
+        .limit(1);
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt star_analyze de la DB:", err);
+    }
+
+    const defaultSystem = `Eres un reclutador senior experto de la empresa "{{company}}". Tu tarea es evaluar el currículum del candidato contra la descripción de la oferta de trabajo y responder con un objeto JSON estructurado que contenga un análisis exhaustivo.
 Es crítico que respondas única y exclusivamente con el objeto JSON válido, sin preámbulos, sin explicaciones, sin comentarios y sin bloques de código Markdown (no uses triple backticks \`\`\`json). Tu respuesta debe ser directamente parseable por JSON.parse.`;
 
-    const userPrompt = `CV del candidato:
-${cvMarkdown}
+    const defaultUser = `CV del candidato:
+{{cv}}
 
 Descripción de la oferta de trabajo:
-${jobDescription}
+{{job}}
 
 Actua como un reclutador senior de esta empresa exacta, analiza mi cv contra esta descripcion de referencia y dame una puntuacion de match sobre 100, las cinco palabras clave que me faltan y las 3 redflags que un responsable de selección pillaría en menos de 10 segundos.
 
@@ -866,6 +879,15 @@ Responde exactamente con este formato JSON:
   "verdict": "Mi veredicto como reclutador: esta oferta está diseñada para un perfil senior con experiencia sólida en infraestructura ML distribuida. No es que seas malo — es que el rol tiene requisitos muy específicos que hoy no están en tu CV ni probablemente en tu experiencia real."
 }`;
 
+    let systemPrompt = dbPrompt?.systemPrompt || defaultSystem;
+    // Reemplazar la variable {{company}} en el systemPrompt si está presente
+    systemPrompt = systemPrompt.replace(/\{\{company\}\}/g, company);
+
+    let userPromptTemplate = dbPrompt?.userPrompt || defaultUser;
+    const userPrompt = userPromptTemplate
+      .replace(/\{\{cv\}\}/g, cvMarkdown)
+      .replace(/\{\{job\}\}/g, jobDescription);
+
     if (provider === 'gemini') {
       return await this.streamGeminiOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
     } else if (provider === 'deepseek') {
@@ -883,7 +905,8 @@ Responde exactamente con este formato JSON:
     missingKeywords,
     redFlags,
     userSubscriptionStatus,
-    candidateName
+    candidateName,
+    promptId
   }: {
     cvMarkdown: string;
     jobDescription: string;
@@ -893,6 +916,7 @@ Responde exactamente con este formato JSON:
     redFlags: { title: string; description: string }[];
     userSubscriptionStatus: string;
     candidateName?: string;
+    promptId?: string;
   }): Promise<ReadableStream<Uint8Array>> {
     const isPro = userSubscriptionStatus === 'active';
     
@@ -907,29 +931,68 @@ Responde exactamente con este formato JSON:
     const resolvedName = this.extractCandidateName(cvMarkdown) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
 
-    const systemPrompt = `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "${jobTitle}" en la empresa "${company}".
-Debes reescribir la sección de experiencia laboral del candidato de acuerdo con las instrucciones provistas por el usuario.
-Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
+    // 1. Intentar cargar el prompt de star_optimize desde la base de datos
+    let dbPrompt;
+    try {
+      if (promptId) {
+        [dbPrompt] = await db
+          .select()
+          .from(prompts)
+          .where(eq(prompts.id, promptId))
+          .limit(1);
+      } else {
+        [dbPrompt] = await db
+          .select()
+          .from(prompts)
+          .where(and(eq(prompts.key, 'star_optimize'), eq(prompts.isActive, true)))
+          .limit(1);
+      }
+    } catch (err) {
+      console.error("[AIService] Error al obtener prompt star_optimize de la DB:", err);
+    }
 
-${MARKDOWN_STRUCTURE_INSTRUCTIONS}
-${nameDirective}`;
+    const defaultSystem = `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
+Debes reescribir la sección de experiencia laboral del candidato de acuerdo con las instrucciones provistas por el usuario.
+Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.`;
+
+    const defaultUser = `Aquí tienes mi CV actual:
+{{cv}}
+
+Aquí tienes la descripción de la oferta:
+{{job}}
+
+Estas son las palabras clave esenciales que me faltan:
+{{keywords}}
+
+Estas son las Red Flags identificadas que debo eliminar o mitigar:
+{{redflags}}
+
+Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`;
+
+    let systemPrompt = dbPrompt?.systemPrompt || defaultSystem;
+    systemPrompt = systemPrompt
+      .replace(/\{\{company\}\}/g, company)
+      .replace(/\{\{jobTitle\}\}/g, jobTitle);
+
+    if (dbPrompt) {
+      if (dbPrompt.isStrict) {
+        systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
+      } else {
+        systemPrompt += "\n\n" + nameDirective;
+      }
+    } else {
+      systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
+    }
 
     const keywordsList = missingKeywords.join(', ');
     const redFlagsList = redFlags.map(rf => `- ${rf.title}: ${rf.description}`).join('\n');
 
-    const userPrompt = `Aquí tienes mi CV actual:
-${cvMarkdown}
-
-Aquí tienes la descripción de la oferta:
-${jobDescription}
-
-Estas son las palabras clave esenciales que me faltan:
-${keywordsList}
-
-Estas son las Red Flags identificadas que debo eliminar o mitigar:
-${redFlagsList}
-
-Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`;
+    let userPromptTemplate = dbPrompt?.userPrompt || defaultUser;
+    const userPrompt = userPromptTemplate
+      .replace(/\{\{cv\}\}/g, cvMarkdown)
+      .replace(/\{\{job\}\}/g, jobDescription)
+      .replace(/\{\{keywords\}\}/g, keywordsList)
+      .replace(/\{\{redflags\}\}/g, redFlagsList);
 
     if (provider === 'gemini') {
       return await this.streamGeminiOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);

@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
       missingKeywords,
       redFlags,
       addToKanban = true,
-      targetCvId
+      targetCvId,
+      promptId
     } = body;
 
     if (!baseCvId || !jobTitle || !company || !jobDescription || !missingKeywords || !redFlags || !targetCvId) {
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
       missingKeywords: missingKeywords,
       redFlags: redFlags,
       userSubscriptionStatus: user.subscriptionStatus,
-      candidateName: user.name || ''
+      candidateName: user.name || '',
+      promptId: promptId
     });
 
     const reader = aiStream.getReader();
