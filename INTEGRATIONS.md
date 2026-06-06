@@ -32,7 +32,7 @@ Cada usuario con suscripción **Premium/PRO** activa puede generar su propia cla
 ### B. Clave de API Global (`MATCHPLY_EXTERNAL_API_KEY`)
 Clave de sistema configurada en las variables de entorno del servidor de producción.
 
-* **Propósito:** Retrocompatibilidad e integración robusta de backend a backend con servicios centralizados asociados (ej. la plataforma madre **Career-Ops**).
+* **Propósito:** Retrocompatibilidad e integración robusta de backend a backend con servicios centralizados o plataformas de terceros asociadas.
 * **Particularidad:** Al usar esta clave global, es **obligatorio** proveer el campo `userEmail` en el cuerpo del JSON para determinar sobre qué cuenta de Matchply impactar la sincronización.
 
 ---
@@ -60,7 +60,7 @@ El endpoint acepta un objeto altamente detallado que combina el registro de la c
   "platform": "linkedin",                   // Opcional ('linkedin', 'infojobs', 'indeed', 'other')
   "description": "...",                     // Opcional (Descripción de la oferta)
   "status": "applied",                      // Opcional ('interested', 'applied', 'interview', 'offer', 'rejected')
-  "source": "career-ops",                   // Opcional (Origen del scraping)
+  "source": "api",                          // Opcional (Origen del scraping)
   "livenessStatus": "active",               // Opcional ('active' | 'expired')
   
   // Evaluación Avanzada de IA (Opcional)
@@ -163,10 +163,10 @@ Un candidato navega por LinkedIn, InfoJobs o Indeed. Al hacer clic en un botón 
 3. El Kanban del dashboard de Matchply se actualiza en tiempo real agregando la tarjeta en la columna `interested` (Interesado).
 4. El backend genera instantáneamente una sugerencia de CV optimizado al estilo Harvard, lista para descargar.
 
-### Caso 2: Plataforma de Búsqueda Automatizada (Career-Ops Hub)
-Un agente automatizado o crawler corporativo descubre ofertas alineadas al perfil del candidato:
-1. El backend de **Career-Ops** procesa la oferta de empleo y realiza un pre-análisis de IA (calcula un match del 85%, extrae TL;DRs, red flags y genera STAR stories para la entrevista).
-2. Llama al endpoint utilizando la **Clave Global** e indicando el correo electrónico del candidato.
+### Caso 2: Plataforma o Agente de Búsqueda Automatizada (Sincronización Externa)
+Un agente automatizado o crawler corporativo de terceros descubre ofertas alineadas al perfil del candidato:
+1. El backend del agente procesa la oferta de empleo y realiza un pre-análisis de IA (calcula un match de compatibilidad, extrae TL;DRs, red flags y genera STAR stories para la entrevista).
+2. Llama al endpoint utilizando la **Clave Global** (o Clave Personal) indicando el correo electrónico del candidato.
 3. El candidato amanece cada mañana con su tablero Kanban pre-poblado de ofertas ya evaluadas y con cartas de presentación personalizadas listas para enviar, ahorrando horas diarias de búsqueda manual.
 
 ### Caso 3: CLI Script personal para desarrolladores (Python / Node)

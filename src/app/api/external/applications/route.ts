@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
           .insert(cvs)
           .values({
             userId,
-            title: `[Career-Ops] - ${title} (${company})`,
+            title: `[API] - ${title} (${company})`,
             content: cvMarkdownTailored,
             isBase: false,
             isPrincipal: false,
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
       platform: platform || 'other',
       description: description || null,
       status: status || 'interested',
-      source: source || 'career-ops',
+      source: source || 'api',
       livenessStatus: livenessStatus || 'active',
       scoreOverall: scoreOverall !== undefined ? parseFloat(scoreOverall) : null,
       scoreBreakdown: scoreBreakdown || null,

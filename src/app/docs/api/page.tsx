@@ -12,7 +12,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 export default function ApiDocsPage() {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'extension' | 'careerops' | 'developer'>('extension');
+  const [activeTab, setActiveTab] = useState<'extension' | 'developer'>('extension');
   const [copiedText, setCopiedText] = useState<'key' | 'curl' | 'python' | null>(null);
 
   const handleCopy = (text: string, id: 'key' | 'curl' | 'python') => {
@@ -180,8 +180,8 @@ print(response.json())`;
                   </h3>
                   <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 leading-relaxed">
                     {language === 'es' 
-                      ? 'Utiliza tu clave personal para autorizar las solicitudes. Configúrala en extensiones de navegador compatibles, scripts en segundo plano o tu panel Career-Ops.' 
-                      : 'Use your personal key to authorize requests. Plug it into compatible browser extensions, background scripts, or your Career-Ops dashboard.'}
+                      ? 'Utiliza tu clave personal para autorizar las solicitudes. Configúrala en extensiones de navegador compatibles, scripts en segundo plano o tus propias herramientas integradas.' 
+                      : 'Use your personal key to authorize requests. Plug it into compatible browser extensions, background scripts, or your own integrated tools.'}
                   </p>
                 </div>
               </div>
@@ -208,17 +208,6 @@ print(response.json())`;
                 >
                   <Chrome className="w-3.5 h-3.5" />
                   {language === 'es' ? 'Extensión Chrome' : 'Chrome Ext'}
-                </button>
-                <button
-                  onClick={() => setActiveTab('careerops')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'careerops'
-                      ? 'bg-white dark:bg-[#0b0f19] text-[#8b5cf6] shadow-xs'
-                      : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
-                  }`}
-                >
-                  <Server className="w-3.5 h-3.5" />
-                  Career-Ops
                 </button>
                 <button
                   onClick={() => setActiveTab('developer')}
@@ -302,25 +291,26 @@ print(response.json())`;
                 </div>
               )}
 
-              {/* TAB 2: CAREER-OPS */}
-              {activeTab === 'careerops' && (
+              {/* TAB 2: DEVELOPER / API */}
+              {activeTab === 'developer' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex gap-4 items-start">
                     <div className="p-3 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-xl shrink-0">
-                      <Server className="w-6 h-6" />
+                      <Terminal className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
                       <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white">
-                        Integración con Plataforma Career-Ops
+                        {language === 'es' ? 'Desarrollo de Scripts Personalizados y API' : 'Custom Developer Scripts & API'}
                       </h3>
                       <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans font-light leading-relaxed">
-                        {language === 'es' 
-                          ? 'Vincula tu cuenta para sincronizar de manera automatizada las vacantes pre-evaluadas y optimizadas de la plataforma madre directamente a tu Kanban personal.'
-                          : 'Link your workspace to dynamically sync pre-evaluated job vacancies directly to your visual board from the master Career-Ops engine.'}
+                        {language === 'es'
+                          ? 'Interactúa con nuestra API mediante Curl, Python, Node.js o configurando variables de entorno en tus propios agentes de automatización.'
+                          : 'Interact with our developer endpoint using Curl, Python, Node.js, or configuring environment variables in your own automated agents.'}
                       </p>
                     </div>
                   </div>
 
+                  {/* Variables de Entorno Section */}
                   <div className="space-y-3 font-sans">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-[#1e1b4b]/80 dark:text-slate-350">
                       {language === 'es' ? 'Variables locales en tu archivo .env' : 'Local variables for your .env file'}
@@ -348,30 +338,9 @@ print(response.json())`;
                         : 'By providing your personal key, Matchply routes all synchronization calls strictly to your workspace, ignoring any email field overrides.'}
                     </p>
                   </div>
-                </div>
-              )}
-
-              {/* TAB 3: CUSTOM CODING */}
-              {activeTab === 'developer' && (
-                <div className="space-y-6 animate-fadeIn">
-                  <div className="flex gap-4 items-start">
-                    <div className="p-3 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-xl shrink-0">
-                      <Terminal className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white">
-                        {language === 'es' ? 'Desarrollo de Scripts Personalizados' : 'Custom Developer Scripts'}
-                      </h3>
-                      <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans font-light leading-relaxed">
-                        {language === 'es'
-                          ? 'Interactúa con nuestra API mediante Curl, Python, Node.js o cualquier lenguaje capaz de enviar peticiones JSON.'
-                          : 'Interact with our developer endpoint using Curl, Python, Node.js, or any HTTP JSON client.'}
-                      </p>
-                    </div>
-                  </div>
 
                   {/* Code Container */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 pt-2">
                     {/* cURL Block */}
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-slate-400 font-sans">cURL</span>

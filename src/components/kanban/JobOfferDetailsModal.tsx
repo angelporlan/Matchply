@@ -79,7 +79,7 @@ export default function JobOfferDetailsModal({
   const [mounted, setMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  // States para integración con Career-Ops
+  // States para integración con API externa
   const [activeTab, setActiveTab] = useState<'details' | 'ai_eval' | 'outreach' | 'star_stories'>('details');
   const [expandedStory, setExpandedStory] = useState<number | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -469,7 +469,7 @@ export default function JobOfferDetailsModal({
                   );
                 }
 
-                // Si es un CV AI-enriched de Career-Ops, mostramos la interfaz moderna de pestañas
+                // Si es una oferta enriquecida con datos de IA, mostramos la interfaz moderna de pestañas
                 return (
                   <div className="space-y-5 flex-1 flex flex-col min-h-0">
                     {/* Barra de Pestañas Premium */}

@@ -262,7 +262,7 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
           </div>
         )}
 
-        {/* Interactive Guide for Career-Ops integration */}
+        {/* Interactive Guide for API integration */}
         {apiKey && (
           <div className="space-y-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
