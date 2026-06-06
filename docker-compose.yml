@@ -30,6 +30,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=development
+      - NEXT_DISABLE_SWC_PATCH=1
     env_file:
       - .env
     volumes:

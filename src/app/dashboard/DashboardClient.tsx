@@ -48,7 +48,7 @@ const promptConfigs: Record<
     activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
     desc: 'Foco absoluto en superar el filtro ATS. Adapta tu CV e inyecta cualquier tecnología o requisito crítico exigido por la oferta para un match del 100%.'
   },
-  'MODO 1 — Honesto (cero invención)': {
+  'Modo Honesto': {
     color: '#3b82f6', // Azul (blue-500)
     hoverBg: 'hover:bg-blue-500/5',
     text: 'text-blue-400',
@@ -56,7 +56,7 @@ const promptConfigs: Record<
     activeBorder: 'border-blue-500 ring-2 ring-blue-500/20',
     desc: ''
   },
-  'MODO 2 — Adaptado (con inferencias razonables)': {
+  'Modo Adaptado': {
     color: '#f97316', // Naranja (orange-500)
     hoverBg: 'hover:bg-orange-500/5',
     text: 'text-orange-400',
@@ -64,7 +64,7 @@ const promptConfigs: Record<
     activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
     desc: ''
   },
-  'MODO 3 — Agresivo (máximo match, mínima ética 😅)': {
+  'Modo Agresivo': {
     color: '#ef4444', // Rojo (red-500)
     hoverBg: 'hover:bg-red-500/5',
     text: 'text-red-400',
@@ -173,7 +173,7 @@ export default function DashboardClient({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       if (file.type === "application/pdf") {
@@ -202,7 +202,7 @@ export default function DashboardClient({
   const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (importLoading) return;
-    
+
     setImportError(null);
     setImportLoading(true);
     setImportStep(t('dashboard.cvs.import.stepExtract'));
@@ -216,20 +216,20 @@ export default function DashboardClient({
           throw new Error(language === 'es' ? 'Debe seleccionar un archivo PDF.' : 'Please select a PDF file.');
         }
         cvTitle = selectedFile.name.replace(/\.[^/.]+$/, "");
-        
+
         // 1. Extraer texto del PDF
         const parseFormData = new FormData();
         parseFormData.append('file', selectedFile);
-        
+
         const parseResponse = await fetch('/api/cv/parse-pdf', {
           method: 'POST',
           body: parseFormData
         });
-        
+
         if (!parseResponse.ok) {
           throw new Error(language === 'es' ? 'Error al leer el archivo PDF.' : 'Error reading the PDF file.');
         }
-        
+
         const parseData = await parseResponse.json();
         if (!parseData.success || !parseData.text) {
           throw new Error(parseData.error || (language === 'es' ? 'No se pudo extraer texto del PDF.' : 'Could not extract text from the PDF.'));
@@ -494,8 +494,8 @@ export default function DashboardClient({
           <button
             onClick={handleAiButtonClick}
             className={`font-bold px-4 py-2.5 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm font-display hover:-translate-y-0.5 ${principalCv
-                ? 'bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white border border-[#8b5cf6]/20'
-                : 'bg-white dark:bg-[#1f2937] text-[#1e1b4b]/40 dark:text-slate-500 border border-[#1e1b4b]/10 dark:border-white/5 cursor-not-allowed'
+              ? 'bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white border border-[#8b5cf6]/20'
+              : 'bg-white dark:bg-[#1f2937] text-[#1e1b4b]/40 dark:text-slate-500 border border-[#1e1b4b]/10 dark:border-white/5 cursor-not-allowed'
               }`}
           >
             {principalCv ? (
@@ -593,9 +593,8 @@ export default function DashboardClient({
                           }
                         }
                       }}
-                      className={`group border block border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center h-full flex flex-col justify-between ${
-                        dragActiveDirect ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 ring-2 ring-[#8b5cf6]/20' : ''
-                      }`}
+                      className={`group border block border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center h-full flex flex-col justify-between ${dragActiveDirect ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 ring-2 ring-[#8b5cf6]/20' : ''
+                        }`}
                     >
                       <div>
                         <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
@@ -645,13 +644,12 @@ export default function DashboardClient({
                     onDragOver={handleDrag}
                     onDragLeave={handleDrag}
                     onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-[12px] p-10 text-center transition-all ${
-                      dragActive
+                    className={`border-2 border-dashed rounded-[12px] p-10 text-center transition-all ${dragActive
                         ? 'border-[#8b5cf6] bg-[#8b5cf6]/5'
                         : selectedFile
-                        ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
-                        : 'border-[#1e1b4b]/10 dark:border-white/10 bg-[#fafafa] dark:bg-[#0b0f19]/25 hover:border-[#8b5cf6]/30'
-                    }`}
+                          ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
+                          : 'border-[#1e1b4b]/10 dark:border-white/10 bg-[#fafafa] dark:bg-[#0b0f19]/25 hover:border-[#8b5cf6]/30'
+                      }`}
                   >
                     <input
                       type="file"
@@ -660,7 +658,7 @@ export default function DashboardClient({
                       onChange={handleFileChange}
                       className="hidden"
                     />
-                    
+
                     {selectedFile ? (
                       <div className="space-y-3">
                         <div className="w-12 h-12 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 rounded-xl flex items-center justify-center mx-auto shadow-sm">
@@ -730,9 +728,8 @@ export default function DashboardClient({
                     <button
                       type="submit"
                       disabled={!pastedText.trim()}
-                      className={`px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${
-                        !pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${!pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                     >
                       <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
                       {t('dashboard.cvs.import.submitCta')}
@@ -781,8 +778,8 @@ export default function DashboardClient({
             <div
               key={cv.id}
               className={`bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
-                  ? 'border-[#8b5cf6]/30 dark:border-[#8b5cf6]/40 bg-[#8b5cf6]/2 dark:bg-[#8b5cf6]/2'
-                  : 'border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10'
+                ? 'border-[#8b5cf6]/30 dark:border-[#8b5cf6]/40 bg-[#8b5cf6]/2 dark:bg-[#8b5cf6]/2'
+                : 'border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10'
                 }`}
             >
               {/* Decorative glowing accent */}
@@ -796,8 +793,8 @@ export default function DashboardClient({
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
-                          ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10'
-                          : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10'
+                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                         }`}>
                         {cv.isBase ? t('dashboard.cvs.card.base') : t('dashboard.cvs.card.copy')}
                       </span>
@@ -819,8 +816,8 @@ export default function DashboardClient({
                   <button
                     onClick={() => !cv.isPrincipal && handleMarkAsPrincipal(cv.id)}
                     className={`p-1.5 rounded-lg border transition-all ${cv.isPrincipal
-                        ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20 shadow-sm'
-                        : 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/40 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10 hover:text-[#8b5cf6] dark:hover:text-violet-400 hover:border-[#8b5cf6]/20 opacity-0 group-hover:opacity-100 transition-opacity'
+                      ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20 shadow-sm'
+                      : 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/40 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10 hover:text-[#8b5cf6] dark:hover:text-violet-400 hover:border-[#8b5cf6]/20 opacity-0 group-hover:opacity-100 transition-opacity'
                       }`}
                     title={cv.isPrincipal ? t('dashboard.cvs.card.primary') : t('dashboard.cvs.card.setPrimary')}
                     disabled={cv.isPrincipal || isPending}
@@ -1006,13 +1003,13 @@ export default function DashboardClient({
                           const promptColor = prompt.color || config.color;
                           const isSelected = aiFormData.promptId === prompt.id;
                           const shadowClass = (prompt.name === 'Modo Fidelidad' || prompt.name.includes('Honesto'))
-                            ? 'shadow-sky-500/5' 
+                            ? 'shadow-sky-500/5'
                             : (prompt.name === 'Modo Rendimiento' || prompt.name.includes('Adaptado'))
-                              ? 'shadow-yellow-500/5' 
+                              ? 'shadow-yellow-500/5'
                               : 'shadow-red-500/5';
-                          
+
                           const promptInfo = getPromptTranslation(prompt);
-                          
+
                           return (
                             <div
                               key={prompt.id}
@@ -1025,7 +1022,7 @@ export default function DashboardClient({
                                   <span className={`text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${config.bg} ${config.text}`}>
                                     {promptInfo.name.replace('Modo ', '').replace(' Mode', '')}
                                   </span>
-                                  <div 
+                                  <div
                                     className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
                                     style={{ backgroundColor: promptColor }}
                                   />
@@ -1039,7 +1036,7 @@ export default function DashboardClient({
 
                               {/* Selected checkmark dot glow */}
                               {isSelected && (
-                                <div 
+                                <div
                                   className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
                                   style={{ backgroundColor: promptColor }}
                                 />

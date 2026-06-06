@@ -22,7 +22,7 @@ async function seed() {
       console.log(`ℹ️ El usuario "${email}" ya existe. Actualizando a rol ADMIN y PREMIUM...`);
       await db
         .update(users)
-        .set({ 
+        .set({
           role: 'admin',
           subscriptionStatus: 'active'
         })
@@ -65,8 +65,8 @@ async function seed() {
 
     const promptsToSeed = [
       {
-        name: 'Método STAR — Análisis de Match',
-        nameEn: 'STAR Method — Match Analysis',
+        name: 'Análisis de Match',
+        nameEn: 'Match Analysis',
         key: 'star_analyze',
         description: 'Auditoría semántica del CV contra el puesto, generando puntuación, brechas técnicas y 3 Red Flags críticas.',
         descriptionEn: 'Semantic audit of the CV against the position, generating match score, technical gaps, and 3 critical Red Flags.',
@@ -125,8 +125,8 @@ Responde exactamente con este formato JSON:
         isStrict: false,
       },
       {
-        name: 'Método STAR — Honesto (cero invención)',
-        nameEn: 'STAR Method — Honest (zero invention)',
+        name: 'Modo Honesto',
+        nameEn: 'Honest Mode',
         key: 'star_optimize',
         description: 'Reescribe la sección de experiencia usando logros STAR y la fórmula XYZ, pero ciñéndose estrictamente a las tecnologías y datos reales de tu CV.',
         descriptionEn: 'Rewrites the experience section using STAR achievements and the XYZ formula, sticking strictly to the real technologies and data in your CV.',
@@ -164,8 +164,8 @@ Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y
         isStrict: true,
       },
       {
-        name: 'Método STAR — Adaptado (con inferencias razonables)',
-        nameEn: 'STAR Method — Adapted (reasonable inference)',
+        name: 'Modo Adaptado',
+        nameEn: 'Adapted Mode',
         key: 'star_optimize',
         description: 'Reformula logros con el método STAR e inyecta palabras clave equivalentes de forma realista sin inventar roles ni empresas.',
         descriptionEn: 'Reformulates achievements with the STAR method and injects equivalent keywords realistically without inventing roles or companies.',
@@ -203,8 +203,8 @@ Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y
         isStrict: true,
       },
       {
-        name: 'Método STAR — Agresivo (máximo match, mínima ética 😅)',
-        nameEn: 'STAR Method — Aggressive (maximum match, low ethics 😅)',
+        name: 'Modo Agresivo',
+        nameEn: 'Aggressive Mode',
         key: 'star_optimize',
         description: 'Reescribe la sección de experiencia maximizando el match ATS, estimando métricas XYZ e inyectando cualquier tecnología crítica ausente.',
         descriptionEn: 'Rewrites the experience section maximizing ATS match, estimating XYZ metrics, and injecting any missing critical technology.',
@@ -243,8 +243,8 @@ Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y
         isStrict: true,
       },
       {
-        name: 'MODO 1 — Honesto (cero invención)',
-        nameEn: 'MODE 1 — Honest (zero invention)',
+        name: 'Modo Honesto',
+        nameEn: 'Honest Mode',
         key: 'optimize_cv',
         description: 'Optimización estricta basada únicamente en el contenido de tu CV. No añade habilidades ni experiencias que no estén en el documento.',
         descriptionEn: 'Strict optimization based solely on your CV\'s content. Does not add skills or experiences that are not in the document.',
@@ -264,8 +264,8 @@ Oferta de Trabajo: {{job}}`,
         isStrict: true,
       },
       {
-        name: 'MODO 2 — Adaptado (con inferencias razonables)',
-        nameEn: 'MODE 2 — Adapted (reasonable inference)',
+        name: 'Modo Adaptado',
+        nameEn: 'Adapted Mode',
         key: 'optimize_cv',
         description: 'Reformula y destaca habilidades equivalentes y transferibles de forma realista. Permite añadir 1-2 habilidades lógicamente deducibles.',
         descriptionEn: 'Reformulates and highlights equivalent and transferable skills realistically. Allows adding 1-2 logically deducible skills.',
@@ -285,8 +285,8 @@ Oferta de Trabajo: {{job}}`,
         isStrict: true,
       },
       {
-        name: 'MODO 3 — Agresivo (máximo match, mínima ética 😅)',
-        nameEn: 'MODE 3 — Aggressive (maximum match, low ethics 😅)',
+        name: 'Modo Agresivo',
+        nameEn: 'Aggressive Mode',
         key: 'optimize_cv',
         description: 'Reescribe el CV estimando logros e inyectando tecnologías clave exigidas por la oferta para maximizar tu compatibilidad y pasar los filtros ATS.',
         descriptionEn: 'Rewrites the CV estimating achievements and injecting key technologies required by the offer to maximize compatibility and pass ATS filters.',

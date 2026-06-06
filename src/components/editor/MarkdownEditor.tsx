@@ -530,7 +530,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Visual Editor Toolbar */}
       {mode === 'visual' && (
-        <div className="flex items-center gap-1 px-6 py-2 bg-[#fafafa]/80 dark:bg-[#0b101c]/70 border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0 overflow-x-auto select-none z-10 scrollbar-none">
+        <div className="relative flex items-center flex-wrap gap-1 px-6 py-2 bg-[#fafafa]/80 dark:bg-[#0b101c]/70 border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0 select-none z-20">
           {/* Bold Button */}
           <div className="relative group">
             <button

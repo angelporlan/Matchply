@@ -64,7 +64,7 @@ interface AnalysisResult {
 // Helper robusto para parsear JSON parcial durante el streaming
 function parsePartialJson(jsonStr: string): AnalysisResult | null {
   let cleanStr = jsonStr.trim();
-  
+
   // Buscar dónde empieza el JSON por si la IA añade texto al principio
   const startIndex = cleanStr.indexOf('{');
   if (startIndex === -1) return null;
@@ -210,7 +210,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         const chunk = decoder.decode(value, { stream: !done });
-        
+
         if (chunk.includes('[ERROR:')) {
           const errorMsg = chunk.split('[ERROR:')[1].replace(']', '').trim();
           throw new Error(errorMsg);
@@ -292,8 +292,8 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
             {language === 'es' ? 'Método STAR' : 'STAR Method'}
           </h1>
           <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            {language === 'es' 
-              ? 'Analiza tu CV contra ofertas de empleo específicas. Detecta brechas de experiencia, añade palabras clave críticas usando la fórmula XYZ de Google y elimina las Red Flags más comunes.'
+            {language === 'es'
+              ? 'Analiza tu CV contra ofertas de empleo específicas. Detecta brechas de experiencia, añade palabras clave críticas usando la fórmula STAR de Google y elimina las Red Flags más comunes.'
               : 'Analyze your resume against specific job opportunities. Identify experience gaps, inject critical keywords using Google\'s XYZ formula, and eliminate common Red Flags.'}
           </p>
         </div>
@@ -307,7 +307,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
             {language === 'es' ? 'No tienes currículums guardados' : 'No saved resumes found'}
           </h3>
           <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mb-6 leading-relaxed">
-            {language === 'es' 
+            {language === 'es'
               ? 'Para utilizar el Método STAR, primero debes crear tu currículum base. Dirígete a la pestaña "Mis CVs" para subir o crear tu primer currículum.'
               : 'To use the STAR Method, you must first create a base resume. Head over to "My CVs" to upload or draft your first resume.'}
           </p>
@@ -322,7 +322,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
       ) : (
         /* Formulario y Resultados */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Columna Izquierda: Formulario de Entrada */}
           <div className="lg:col-span-5 bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm space-y-6">
             <h2 className="text-sm font-bold text-[#1e1b4b] dark:text-white uppercase tracking-wider font-display border-b border-[#1e1b4b]/5 dark:border-white/5 pb-2">
@@ -421,8 +421,8 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                     {language === 'es' ? 'Registrar en el Kanban' : 'Register in Kanban'}
                   </label>
                   <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 mt-0.5 leading-relaxed font-sans">
-                    {language === 'es' 
-                      ? 'Crea una tarjeta de seguimiento en tu embudo de candidaturas al optimizar.' 
+                    {language === 'es'
+                      ? 'Crea una tarjeta de seguimiento en tu embudo de candidaturas al optimizar.'
                       : 'Creates a tracking card in your job application funnel upon optimization.'}
                   </p>
                 </div>
@@ -439,8 +439,8 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   onChange={(e) => setJobDescription(e.target.value)}
                   disabled={isAnalyzing || streamingComplete}
                   rows={8}
-                  placeholder={language === 'es' 
-                    ? 'Pega la descripción completa del puesto aquí...' 
+                  placeholder={language === 'es'
+                    ? 'Pega la descripción completa del puesto aquí...'
                     : 'Paste the complete job description here...'}
                   className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all disabled:opacity-50 shadow-xs resize-none font-sans"
                 />
@@ -450,11 +450,10 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
               <button
                 type="submit"
                 disabled={isAnalyzing || streamingComplete}
-                className={`w-full text-white font-bold py-3 px-4 rounded-[8px] text-xs transition-all shadow-md flex items-center justify-center gap-2 font-display ${
-                  streamingComplete 
-                    ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60 text-slate-500 dark:text-slate-450' 
+                className={`w-full text-white font-bold py-3 px-4 rounded-[8px] text-xs transition-all shadow-md flex items-center justify-center gap-2 font-display ${streamingComplete
+                    ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-60 text-slate-500 dark:text-slate-450'
                     : 'bg-[#1e1b4b] hover:bg-[#1e1b4b]/95 hover:-translate-y-0.5 cursor-pointer'
-                }`}
+                  }`}
               >
                 {isAnalyzing ? (
                   <>
@@ -478,7 +477,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
 
           {/* Columna Derecha: Visualizador del Reporte */}
           <div ref={resultsRef} className="lg:col-span-7 space-y-6">
-            
+
             {/* Visualización inicial (vacío o cargando) */}
             {!isAnalyzing && !parsedData && (
               <div className="bg-white dark:bg-[#1f2937] border border-dashed border-[#1e1b4b]/20 dark:border-white/10 rounded-[12px] p-12 text-center text-[#1e1b4b]/50 dark:text-slate-500 shadow-xs flex flex-col items-center justify-center min-h-[450px]">
@@ -517,11 +516,11 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
             {/* Dashboard interactivo con datos cargados/streaming */}
             {parsedData && (
               <div className="space-y-6">
-                
+
                 {/* Texto fijo arriba */}
                 <p className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-300 italic tracking-wide font-sans pl-1">
-                  {language === 'es' 
-                    ? `Aquí va mi análisis como reclutador senior de ${company || 'esta empresa'}:` 
+                  {language === 'es'
+                    ? `Aquí va mi análisis como reclutador senior de ${company || 'esta empresa'}:`
                     : `Here is my analysis as a senior recruiter from ${company || 'this company'}:`}
                 </p>
 
@@ -530,7 +529,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   <span className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-widest block mb-4 font-display">
                     {language === 'es' ? 'Puntuación de Match' : 'Match Score'}
                   </span>
-                  
+
                   <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                     {/* Gran círculo de puntuación con SVG progress ring */}
                     <div className="relative flex items-center justify-center shrink-0 w-28 h-28 bg-[#fafafa] dark:bg-[#0b0f19] rounded-full shadow-xs">
@@ -563,9 +562,8 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
 
                       {/* Text Inside Score Circle */}
                       <div className="text-center font-display z-10">
-                        <span className={`text-4xl font-extrabold tracking-tight ${
-                          scoreVal >= 70 ? 'text-[#2ecc71]' : scoreVal >= 40 ? 'text-amber-500' : 'text-rose-500'
-                        }`}>
+                        <span className={`text-4xl font-extrabold tracking-tight ${scoreVal >= 70 ? 'text-[#2ecc71]' : scoreVal >= 40 ? 'text-amber-500' : 'text-rose-500'
+                          }`}>
                           {parsedData.score !== undefined ? parsedData.score : '0'}
                         </span>
                         <span className="text-xs text-[#1e1b4b]/50 dark:text-slate-400 font-bold block -mt-1">
@@ -616,47 +614,47 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                 )}
 
                 {/* Palabras Clave */}
-                {((parsedData.missingKeywords && parsedData.missingKeywords.length > 0) || 
+                {((parsedData.missingKeywords && parsedData.missingKeywords.length > 0) ||
                   (parsedData.presentKeywords && parsedData.presentKeywords.length > 0)) && (
-                  <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] p-6 shadow-sm space-y-4">
-                    <span className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-widest block font-display">
-                      {language === 'es' ? 'Palabras clave que te faltan' : 'Missing keywords'}
-                    </span>
+                    <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] p-6 shadow-sm space-y-4">
+                      <span className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-widest block font-display">
+                        {language === 'es' ? 'Palabras clave que te faltan' : 'Missing keywords'}
+                      </span>
 
-                    {/* Pills de palabras clave faltantes */}
-                    {parsedData.missingKeywords && parsedData.missingKeywords.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {parsedData.missingKeywords.map((kw, idx) => (
-                          <span
-                            key={idx}
-                            className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/15 text-xs font-medium px-3.5 py-1.5 rounded-full shadow-2xs tracking-wide font-sans"
-                          >
-                            {kw}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                      {/* Pills de palabras clave faltantes */}
+                      {parsedData.missingKeywords && parsedData.missingKeywords.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {parsedData.missingKeywords.map((kw, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/15 text-xs font-medium px-3.5 py-1.5 rounded-full shadow-2xs tracking-wide font-sans"
+                            >
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
-                    {/* Palabras clave presentes */}
-                    {parsedData.presentKeywords && parsedData.presentKeywords.length > 0 && (
-                      <div className="pt-2 border-t border-[#1e1b4b]/5 dark:border-white/5">
-                        <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans leading-relaxed">
-                          <strong className="font-semibold text-[#1e1b4b]/80 dark:text-slate-350">
-                            {language === 'es' ? 'Keywords presentes en el CV que sí cuentan: ' : 'Keywords present in the CV that count: '}
-                          </strong>
-                          {parsedData.presentKeywords.join(', ')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {/* Palabras clave presentes */}
+                      {parsedData.presentKeywords && parsedData.presentKeywords.length > 0 && (
+                        <div className="pt-2 border-t border-[#1e1b4b]/5 dark:border-white/5">
+                          <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans leading-relaxed">
+                            <strong className="font-semibold text-[#1e1b4b]/80 dark:text-slate-350">
+                              {language === 'es' ? 'Keywords presentes en el CV que sí cuentan: ' : 'Keywords present in the CV that count: '}
+                            </strong>
+                            {parsedData.presentKeywords.join(', ')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 {/* Red Flags */}
                 {parsedData.redFlags && parsedData.redFlags.length > 0 && (
                   <div className="space-y-4">
                     <span className="text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-widest block pl-1 font-display">
-                      {language === 'es' 
-                        ? `${parsedData.redFlags.length} Red Flags — lo que un reclutador ve en 10 segundos` 
+                      {language === 'es'
+                        ? `${parsedData.redFlags.length} Red Flags — lo que un reclutador ve en 10 segundos`
                         : `${parsedData.redFlags.length} Red Flags — what a recruiter spots in 10 seconds`}
                     </span>
 
@@ -684,7 +682,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                   <div className="bg-[#1e1b4b]/5 dark:bg-[#1e1b4b]/20 border border-[#1e1b4b]/10 dark:border-[#8b5cf6]/10 rounded-[12px] p-6 shadow-2xs space-y-2 relative overflow-hidden">
                     {/* Decorative glow behind verdict */}
                     <div className="absolute top-[-30%] left-[-30%] w-48 h-48 bg-[#8b5cf6]/5 rounded-full filter blur-xl pointer-events-none" />
-                    
+
                     <span className="text-[10px] font-bold text-[#8b5cf6] dark:text-violet-400 uppercase tracking-widest block font-display">
                       {language === 'es' ? 'Veredicto' : 'Verdict'}
                     </span>
@@ -718,11 +716,10 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                             key={p.id}
                             type="button"
                             onClick={() => setSelectedPromptId(p.id)}
-                            className={`p-4 rounded-[8px] border text-left transition-all relative cursor-pointer ${
-                              isSelected
+                            className={`p-4 rounded-[8px] border text-left transition-all relative cursor-pointer ${isSelected
                                 ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 shadow-2xs'
                                 : 'border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/20'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
@@ -757,7 +754,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                       </h4>
                       <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans">
                         {language === 'es'
-                          ? 'Corrige las Red Flags e inyecta las palabras clave usando la fórmula XYZ de Google.'
+                          ? 'Corrige las Red Flags e inyecta las palabras clave usando la fórmula STAR de Google.'
                           : 'Fix Red Flags and inject missing keywords using Google\'s XYZ formula.'}
                       </p>
                     </div>
