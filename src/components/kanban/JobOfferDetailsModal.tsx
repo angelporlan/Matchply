@@ -795,12 +795,24 @@ export default function JobOfferDetailsModal({
 
                               return (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {flags.map((flag: string, idx: number) => (
-                                    <div key={idx} className="flex items-start gap-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 dark:border-rose-500/20 px-3 py-2 rounded-xl text-[11px] font-medium text-rose-600 dark:text-rose-400 font-sans leading-snug">
-                                      <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 stroke-[1.75] mt-0.5" />
-                                      <span>{flag}</span>
-                                    </div>
-                                  ))}
+                                  {flags.map((flag: any, idx: number) => {
+                                    const isObj = typeof flag === 'object' && flag !== null;
+                                    const title = isObj ? flag.title : '';
+                                    const description = isObj ? flag.description : flag;
+                                    return (
+                                      <div key={idx} className="flex items-start gap-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/10 dark:border-rose-500/20 px-3 py-2 rounded-xl text-[11px] font-medium text-rose-600 dark:text-rose-400 font-sans leading-snug w-full">
+                                        <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 stroke-[1.75] mt-0.5" />
+                                        <div className="flex-1 space-y-0.5">
+                                          {title && (
+                                            <span className="font-bold block text-rose-700 dark:text-rose-350">{title}</span>
+                                          )}
+                                          <span className={`${title ? 'text-[10px] text-rose-600/90 dark:text-rose-450/90 font-normal' : 'font-medium'} block`}>
+                                            {description}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               );
                             })()}
@@ -818,12 +830,24 @@ export default function JobOfferDetailsModal({
                                   {(() => {
                                     const points = getParsedJson(offer.targetProofPoints);
                                     if (Array.isArray(points)) {
-                                      return points.map((pt: string, idx: number) => (
-                                        <li key={idx} className="flex items-start gap-1.5 text-xs text-[#1e1b4b]/80 dark:text-slate-350 leading-relaxed">
-                                          <Sparkles className="w-3 h-3 text-[#8b5cf6] shrink-0 mt-0.5 stroke-[1.75]" />
-                                          <span>{pt}</span>
-                                        </li>
-                                      ));
+                                      return points.map((pt: any, idx: number) => {
+                                        const isObj = typeof pt === 'object' && pt !== null;
+                                        const title = isObj ? pt.title : '';
+                                        const description = isObj ? pt.description : pt;
+                                        return (
+                                          <li key={idx} className="flex items-start gap-1.5 text-xs text-[#1e1b4b]/80 dark:text-slate-350 leading-relaxed">
+                                            <Sparkles className="w-3 h-3 text-[#8b5cf6] shrink-0 mt-0.5 stroke-[1.75]" />
+                                            <div className="flex-1 space-y-0.5">
+                                              {title && (
+                                                <span className="font-bold block text-violet-700 dark:text-violet-300">{title}</span>
+                                              )}
+                                              <span className={`${title ? 'text-[10px] text-[#1e1b4b]/70 dark:text-slate-400 font-normal' : 'font-light'} block`}>
+                                                {description}
+                                              </span>
+                                            </div>
+                                          </li>
+                                        );
+                                      });
                                     }
                                     return <p className="text-xs italic text-[#1e1b4b]/45">{JSON.stringify(points)}</p>;
                                   })()}
