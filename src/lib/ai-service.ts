@@ -1067,4 +1067,87 @@ Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el 
 - **Metodologías & DevOps:** Docker, CI/CD, Git, Arquitectura de Microservicios
 `;
   }
+
+  static async generateOutreachAndPrep({
+    cvContent,
+    jobDescription,
+    company,
+    jobTitle,
+    userSubscriptionStatus
+  }: {
+    cvContent: string;
+    jobDescription: string;
+    company: string;
+    jobTitle: string;
+    userSubscriptionStatus: string;
+  }): Promise<{ outreachMessage: string; coverLetter: string; interviewQuestions: any[] }> {
+    const isPro = userSubscriptionStatus === 'active';
+    
+    const provider = isPro 
+      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
+      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
+      
+    const model = isPro
+      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
+      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+
+    const systemPrompt = `Eres un experto en selección de personal y marca profesional. Tu tarea es generar:
+1. Un email o mensaje de contacto corto (outreach) para enviar al reclutador por LinkedIn o email (máximo 150 palabras, tono profesional y persuasivo, adaptado a la vacante y la experiencia del candidato).
+2. Una carta de presentación (cover letter) profesional y adaptada estilo Harvard (máximo 300 palabras).
+3. Una lista de las 3-5 preguntas técnicas y de comportamiento más probables en una entrevista para esta vacante, junto con consejos clave para responder cada una usando la experiencia del candidato.
+
+Debes responder ÚNICA y EXCLUSIVAMENTE con un objeto JSON válido que contenga las siguientes claves:
+{
+  "outreachMessage": "...",
+  "coverLetter": "...",
+  "interviewQuestions": [
+    {
+      "question": "...",
+      "tip": "..."
+    }
+  ]
+}
+No uses bloques de código Markdown (sin triple backticks). Responde directamente con el JSON parseable.`;
+
+    const userPrompt = `CV del candidato:
+${cvContent}
+
+Oferta de empleo:
+Puesto: ${jobTitle}
+Empresa: ${company}
+Descripción: ${jobDescription}`;
+
+    let rawResponse = "";
+    if (provider === 'gemini') {
+      rawResponse = await this.callGeminiOficial(cvContent, jobDescription, model, systemPrompt, userPrompt);
+    } else if (provider === 'deepseek') {
+      rawResponse = await this.callDeepSeekOficial(cvContent, jobDescription, model, systemPrompt, userPrompt);
+    } else {
+      rawResponse = await this.callOpenRouter(cvContent, jobDescription, model, systemPrompt, userPrompt);
+    }
+
+    try {
+      let cleanJson = rawResponse.trim();
+      if (cleanJson.includes('```')) {
+        const start = cleanJson.indexOf('{');
+        const end = cleanJson.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          cleanJson = cleanJson.slice(start, end + 1);
+        }
+      }
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      console.error("[AIService.generateOutreachAndPrep] Error parsing JSON:", e, "Raw response:", rawResponse);
+      return {
+        outreachMessage: `Hola, me pongo en contacto en relación con la oferta de ${jobTitle} en ${company}...`,
+        coverLetter: `Estimado equipo de ${company}, les escribo en relación con...`,
+        interviewQuestions: [
+          {
+            question: "¿Por qué te interesa este puesto en nuestra empresa?",
+            tip: "Enfócate en la cultura de la empresa y cómo tu perfil aporta valor."
+          }
+        ]
+      };
+    }
+  }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed framer-motion imports as animations are no longer needed
 import { CV } from '@/db/schema';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import {
@@ -545,7 +545,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                           fill="transparent"
                         />
                         {/* Foreground animated progress circle */}
-                        <motion.circle
+                        <circle
                           cx="56"
                           cy="56"
                           r="50"
@@ -553,9 +553,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                           strokeWidth="8"
                           fill="transparent"
                           strokeDasharray={circumference}
-                          initial={{ strokeDashoffset: circumference }}
-                          animate={{ strokeDashoffset: strokeDashoffset }}
-                          transition={{ duration: 1, ease: 'easeOut' }}
+                          style={{ strokeDashoffset: strokeDashoffset }}
                           strokeLinecap="round"
                         />
                       </svg>
@@ -600,12 +598,10 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                           </div>
                           {/* Barra de progreso */}
                           <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${dim.percentage}%` }}
-                              transition={{ duration: 0.8, ease: "easeOut" }}
+                            <div
+                              style={{ width: `${dim.percentage}%` }}
                               className={`h-full rounded-full ${getDimensionColorClass(dim.percentage)}`}
-                            />
+                            ></div>
                           </div>
                         </div>
                       ))}
@@ -694,11 +690,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
 
                 {/* Panel de Selección de Modo de Optimización */}
                 {streamingComplete && availablePrompts.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white dark:bg-[#1f2937] p-5 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm space-y-4"
-                  >
+                  <div className="bg-white dark:bg-[#1f2937] p-5 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm space-y-4">
                     <div className="flex items-center gap-2 border-b border-[#1e1b4b]/5 dark:border-white/5 pb-2">
                       <Sparkles className="w-4 h-4 text-[#8b5cf6]" />
                       <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
@@ -736,17 +728,12 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                         );
                       })}
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Panel de Acción: Botón Optimizar CV */}
                 {streamingComplete && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="flex flex-col sm:flex-row items-center gap-4 bg-white dark:bg-[#1f2937] p-5 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm justify-between"
-                  >
+                  <div className="flex flex-col sm:flex-row items-center gap-4 bg-white dark:bg-[#1f2937] p-5 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm justify-between">
                     <div className="text-center sm:text-left space-y-1 shrink-0">
                       <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white flex items-center justify-center sm:justify-start gap-1 font-display">
                         <Sparkles className="w-4 h-4 text-[#8b5cf6]" />
@@ -777,7 +764,7 @@ export default function StarClientPage({ initialCvs, isPremium, availablePrompts
                         </>
                       )}
                     </button>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             )}

@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       coverLetter,
       outreachMessage,
       interviewStories,
+      interviewQuestions,
       nextFollowupDate,
       rejectionPatternTags,
     } = body;
@@ -234,6 +235,7 @@ export async function POST(req: NextRequest) {
       coverLetter: coverLetter || null,
       outreachMessage: outreachMessage || null,
       interviewStories: interviewStories || null,
+      interviewQuestions: interviewQuestions || null,
       nextFollowupDate: nextFollowupDate ? new Date(nextFollowupDate) : null,
       rejectionPatternTags: rejectionPatternTags || null,
       updatedAt: new Date(),

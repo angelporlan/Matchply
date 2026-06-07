@@ -1,0 +1,1 @@
+ALTER TABLE "job_offer" ADD COLUMN "interviewQuestions" jsonb;
