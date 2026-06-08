@@ -7,7 +7,6 @@ import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap, Lightbulb } from 'lucide-react';
 import { getServerTranslations } from '@/lib/i18n/server';
-import ApiKeyConsole from '@/components/subscription/ApiKeyConsole';
 
 export default async function SubscriptionPage() {
   const session = await auth();
@@ -269,10 +268,7 @@ export default async function SubscriptionPage() {
           </div>
         )}
 
-        {/* Api Key Console (integraciones automatizadas) */}
-        {isPremium && (
-          <ApiKeyConsole initialApiKey={dbUser?.apiKey || null} isPremium={isPremium} />
-        )}
+
 
       </main>
     </div>

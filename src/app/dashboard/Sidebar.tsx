@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles } from 'lucide-react';
+import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles, Terminal } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
@@ -40,6 +40,11 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
       href: '/dashboard/star',
       icon: Sparkles,
       isAi: true,
+    },
+    {
+      name: t('sidebar.menu.integrations') || 'Integraciones',
+      href: '/dashboard/integrations',
+      icon: Terminal,
     },
     {
       name: t('sidebar.menu.subscription'),

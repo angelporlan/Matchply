@@ -151,6 +151,7 @@ export const translations = {
         kanban: 'Kanban',
         star: 'Método STAR',
         subscription: 'Suscripción',
+        integrations: 'Integraciones',
         adminPanel: 'Panel Admin',
       },
       logout: {
@@ -782,6 +783,7 @@ export const translations = {
         kanban: 'Kanban',
         star: 'STAR Method',
         subscription: 'Subscription',
+        integrations: 'Integrations',
         adminPanel: 'Admin Panel',
       },
       logout: {
