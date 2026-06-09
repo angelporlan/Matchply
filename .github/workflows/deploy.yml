@@ -22,6 +22,12 @@ jobs:
             # Traer los últimos cambios de GitHub
             git pull origin main
             
-            # Levantar los contenedores de producción (reconstruyendo si hay cambios)
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d --build
+            # Construir primero para evitar apagar la app si falla la build.
+            # Si BuildKit tiene snapshots corruptos en el VPS, limpiar caché y reintentar.
+            docker compose -f docker-compose.prod.yml build web || {
+              docker builder prune -af
+              docker compose -f docker-compose.prod.yml build --no-cache web
+            }
+
+            # Levantar/recrear los servicios con la imagen ya construida
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans

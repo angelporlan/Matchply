@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useReducedMotion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 
 // Exact y-axis wave offsets from the user's design
@@ -22,6 +23,10 @@ const platforms = [
   { id: 'fiverr', name: 'Fiverr' },
   { id: 'stepstone', name: 'StepStone' },
   { id: 'jooble', name: 'Jooble' }
+];
+
+const marqueeItems = [
+  ...platforms, ...platforms, ...platforms, ...platforms
 ];
 
 // Custom SVGs for job platforms
@@ -159,13 +164,21 @@ function PlatformIcon({ id }: { id: string }) {
 
 export default function AgentFirstEffect() {
   const { t } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
   const textToType = t('landing.agentEffect.text');
   const [displayedText, setDisplayedText] = useState('');
-  const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.1 });
+  const [ref, inView] = useInView({ threshold: 0.1 });
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTypedRef = useRef(false);
 
   useEffect(() => {
-    if (!inView) return;
+    if (shouldReduceMotion) {
+      setDisplayedText(textToType);
+      hasTypedRef.current = true;
+      return;
+    }
+
+    if (!inView || hasTypedRef.current) return;
 
     setDisplayedText('');
     let currentLength = 0;
@@ -178,6 +191,7 @@ export default function AgentFirstEffect() {
       currentLength++;
       setDisplayedText(textToType.slice(0, currentLength));
       if (currentLength >= textToType.length) {
+        hasTypedRef.current = true;
         if (typingTimerRef.current) {
           clearInterval(typingTimerRef.current);
         }
@@ -189,14 +203,7 @@ export default function AgentFirstEffect() {
         clearInterval(typingTimerRef.current);
       }
     };
-  }, [inView, textToType]);
-
-  // Duplicate items 4 times to create a seamless infinite marquee effect (11 x 4 = 44 items)
-  // Since 22 (half of 44) is a multiple of 22 (the wave period) and 11 (the platform count),
-  // the marquee wraps with absolute mathematical perfection (zero visual jumps or offset shifts).
-  const marqueeItems = [
-    ...platforms, ...platforms, ...platforms, ...platforms
-  ];
+  }, [inView, shouldReduceMotion, textToType]);
 
   return (
     <section
@@ -205,7 +212,7 @@ export default function AgentFirstEffect() {
     >
       {/* 3D Wave Icon Marquee */}
       <div className="w-full overflow-hidden relative select-none pb-16 pt-24 mask-fade-edges">
-        <ul className="animate-wave-marquee flex items-center gap-6 md:gap-8 list-none m-0 p-0 w-max">
+        <ul className={`${inView && !shouldReduceMotion ? 'animate-wave-marquee' : ''} flex items-center gap-6 md:gap-8 list-none m-0 p-0 w-max`}>
           {marqueeItems.map((platform, idx) => {
             const offsetIndex = idx % waveOffsets.length;
             const offsetY = waveOffsets[offsetIndex];

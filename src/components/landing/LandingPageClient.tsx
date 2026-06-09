@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useReducedMotion, useTransform, animate } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, ChevronLeft, BarChart2 } from 'lucide-react';
+import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LandingHeader from '@/components/landing/LandingHeader';
 import AgentFirstEffect from '@/components/landing/AgentFirstEffect';
@@ -13,15 +13,36 @@ import Logo from '@/components/ui/Logo';
 // ----------------------------------------------------
 // Sub-component: Interactive Particles/Grid Canvas
 // ----------------------------------------------------
-export function ParticlesCanvas() {
+function useIsNarrowViewport(breakpoint = 768) {
+  const [isNarrow, setIsNarrow] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const update = () => setIsNarrow(media.matches);
+
+    update();
+    media.addEventListener('change', update);
+
+    return () => media.removeEventListener('change', update);
+  }, [breakpoint]);
+
+  return isNarrow;
+}
+
+export function ParticlesCanvas({ disabled = false }: { disabled?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
+    if (disabled) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrameId: number;
+    let animationFrameId = 0;
+    let lastFrameTime = 0;
+    let isVisible = true;
+    let dpr = 1;
     let particles: Array<{
       x: number;
       y: number;
@@ -53,19 +74,27 @@ export function ParticlesCanvas() {
     };
 
     const handleResize = () => {
-      if (!canvas) return;
-      canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
-      canvas.height = canvas.parentElement?.clientHeight || 650;
+      const parentWidth = canvas.parentElement?.clientWidth || window.innerWidth;
+      const parentHeight = canvas.parentElement?.clientHeight || 650;
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+      canvas.width = Math.floor(parentWidth * dpr);
+      canvas.height = Math.floor(parentHeight * dpr);
+      canvas.style.width = `${parentWidth}px`;
+      canvas.style.height = `${parentHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       initParticles();
     };
 
     const initParticles = () => {
       particles = [];
-      const count = Math.min(Math.floor((canvas.width * canvas.height) / 13000), 75);
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      const count = Math.min(Math.floor((width * height) / 18000), 45);
       for (let i = 0; i < count; i++) {
         particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
+          x: Math.random() * width,
+          y: Math.random() * height,
           vx: (Math.random() - 0.5) * 0.45,
           vy: (Math.random() - 0.5) * 0.45,
           radius: Math.random() * 3 + 1.5,
@@ -74,8 +103,18 @@ export function ParticlesCanvas() {
       }
     };
 
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const renderFrame = (timestamp: number) => {
+      animationFrameId = requestAnimationFrame(renderFrame);
+
+      if (!isVisible || document.hidden || timestamp - lastFrameTime < 33) {
+        return;
+      }
+
+      lastFrameTime = timestamp;
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+
+      ctx.clearRect(0, 0, width, height);
 
       // Draw connection lines between particles
       for (let i = 0; i < particles.length; i++) {
@@ -128,26 +167,35 @@ export function ParticlesCanvas() {
         p.y += p.vy;
 
         // bounce off edges
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
       });
-
-      animationFrameId = requestAnimationFrame(animate);
     };
+
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+      },
+      { threshold: 0.05 }
+    );
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseleave', handleMouseLeave);
+    visibilityObserver.observe(canvas);
     handleResize();
-    animate();
+    animationFrameId = requestAnimationFrame(renderFrame);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
+      visibilityObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [disabled]);
+
+  if (disabled) return null;
 
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-70 dark:opacity-85 z-0" />;
 }
@@ -156,18 +204,19 @@ export function ParticlesCanvas() {
 // Sub-component: Scroll-revealing Character Stagger Text
 // ----------------------------------------------------
 function FeatureDescription({ text }: { text: string }) {
+  const shouldReduceMotion = useReducedMotion();
   const words = text.split(' ');
 
   const containerVariants = {
     hidden: {},
     visible: {
       transition: {
-        staggerChildren: 0.006,
+        staggerChildren: 0.035,
       },
     },
   };
 
-  const charVariants = {
+  const wordVariants = {
     hidden: { opacity: 0.15 },
     visible: {
       opacity: 1,
@@ -177,6 +226,10 @@ function FeatureDescription({ text }: { text: string }) {
       },
     },
   };
+
+  if (shouldReduceMotion) {
+    return <>{text}</>;
+  }
 
   return (
     <motion.span
@@ -188,21 +241,14 @@ function FeatureDescription({ text }: { text: string }) {
       aria-label={text}
     >
       {words.map((word, wordIdx) => (
-        <span
+        <motion.span
           key={wordIdx}
+          variants={wordVariants}
           className="inline-block whitespace-nowrap mr-[0.25em]"
           aria-hidden="true"
         >
-          {Array.from(word).map((char, charIdx) => (
-            <motion.span
-              key={charIdx}
-              variants={charVariants}
-              className="inline-block relative"
-            >
-              {char}
-            </motion.span>
-          ))}
-        </span>
+          {word}
+        </motion.span>
       ))}
     </motion.span>
   );
@@ -255,10 +301,13 @@ export function AnimatedNumber({
 // Sub-component: Card with Radial Cursor Glow Hover
 // ----------------------------------------------------
 export function FeatureCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const shouldReduceMotion = useReducedMotion();
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (shouldReduceMotion) return;
+
     const rect = e.currentTarget.getBoundingClientRect();
     setCoords({
       x: e.clientX - rect.left,
@@ -273,13 +322,13 @@ export function FeatureCard({ children, className = "" }: { children: React.Reac
       onMouseLeave={() => setIsHovered(false)}
       className={`relative overflow-hidden transition-all duration-300 ${className}`}
       style={{
-        background: isHovered
+        background: isHovered && !shouldReduceMotion
           ? `radial-gradient(300px circle at ${coords.x}px ${coords.y}px, rgba(139, 92, 246, 0.09), transparent 85%)`
           : undefined,
       }}
     >
       {/* Dynamic border highlighting cursor */}
-      {isHovered && (
+      {isHovered && !shouldReduceMotion && (
         <div
           className="absolute pointer-events-none rounded-[12px] border border-[#8b5cf6]/20 transition-opacity duration-300"
           style={{
@@ -497,22 +546,22 @@ export function MiniEditorMockup() {
   }, [activeLineIdx, charIdx]);
 
   return (
-    <div className="w-full bg-white dark:bg-[#0c1020]/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col h-56 relative font-mono text-[9px] select-none transition-colors duration-300">
+    <div className="w-full bg-white dark:bg-[#0c1020]/95 border border-slate-200 dark:border-white/10 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col h-40 sm:h-56 relative font-mono text-[7px] sm:text-[9px] select-none transition-colors duration-300">
       {/* 1. Header Bar */}
-      <div className="h-9 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-white/5 flex items-center px-4 justify-between select-none">
+      <div className="h-7 sm:h-9 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-white/5 flex items-center px-2.5 sm:px-4 justify-between select-none">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] opacity-90" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] opacity-90" />
-          <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f] opacity-90" />
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ff5f56] opacity-90" />
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ffbd2e] opacity-90" />
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#27c93f] opacity-90" />
         </div>
         
         {/* Document Tab */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-[#0c1020]/80 rounded-t-lg border-t border-x border-slate-200 dark:border-white/5 text-[8.5px] font-sans font-bold text-slate-700 dark:text-slate-300 relative top-[4.5px]">
-          <FileText className="w-3 h-3 text-indigo-500 dark:text-[#8b5cf6]" />
+        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 dark:bg-[#0c1020]/80 rounded-t-lg border-t border-x border-slate-200 dark:border-white/5 text-[6.5px] sm:text-[8.5px] font-sans font-bold text-slate-700 dark:text-slate-300 relative top-[3.5px] sm:top-[4.5px]">
+          <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-indigo-500 dark:text-[#8b5cf6]" />
           <span>fernando_cv.md</span>
         </div>
         
-        <div className="text-[7.5px] text-slate-400 dark:text-slate-500 font-sans font-semibold uppercase tracking-wider">
+        <div className="hidden sm:block text-[7.5px] text-slate-400 dark:text-slate-500 font-sans font-semibold uppercase tracking-wider">
           Markdown
         </div>
       </div>
@@ -520,9 +569,9 @@ export function MiniEditorMockup() {
       {/* 2. Main Workspace */}
       <div className="flex flex-1 h-[calc(100%-64px)] overflow-hidden">
         {/* Left Panel: Markdown Editor */}
-        <div className="w-1/2 bg-slate-50/50 dark:bg-[#0c1020]/50 border-r border-slate-200/80 dark:border-white/5 p-3 flex gap-2 text-left relative overflow-y-auto scrollbar-none">
+        <div className="w-1/2 bg-slate-50/50 dark:bg-[#0c1020]/50 border-r border-slate-200/80 dark:border-white/5 p-2 sm:p-3 flex gap-1.5 sm:gap-2 text-left relative overflow-y-auto scrollbar-none">
           {/* Line Numbers */}
-          <div className="flex flex-col text-slate-400 dark:text-slate-600 text-right select-none text-[8.5px] gap-[4.5px] pr-1 border-r border-slate-200 dark:border-white/5">
+          <div className="flex flex-col text-slate-400 dark:text-slate-600 text-right select-none text-[6.5px] sm:text-[8.5px] gap-[3px] sm:gap-[4.5px] pr-1 border-r border-slate-200 dark:border-white/5">
             <div>1</div>
             <div>2</div>
             <div>3</div>
@@ -531,7 +580,7 @@ export function MiniEditorMockup() {
           </div>
 
           {/* Lines editor content */}
-          <div className="flex flex-col gap-[4.5px] flex-1 text-[8.5px] pl-1">
+          <div className="flex flex-col gap-[3px] sm:gap-[4.5px] flex-1 text-[6.5px] sm:text-[8.5px] pl-1">
             {/* Line 1 */}
             <div className="text-indigo-600 dark:text-[#a78bfa] font-bold min-h-[12px] flex items-center">
               <span>{typedLines[0]}</span>
@@ -594,8 +643,8 @@ export function MiniEditorMockup() {
         </div>
 
         {/* Right Panel: Simulated PDF (Always Real-Looking White Paper with Premium Shadow) */}
-        <div className="w-1/2 bg-slate-100 dark:bg-[#080b16] p-3 flex items-center justify-center relative">
-          <div className="w-[125px] h-[135px] bg-white text-slate-800 rounded-md shadow-md border border-slate-200/60 p-2.5 flex flex-col gap-1.5 relative overflow-hidden select-none">
+        <div className="w-1/2 bg-slate-100 dark:bg-[#080b16] p-2 sm:p-3 flex items-center justify-center relative">
+          <div className="w-[86px] h-[96px] sm:w-[125px] sm:h-[135px] bg-white text-slate-800 rounded-md shadow-md border border-slate-200/60 p-1.5 sm:p-2.5 flex flex-col gap-1 sm:gap-1.5 relative overflow-hidden select-none">
             {/* Header Element */}
             {pdfVisibleCount >= 1 ? (
               <motion.div
@@ -716,64 +765,44 @@ interface KanbanCardType {
 // MAIN: LandingPageClient Component
 // ----------------------------------------------------
 export default function LandingPageClient({ session }: { session: any }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
+  const isNarrowViewport = useIsNarrowViewport();
+  const shouldUseLightMotion = shouldReduceMotion || isNarrowViewport;
 
-  const [typedPart1, setTypedPart1] = useState('');
-  const [typedPart2, setTypedPart2] = useState('');
-  const [typedPart3, setTypedPart3] = useState('');
-  const [activePart, setActivePart] = useState(1);
-
-  const part1Text = t('landing.hero.titleBefore') + ' ';
-  const part2Text = t('landing.hero.titleHighlight') + ' ';
+  const part1Text = t('landing.hero.titleBefore');
+  const part2Text = t('landing.hero.titleHighlight');
   const part3Text = t('landing.hero.titleAfter');
+  const headlineText = `${part1Text}${part2Text}${part3Text}`;
+  const part1End = part1Text.length;
+  const part2End = part1End + part2Text.length;
+  const [visibleHeadlineLength, setVisibleHeadlineLength] = useState(headlineText.length);
+  const visiblePart1 = headlineText.slice(0, Math.min(visibleHeadlineLength, part1End));
+  const visiblePart2 = headlineText.slice(part1End, Math.min(visibleHeadlineLength, part2End));
+  const visiblePart3 = headlineText.slice(part2End, visibleHeadlineLength);
 
   useEffect(() => {
-    setTypedPart1('');
-    setTypedPart2('');
-    setTypedPart3('');
-    setActivePart(1);
-  }, [language]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    
-    if (activePart === 1) {
-      let idx = 0;
-      timer = setInterval(() => {
-        idx++;
-        setTypedPart1(part1Text.slice(0, idx));
-        if (idx >= part1Text.length) {
-          clearInterval(timer);
-          setActivePart(2);
-        }
-      }, 50);
-    } else if (activePart === 2) {
-      let idx = 0;
-      timer = setInterval(() => {
-        idx++;
-        setTypedPart2(part2Text.slice(0, idx));
-        if (idx >= part2Text.length) {
-          clearInterval(timer);
-          setActivePart(3);
-        }
-      }, 50);
-    } else if (activePart === 3) {
-      let idx = 0;
-      timer = setInterval(() => {
-        idx++;
-        setTypedPart3(part3Text.slice(0, idx));
-        if (idx >= part3Text.length) {
-          clearInterval(timer);
-          setActivePart(4);
-        }
-      }, 50);
+    if (shouldReduceMotion) {
+      setVisibleHeadlineLength(headlineText.length);
+      return;
     }
 
-    return () => clearInterval(timer);
-  }, [activePart, part1Text, part2Text, part3Text]);
+    setVisibleHeadlineLength(0);
+    let currentLength = 0;
+    const timer = window.setInterval(() => {
+      currentLength += 1;
+      setVisibleHeadlineLength(currentLength);
 
-  const [headlineInViewRef, headlineInView] = useInView({ triggerOnce: true, threshold: 0.1 });
+      if (currentLength >= headlineText.length) {
+        window.clearInterval(timer);
+      }
+    }, 50);
+
+    return () => window.clearInterval(timer);
+  }, [headlineText, shouldReduceMotion]);
+
   const [pricingInViewRef, pricingInView] = useInView({ triggerOnce: true, threshold: 0.1 });
+  const [templatesInViewRef, templatesInView] = useInView({ threshold: 0.15 });
 
   const rotation = useMotionValue(0);
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
@@ -822,7 +851,7 @@ export default function LandingPageClient({ session }: { session: any }) {
 
   // Auto-rotation animation loop using framer-motion's animate
   useEffect(() => {
-    if (isCarouselHovered) return;
+    if (isCarouselHovered || shouldUseLightMotion || !templatesInView) return;
 
     // Slow elegant continuous rotation
     const controls = animate(rotation, rotation.get() + 360, {
@@ -832,10 +861,12 @@ export default function LandingPageClient({ session }: { session: any }) {
     });
 
     return () => controls.stop();
-  }, [isCarouselHovered]);
+  }, [isCarouselHovered, rotation, shouldUseLightMotion, templatesInView]);
 
   // Periodic partial wiggling (peeking) hint animation
   useEffect(() => {
+    if (shouldUseLightMotion || !templatesInView) return;
+
     const interval = setInterval(() => {
       if (isCarouselHovered) return;
 
@@ -850,7 +881,7 @@ export default function LandingPageClient({ session }: { session: any }) {
     }, 5000); // Trigger every 5 seconds
 
     return () => clearInterval(interval);
-  }, [isCarouselHovered]);
+  }, [isCarouselHovered, shouldUseLightMotion, templatesInView]);
 
   // Navigation handlers
   const handleNext = () => {
@@ -875,46 +906,6 @@ export default function LandingPageClient({ session }: { session: any }) {
     });
   };
 
-
-
-  // State counters on floating mockup in Hero
-  const [mockScore, setMockScore] = useState(0);
-  const [mockMatch, setMockMatch] = useState(0);
-
-  useEffect(() => {
-    // Animate mockup indicators after delay
-    const scoreTimer = setTimeout(() => {
-      let currentScore = 0;
-      const interval = setInterval(() => {
-        currentScore += 2;
-        if (currentScore >= 98) {
-          setMockScore(98);
-          clearInterval(interval);
-        } else {
-          setMockScore(currentScore);
-        }
-      }, 25);
-    }, 1500);
-
-    const matchTimer = setTimeout(() => {
-      let currentMatch = 0;
-      const interval = setInterval(() => {
-        currentMatch += 2;
-        if (currentMatch >= 95) {
-          setMockMatch(95);
-          clearInterval(interval);
-        } else {
-          setMockMatch(currentMatch);
-        }
-      }, 30);
-    }, 2000);
-
-    return () => {
-      clearTimeout(scoreTimer);
-      clearTimeout(matchTimer);
-    };
-  }, []);
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#fafafa] dark:bg-[#0b0f19] pt-16 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans transition-colors duration-300">
       {/* Background radial glows */}
@@ -936,7 +927,7 @@ export default function LandingPageClient({ session }: { session: any }) {
       <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-4rem)] z-10 flex flex-col items-center justify-center text-center py-16">
         {/* Particle matching mesh underneath Hero */}
         <div className="absolute inset-0 w-full h-full -z-10 overflow-hidden">
-          <ParticlesCanvas />
+          <ParticlesCanvas disabled={shouldUseLightMotion} />
         </div>
 
         {/* 1. Centered Logo at the top */}
@@ -951,14 +942,15 @@ export default function LandingPageClient({ session }: { session: any }) {
 
         {/* 2. Header Container */}
         <div className="max-w-4xl mx-auto mb-8">
-          <h1 className="font-display font-black text-4.5xl sm:text-6xl tracking-tight leading-[1.15] text-[#1E1B4B] dark:text-white min-h-[5.5rem] sm:min-h-[7rem]">
-            <span>{typedPart1}</span>
+          <h1 className="font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.15] text-[#1E1B4B] dark:text-white min-h-[5.5rem] sm:min-h-[7rem]">
+            <span>{visiblePart1}</span>
             <span className="bg-gradient-to-r from-[#8b5cf6] to-[#2ecc71] dark:to-emerald-400 bg-clip-text text-transparent">
-              {typedPart2}
+              {visiblePart2}
             </span>
-            <span>{typedPart3}</span>
-            {/* Blinking typewriter caret */}
-            <span className="inline-block w-[3px] h-[0.85em] bg-[#8b5cf6] dark:bg-[#2ecc71] ml-1 rounded-sm align-middle animate-blink" />
+            <span>{visiblePart3}</span>
+            {!shouldReduceMotion && (
+              <span className="inline-block w-[3px] h-[0.85em] bg-[#8b5cf6] dark:bg-[#2ecc71] ml-1 rounded-sm align-middle animate-blink" />
+            )}
           </h1>
         </div>
 
@@ -1012,7 +1004,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         <MiniEditorMockup />
                       </FeatureCard>
                     </motion.div>
@@ -1040,9 +1032,9 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         {/* Visual conceptual AI Optimization CV & Keyword link Streams */}
-                        <div className="flex flex-col items-center justify-center relative h-52 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
+                        <div className="flex flex-col items-center justify-center relative h-36 sm:h-52 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
                           {/* Glowing background aura */}
                           <div className="absolute inset-0 bg-[#8b5cf6]/5 rounded-full blur-2xl animate-pulse" />
 
@@ -1187,9 +1179,9 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         {/* Right Column: Mini Kanban UI Preview */}
-                        <div className="w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl p-5 shadow-inner flex gap-4 h-[220px] overflow-hidden relative">
+                        <div className="w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl p-2.5 sm:p-5 shadow-inner flex gap-2 sm:gap-4 h-[150px] sm:h-[220px] overflow-hidden relative">
                           {[
                             { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
                             { id: 'entrevista', name: 'Entrevista', colorClass: 'text-[#8b5cf6] bg-[#8b5cf6]/10', dotColor: 'bg-[#8b5cf6]' },
@@ -1260,7 +1252,7 @@ export default function LandingPageClient({ session }: { session: any }) {
       </section>
 
       {/* Templates Section (Horizontal Stagger + 3D Flip) */}
-      <section id="templates" className="py-24 bg-[#fafafa] dark:bg-[#0b0f19] scroll-mt-24 relative overflow-hidden transition-colors duration-300">
+      <section id="templates" ref={templatesInViewRef} className="py-24 bg-[#fafafa] dark:bg-[#0b0f19] scroll-mt-24 relative overflow-hidden transition-colors duration-300">
         <div className="absolute top-[30%] left-[-15%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
