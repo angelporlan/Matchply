@@ -547,7 +547,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           clearInterval(timer);
           setActivePart(2);
         }
-      }, 30);
+      }, 50);
     } else if (activePart === 2) {
       let idx = 0;
       timer = setInterval(() => {
@@ -557,7 +557,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           clearInterval(timer);
           setActivePart(3);
         }
-      }, 30);
+      }, 50);
     } else if (activePart === 3) {
       let idx = 0;
       timer = setInterval(() => {
@@ -567,7 +567,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           clearInterval(timer);
           setActivePart(4);
         }
-      }, 30);
+      }, 50);
     }
 
     return () => clearInterval(timer);
@@ -763,22 +763,12 @@ export default function LandingPageClient({ session }: { session: any }) {
           </h1>
         </div>
 
-        {/* 3. Subtitle */}
-        <motion.p
-          className="max-w-3xl text-base sm:text-[19px] text-[#1e1b4b]/75 dark:text-slate-400 font-light mb-12 leading-relaxed font-sans"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.0, duration: 0.8 }}
-        >
-          {t('landing.hero.subtitle')}
-        </motion.p>
-
         {/* 4. Welcome CTA Row */}
         <motion.div
           className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3, duration: 0.8 }}
+          transition={{ delay: 1.0, duration: 0.8 }}
         >
           <Link
             href={session ? "/dashboard" : "/register"}
