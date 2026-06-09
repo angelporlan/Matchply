@@ -734,7 +734,7 @@ export default function LandingPageClient({ session }: { session: any }) {
       />
 
       {/* Centered Welcome Section (adapted from Google Antigravity) */}
-      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 z-10 flex flex-col items-center text-center">
+      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-4rem)] z-10 flex flex-col items-center justify-center text-center py-16">
         {/* Particle matching mesh underneath Hero */}
         <div className="absolute inset-0 w-full h-full -z-10 overflow-hidden">
           <ParticlesCanvas />
@@ -786,43 +786,6 @@ export default function LandingPageClient({ session }: { session: any }) {
         </motion.div>
       </section>
 
-      {/* NEW: Stats Bar (IntersectionObserver Triggered counters) */}
-      <section className="border-y border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#111827]/30 py-8 relative z-10 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div className="flex flex-col items-center">
-            <h3 className="text-3xl sm:text-4xl font-black font-display text-[#8b5cf6]">
-              <AnimatedNumber value={15200} suffix="+" />
-            </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              {t('landing.stats.cvsOptimized')}
-            </p>
-          </div>
-          <div className="flex flex-col items-center">
-            <h3 className="text-3xl sm:text-4xl font-black font-display text-emerald-500">
-              <AnimatedNumber value={94.8} decimals={1} suffix="%" />
-            </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              {t('landing.stats.atsSuccess')}
-            </p>
-          </div>
-          <div className="flex flex-col items-center">
-            <h3 className="text-3xl sm:text-4xl font-black font-display text-[#1e1b4b] dark:text-white">
-              <AnimatedNumber value={10} prefix="+" suffix="x" />
-            </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              {t('landing.stats.moreInterviews')}
-            </p>
-          </div>
-          <div className="flex flex-col items-center">
-            <h3 className="text-3xl sm:text-4xl font-black font-display text-[#8b5cf6]">
-              <AnimatedNumber value={5000} suffix="+" />
-            </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-display">
-              {t('landing.stats.offersSecured')}
-            </p>
-          </div>
-        </div>
-      </section>
 
       {/* Wavy Banner & Typewriter Typing Effect */}
       <AgentFirstEffect />
