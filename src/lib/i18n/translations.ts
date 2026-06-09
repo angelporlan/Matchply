@@ -144,6 +144,9 @@ export const translations = {
         skill1: '- Gestión tributaria',
         skill2: '- Conciliación bancaria',
       },
+      agentEffect: {
+        text: 'Matchply es nuestra plataforma inteligente de optimización de CVs, permitiendo a cualquiera destacar en la era de la IA.',
+      },
     },
     sidebar: {
       menu: {
@@ -775,6 +778,9 @@ export const translations = {
         competenciesTitle: '## Competencies',
         skill1: '- Tax management',
         skill2: '- Bank reconciliation',
+      },
+      agentEffect: {
+        text: 'Matchply is our intelligent resume optimization platform, allowing anyone to stand out in the AI era.',
       },
     },
     sidebar: {

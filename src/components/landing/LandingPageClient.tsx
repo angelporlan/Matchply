@@ -7,6 +7,8 @@ import { useInView } from 'react-intersection-observer';
 import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, ChevronLeft, BarChart2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LandingHeader from '@/components/landing/LandingHeader';
+import AgentFirstEffect from '@/components/landing/AgentFirstEffect';
+import Logo from '@/components/ui/Logo';
 
 // ----------------------------------------------------
 // Sub-component: Interactive Particles/Grid Canvas
@@ -515,7 +517,62 @@ interface KanbanCardType {
 // MAIN: LandingPageClient Component
 // ----------------------------------------------------
 export default function LandingPageClient({ session }: { session: any }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const [typedPart1, setTypedPart1] = useState('');
+  const [typedPart2, setTypedPart2] = useState('');
+  const [typedPart3, setTypedPart3] = useState('');
+  const [activePart, setActivePart] = useState(1);
+
+  const part1Text = t('landing.hero.titleBefore') + ' ';
+  const part2Text = t('landing.hero.titleHighlight') + ' ';
+  const part3Text = t('landing.hero.titleAfter');
+
+  useEffect(() => {
+    setTypedPart1('');
+    setTypedPart2('');
+    setTypedPart3('');
+    setActivePart(1);
+  }, [language]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    
+    if (activePart === 1) {
+      let idx = 0;
+      timer = setInterval(() => {
+        idx++;
+        setTypedPart1(part1Text.slice(0, idx));
+        if (idx >= part1Text.length) {
+          clearInterval(timer);
+          setActivePart(2);
+        }
+      }, 30);
+    } else if (activePart === 2) {
+      let idx = 0;
+      timer = setInterval(() => {
+        idx++;
+        setTypedPart2(part2Text.slice(0, idx));
+        if (idx >= part2Text.length) {
+          clearInterval(timer);
+          setActivePart(3);
+        }
+      }, 30);
+    } else if (activePart === 3) {
+      let idx = 0;
+      timer = setInterval(() => {
+        idx++;
+        setTypedPart3(part3Text.slice(0, idx));
+        if (idx >= part3Text.length) {
+          clearInterval(timer);
+          setActivePart(4);
+        }
+      }, 30);
+    }
+
+    return () => clearInterval(timer);
+  }, [activePart, part1Text, part2Text, part3Text]);
+
   const [headlineInViewRef, headlineInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [pricingInViewRef, pricingInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
@@ -619,28 +676,7 @@ export default function LandingPageClient({ session }: { session: any }) {
     });
   };
 
-  // Stagger variants for word stagger animation in Hero
-  const titleContainerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.08,
-      },
-    },
-  };
 
-  const wordVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 140,
-        damping: 18,
-      },
-    },
-  } as const;
 
   // State counters on floating mockup in Hero
   const [mockScore, setMockScore] = useState(0);
@@ -680,11 +716,6 @@ export default function LandingPageClient({ session }: { session: any }) {
     };
   }, []);
 
-  // Split titles for stagger
-  const titleBeforeWords = t('landing.hero.titleBefore').split(' ');
-  const titleHighlightWords = t('landing.hero.titleHighlight').split(' ');
-  const titleAfterWords = t('landing.hero.titleAfter').split(' ');
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#fafafa] dark:bg-[#0b0f19] pt-16 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans transition-colors duration-300">
       {/* Background radial glows */}
@@ -702,178 +733,67 @@ export default function LandingPageClient({ session }: { session: any }) {
         navRegister={t('landing.nav.register')}
       />
 
-      {/* Hero Section */}
-      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-20 z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      {/* Centered Welcome Section (adapted from Google Antigravity) */}
+      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 z-10 flex flex-col items-center text-center">
         {/* Particle matching mesh underneath Hero */}
         <div className="absolute inset-0 w-full h-full -z-10 overflow-hidden">
           <ParticlesCanvas />
         </div>
 
-        {/* Left Side: Staggered text content */}
-        <div className="lg:col-span-7 text-left flex flex-col items-start relative z-10" ref={headlineInViewRef}>
+        {/* 1. Centered Logo at the top */}
+        <motion.div 
+          className="mb-10 select-none flex items-center justify-center"
+          initial={{ opacity: 0, y: -25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <Logo iconSize="md" textSize="lg" className="scale-125 sm:scale-150 transform origin-center" />
+        </motion.div>
 
-          {/* Badge with Green Pulsing dot */}
-          <div className="inline-flex items-center gap-2 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/10 border border-[#8b5cf6]/15 dark:border-[#8b5cf6]/20 rounded-full px-4.5 py-2 text-xs text-[#8b5cf6] mb-8 animate-pulse-subtle">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        {/* 2. Header Container */}
+        <div className="max-w-4xl mx-auto mb-8">
+          <h1 className="font-display font-black text-4.5xl sm:text-6xl tracking-tight leading-[1.15] text-[#1E1B4B] dark:text-white min-h-[5.5rem] sm:min-h-[7rem]">
+            <span>{typedPart1}</span>
+            <span className="bg-gradient-to-r from-[#8b5cf6] to-[#2ecc71] dark:to-emerald-400 bg-clip-text text-transparent">
+              {typedPart2}
             </span>
-            <span className="font-semibold font-display">{t('landing.hero.badge')}</span>
-          </div>
-
-          {/* Staggered Heading */}
-          <motion.h1
-            className="font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.1] mb-6 text-[#1e1b4b] dark:text-white"
-            variants={titleContainerVariants}
-            initial="hidden"
-            animate={headlineInView ? 'visible' : 'hidden'}
-          >
-            {titleBeforeWords.map((word, i) => (
-              <motion.span key={`before-${i}`} className="inline-block mr-2" variants={wordVariants}>
-                {word}
-              </motion.span>
-            ))}
-            {' '}
-            <motion.span
-              className="inline-block bg-gradient-to-r from-[#8b5cf6] to-[#2ecc71] dark:to-emerald-400 bg-clip-text text-transparent mr-2"
-              variants={wordVariants}
-            >
-              {titleHighlightWords.join(' ')}
-            </motion.span>
-            {' '}
-            {titleAfterWords.map((word, i) => (
-              <motion.span key={`after-${i}`} className="inline-block mr-2" variants={wordVariants}>
-                {word}
-              </motion.span>
-            ))}
-          </motion.h1>
-
-          {/* Subtitle */}
-          <motion.p
-            className="max-w-2xl text-base sm:text-lg text-[#1e1b4b]/70 dark:text-slate-400 font-light mb-10 leading-relaxed font-sans"
-            initial={{ opacity: 0, y: 15 }}
-            animate={headlineInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: 0.6, duration: 0.6 }}
-          >
-            {t('landing.hero.subtitle')}
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div
-            className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
-            initial={{ opacity: 0, y: 15 }}
-            animate={headlineInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: 0.8, duration: 0.6 }}
-          >
-            <Link
-              href={session ? "/dashboard" : "/register"}
-              className="w-full sm:w-auto bg-[#2ecc71] hover:bg-[#2ecc71]/95 text-white font-bold px-8 py-4 rounded-[8px] shadow-md shadow-[#2ecc71]/10 hover:shadow-[#2ecc71]/25 transition-all flex items-center justify-center gap-2 text-base group font-display hover-shimmer-btn"
-            >
-              {t('landing.hero.primaryCta')}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform stroke-[1.75]" />
-            </Link>
-            <a
-              href="#templates"
-              className="w-full sm:w-auto bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 text-[#1e1b4b]/80 dark:text-slate-200 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 hover:text-[#1e1b4b] dark:hover:text-white px-8 py-4 rounded-[8px] font-semibold transition-all flex items-center justify-center gap-2 text-base font-display shadow-sm"
-            >
-              {t('landing.hero.secondaryCta')}
-            </a>
-          </motion.div>
+            <span>{typedPart3}</span>
+            {/* Blinking typewriter caret */}
+            <span className="inline-block w-[3px] h-[0.85em] bg-[#8b5cf6] dark:bg-[#2ecc71] ml-1 rounded-sm align-middle animate-blink" />
+          </h1>
         </div>
 
-        {/* Right Side: CSS Floating mockup and dynamic indicators */}
-        <div className="lg:col-span-5 flex justify-center relative mt-10 lg:mt-0 z-10">
+        {/* 3. Subtitle */}
+        <motion.p
+          className="max-w-3xl text-base sm:text-[19px] text-[#1e1b4b]/75 dark:text-slate-400 font-light mb-12 leading-relaxed font-sans"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.0, duration: 0.8 }}
+        >
+          {t('landing.hero.subtitle')}
+        </motion.p>
 
-          {/* Main Floating Wrapper */}
-          <div className="relative w-full max-w-[480px] h-[400px] sm:h-[460px] animate-float">
-
-            {/* Background grid glows */}
-            <div className="absolute -inset-4 bg-gradient-to-tr from-[#8b5cf6]/10 to-[#2ecc71]/10 rounded-[20px] blur-xl -z-10" />
-
-            {/* Split screen editor representation */}
-            <div className="w-full h-full rounded-[16px] border border-[#1e1b4b]/10 dark:border-white/10 bg-[#fafafa]/90 dark:bg-[#1f2937]/90 shadow-2xl overflow-hidden flex flex-col backdrop-blur-sm">
-              {/* Window Chrome / Bar */}
-              <div className="h-10 bg-slate-100 dark:bg-slate-800/80 border-b border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between px-4">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">matchply-editor.tsx</div>
-                <div className="w-8" />
-              </div>
-
-              {/* Main Content Area: Split-Screen */}
-              <div className="flex-1 grid grid-cols-12 overflow-hidden h-full">
-
-                {/* Left Side: Markdown Mock Editor */}
-                <div className="col-span-5 border-r border-[#1e1b4b]/10 dark:border-white/5 p-4 font-mono text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 flex flex-col gap-3.5 text-left overflow-y-auto scrollbar-custom select-none">
-                  <div>
-                    <span className="text-[#8b5cf6] font-bold">{t('landing.mockup.name')}</span>
-                    <br />
-                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.role')}</span>
-                  </div>
-                  <div>
-                    <span className="text-indigo-400 font-semibold">{t('landing.mockup.experienceTitle')}</span>
-                    <br />
-                    <span className="text-emerald-500 font-bold">{t('landing.mockup.jobTitle')}</span>
-                    <br />
-                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.jobPeriod')}</span>
-                    <br />
-                    <span className="text-[8px] sm:text-[9px] text-[#8b5cf6]/80">{t('landing.mockup.aiBadge')}</span>
-                  </div>
-                  <div>
-                    <span className="text-indigo-400 font-semibold">{t('landing.mockup.competenciesTitle')}</span>
-                    <br />
-                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.skill1')}</span>
-                    <br />
-                    <span className="text-slate-400 dark:text-slate-500">{t('landing.mockup.skill2')}</span>
-                  </div>
-                </div>
-
-                {/* Right Side: Real image A4 Render Preview */}
-                <div className="col-span-7 bg-slate-200/50 dark:bg-slate-900/50 p-3 flex items-center justify-center relative overflow-hidden h-full select-none">
-                  <div className="bg-white rounded-md shadow-md w-[92%] aspect-[1/1.414] overflow-hidden relative border border-[#1e1b4b]/5 flex items-center justify-center">
-                    <img
-                      src="/assets/images/cvs/harvard.jpg"
-                      alt="Curriculum Preview"
-                      fetchPriority="high"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Floating Stats Badge 1: ATS score */}
-            <div className="absolute top-[20%] -left-12 bg-white dark:bg-[#1f2937] border border-[#8b5cf6]/20 dark:border-white/10 rounded-xl p-3.5 shadow-xl flex items-center gap-3 backdrop-blur-sm">
-              <div className="bg-[#8b5cf6]/10 p-2 rounded-lg text-[#8b5cf6]">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div className="text-left font-display">
-                <div className="text-[10px] text-slate-400 font-light leading-none">ATS Score</div>
-                <div className="text-base font-black text-[#1e1b4b] dark:text-white mt-1">
-                  {mockScore}%
-                </div>
-              </div>
-            </div>
-
-            {/* Floating Stats Badge 2: Match rate */}
-            <div className="absolute bottom-[15%] -right-10 bg-white dark:bg-[#1f2937] border border-emerald-500/20 dark:border-white/10 rounded-xl p-3.5 shadow-xl flex items-center gap-3 backdrop-blur-sm">
-              <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500">
-                <CheckCircle className="w-5 h-5" />
-              </div>
-              <div className="text-left font-display">
-                <div className="text-[10px] text-slate-400 font-light leading-none">Job Match</div>
-                <div className="text-base font-black text-emerald-500 mt-1">
-                  {mockMatch}%
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
+        {/* 4. Welcome CTA Row */}
+        <motion.div
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.3, duration: 0.8 }}
+        >
+          <Link
+            href={session ? "/dashboard" : "/register"}
+            className="w-full sm:w-auto bg-[#2ecc71] hover:bg-[#2ecc71]/95 text-white font-bold px-8 py-4 rounded-[8px] shadow-md shadow-[#2ecc71]/10 hover:shadow-[#2ecc71]/25 transition-all flex items-center justify-center gap-2 text-base group font-display hover-shimmer-btn"
+          >
+            {t('landing.hero.primaryCta')}
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform stroke-[1.75]" />
+          </Link>
+          <a
+            href="#templates"
+            className="w-full sm:w-auto bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 text-[#1e1b4b]/80 dark:text-slate-200 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 hover:text-[#1e1b4b] dark:hover:text-white px-8 py-4 rounded-[8px] font-semibold transition-all flex items-center justify-center gap-2 text-base font-display shadow-sm"
+          >
+            {t('landing.hero.secondaryCta')}
+          </a>
+        </motion.div>
       </section>
 
       {/* NEW: Stats Bar (IntersectionObserver Triggered counters) */}
@@ -913,6 +833,9 @@ export default function LandingPageClient({ session }: { session: any }) {
           </div>
         </div>
       </section>
+
+      {/* Wavy Banner & Typewriter Typing Effect */}
+      <AgentFirstEffect />
 
       {/* Features Grid (Scroll Triggered + Cursor Glow) */}
       <section id="features" className="py-24 border-b border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#0b0f19] relative scroll-mt-24 transition-colors duration-300">

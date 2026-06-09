@@ -272,4 +272,45 @@
   }
 }
 
+/* --- Agent First / Wavy Icon Marquee Effect --- */
+@keyframes wave-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-wave-marquee {
+  animation: wave-marquee 40s linear infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.bouncer {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+
+.mask-fade-edges {
+  mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+}
+
 
