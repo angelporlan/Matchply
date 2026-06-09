@@ -18,6 +18,7 @@ const platforms = [
   { id: 'glassdoor', name: 'Glassdoor' },
   { id: 'tecnoempleo', name: 'Tecnoempleo' },
   { id: 'jobsora', name: 'Jobsora' },
+  { id: 'upwork', name: 'Upwork' },
   { id: 'fiverr', name: 'Fiverr' },
   { id: 'stepstone', name: 'StepStone' },
   { id: 'jooble', name: 'Jooble' }
@@ -117,6 +118,7 @@ function PlatformIcon({ id }: { id: string }) {
           <path d="M38 30 H48 V48 C52 42, 58 40, 64 40 C74 40, 82 48, 82 60 C82 72, 74 80, 64 80 C58 80, 52 78, 48 72 V80 H38 V30 Z M48 60 C48 66, 52 70, 58 70 C64 70, 68 66, 68 60 C68 54, 64 50, 58 50 C52 50, 48 54, 48 60 Z" fill="white" fillRule="evenodd" />
         </svg>
       );
+    case 'upwork':
       return (
         <svg className="w-8 h-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           {/* Green rounded square background */}

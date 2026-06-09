@@ -61,16 +61,16 @@ export const translations = {
         title: 'Una suite potente de optimización profesional',
         subtitle: 'Desde el editor interactivo con auto-guardado hasta la inteligencia semántica y el pipeline de postulaciones.',
         editor: {
-          title: 'Editor Split-Screen',
-          desc: 'Escribe en Markdown al lado izquierdo y visualiza los ajustes de diseño, fuentes y márgenes aplicados instantáneamente en el PDF a la derecha.',
+          title: 'Tu CV, listo para imprimir en segundos',
+          desc: 'Editor en tiempo real con previsualización instantánea del PDF. Lo que escribes es lo que envías.',
         },
         ai: {
-          title: 'Optimización Semántica con IA',
-          desc: 'Analiza la oferta en profundidad y reescribe tu CV para maximizar el match con cada puesto. Método STAR aplicado automáticamente.',
+          title: 'Deja de ser ignorado por los filtros ATS',
+          desc: 'La IA analiza cada oferta y reescribe tu CV con las palabras clave exactas que buscan los reclutadores.',
         },
         kanban: {
-          title: 'Tablero Kanban',
-          desc: 'Registra tus postulaciones en un panel visual elegante de 5 columnas. Vincula el CV personalizado exacto que utilizaste para cada oferta de empleo.',
+          title: 'Nunca pierdas el hilo de tus candidaturas',
+          desc: 'Sigue cada postulación desde el primer contacto hasta la oferta. Con el CV exacto que usaste en cada empresa, siempre a mano.',
         },
       },
       templates: {
@@ -696,16 +696,16 @@ export const translations = {
         title: 'A powerful suite for professional optimization',
         subtitle: 'From an autosaving interactive editor to semantic intelligence and an application pipeline.',
         editor: {
-          title: 'Split-Screen Editor',
-          desc: 'Write in Markdown on the left and see layout, font, and margin adjustments applied instantly to the PDF on the right.',
+          title: 'Your CV, ready to print in seconds',
+          desc: 'Real-time editor with instant PDF preview. What you write is what you send.',
         },
         ai: {
-          title: 'Semantic AI Optimization',
-          desc: 'Deeply analyzes the job offer and rewrites your CV to maximize your match. STAR method applied automatically.',
+          title: 'Stop being ignored by ATS filters',
+          desc: 'AI analyzes each job offer and rewrites your CV with the exact keywords recruiters are looking for.',
         },
         kanban: {
-          title: 'Kanban Board',
-          desc: 'Track your applications in an elegant 5-column visual board. Link the exact tailored CV you used for each job offer.',
+          title: 'Never lose track of your applications',
+          desc: 'Follow each application from first contact to offer. With the exact CV you used for each company, always at hand.',
         },
       },
       templates: {

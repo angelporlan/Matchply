@@ -153,6 +153,62 @@ export function ParticlesCanvas() {
 }
 
 // ----------------------------------------------------
+// Sub-component: Scroll-revealing Character Stagger Text
+// ----------------------------------------------------
+function FeatureDescription({ text }: { text: string }) {
+  const words = text.split(' ');
+
+  const containerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.006,
+      },
+    },
+  };
+
+  const charVariants = {
+    hidden: { opacity: 0.15 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.28,
+        ease: "easeOut" as any,
+      },
+    },
+  };
+
+  return (
+    <motion.span
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-100px" }}
+      className="inline-block"
+      aria-label={text}
+    >
+      {words.map((word, wordIdx) => (
+        <span
+          key={wordIdx}
+          className="inline-block whitespace-nowrap mr-[0.25em]"
+          aria-hidden="true"
+        >
+          {Array.from(word).map((char, charIdx) => (
+            <motion.span
+              key={charIdx}
+              variants={charVariants}
+              className="inline-block relative"
+            >
+              {char}
+            </motion.span>
+          ))}
+        </span>
+      ))}
+    </motion.span>
+  );
+}
+
+// ----------------------------------------------------
 // Sub-component: Animated Count-up Numbers
 // ----------------------------------------------------
 export function AnimatedNumber({
@@ -833,281 +889,272 @@ export default function LandingPageClient({ session }: { session: any }) {
 
       {/* Wavy Banner & Typewriter Typing Effect */}
       <AgentFirstEffect />
+      {/* Features Grid (Scroll Triggered + Cursor Glow) - Restructured to Antigravity Row style */}
+      <section id="features" className="feature-explorer-section">
+        <div className="grid-container">
+          <div className="feature-list">
 
-      {/* Features Grid (Scroll Triggered + Cursor Glow) */}
-      <section id="features" className="py-24 border-b border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#0b0f19] relative scroll-mt-24 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-
-          <div className="text-center mb-20">
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-[#1e1b4b] dark:text-white mb-4">
-              {t('landing.features.title')}
-            </h2>
-            <p className="text-[#1e1b4b]/60 dark:text-slate-400 max-w-2xl mx-auto font-light">
-              {t('landing.features.subtitle')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-
-            {/* Bento Card 1: Split-Screen Editor (col-span 7) */}
-            <motion.div
-              initial={{ opacity: 0, y: 35 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="md:col-span-7"
-            >
-              <FeatureCard className="bg-white dark:bg-[#1f2937]/50 p-8 rounded-[16px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg cursor-default group h-full flex flex-col justify-between overflow-hidden relative">
-                <div>
-                  <div className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 p-4 rounded-xl text-[#8b5cf6] w-fit mb-6 transition-transform duration-300 group-hover:scale-110">
-                    <FileText className="w-6 h-6 stroke-[1.75]" />
-                  </div>
-                  <h3 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white mb-3">{t('landing.features.editor.title')}</h3>
-                  <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm font-light leading-relaxed max-w-xl">
-                    {t('landing.features.editor.desc')}
-                  </p>
-                </div>
-
-                {/* Mini IDE Visual Mockup (Functional Sync Live Compiler) */}
-                <MiniEditorMockup />
-              </FeatureCard>
-            </motion.div>
-
-            {/* Bento Card 2: AI Semantic Optimization (col-span 5) */}
-            <motion.div
-              initial={{ opacity: 0, y: 35 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="md:col-span-5"
-            >
-              <FeatureCard className="bg-white dark:bg-[#1f2937]/50 p-8 rounded-[16px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg cursor-default group h-full flex flex-col justify-between overflow-hidden relative">
-                <div>
-                  <div className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 p-4 rounded-xl text-[#8b5cf6] w-fit mb-6 transition-transform duration-300 group-hover:scale-110">
-                    <Sparkles className="w-6 h-6 stroke-[1.75]" />
-                  </div>
-                  <h3 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white mb-3">{t('landing.features.ai.title')}</h3>
-                  <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm font-light leading-relaxed">
-                    {t('landing.features.ai.desc')}
-                  </p>
-                </div>
-
-                {/* Visual conceptual AI Optimization CV & Keyword link Streams */}
-                <div className="mt-8 flex flex-col items-center justify-center relative h-44 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-2xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
-                  {/* Glowing background aura */}
-                  <div className="absolute inset-0 bg-[#8b5cf6]/5 rounded-full blur-2xl animate-pulse" />
-
-                  {/* SVG Streams connecting keywords to central CV */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 340 176" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {[
-                      { d: 'M 55 30 L 152 90', color: '#8b5cf6' },
-                      { d: 'M 285 30 L 188 90', color: '#10b981' },
-                      { d: 'M 35 84 L 142 105', color: '#6366f1' },
-                      { d: 'M 305 84 L 198 105', color: '#2ecc71' },
-                      { d: 'M 55 146 L 152 120', color: '#8b5cf6' },
-                      { d: 'M 285 146 L 188 120', color: '#a855f7' }
-                    ].map((line, idx) => (
-                      <g key={idx}>
-                        {/* Static subtle background track */}
-                        <path d={line.d} stroke={line.color} strokeWidth="1" strokeOpacity="0.12" />
-                        {/* Flowing animated stream */}
-                        <motion.path
-                          d={line.d}
-                          stroke={line.color}
-                          strokeWidth="1.2"
-                          strokeOpacity="0.45"
-                          strokeDasharray="4 4"
-                          animate={{ strokeDashoffset: [20, 0] }}
-                          transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: idx * 0.2 }}
-                        />
-                      </g>
-                    ))}
-                  </svg>
-
-                  {/* Center: CV + Match Badge */}
-                  <div className="flex flex-col items-center z-10">
-                    {/* Glowing pill badge above CV */}
-                    <motion.div
-                      animate={{ y: [0, -3, 0] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                      className="bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[8.5px] font-black px-2.5 py-0.5 rounded-full mb-2.5 flex items-center gap-0.5 shadow-sm shadow-emerald-500/5"
-                    >
-                      <Sparkles className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
-                      <span>98% ATS Match</span>
-                    </motion.div>
-
-                    {/* Rectangle CV Card */}
-                    <motion.div
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      className="w-14 h-18 bg-white dark:bg-slate-950 rounded-lg shadow-xl border border-[#8b5cf6]/25 dark:border-[#8b5cf6]/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
-                    >
-                      {/* CV Header: Circular avatar and text lines */}
-                      <div className="flex gap-1 items-center">
-                        <div className="w-3 h-3 rounded-full bg-[#8b5cf6]/15 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]/40" />
-                        </div>
-                        <div className="flex-1 flex flex-col gap-0.5">
-                          <div className="h-1 w-6 bg-[#8b5cf6] rounded-full" />
-                          <div className="h-0.5 w-4 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                        </div>
-                      </div>
-
-                      {/* Experience lines */}
-                      <div className="flex flex-col gap-1 mt-1">
-                        <div className="h-0.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
-                        <div className="h-0.5 w-5/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                        <div className="h-0.5 w-4/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                      </div>
-
-                      {/* Glowing AI Shimmer Highlight */}
-                      <div className="h-2 w-full bg-emerald-500/15 rounded border border-emerald-500/25 overflow-hidden relative flex items-center justify-center mt-auto">
-                        <motion.div
-                          animate={{ x: ['-100%', '100%'] }}
-                          transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
-                        />
-                      </div>
-                    </motion.div>
-                  </div>
-
-                  {/* Absolute Positioned Keywords surrounding the CV */}
-                  <motion.div
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                    className="absolute left-[10%] top-[12%] bg-[#8b5cf6]/8 hover:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 text-[#8b5cf6] dark:text-[#a78bfa] text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    STAR
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.5 }}
-                    className="absolute right-[10%] top-[12%] bg-emerald-500/8 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    Keywords
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [0, 4, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut", delay: 1 }}
-                    className="absolute left-[4%] top-[45%] bg-indigo-500/8 hover:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    ATS
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [0, 4, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut", delay: 1.5 }}
-                    className="absolute right-[4%] top-[45%] bg-[#2ecc71]/8 hover:bg-[#2ecc71]/15 border border-[#2ecc71]/20 text-[#2ecc71] dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    Impacto
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 2 }}
-                    className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    Logros
-                  </motion.div>
-
-                  <motion.div
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 3.3, ease: "easeInOut", delay: 2.5 }}
-                    className="absolute right-[10%] bottom-[12%] bg-purple-500/8 hover:bg-purple-500/15 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
-                  >
-                    Skills
-                  </motion.div>
-                </div>
-              </FeatureCard>
-            </motion.div>
-
-            {/* Bento Card 3: Kanban Applications Pipeline (col-span 12) */}
-            <motion.div
-              initial={{ opacity: 0, y: 35 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="md:col-span-12"
-            >
-              <FeatureCard className="bg-white dark:bg-[#1f2937]/50 p-8 rounded-[16px] border border-[#1e1b4b]/10 dark:border-white/5 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg cursor-default group h-full overflow-hidden relative">
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-8 h-full">
-                  {/* Left Column: Text */}
-                  <div className="lg:w-5/12 text-left flex flex-col justify-center h-full">
-                    <div className="bg-[#2ecc71]/10 border border-[#2ecc71]/20 p-4 rounded-xl text-[#2ecc71] w-fit mb-6 transition-transform duration-300 group-hover:scale-110">
-                      <BarChart2 className="w-6 h-6 stroke-[1.75]" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white mb-3">{t('landing.features.kanban.title')}</h3>
-                    <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm font-light leading-relaxed">
-                      {t('landing.features.kanban.desc')}
+            {/* Feature Item 1: Split-Screen Editor */}
+            <div className="feature-item">
+              <div className="grid-row">
+                <div className="grid-col col-xs-4 col-md-4">
+                  <div className="feature-copy">
+                    <span className="heading-4 feature-title">{t('landing.features.editor.title')}</span>
+                    <p className="body feature-description" aria-label={t('landing.features.editor.desc')}>
+                      <FeatureDescription text={t('landing.features.editor.desc')} />
                     </p>
                   </div>
-
-                  {/* Right Column: Mini Kanban UI Preview */}
-                  <div className="lg:w-7/12 w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-2xl p-5 shadow-inner flex gap-4 h-[210px] overflow-hidden relative">
-                    
-                    {[
-                      { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
-                      { id: 'entrevista', name: 'Entrevista', colorClass: 'text-[#8b5cf6] bg-[#8b5cf6]/10', dotColor: 'bg-[#8b5cf6]' },
-                      { id: 'oferta', name: 'Oferta', colorClass: 'text-emerald-500 bg-emerald-500/10', dotColor: 'bg-emerald-500' },
-                    ].map(col => {
-                      const colCards = kanbanCards.filter(c => c.status === col.id);
-                      const isActive = activeColumn === col.id;
-                      
-                      return (
-                        <div
-                          key={col.id}
-                          onDragOver={handleDragOver}
-                          onDragEnter={(e) => handleDragEnter(e, col.id)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, col.id)}
-                          className={`flex-1 flex flex-col gap-2.5 rounded-xl transition-all duration-200 p-1 select-none ${
-                            isActive ? 'bg-[#8b5cf6]/5 outline-2 outline-dashed outline-[#8b5cf6]/20' : ''
-                          }`}
-                        >
-                          <div className={`flex items-center justify-between text-[8px] font-bold px-2.5 py-1 rounded-md border border-transparent ${col.colorClass}`}>
-                            <span>{col.name}</span>
-                            <span className={`w-1.5 h-1.5 rounded-full ${col.dotColor} ${col.id === 'oferta' ? 'animate-pulse' : ''}`} />
-                          </div>
-                          
-                          <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-none pr-0.5">
-                            {colCards.map(card => (
-                              <motion.div
-                                key={card.id}
-                                layout
-                                draggable
-                                onDragStart={(e: any) => handleDragStart(e, card.id)}
-                                whileDrag={{ scale: 1.05, rotate: 1.5 }}
-                                className={`bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing transition-all hover:border-[#8b5cf6]/30 ${
-                                  card.accepted ? 'border-l-2 border-l-emerald-500 dark:border-l-emerald-500 shadow-md ring-2 ring-emerald-500/10 dark:ring-emerald-500/20' : ''
-                                }`}
-                              >
-                                <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{card.title}</div>
-                                <div className="text-[7.5px] text-slate-400 leading-none">{card.company} • {card.template}</div>
-                                {card.info && (
-                                  <div className="flex gap-1.5 mt-0.5">
-                                    <span className="bg-[#8b5cf6]/10 text-[#8b5cf6] text-[6.5px] font-bold px-1.5 py-0.5 rounded leading-none">{card.info}</span>
-                                  </div>
-                                )}
-                                {card.accepted && (
-                                  <div className="text-[6.5px] text-emerald-500 font-extrabold mt-0.5 animate-bounce leading-none">🎉 ¡Aceptada!</div>
-                                )}
-                              </motion.div>
-                            ))}
-                            {colCards.length === 0 && (
-                              <div className="flex-1 flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-xl py-6 text-center text-[7px] text-slate-400">
-                                Arrastra aquí
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-
+                </div>
+                <div className="grid-col col-xs-4 col-md-offset-2 col-md-6">
+                  <div className="feature-media">
+                    <motion.div
+                      initial={{ opacity: 0, y: 35 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-100px' }}
+                      transition={{ duration: 0.6, delay: 0.15 }}
+                    >
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                        <MiniEditorMockup />
+                      </FeatureCard>
+                    </motion.div>
                   </div>
                 </div>
-              </FeatureCard>
-            </motion.div>
+              </div>
+            </div>
+
+            {/* Feature Item 2: AI Semantic Optimization */}
+            <div className="feature-item">
+              <div className="grid-row">
+                <div className="grid-col col-xs-4 col-md-4 order-1 md:order-2 md:col-start-9">
+                  <div className="feature-copy">
+                    <span className="heading-4 feature-title">{t('landing.features.ai.title')}</span>
+                    <p className="body feature-description" aria-label={t('landing.features.ai.desc')}>
+                      <FeatureDescription text={t('landing.features.ai.desc')} />
+                    </p>
+                  </div>
+                </div>
+                <div className="grid-col col-xs-4 col-md-6 order-2 md:order-1 md:col-start-1">
+                  <div className="feature-media">
+                    <motion.div
+                      initial={{ opacity: 0, y: 35 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-100px' }}
+                      transition={{ duration: 0.6, delay: 0.15 }}
+                    >
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                        {/* Visual conceptual AI Optimization CV & Keyword link Streams */}
+                        <div className="flex flex-col items-center justify-center relative h-52 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
+                          {/* Glowing background aura */}
+                          <div className="absolute inset-0 bg-[#8b5cf6]/5 rounded-full blur-2xl animate-pulse" />
+
+                          {/* SVG Streams connecting keywords to central CV */}
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 340 176" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            {[
+                              { d: 'M 55 30 L 152 90', color: '#8b5cf6' },
+                              { d: 'M 285 30 L 188 90', color: '#10b981' },
+                              { d: 'M 35 84 L 142 105', color: '#6366f1' },
+                              { d: 'M 305 84 L 198 105', color: '#2ecc71' },
+                              { d: 'M 55 146 L 152 120', color: '#8b5cf6' },
+                              { d: 'M 285 146 L 188 120', color: '#a855f7' }
+                            ].map((line, idx) => (
+                              <g key={idx}>
+                                <path d={line.d} stroke={line.color} strokeWidth="1" strokeOpacity="0.12" />
+                                <motion.path
+                                  d={line.d}
+                                  stroke={line.color}
+                                  strokeWidth="1.2"
+                                  strokeOpacity="0.45"
+                                  strokeDasharray="4 4"
+                                  animate={{ strokeDashoffset: [20, 0] }}
+                                  transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: idx * 0.2 }}
+                                />
+                              </g>
+                            ))}
+                          </svg>
+
+                          {/* Center: CV + Match Badge */}
+                          <div className="flex flex-col items-center z-10">
+                            <motion.div
+                              animate={{ y: [0, -3, 0] }}
+                              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                              className="bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[8.5px] font-black px-2.5 py-0.5 rounded-full mb-2.5 flex items-center gap-0.5 shadow-sm shadow-emerald-500/5"
+                            >
+                              <Sparkles className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
+                              <span>98% ATS Match</span>
+                            </motion.div>
+
+                            <motion.div
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="w-14 h-18 bg-white dark:bg-slate-950 rounded-lg shadow-xl border border-[#8b5cf6]/25 dark:border-[#8b5cf6]/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
+                            >
+                              <div className="flex gap-1 items-center">
+                                <div className="w-3 h-3 rounded-full bg-[#8b5cf6]/15 flex items-center justify-center">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]/40" />
+                                </div>
+                                <div className="flex-1 flex flex-col gap-0.5">
+                                  <div className="h-1 w-6 bg-[#8b5cf6] rounded-full" />
+                                  <div className="h-0.5 w-4 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1 mt-1">
+                                <div className="h-0.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                <div className="h-0.5 w-5/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                <div className="h-0.5 w-4/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                              </div>
+
+                              <div className="h-2 w-full bg-emerald-500/15 rounded border border-emerald-500/25 overflow-hidden relative flex items-center justify-center mt-auto">
+                                <motion.div
+                                  animate={{ x: ['-100%', '100%'] }}
+                                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                                />
+                              </div>
+                            </motion.div>
+                          </div>
+
+                          {/* Keywords */}
+                          <motion.div
+                            animate={{ y: [0, -4, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
+                            className="absolute left-[10%] top-[12%] bg-[#8b5cf6]/8 hover:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 text-[#8b5cf6] dark:text-[#a78bfa] text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            STAR
+                          </motion.div>
+
+                          <motion.div
+                            animate={{ y: [0, -4, 0] }}
+                            transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.5 }}
+                            className="absolute right-[10%] top-[12%] bg-emerald-500/8 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            Keywords
+                          </motion.div>
+
+                          <motion.div
+                            animate={{ y: [0, 4, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut", delay: 1 }}
+                            className="absolute left-[4%] top-[45%] bg-indigo-500/8 hover:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            ATS
+                          </motion.div>
+
+                          <motion.div
+                            animate={{ y: [0, 4, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut", delay: 1.5 }}
+                            className="absolute right-[4%] top-[45%] bg-[#2ecc71]/8 hover:bg-[#2ecc71]/15 border border-[#2ecc71]/20 text-[#2ecc71] dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            Impacto
+                          </motion.div>
+
+                          <motion.div
+                            animate={{ y: [0, -4, 0] }}
+                            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 2 }}
+                            className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            Logros
+                          </motion.div>
+
+                          <motion.div
+                            animate={{ y: [0, -4, 0] }}
+                            transition={{ repeat: Infinity, duration: 3.3, ease: "easeInOut", delay: 2.5 }}
+                            className="absolute right-[10%] bottom-[12%] bg-purple-500/8 hover:bg-purple-500/15 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                          >
+                            Skills
+                          </motion.div>
+                        </div>
+                      </FeatureCard>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Item 3: Kanban Applications Pipeline */}
+            <div className="feature-item">
+              <div className="grid-row">
+                <div className="grid-col col-xs-4 col-md-4">
+                  <div className="feature-copy">
+                    <span className="heading-4 feature-title">{t('landing.features.kanban.title')}</span>
+                    <p className="body feature-description" aria-label={t('landing.features.kanban.desc')}>
+                      <FeatureDescription text={t('landing.features.kanban.desc')} />
+                    </p>
+                  </div>
+                </div>
+                <div className="grid-col col-xs-4 col-md-offset-2 col-md-6">
+                  <div className="feature-media">
+                    <motion.div
+                      initial={{ opacity: 0, y: 35 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-100px' }}
+                      transition={{ duration: 0.6, delay: 0.15 }}
+                    >
+                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-6 sm:p-8 rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                        {/* Right Column: Mini Kanban UI Preview */}
+                        <div className="w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl p-5 shadow-inner flex gap-4 h-[220px] overflow-hidden relative">
+                          {[
+                            { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
+                            { id: 'entrevista', name: 'Entrevista', colorClass: 'text-[#8b5cf6] bg-[#8b5cf6]/10', dotColor: 'bg-[#8b5cf6]' },
+                            { id: 'oferta', name: 'Oferta', colorClass: 'text-emerald-500 bg-emerald-500/10', dotColor: 'bg-emerald-500' },
+                          ].map(col => {
+                            const colCards = kanbanCards.filter(c => c.status === col.id);
+                            const isActive = activeColumn === col.id;
+                            
+                            return (
+                              <div
+                                key={col.id}
+                                onDragOver={handleDragOver}
+                                onDragEnter={(e) => handleDragEnter(e, col.id)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, col.id)}
+                                className={`flex-1 flex flex-col gap-2.5 rounded-xl transition-all duration-200 p-1 select-none ${
+                                  isActive ? 'bg-[#8b5cf6]/5 outline-2 outline-dashed outline-[#8b5cf6]/20' : ''
+                                }`}
+                              >
+                                <div className={`flex items-center justify-between text-[8px] font-bold px-2.5 py-1 rounded-md border border-transparent ${col.colorClass}`}>
+                                  <span>{col.name}</span>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${col.dotColor} ${col.id === 'oferta' ? 'animate-pulse' : ''}`} />
+                                </div>
+                                
+                                <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-none pr-0.5">
+                                  {colCards.map(card => (
+                                    <motion.div
+                                      key={card.id}
+                                      layout
+                                      draggable
+                                      onDragStart={(e: any) => handleDragStart(e, card.id)}
+                                      whileDrag={{ scale: 1.05, rotate: 1.5 }}
+                                      className={`bg-white dark:bg-slate-950 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing transition-all hover:border-[#8b5cf6]/30 ${
+                                        card.accepted ? 'border-l-2 border-l-emerald-500 dark:border-l-emerald-500 shadow-md ring-2 ring-emerald-500/10 dark:ring-emerald-500/20' : ''
+                                      }`}
+                                    >
+                                      <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{card.title}</div>
+                                      <div className="text-[7.5px] text-slate-400 leading-none">{card.company} • {card.template}</div>
+                                      {card.info && (
+                                        <div className="flex gap-1.5 mt-0.5">
+                                          <span className="bg-[#8b5cf6]/10 text-[#8b5cf6] text-[6.5px] font-bold px-1.5 py-0.5 rounded leading-none">{card.info}</span>
+                                        </div>
+                                      )}
+                                      {card.accepted && (
+                                        <div className="text-[6.5px] text-emerald-500 font-extrabold mt-0.5 animate-bounce leading-none">🎉 ¡Aceptada!</div>
+                                      )}
+                                    </motion.div>
+                                  ))}
+                                  {colCards.length === 0 && (
+                                    <div className="flex-1 flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-xl py-6 text-center text-[7px] text-slate-400">
+                                      Arrastra aquí
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </FeatureCard>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>
