@@ -4,7 +4,7 @@ import { users, jobOffers, cvs } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
-import { isProSubscription } from '@/lib/subscription';
+import { AIService } from '@/lib/ai-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       legitimacyTier,
       rawReport,
       cvMarkdownTailored,
+      optimizeCv,
       targetProofPoints,
       coverLetter,
       outreachMessage,
@@ -137,40 +138,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3.5. Enforce PRO/Premium Subscription Check
-    const isPremium = isProSubscription(user.subscriptionStatus);
-    if (!isPremium) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Integrations and API synchronization are PRO features. Please upgrade your plan in Matchply.' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
+    // Nota: La sincronización de candidaturas está disponible para todos los usuarios.
+
+    // 4. Obtener CV Base del usuario (necesario para optimizeCv y cvMarkdownTailored)
+    const [baseCv] = await db
+      .select()
+      .from(cvs)
+      .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
+      .orderBy(desc(cvs.isPrincipal))
+      .limit(1);
+
+    const templateName = baseCv?.templateName || 'harvard';
+    const accentColor = baseCv?.accentColor || '#1a5f7a';
+    const fontFamily = baseCv?.fontFamily || 'helvetica';
+    const pageMargin = baseCv?.pageMargin ?? 36;
+    const scale = baseCv?.scale ?? 1.0;
+
+    // 4a. Si optimizeCv=true, generar CV optimizado con IA del lado del servidor
+    let resolvedCvMarkdown: string | null = cvMarkdownTailored || null;
+
+    if (optimizeCv && !resolvedCvMarkdown && baseCv && description) {
+      try {
+        console.log(`[Applications] Optimizing CV for ${userEmail} — ${title} at ${company}`);
+        const aiStream = await AIService.optimizeCVStream({
+          baseCvMarkdown: baseCv.content,
+          jobDescription: description,
+          userSubscriptionStatus: user.subscriptionStatus,
+          candidateName: user.name || ''
+        });
+
+        // Consumir el stream completo
+        const reader = aiStream.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+        }
+
+        if (accumulated.trim()) {
+          resolvedCvMarkdown = accumulated.trim();
+          console.log(`[Applications] CV optimized successfully for ${userEmail} (${accumulated.length} chars)`);
+        }
+      } catch (optimizeError: any) {
+        console.error('[Applications] Error optimizing CV:', optimizeError.message);
+        // Continuamos sin CV optimizado, no bloqueamos la candidatura
+      }
     }
 
-    // 4. Crear CV Adaptado en Matchply si se incluye cvMarkdownTailored
+    // 4b. Crear CV Adaptado en Matchply si tenemos markdown (de optimizeCv o cvMarkdownTailored)
     let cvId: string | null = null;
-    if (cvMarkdownTailored) {
+    if (resolvedCvMarkdown) {
       try {
-        // Encontrar el CV principal o base del usuario para copiar las configuraciones estéticas
-        const [baseCv] = await db
-          .select()
-          .from(cvs)
-          .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-          .orderBy(desc(cvs.isPrincipal))
-          .limit(1);
+        const cvTitle = optimizeCv
+          ? `Optimizado - ${title} (${company})`
+          : `[API] - ${title} (${company})`;
 
-        const templateName = baseCv?.templateName || 'harvard';
-        const accentColor = baseCv?.accentColor || '#1a5f7a';
-        const fontFamily = baseCv?.fontFamily || 'helvetica';
-        const pageMargin = baseCv?.pageMargin ?? 36;
-        const scale = baseCv?.scale ?? 1.0;
-
-        // Crear una nueva entrada en la tabla cv
         const [newCv] = await db
           .insert(cvs)
           .values({
             userId,
-            title: `[API] - ${title} (${company})`,
-            content: cvMarkdownTailored,
+            title: cvTitle,
+            content: resolvedCvMarkdown,
             isBase: false,
             isPrincipal: false,
             templateName,
