@@ -441,162 +441,261 @@ export function CarouselCard({
 // Sub-component: Mini IDE Real-Time Compiler Mockup
 // ----------------------------------------------------
 export function MiniEditorMockup() {
-  const [step, setStep] = useState(0);
+  const lines = [
+    "# Fernando González",
+    "## Experiencia",
+    "* Admin Contable",
+    "  - STAR: Reduje 12% costes"
+  ];
+
+  const [typedLines, setTypedLines] = useState<string[]>(["", "", "", ""]);
+  const [activeLineIdx, setActiveLineIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [compiling, setCompiling] = useState(false);
+  const [pdfVisibleCount, setPdfVisibleCount] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStep(prev => (prev + 1) % 4);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, []);
+    let timer: NodeJS.Timeout;
+
+    // Reset loop
+    if (activeLineIdx >= lines.length) {
+      timer = setTimeout(() => {
+        setTypedLines(["", "", "", ""]);
+        setActiveLineIdx(0);
+        setCharIdx(0);
+        setPdfVisibleCount(0);
+        setCompiling(false);
+      }, 3500); // Hold final state before reset
+      return () => clearTimeout(timer);
+    }
+
+    const currentLineText = lines[activeLineIdx];
+
+    if (charIdx < currentLineText.length) {
+      // Type next character
+      timer = setTimeout(() => {
+        setTypedLines(prev => {
+          const next = [...prev];
+          next[activeLineIdx] = currentLineText.slice(0, charIdx + 1);
+          return next;
+        });
+        setCharIdx(prev => prev + 1);
+      }, 45); // Typing speed
+    } else {
+      // Line finished typing. Trigger compile.
+      setCompiling(true);
+      timer = setTimeout(() => {
+        setCompiling(false);
+        setPdfVisibleCount(prev => prev + 1);
+        // Move to next line
+        setActiveLineIdx(prev => prev + 1);
+        setCharIdx(0);
+      }, 900); // Compilation delay
+    }
+
+    return () => clearTimeout(timer);
+  }, [activeLineIdx, charIdx]);
 
   return (
-    <div className="mt-8 bg-slate-950 dark:bg-slate-900 rounded-xl p-4 font-mono text-[9px] border border-white/10 dark:border-white/5 shadow-2xl flex gap-3 h-44 overflow-hidden relative select-none">
-      
-      {/* Left Side: Markdown Editor with line numbers */}
-      <div className="w-1/2 flex flex-col gap-2 text-slate-400 text-left border-r border-white/10 pr-2 relative">
-        <div className="flex items-center justify-between text-[8px] text-slate-500 font-semibold mb-1">
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-pulse" />
-            <span>fernando_cv.md</span>
-          </div>
-          <span className="text-[7px] text-slate-600 bg-white/5 px-1.5 py-0.5 rounded">Markdown</span>
+    <div className="w-full bg-white dark:bg-[#0c1020]/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col h-56 relative font-mono text-[9px] select-none transition-colors duration-300">
+      {/* 1. Header Bar */}
+      <div className="h-9 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-white/5 flex items-center px-4 justify-between select-none">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] opacity-90" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] opacity-90" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f] opacity-90" />
         </div>
         
-        {/* Editor Body: Lines and Line Numbers */}
-        <div className="flex gap-2 flex-1">
+        {/* Document Tab */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-[#0c1020]/80 rounded-t-lg border-t border-x border-slate-200 dark:border-white/5 text-[8.5px] font-sans font-bold text-slate-700 dark:text-slate-300 relative top-[4.5px]">
+          <FileText className="w-3 h-3 text-indigo-500 dark:text-[#8b5cf6]" />
+          <span>fernando_cv.md</span>
+        </div>
+        
+        <div className="text-[7.5px] text-slate-400 dark:text-slate-500 font-sans font-semibold uppercase tracking-wider">
+          Markdown
+        </div>
+      </div>
+
+      {/* 2. Main Workspace */}
+      <div className="flex flex-1 h-[calc(100%-64px)] overflow-hidden">
+        {/* Left Panel: Markdown Editor */}
+        <div className="w-1/2 bg-slate-50/50 dark:bg-[#0c1020]/50 border-r border-slate-200/80 dark:border-white/5 p-3 flex gap-2 text-left relative overflow-y-auto scrollbar-none">
           {/* Line Numbers */}
-          <div className="flex flex-col text-slate-600 text-right select-none text-[8.5px] gap-[4.5px]">
+          <div className="flex flex-col text-slate-400 dark:text-slate-600 text-right select-none text-[8.5px] gap-[4.5px] pr-1 border-r border-slate-200 dark:border-white/5">
             <div>1</div>
             <div>2</div>
             <div>3</div>
             <div>4</div>
             <div>5</div>
           </div>
-          
-          {/* Code content */}
-          <div className="flex flex-col gap-[4.5px] flex-1 text-[8.5px]">
+
+          {/* Lines editor content */}
+          <div className="flex flex-col gap-[4.5px] flex-1 text-[8.5px] pl-1">
             {/* Line 1 */}
-            <motion.div
-              animate={{ opacity: step >= 0 ? 1 : 0.2 }}
-              className="text-[#8b5cf6] font-bold animate-pulse"
-            >
-              # Fernando González
-            </motion.div>
-            
-            {/* Line 2 */}
-            <motion.div
-              animate={{ opacity: step >= 1 ? 1 : 0.15 }}
-              className="text-slate-500 font-semibold"
-            >
-              ## Experiencia
-            </motion.div>
-            
-            {/* Line 3 */}
-            <motion.div
-              animate={{ opacity: step >= 2 ? 1 : 0.15 }}
-              className="text-emerald-400"
-            >
-              * Admin Contable
-            </motion.div>
-            
-            {/* Line 4 */}
-            <motion.div
-              animate={{ opacity: step >= 3 ? 1 : 0.15 }}
-              className="text-[#8b5cf6]/80 pl-2"
-            >
-              - Método STAR activado
-            </motion.div>
-            
-            {/* Line 5 (Blinking Typing Cursor) */}
-            <div className="flex items-center">
-              <span className="text-slate-500 pl-2">
-                {step === 0 && ""}
-                {step === 1 && ""}
-                {step === 2 && ""}
-                {step === 3 && ""}
-              </span>
-              <motion.span
-                animate={{ opacity: [1, 0, 1] }}
-                transition={{ repeat: Infinity, duration: 0.8 }}
-                className="w-1 h-3 bg-[#8b5cf6] ml-0.5"
-              />
+            <div className="text-indigo-600 dark:text-[#a78bfa] font-bold min-h-[12px] flex items-center">
+              <span>{typedLines[0]}</span>
+              {activeLineIdx === 0 && (
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                />
+              )}
             </div>
+
+            {/* Line 2 */}
+            <div className="text-slate-700 dark:text-slate-300 font-semibold min-h-[12px] flex items-center">
+              <span>{typedLines[1]}</span>
+              {activeLineIdx === 1 && (
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                />
+              )}
+            </div>
+
+            {/* Line 3 */}
+            <div className="text-slate-600 dark:text-emerald-400 font-medium min-h-[12px] flex items-center">
+              <span>{typedLines[2]}</span>
+              {activeLineIdx === 2 && (
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-1 h-3 bg-indigo-500 dark:bg-emerald-400 ml-0.5"
+                />
+              )}
+            </div>
+
+            {/* Line 4 */}
+            <div className="text-slate-500 dark:text-slate-400 pl-2 min-h-[12px] flex items-center">
+              <span>{typedLines[3]}</span>
+              {activeLineIdx === 3 && (
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-1 h-3 bg-indigo-500 dark:bg-emerald-400 ml-0.5"
+                />
+              )}
+            </div>
+
+            {/* Cursor on next lines */}
+            {activeLineIdx >= 4 && (
+              <div className="min-h-[12px] flex items-center">
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel: Simulated PDF (Always Real-Looking White Paper with Premium Shadow) */}
+        <div className="w-1/2 bg-slate-100 dark:bg-[#080b16] p-3 flex items-center justify-center relative">
+          <div className="w-[125px] h-[135px] bg-white text-slate-800 rounded-md shadow-md border border-slate-200/60 p-2.5 flex flex-col gap-1.5 relative overflow-hidden select-none">
+            {/* Header Element */}
+            {pdfVisibleCount >= 1 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col gap-0.5 border-b border-slate-100 pb-1"
+              >
+                <div className="text-[6.5px] font-black text-indigo-700 tracking-tight leading-none">
+                  Fernando González
+                </div>
+                <div className="text-[4px] text-slate-400 leading-none">
+                  fernando@email.com • Madrid, ES
+                </div>
+              </motion.div>
+            ) : (
+              <div className="h-6 flex items-center justify-center border border-dashed border-slate-100 rounded text-[6px] text-slate-300">
+                Esperando cabecera...
+              </div>
+            )}
+
+            {/* Experience Title Element */}
+            {pdfVisibleCount >= 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col gap-0.5"
+              >
+                <div className="text-[4.5px] font-bold text-slate-500 tracking-wider uppercase leading-none">
+                  Experiencia Profesional
+                </div>
+              </motion.div>
+            )}
+
+            {/* Job Title Line */}
+            {pdfVisibleCount >= 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col gap-0.5 pl-0.5"
+              >
+                <div className="text-[5px] font-black text-slate-700 leading-none">
+                  Admin Contable
+                </div>
+                <div className="text-[4px] text-slate-400 leading-none">
+                  ABC Consulting SA • 2022 - Presente
+                </div>
+              </motion.div>
+            )}
+
+            {/* AI optimized STAR Bullet Highlight */}
+            {pdfVisibleCount >= 4 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                className="bg-emerald-50 border border-emerald-200/80 text-emerald-800 rounded px-1.5 py-1 text-[4.5px] font-medium leading-relaxed shadow-sm relative overflow-hidden"
+              >
+                <div className="font-extrabold text-emerald-700 flex items-center gap-0.5 mb-0.5 text-[4.2px]">
+                  <Sparkles className="w-1.5 h-1.5 text-emerald-600 animate-pulse" />
+                  <span>Método STAR Aplicado</span>
+                </div>
+                Reduje un 12% en costes operativos automatizando conciliaciones bancarias.
+                {/* Glowing light shimmer */}
+                <motion.div
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none"
+                />
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Right Side: PDF Compiler Viewer */}
-      <div className="w-1/2 bg-white/5 dark:bg-white/5 rounded-lg p-3 flex flex-col gap-2.5 relative border border-white/5">
-        {/* PDF Header controls */}
-        <div className="flex items-center justify-between text-[7px] text-slate-500 border-b border-white/10 pb-1 mb-0.5">
-          <span>Vista Previa PDF</span>
-          <div className="flex gap-1 items-center">
-            <span className="px-1 bg-white/5 rounded font-bold">75%</span>
-            <span className="w-2 h-2 rounded bg-white/10 hover:bg-white/20" />
-          </div>
-        </div>
-
-        {/* PDF Document Preview elements linked to editor step */}
-        <div className="flex flex-col gap-2 flex-1">
-          {/* Header element (linked to step 0) */}
-          <motion.div
-            animate={{ 
-              opacity: step >= 0 ? 1 : 0.15,
-              scale: step === 0 ? [1, 1.03, 1] : 1
-            }}
-            className="flex flex-col gap-1"
-          >
-            <div className="h-2 w-14 bg-[#8b5cf6] rounded" />
-            <div className="h-1 w-8 bg-slate-400/50 rounded animate-pulse" />
-          </motion.div>
-
-          {/* Experiencia title (linked to step 1) */}
-          <motion.div
-            animate={{ 
-              opacity: step >= 1 ? 1 : 0.15,
-              scale: step === 1 ? [1, 1.03, 1] : 1
-            }}
-            className="h-1.5 w-10 bg-slate-300 rounded"
-          />
-
-          {/* Job Item lines (linked to step 2) */}
-          <motion.div
-            animate={{ 
-              opacity: step >= 2 ? 1 : 0.15,
-              scale: step === 2 ? [1, 1.03, 1] : 1
-            }}
-            className="flex flex-col gap-1 pl-1"
-          >
-            <div className="h-1 w-full bg-slate-300/40 rounded" />
-            <div className="h-1 w-5/6 bg-slate-300/40 rounded" />
-          </motion.div>
-
-          {/* Optimized STAR highlights (linked to step 3) */}
-          <motion.div
-            animate={{ 
-              opacity: step >= 3 ? 1 : 0.15,
-              scale: step === 3 ? [1, 1.02, 1] : 1
-            }}
-            className="h-3 w-full bg-emerald-500/10 border border-emerald-500/30 rounded pl-1 flex items-center overflow-hidden"
-          >
-            <div className="h-1 w-4/5 bg-emerald-400/70 rounded relative overflow-hidden">
-              <motion.div
-                animate={{ x: ['-100%', '100%'] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
-              />
+      {/* 3. Status Footer Bar */}
+      <div className="h-7 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-200 dark:border-white/5 flex items-center justify-between px-4 py-1 text-[8.5px] font-sans font-medium text-slate-500 dark:text-slate-400 select-none">
+        <div className="flex items-center gap-1.5">
+          {compiling ? (
+            <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+              <Sparkles className="w-2.5 h-2.5 animate-spin" />
+              <span>Compilando cambios...</span>
             </div>
-          </motion.div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span>PDF Listo</span>
+            </div>
+          )}
         </div>
         
-        {/* PDF Status Indicator */}
-        <div className="flex gap-1.5 items-center mt-auto">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-[7px] text-emerald-400 font-sans font-bold">Compilado Ok</span>
+        <div className="flex items-center gap-2">
+          <span>Pág: 1 / 1</span>
+          <span className="w-px h-2.5 bg-slate-200 dark:bg-white/10" />
+          <span>A4 Harvard</span>
         </div>
       </div>
     </div>
