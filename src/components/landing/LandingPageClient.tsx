@@ -31,7 +31,26 @@ export function ParticlesCanvas() {
       color: string;
     }> = [];
 
-    const colors = ['rgba(139, 92, 246, 0.35)', 'rgba(46, 204, 113, 0.35)']; // light purple and green esmeralda
+    const colors = [
+      'rgba(139, 92, 246, 0.65)',   // purple
+      'rgba(46, 204, 113, 0.65)',   // green esmeralda
+      'rgba(143, 132, 248, 0.65)',  // light violet
+    ];
+
+    let mouse = { x: -1000, y: -1000, active: false };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.active = true;
+    };
+
+    const handleMouseLeave = () => {
+      mouse.active = false;
+      mouse.x = -1000;
+      mouse.y = -1000;
+    };
 
     const handleResize = () => {
       if (!canvas) return;
@@ -42,14 +61,14 @@ export function ParticlesCanvas() {
 
     const initParticles = () => {
       particles = [];
-      const count = Math.min(Math.floor((canvas.width * canvas.height) / 22000), 45);
+      const count = Math.min(Math.floor((canvas.width * canvas.height) / 13000), 75);
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
           vx: (Math.random() - 0.5) * 0.45,
           vy: (Math.random() - 0.5) * 0.45,
-          radius: Math.random() * 2 + 1,
+          radius: Math.random() * 3 + 1.5,
           color: colors[Math.floor(Math.random() * colors.length)],
         });
       }
@@ -58,16 +77,16 @@ export function ParticlesCanvas() {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw connections
+      // Draw connection lines between particles
       for (let i = 0; i < particles.length; i++) {
         const p1 = particles[i];
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-          if (dist < 130) {
+          if (dist < 140) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - dist / 130)})`;
-            ctx.lineWidth = 0.75;
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.16 * (1 - dist / 140)})`;
+            ctx.lineWidth = 0.8;
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.stroke();
@@ -75,12 +94,33 @@ export function ParticlesCanvas() {
         }
       }
 
-      // Draw & Update particles
+      // Draw & Update particles, apply mouse repulsion and draw cursor lines
       particles.forEach((p) => {
+        if (mouse.active) {
+          const dx = p.x - mouse.x;
+          const dy = p.y - mouse.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 140) {
+            // Repulsion force
+            const force = (140 - dist) / 140;
+            const angle = Math.atan2(dy, dx);
+            p.x += Math.cos(angle) * force * 3;
+            p.y += Math.sin(angle) * force * 3;
+
+            // Draw line from mouse to particle
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.22 * (1 - dist / 140)})`;
+            ctx.lineWidth = 0.95;
+            ctx.moveTo(mouse.x, mouse.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+          }
+        }
+
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 2;
+        ctx.shadowBlur = 4;
         ctx.shadowColor = p.color;
         ctx.fill();
 
@@ -96,16 +136,20 @@ export function ParticlesCanvas() {
     };
 
     window.addEventListener('resize', handleResize);
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
     handleResize();
     animate();
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-45 dark:opacity-60 z-0" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-70 dark:opacity-85 z-0" />;
 }
 
 // ----------------------------------------------------
