@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, prompts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import EditorClient from '@/components/editor/EditorClient';
 import { isProSubscription } from '@/lib/subscription';
+import { getActor } from '@/lib/actor';
 
 interface EditorPageProps {
   params: {
@@ -13,12 +13,12 @@ interface EditorPageProps {
 }
 
 export default async function EditorPage({ params }: EditorPageProps) {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
-    redirect('/login');
+  const actor = await getActor({ allowGuest: true });
+  if (!actor) {
+    redirect('/try');
   }
 
-  const userId = session.user.id;
+  const userId = actor.userId;
   const cvId = params.cvId;
 
   // 1. Obtener Currículum de la base de datos asegurando pertenencia del usuario
@@ -30,7 +30,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
 
   if (!cv) {
     // Si no existe el CV o no pertenece al usuario, redirigir al panel principal
-    redirect('/dashboard');
+    redirect(actor.kind === 'guest' ? '/try' : '/dashboard');
   }
 
   // 1b. Obtener el currículum base para comparación "Antes y Después"
@@ -66,14 +66,17 @@ export default async function EditorPage({ params }: EditorPageProps) {
   }
 
   // 2. Obtener información actualizada de suscripción del usuario
-  const [dbUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const isGuest = actor.kind === 'guest';
+  const dbUser = isGuest
+    ? null
+    : (await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1))[0];
 
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = isProSubscription(subscriptionStatus);
+  const subscriptionStatus = actor.subscriptionStatus || dbUser?.subscriptionStatus || 'none';
+  const isPremium = !isGuest && isProSubscription(subscriptionStatus);
 
   // 3. Obtener prompts no archivados para optimización de CV
   const availablePrompts = await db
@@ -96,8 +99,8 @@ export default async function EditorPage({ params }: EditorPageProps) {
     .orderBy(prompts.name);
 
   const user = {
-    name: session.user.name,
-    email: session.user.email,
+    name: isGuest ? 'Invitado' : actor.name,
+    email: isGuest ? 'Prueba sin registro' : actor.email,
     role: dbUser?.role,
   };
 
@@ -108,6 +111,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
       availablePrompts={availablePrompts || []}
       baseCvContent={baseCvContent}
       user={user}
+      isGuest={isGuest}
     />
   );
 }

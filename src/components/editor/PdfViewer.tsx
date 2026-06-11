@@ -16,6 +16,7 @@ interface PdfViewerProps {
   pageMargin?: number;
   scale?: number;
   isAiStreaming?: boolean;
+  isGuest?: boolean;
 }
 
 export default function PdfViewer({ 
@@ -29,7 +30,8 @@ export default function PdfViewer({
   fontFamily = 'helvetica',
   pageMargin = 36,
   scale = 1.0,
-  isAiStreaming = false
+  isAiStreaming = false,
+  isGuest = false
 }: PdfViewerProps) {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -186,13 +188,13 @@ export default function PdfViewer({
 
           {/* Download PDF button */}
           <a
-            href={`/api/pdf?cvId=${cvId}&download=true`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={isGuest ? '/register' : `/api/pdf?cvId=${cvId}&download=true`}
+            target={isGuest ? undefined : "_blank"}
+            rel={isGuest ? undefined : "noopener noreferrer"}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-sm"
           >
             <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-            <span>{t('editor.pdf.downloadBtn')}</span>
+            <span>{isGuest ? (language === 'es' ? 'Guardar y descargar' : 'Save and download') : t('editor.pdf.downloadBtn')}</span>
           </a>
         </div>
       </div>
@@ -219,13 +221,13 @@ export default function PdfViewer({
                 <span>{t('editor.pdf.retry')}</span>
               </button>
               <a
-                href={`/api/pdf?cvId=${cvId}&download=true`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={isGuest ? '/register' : `/api/pdf?cvId=${cvId}&download=true`}
+                target={isGuest ? undefined : "_blank"}
+                rel={isGuest ? undefined : "noopener noreferrer"}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 text-xs font-bold text-[#8b5cf6] hover:bg-[#8b5cf6]/20 transition-all shadow-sm"
               >
                 <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-                <span>{t('editor.pdf.direct')}</span>
+                <span>{isGuest ? (language === 'es' ? 'Guardar primero' : 'Save first') : t('editor.pdf.direct')}</span>
               </a>
             </div>
           </div>

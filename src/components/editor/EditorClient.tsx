@@ -34,9 +34,10 @@ interface EditorClientProps {
     email?: string | null;
     role?: string | null;
   };
+  isGuest?: boolean;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user }: EditorClientProps) {
+export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [isPending, startTransition] = useTransition();
@@ -418,6 +419,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     // Comprobar suscripción para plantillas premium
+    if (isGuest && val !== 'harvard') {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
     if (!isPremium && val !== 'harvard') {
       setIsUpgradeModalOpen(true);
       return;
@@ -510,7 +515,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col md:flex-row transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
-      <Sidebar user={user} isPremium={isPremium} />
+      <Sidebar user={user} isPremium={isPremium} isGuest={isGuest} />
       <div className="flex-1 h-screen flex flex-col relative z-10 overflow-hidden">
         {/* Background glow effects */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
@@ -520,7 +525,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       <header className="bg-white/80 dark:bg-[#0b0f19]/80 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-4 flex items-center justify-between shrink-0 relative z-30 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <LinkNext
-            href="/dashboard"
+            href={isGuest ? "/try" : "/dashboard"}
             className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-xl hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-900 transition-colors"
             title={t('editor.header.backToDashboard')}
           >
@@ -745,6 +750,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               pageMargin={pageMargin}
               scale={scale}
               isAiStreaming={isStreaming}
+              isGuest={isGuest}
             />
           </div>
         )}
@@ -1009,7 +1015,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         confirmLabel={t('editor.upgradeModal.confirm')}
         onConfirm={() => {
           setIsUpgradeModalOpen(false);
-          window.location.href = '/api/stripe/checkout';
+          window.location.href = isGuest ? '/register' : '/api/stripe/checkout';
         }}
       />
 
