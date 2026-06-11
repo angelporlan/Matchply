@@ -14,6 +14,9 @@ export const users = pgTable('user', {
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
   role: text('role').default('user').notNull(), // 'user' o 'admin'
   apiKey: text('apiKey').unique(), // Personal API Key for external integrations (e.g. Career-Ops)
+  isGuest: boolean('isGuest').default(false).notNull(),
+  guestTokenHash: text('guestTokenHash').unique(),
+  guestExpiresAt: timestamp('guestExpiresAt', { mode: 'date' }),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
@@ -142,4 +145,3 @@ export type JobOffer = typeof jobOffers.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Prompt = typeof prompts.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
-
