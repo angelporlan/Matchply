@@ -73,6 +73,7 @@ const getModelsForProvider = (
 interface AdminClientProps {
   initialStats: {
     totalUsers: number;
+    totalGuests: number;
     totalCvs: number;
     totalOffers: number;
     activeSubscriptions: number;
@@ -598,7 +599,7 @@ export default function AdminClient({
         {activeTab === 'stats' && (
           <div className="space-y-8 animate-fadeIn">
             {/* Stat Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between group hover:border-[#8b5cf6]/30 dark:hover:border-[#8b5cf6]/40 hover:shadow-md transition-all duration-300">
                 <div>
                   <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium font-sans">Usuarios Registrados</span>
@@ -607,6 +608,18 @@ export default function AdminClient({
                   </h3>
                 </div>
                 <div className="p-3.5 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 text-[#8b5cf6] dark:text-violet-400 rounded-[8px] border border-[#8b5cf6]/10 dark:border-[#8b5cf6]/20 group-hover:bg-[#8b5cf6]/20 transition-all duration-300 shadow-sm">
+                  <Users className="w-5 h-5 stroke-[1.75]" />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex items-center justify-between group hover:border-slate-500/30 dark:hover:border-slate-500/40 hover:shadow-md transition-all duration-300">
+                <div>
+                  <span className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium font-sans">Pruebas (Invitados)</span>
+                  <h3 className="text-3xl font-bold font-display text-[#1e1b4b] dark:text-white mt-1.5 tracking-tight group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors">
+                    {stats.totalGuests}
+                  </h3>
+                </div>
+                <div className="p-3.5 bg-slate-500/10 dark:bg-slate-500/20 text-slate-500 dark:text-slate-400 rounded-[8px] border border-slate-500/10 dark:border-slate-500/20 group-hover:bg-slate-500/20 transition-all duration-300 shadow-sm">
                   <Users className="w-5 h-5 stroke-[1.75]" />
                 </div>
               </div>

@@ -24,7 +24,7 @@ export default function RegisterPage() {
     setGoogleLoading(true);
     setError(null);
     try {
-      await signIn('google', { callbackUrl: '/dashboard' });
+      await signIn('google', { callbackUrl: '/auth/claim?next=/dashboard' });
     } catch (err) {
       setError('unexpected');
     } finally {
@@ -50,9 +50,20 @@ export default function RegisterPage() {
         setError(res.error);
       } else {
         setSuccess(true);
-        setTimeout(() => {
-          router.push('/login');
-        }, 1800);
+        const loginRes = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (loginRes?.error) {
+          setTimeout(() => {
+            router.push('/login');
+          }, 1200);
+          return;
+        }
+
+        router.push('/auth/claim?next=/dashboard');
       }
     } catch (err) {
       setError('unexpected');

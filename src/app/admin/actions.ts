@@ -21,15 +21,30 @@ export async function getAdminStats() {
 
   try {
     // Conteos rápidos
-    const [usersCountResult] = await db.select({ count: sql<number>`count(*)` }).from(users);
-    const [cvsCountResult] = await db.select({ count: sql<number>`count(*)` }).from(cvs);
-    const [offersCountResult] = await db.select({ count: sql<number>`count(*)` }).from(jobOffers);
+    const [usersCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.isGuest, false));
+    const [guestsCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.isGuest, true));
+    const [cvsCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(cvs)
+      .innerJoin(users, eq(cvs.userId, users.id))
+      .where(eq(users.isGuest, false));
+    const [offersCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobOffers)
+      .innerJoin(users, eq(jobOffers.userId, users.id))
+      .where(eq(users.isGuest, false));
 
     // Conteo de suscripciones activas
     const [activeSubsResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(users)
-      .where(eq(users.subscriptionStatus, 'active'));
+      .where(and(eq(users.subscriptionStatus, 'active'), eq(users.isGuest, false)));
 
     // Obtener lista completa de usuarios
     const allUsers = await db
@@ -42,12 +57,14 @@ export async function getAdminStats() {
         createdAt: users.createdAt,
       })
       .from(users)
+      .where(eq(users.isGuest, false))
       .orderBy(sql`${users.createdAt} DESC`);
 
     return {
       success: true,
       stats: {
         totalUsers: Number(usersCountResult?.count || 0),
+        totalGuests: Number(guestsCountResult?.count || 0),
         totalCvs: Number(cvsCountResult?.count || 0),
         totalOffers: Number(offersCountResult?.count || 0),
         activeSubscriptions: Number(activeSubsResult?.count || 0),

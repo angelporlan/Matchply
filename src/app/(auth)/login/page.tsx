@@ -27,7 +27,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
     setError(null);
     try {
-      await signIn('google', { callbackUrl: '/dashboard' });
+      await signIn('google', { callbackUrl: '/auth/claim?next=/dashboard' });
     } catch (err) {
       setError('unexpected');
     } finally {
@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (res?.error) {
         setError('CredentialsSignin');
       } else {
-        router.push('/dashboard');
+        router.push('/auth/claim?next=/dashboard');
         router.refresh();
       }
     } catch (err) {
