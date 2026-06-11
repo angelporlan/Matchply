@@ -8,45 +8,17 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { isProSubscription } from "@/lib/subscription";
-
-const DEFAULT_MARKDOWN = `# TU NOMBRE COMPLETO
-
-**Email:** tuemail@correo.com | **Teléfono:** +34 123 456 789 | **Ubicación:** Madrid, España
-**LinkedIn:** linkedin.com/in/tuusuario | **GitHub:** github.com/tuusuario | **Web:** tuweb.com
-
-## Perfil Profesional
-Ingeniero de Software Full Stack apasionado por construir productos SaaS eficientes, escalables y visualmente impactantes. Experiencia liderando equipos técnicos ágiles y diseñando integraciones complejas de servicios cloud e IA.
-
-## Experiencia Profesional
-### Desarrollador de Software Senior
-**Empresa de Tecnología Innovadora** | *2022 - Presente*
-- Dirigí la migración de la plataforma core a una arquitectura moderna en la nube, reduciendo los costos de infraestructura en un **24%**.
-- Implementé pipelines de automatización de CI/CD que aceleraron la velocidad de despliegue en producción un **40%**.
-- Coordiné un equipo ágil de 6 desarrolladores, fomentando las revisiones de código exhaustivas y la mentoría técnica.
-
-### Desarrollador Full Stack
-**Agencia Digital Creativa** | *2019 - 2022*
-- Desarrollé más de 15 aplicaciones web responsivas utilizando frameworks modernos y bases de datos relacionales robustas.
-- Reduje el tiempo de renderizado frontend en un **30%** a través de optimizaciones avanzadas de CSS y carga diferida de imágenes.
-
-## Educación
-### Grado en Ingeniería Informática
-**Universidad Tecnológica Nacional** | *2015 - 2019*
-
-## Habilidades
-- **Frontend:** React, Next.js, Tailwind CSS, TypeScript, JavaScript
-- **Backend & DB:** Node.js, Express, PostgreSQL, Drizzle ORM, REST APIs
-- **Herramientas & Cloud:** Docker, AWS, Git, GitHub Actions, Linux
-`;
+import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
+import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
 
 export async function setPrincipalCv(cvId: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
-    const userId = session.user.id;
+    const userId = actor.userId;
 
     // 1. Comprobar que el CV existe y pertenece al usuario
     const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
@@ -79,26 +51,29 @@ export async function setPrincipalCv(cvId: string) {
 
 export async function createBaseCv(title: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
-    // Contar cuántos CVs base tiene el usuario ya
-    const existingCvs = await db
-      .select({ id: cvs.id })
-      .from(cvs)
-      .where(eq(cvs.userId, session.user.id))
-      .limit(1);
+    const userId = actor.userId;
 
-    const isFirst = existingCvs.length === 0;
+    // Contar cuántos CVs base tiene el usuario ya
+    const cvCount = await getGuestCvCount(userId);
+    if (actor.kind === "guest") {
+      if (cvCount >= GUEST_MAX_CVS) {
+        throw new Error("Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.");
+      }
+    }
+
+    const isFirst = cvCount === 0;
 
     const [newCv] = await db
       .insert(cvs)
       .values({
-        userId: session.user.id,
+        userId,
         title: title || "Mi Currículum Base",
-        content: DEFAULT_MARKDOWN,
+        content: DEFAULT_CV_MARKDOWN,
         isBase: true,
         isPrincipal: isFirst,
         templateName: "harvard",
@@ -109,11 +84,13 @@ export async function createBaseCv(title: string) {
       })
       .returning();
 
-    // Log de auditoría para creación manual de CV
-    await createAuditLog("cv_create_manual", session.user.id, session.user.email || null, {
-      cvId: newCv.id,
-      title: newCv.title
-    });
+    // Log de auditoría para creación manual de CV (solo usuarios reales)
+    if (actor.kind === "user") {
+      await createAuditLog("cv_create_manual", userId, actor.email || null, {
+        cvId: newCv.id,
+        title: newCv.title
+      });
+    }
 
     revalidatePath("/dashboard");
     return { success: true, cvId: newCv.id };
@@ -125,14 +102,16 @@ export async function createBaseCv(title: string) {
 
 export async function deleteCv(cvId: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
+    const userId = actor.userId;
+
     // Comprobar pertenencia
     const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
-    if (!cv || cv.userId !== session.user.id) {
+    if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
 
@@ -145,7 +124,7 @@ export async function deleteCv(cvId: string) {
         const [nextBaseCv] = await tx
           .select()
           .from(cvs)
-          .where(eq(cvs.userId, session.user.id))
+          .where(eq(cvs.userId, userId))
           .orderBy(desc(cvs.createdAt))
           .limit(1);
 
@@ -158,11 +137,13 @@ export async function deleteCv(cvId: string) {
       }
     });
 
-    // Log de auditoría para eliminación de CV
-    await createAuditLog("cv_delete", session.user.id, session.user.email || null, {
-      cvId: cv.id,
-      title: cv.title
-    });
+    // Log de auditoría para eliminación de CV (solo usuarios reales)
+    if (actor.kind === "user") {
+      await createAuditLog("cv_delete", userId, actor.email || null, {
+        cvId: cv.id,
+        title: cv.title
+      });
+    }
 
     revalidatePath("/dashboard");
     return { success: true };
@@ -184,14 +165,14 @@ export async function updateCvStyling(
   }
 ) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
     // Comprobar pertenencia
     const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
-    if (!cv || cv.userId !== session.user.id) {
+    if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden or CV not found");
     }
 
@@ -211,13 +192,13 @@ export async function updateCvStyling(
 
 export async function saveCvContent(cvId: string, content: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
     const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
-    if (!cv || cv.userId !== session.user.id) {
+    if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden");
     }
 
@@ -320,12 +301,19 @@ export async function createCvPlaceholder(updates: {
   isPrincipal: boolean;
 }) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
-    const userId = session.user.id;
+    const userId = actor.userId;
+
+    if (actor.kind === "guest") {
+      const cvCount = await getGuestCvCount(userId);
+      if (cvCount >= GUEST_MAX_CVS) {
+        throw new Error("Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.");
+      }
+    }
 
     let newCvId = '';
     await db.transaction(async (tx) => {

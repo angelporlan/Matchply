@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles, Terminal } from 'lucide-react';
+import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles, Terminal, UserPlus } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
@@ -17,14 +17,29 @@ interface SidebarProps {
     role?: string | null;
   };
   isPremium: boolean;
+  isGuest?: boolean;
 }
 
-export default function Sidebar({ user, isPremium }: SidebarProps) {
+type SidebarMenuItem = {
+  name: string;
+  href: string;
+  icon: any;
+  isAi?: boolean;
+  premiumIcon?: boolean;
+};
+
+export default function Sidebar({ user, isPremium, isGuest = false }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const { t, language } = useLanguage();
 
-  const menuItems = [
+  const menuItems: SidebarMenuItem[] = isGuest ? [
+    {
+      name: language === 'es' ? 'Nueva prueba' : 'New trial',
+      href: '/try',
+      icon: FileText,
+    },
+  ] : [
     {
       name: t('sidebar.menu.cvs'),
       href: '/dashboard',
@@ -54,7 +69,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
     },
   ];
 
-  if (user.role === 'admin') {
+  if (!isGuest && user.role === 'admin') {
     menuItems.push({
       name: t('sidebar.menu.adminPanel'),
       href: '/admin',
@@ -85,7 +100,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
     <>
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between h-16 px-4 bg-white dark:bg-[#0b0f19] border-b border-[#1e1b4b]/10 dark:border-white/10 w-full sticky top-0 z-40 transition-colors duration-300">
-        <Link href="/dashboard" className="hover:opacity-90 transition-opacity">
+        <Link href={isGuest ? "/try" : "/dashboard"} className="hover:opacity-90 transition-opacity">
           <Logo iconSize="sm" textSize="sm" />
         </Link>
         <div className="flex items-center gap-2">
@@ -173,11 +188,11 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
           {/* User Profile */}
           <div className="flex items-center justify-between px-1">
             <div className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate font-display">
-                {user.name || t('sidebar.profile.candidate')}
+            <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate font-display">
+                {isGuest ? (language === 'es' ? 'Invitado' : 'Guest') : (user.name || t('sidebar.profile.candidate'))}
               </span>
               <span className="block text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 truncate">
-                {user.email}
+                {isGuest ? (language === 'es' ? 'Prueba sin registro' : 'Trial without signup') : user.email}
               </span>
             </div>
             {isPremium && (
@@ -187,7 +202,23 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
             )}
           </div>
 
-          {/* Logout Action */}
+          {isGuest ? (
+            <div className="space-y-2 font-display">
+              <Link
+                href="/register"
+                className="flex items-center justify-center gap-2 w-full bg-[#2ecc71] hover:bg-[#29b765] text-white font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+              >
+                <UserPlus className="w-3.5 h-3.5 stroke-[1.75]" />
+                <span>{language === 'es' ? 'Guardar mi CV' : 'Save my CV'}</span>
+              </Link>
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 text-[#1e1b4b]/70 dark:text-slate-300 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+              >
+                {language === 'es' ? 'Ya tengo cuenta' : 'I have an account'}
+              </Link>
+            </div>
+          ) : (
           <div className="relative">
             {showConfirm && (
               <div className="absolute bottom-full left-0 right-0 mb-3 p-4 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] shadow-xl z-50 animate-fadeIn backdrop-blur-md text-center">
@@ -219,6 +250,7 @@ export default function Sidebar({ user, isPremium }: SidebarProps) {
               <span>{t('sidebar.logout.button')}</span>
             </button>
           </div>
+          )}
         </div>
       </aside>
     </>
