@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getActor } from '@/lib/actor';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -9,12 +9,12 @@ import { revalidatePath } from 'next/cache';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = actor.userId;
     const body = await req.json();
     const {
       baseCvId,
@@ -57,6 +57,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (baseCv.userId !== userId) {
+      return new NextResponse('Forbidden', { status: 403 });
+    }
+
+    const [targetCv] = await db
+      .select({ id: cvs.id, userId: cvs.userId })
+      .from(cvs)
+      .where(eq(cvs.id, targetCvId))
+      .limit(1);
+
+    if (!targetCv || targetCv.userId !== userId) {
       return new NextResponse('Forbidden', { status: 403 });
     }
 
