@@ -425,7 +425,7 @@ export function TemplateFlipCard({
             <h5 className="text-white font-bold font-display text-sm mb-1">{title} Template</h5>
             <p className="text-slate-300 text-[10px] font-light mb-3 leading-tight">{desc.substring(0, 50)}...</p>
             <Link
-              href={session ? "/dashboard" : "/register"}
+              href={session ? "/dashboard" : "/try"}
               className="w-full bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white text-center font-bold py-2.5 rounded-[8px] text-[11px] transition-all shadow-md shadow-[#8b5cf6]/20 font-display flex items-center justify-center gap-1 hover-shimmer-btn"
             >
               {t('landing.hero.primaryCta')} <ArrowRight className="w-3 h-3" />
@@ -962,7 +962,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           transition={{ delay: 1.0, duration: 0.8 }}
         >
           <Link
-            href={session ? "/dashboard" : "/register"}
+            href={session ? "/dashboard" : "/try"}
             className="w-full sm:w-auto bg-[#2ecc71] hover:bg-[#2ecc71]/95 text-white font-bold px-8 py-4 rounded-[8px] shadow-md shadow-[#2ecc71]/10 hover:shadow-[#2ecc71]/25 transition-all flex items-center justify-center gap-2 text-base group font-display hover-shimmer-btn"
           >
             {t('landing.hero.primaryCta')}
@@ -1423,7 +1423,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                 </ul>
               </div>
               <Link
-                href={session ? "/dashboard" : "/register"}
+                href={session ? "/dashboard" : "/try"}
                 className="w-full mt-8 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 text-[#1e1b4b] dark:text-slate-200 text-center font-bold py-3.5 rounded-[8px] transition-all shadow-sm font-display text-sm"
               >
                 {t('landing.pricing.free.cta')}
@@ -1487,7 +1487,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                 </a>
               ) : (
                 <Link
-                  href="/register"
+                  href="/try"
                   className="w-full mt-8 bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] text-center font-extrabold py-4 rounded-[8px] transition-all shadow-md shadow-[#1e1b4b]/10 dark:shadow-white/5 font-display text-sm hover-shimmer-btn"
                 >
                   {t('landing.pricing.pro.registerCta')}

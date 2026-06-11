@@ -69,7 +69,7 @@ export default function LandingHeader({
                 {navLogin}
               </Link>
               <Link
-                href="/register"
+                href="/try"
                 className="bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] hover:bg-[#1e1b4b]/90 dark:hover:bg-slate-100 font-bold px-4 py-2 rounded-[8px] text-sm transition-all shadow-sm font-display"
               >
                 {navRegister}
@@ -151,7 +151,7 @@ export default function LandingHeader({
                   {navLogin}
                 </Link>
                 <Link
-                  href="/register"
+                  href="/try"
                   onClick={() => setIsOpen(false)}
                   className="w-full bg-[#2ecc71] hover:bg-[#2ecc71]/90 text-white font-bold py-3 rounded-[8px] text-sm text-center transition-all shadow-sm font-display"
                 >
