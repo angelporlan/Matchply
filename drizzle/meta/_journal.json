@@ -43,6 +43,13 @@
       "when": 1780827251112,
       "tag": "0005_daffy_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781164274000,
+      "tag": "0006_guest_trials",
+      "breakpoints": true
     }
   ]
 }
