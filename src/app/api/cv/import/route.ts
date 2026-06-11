@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getActor, getGuestCvCount, GUEST_MAX_CVS } from '@/lib/actor';
 import { db } from '@/db';
 import { cvs, users } from '@/db/schema';
-import { eq, and, not } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
@@ -18,17 +18,41 @@ export async function POST(req: NextRequest) {
     const lang = (searchParams.get('lang') || 'es') as 'es' | 'en';
 
     // 1. Verificar autenticación
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
-    const userId = session.user.id;
+    const userId = actor.userId;
+
+    if (actor.kind === 'guest') {
+      const cvCount = await getGuestCvCount(userId);
+      if (cvCount >= GUEST_MAX_CVS) {
+        return NextResponse.json({
+          success: false,
+          error: lang === 'es' 
+            ? 'Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.' 
+            : 'You have reached the limit of 3 trial CVs. Register to save them and keep creating.'
+        }, { status: 400 });
+      }
+    }
 
     // 2. Extraer datos del formulario (multipart/form-data)
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const text = formData.get('text') as string | null;
     const targetCvId = formData.get('targetCvId') as string | null;
+
+    if (targetCvId) {
+      const [targetCv] = await db
+        .select({ id: cvs.id, userId: cvs.userId })
+        .from(cvs)
+        .where(eq(cvs.id, targetCvId))
+        .limit(1);
+
+      if (!targetCv || targetCv.userId !== userId) {
+        return new NextResponse('Forbidden', { status: 403 });
+      }
+    }
 
     let cvText = '';
     let cvTitle = 'Mi Currículum Base';

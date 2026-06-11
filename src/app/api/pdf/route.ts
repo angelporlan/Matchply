@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { generatePdfBuffer } from '@/lib/pdf-engine';
 import { createAuditLog } from '@/lib/audit';
+import { getActor } from '@/lib/actor';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
@@ -31,14 +31,18 @@ export async function GET(req: NextRequest) {
     }
 
     // Comprobar propiedad
-    if (cv.userId !== session.user.id) {
+    if (cv.userId !== actor.userId) {
       return new NextResponse('Forbidden', { status: 403 });
     }
 
     // Log de auditoría para descarga de PDF
     const isDownload = searchParams.get('download') === 'true';
+    if (isDownload && actor.kind === 'guest') {
+      return new NextResponse('Signup required to download', { status: 403 });
+    }
+
     if (isDownload) {
-      await createAuditLog('cv_download_pdf', session.user.id, session.user.email || null, {
+      await createAuditLog('cv_download_pdf', actor.userId, actor.email, {
         cvId: cv.id,
         title: cv.title
       });
@@ -53,7 +57,7 @@ export async function GET(req: NextRequest) {
       showIcons: true
     });
 
-    const userName = session.user.name || 'User';
+    const userName = actor.name || 'User';
     const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
     const filename = `CV ${safeName}.pdf`;
     const encodedFilename = encodeURIComponent(filename);
@@ -73,8 +77,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 

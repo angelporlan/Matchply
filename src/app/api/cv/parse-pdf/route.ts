@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getActor } from '@/lib/actor';
 // @ts-ignore
 import pdf from 'pdf-parse';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
