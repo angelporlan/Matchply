@@ -43,6 +43,10 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
 
   // Hydration state
   const [hasMounted, setHasMounted] = useState(false);
@@ -129,9 +133,39 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       (cvFilter === 'linked' && Boolean(offer.cvId)) ||
       (cvFilter === 'unlinked' && !offer.cvId);
 
-    return matchesSearch && matchesCvFilter;
+    // Date filter logic
+    let matchesDateFilter = true;
+    if (dateFilter !== 'all') {
+      const offerDate = new Date(offer.createdAt);
+      offerDate.setHours(0, 0, 0, 0);
+      const offerTime = offerDate.getTime();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTime = today.getTime();
+
+      if (dateFilter === 'today') {
+        matchesDateFilter = offerTime === todayTime;
+      } else if (dateFilter === '7days') {
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        const sevenDaysAgoTime = sevenDaysAgo.getTime();
+        matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
+      } else if (dateFilter === 'custom') {
+        if (startDate) {
+          const start = new Date(startDate + 'T00:00:00');
+          matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
+        }
+        if (endDate) {
+          const end = new Date(endDate + 'T00:00:00');
+          matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
+        }
+      }
+    }
+
+    return matchesSearch && matchesCvFilter && matchesDateFilter;
   });
-  const hasActiveFilters = Boolean(normalizedSearch) || cvFilter !== 'all';
+  const hasActiveFilters = Boolean(normalizedSearch) || cvFilter !== 'all' || dateFilter !== 'all';
 
   const renderColumnIcon = (columnId: Column['id']) => {
     switch (columnId) {
@@ -290,6 +324,97 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
                 {filter.label}
               </button>
             ))}
+          </div>
+
+          {/* Filtro de Fechas */}
+          <div className="relative font-display">
+            <button
+              type="button"
+              onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] border text-xs font-bold transition-all shadow-sm ${
+                dateFilter !== 'all'
+                  ? 'bg-[#8b5cf6]/10 border-[#8b5cf6]/30 text-[#8b5cf6] dark:text-violet-400'
+                  : 'bg-white dark:bg-[#1f2937] border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />
+              {dateFilter === 'all' && t('kanban.board.dateFilterAll')}
+              {dateFilter === 'today' && t('kanban.board.dateFilterToday')}
+              {dateFilter === '7days' && t('kanban.board.dateFilter7Days')}
+              {dateFilter === 'custom' && (
+                startDate || endDate 
+                  ? `${startDate ? formatDate(new Date(startDate + 'T00:00:00')) : ''} - ${endDate ? formatDate(new Date(endDate + 'T00:00:00')) : ''}` 
+                  : t('kanban.board.dateFilterCustom')
+              )}
+            </button>
+
+            {isDateDropdownOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsDateDropdownOpen(false)} 
+                />
+                <div className="absolute right-0 mt-1.5 w-64 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-3 shadow-xl z-20 space-y-2.5 animate-in fade-in duration-100">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 px-1">
+                    {t('kanban.board.filterBtnLabel')}
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    {[
+                      { value: 'all', label: t('kanban.board.dateFilterAll') },
+                      { value: 'today', label: t('kanban.board.dateFilterToday') },
+                      { value: '7days', label: t('kanban.board.dateFilter7Days') },
+                      { value: 'custom', label: t('kanban.board.dateFilterCustom') },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setDateFilter(opt.value as any);
+                          if (opt.value !== 'custom') {
+                            setIsDateDropdownOpen(false);
+                          }
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs font-semibold transition-all ${
+                          dateFilter === opt.value
+                            ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19]'
+                            : 'text-[#1e1b4b]/70 dark:text-slate-300 hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {dateFilter === 'custom' && (
+                    <div className="pt-2 border-t border-[#1e1b4b]/10 dark:border-white/5 space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400">
+                          {t('kanban.board.dateStart')}
+                        </label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400">
+                          {t('kanban.board.dateEnd')}
+                        </label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
