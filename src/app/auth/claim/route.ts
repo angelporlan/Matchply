@@ -12,13 +12,14 @@ function safeNextPath(value: string | null) {
 export async function GET(req: NextRequest) {
   const session = await auth();
   const nextPath = safeNextPath(req.nextUrl.searchParams.get('next'));
+  const baseUrl = process.env.NEXTAUTH_URL || req.url;
 
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL(`/login?callbackUrl=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`, req.url));
+    return NextResponse.redirect(new URL(`/login?callbackUrl=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`, baseUrl));
   }
 
   await claimGuestDataForUser(session.user.id);
-  return NextResponse.redirect(new URL(nextPath, req.url));
+  return NextResponse.redirect(new URL(nextPath, baseUrl));
 }
 
 export const dynamic = 'force-dynamic';
