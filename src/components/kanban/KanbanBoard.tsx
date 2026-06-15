@@ -8,7 +8,7 @@ import KanbanCard from './KanbanCard';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
 import { createJobOffer, updateJobOfferStatus } from '@/app/dashboard/kanban/actions';
 import { formatDate } from '@/lib/utils';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -47,6 +47,163 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+
+  // Copy Modal States
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [copyDateFilter, setCopyDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>('all');
+  const [copyStartDate, setCopyStartDate] = useState('');
+  const [copyEndDate, setCopyEndDate] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Sync copy filters with active board filters when copy modal opens
+  useEffect(() => {
+    if (isCopyModalOpen) {
+      setCopyDateFilter(dateFilter);
+      setCopyStartDate(startDate);
+      setCopyEndDate(endDate);
+      setCopied(false);
+    }
+  }, [isCopyModalOpen, dateFilter, startDate, endDate]);
+
+  const getFilteredOffersForCopy = () => {
+    return localOffers.filter((offer) => {
+      if (isArchivedStatus(offer.status)) return false;
+
+      let matchesDateFilter = true;
+      if (copyDateFilter !== 'all') {
+        const offerDate = new Date(offer.createdAt);
+        offerDate.setHours(0, 0, 0, 0);
+        const offerTime = offerDate.getTime();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTime = today.getTime();
+
+        if (copyDateFilter === 'today') {
+          matchesDateFilter = offerTime === todayTime;
+        } else if (copyDateFilter === '7days') {
+          const sevenDaysAgo = new Date(today);
+          sevenDaysAgo.setDate(today.getDate() - 7);
+          const sevenDaysAgoTime = sevenDaysAgo.getTime();
+          matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
+        } else if (copyDateFilter === 'custom') {
+          if (copyStartDate) {
+            const start = new Date(copyStartDate + 'T00:00:00');
+            matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
+          }
+          if (copyEndDate) {
+            const end = new Date(copyEndDate + 'T00:00:00');
+            matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
+          }
+        }
+      }
+      return matchesDateFilter;
+    });
+  };
+
+  const handleCopyData = async () => {
+    const targetOffers = getFilteredOffersForCopy();
+    if (targetOffers.length === 0) return;
+
+    const usedCvIds = new Set<string>();
+    targetOffers.forEach(o => {
+      if (o.cvId) usedCvIds.add(o.cvId);
+    });
+
+    const uniqueCvs = userCvs.filter(cv => usedCvIds.has(cv.id));
+    const isEs = language === 'es';
+    
+    const titleText = isEs ? 'REPORTE DE POSTULACIONES - MATCHPLY' : 'APPLICATIONS REPORT - MATCHPLY';
+    const periodLabel = isEs ? 'Período' : 'Period';
+    const exportDateLabel = isEs ? 'Fecha de exportación' : 'Export date';
+    const applicationsSectionTitle = isEs ? 'POSTULACIONES COPIADAS' : 'COPIED APPLICATIONS';
+    const cvsSectionTitle = isEs ? 'CURRÍCULUMS VINCULADOS' : 'LINKED CVs';
+    
+    let periodValue = '';
+    if (copyDateFilter === 'all') {
+      periodValue = isEs ? 'Todas las postulaciones' : 'All applications';
+    } else if (copyDateFilter === 'today') {
+      periodValue = isEs ? 'Hoy' : 'Today';
+    } else if (copyDateFilter === '7days') {
+      periodValue = isEs ? 'Últimos 7 días' : 'Last 7 days';
+    } else if (copyDateFilter === 'custom') {
+      const startStr = copyStartDate ? formatDate(new Date(copyStartDate + 'T00:00:00')) : '...';
+      const endStr = copyEndDate ? formatDate(new Date(copyEndDate + 'T00:00:00')) : '...';
+      periodValue = isEs ? `Rango: ${startStr} - ${endStr}` : `Range: ${startStr} - ${endStr}`;
+    }
+
+    const todayDate = new Date();
+    const formattedExportDate = `${formatDate(todayDate)} ${todayDate.toLocaleTimeString(language === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit' })}`;
+
+    let textStr = `==================================================
+${titleText}
+==================================================
+• ${periodLabel}: ${periodValue}
+• ${exportDateLabel}: ${formattedExportDate}
+
+==================================================
+${applicationsSectionTitle} (${targetOffers.length})
+==================================================
+`;
+
+    targetOffers.forEach((offer, idx) => {
+      const statusText = t(`kanban.columns.${offer.status}.title`);
+      const cvObj = offer.cvId ? userCvs.find(cv => cv.id === offer.cvId) : null;
+      const cvTitle = cvObj ? cvObj.title : (isEs ? 'Ninguno' : 'None');
+
+      textStr += `
+--------------------------------------------------
+${idx + 1}. ${offer.title.toUpperCase()} en ${offer.company.toUpperCase()}
+--------------------------------------------------
+• ${isEs ? 'Puesto' : 'Job Title'}: ${offer.title}
+• ${isEs ? 'Empresa' : 'Company'}: ${offer.company}
+• ${isEs ? 'Enlace' : 'Link'}: ${offer.url || (isEs ? 'No proporcionado' : 'Not provided')}
+• ${isEs ? 'Plataforma' : 'Platform'}: ${offer.platform}
+• ${isEs ? 'Estado' : 'Status'}: ${statusText}
+• ${isEs ? 'CV Vinculado' : 'Linked CV'}: ${cvTitle}
+
+• ${isEs ? 'Descripción' : 'Description'}:
+${offer.description || (isEs ? 'Sin descripción' : 'No description')}
+`;
+    });
+
+    if (uniqueCvs.length > 0) {
+      textStr += `
+==================================================
+${cvsSectionTitle} (${uniqueCvs.length})
+==================================================
+`;
+
+      uniqueCvs.forEach((cv) => {
+        const offersUsingThisCv = targetOffers.filter(o => o.cvId === cv.id);
+        const offersList = offersUsingThisCv
+          .map(o => `  - ${o.title} en ${o.company} (${t(`kanban.columns.${o.status}.title`)})`)
+          .join('\n');
+
+        textStr += `
+--------------------------------------------------
+CV: ${cv.title}
+${isEs ? 'Utilizado en las siguientes postulaciones:' : 'Used in the following applications:'}
+${offersList}
+
+${isEs ? 'Contenido del CV:' : 'CV Content:'}
+${cv.content}
+--------------------------------------------------
+`;
+      });
+    }
+
+    try {
+      await navigator.clipboard.writeText(textStr);
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+        setIsCopyModalOpen(false);
+      }, 1500);
+    } catch (err) {
+      console.error('Error al copiar al portapapeles:', err);
+    }
+  };
 
   // Hydration state
   const [hasMounted, setHasMounted] = useState(false);
@@ -240,6 +397,14 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto font-display">
+          <button
+            onClick={() => setIsCopyModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#8b5cf6]/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#8b5cf6] dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
+          >
+            <Clipboard className="w-4 h-4 text-[#8b5cf6] stroke-[1.75]" />
+            {t('kanban.copyDataModal.copyDataBtn')}
+          </button>
+
           <NextLink
             href="/dashboard/kanban/archived"
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-amber-500/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
@@ -562,6 +727,146 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
       </DragDropContext>
 
 
+
+      {/* Modal Premium para copiar Candidaturas */}
+      {isCopyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Adornos visuales */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+
+            <div className="flex justify-between items-start mb-6 relative z-10">
+              <div>
+                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
+                  <Clipboard className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+                  {t('kanban.copyDataModal.title')}
+                </h3>
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
+                  {t('kanban.copyDataModal.subtitle')}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCopyModalOpen(false)}
+                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all"
+              >
+                <X className="w-5 h-5 stroke-[1.75]" />
+              </button>
+            </div>
+
+            <div className="space-y-5 relative z-10">
+              {/* Selector de Período */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">
+                  {t('kanban.copyDataModal.filterLabel')}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'all', label: t('kanban.copyDataModal.all') },
+                    { value: 'today', label: t('kanban.copyDataModal.today') },
+                    { value: '7days', label: t('kanban.copyDataModal.week') },
+                    { value: 'custom', label: t('kanban.copyDataModal.custom') },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setCopyDateFilter(opt.value as any)}
+                      className={`px-3 py-2.5 rounded-[8px] text-xs font-semibold border text-center transition-all ${
+                        copyDateFilter === opt.value
+                          ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] border-[#1e1b4b] dark:border-white shadow-sm'
+                          : 'bg-white dark:bg-[#1f2937] border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 hover:border-[#8b5cf6]/30 hover:text-[#8b5cf6] dark:hover:text-violet-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rango Personalizado */}
+              {copyDateFilter === 'custom' && (
+                <div className="grid grid-cols-2 gap-4 p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] animate-in slide-in-from-top-2 duration-200">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider font-display">
+                      {t('kanban.copyDataModal.startDate')}
+                    </label>
+                    <input
+                      type="date"
+                      value={copyStartDate}
+                      onChange={(e) => setCopyStartDate(e.target.value)}
+                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider font-display">
+                      {t('kanban.copyDataModal.endDate')}
+                    </label>
+                    <input
+                      type="date"
+                      value={copyEndDate}
+                      onChange={(e) => setCopyEndDate(e.target.value)}
+                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen de Exportación */}
+              <div className="p-4 rounded-[8px] bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-display">
+                  {t('kanban.copyDataModal.summary')}
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                  <div className="text-[#1e1b4b]/70 dark:text-slate-300">
+                    {t('kanban.copyDataModal.foundOffers').replace('{count}', getFilteredOffersForCopy().length.toString())}
+                  </div>
+                  <div className="text-[#1e1b4b]/70 dark:text-slate-300">
+                    {t('kanban.copyDataModal.linkedCvs').replace('{count}', (() => {
+                      const offers = getFilteredOffersForCopy();
+                      const ids = new Set(offers.filter(o => o.cvId).map(o => o.cvId));
+                      return ids.size.toString();
+                    })())}
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 font-display">
+                <button
+                  type="button"
+                  onClick={() => setIsCopyModalOpen(false)}
+                  className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyData}
+                  disabled={getFilteredOffersForCopy().length === 0}
+                  className={`flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-[8px] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    copied
+                      ? 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
+                      : 'bg-[#8b5cf6] hover:bg-[#7c3aed] dark:bg-violet-600 dark:hover:bg-violet-700 shadow-md hover:-translate-y-0.5'
+                  }`}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 stroke-[2]" />
+                      {t('kanban.copyDataModal.successToast')}
+                    </>
+                  ) : (
+                    <>
+                      <Clipboard className="w-4 h-4 stroke-[1.75]" />
+                      {t('kanban.copyDataModal.copyBtn')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
