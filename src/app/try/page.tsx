@@ -4,11 +4,15 @@ import { eq, desc, and } from 'drizzle-orm';
 import { Sparkles, FileText, CreditCard, Crown } from 'lucide-react';
 import DashboardClient from '@/app/dashboard/DashboardClient';
 import Sidebar from '@/app/dashboard/Sidebar';
-import { getOrCreateGuestActor } from '@/lib/actor';
+import { getActor } from '@/lib/actor';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 export default async function TryPage() {
-  const actor = await getOrCreateGuestActor();
+  const actor = await getActor({ allowGuest: true });
+  if (!actor) {
+    redirect('/api/guest?redirect=/try');
+  }
   const userId = actor.userId;
 
   // 1. Obtener lista de currículums del usuario invitado
