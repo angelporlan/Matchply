@@ -8,6 +8,10 @@ export async function GET(request: Request) {
   // Esto crea el actor y setea la cookie correctamente en un Route Handler
   await getOrCreateGuestActor();
 
-  // Redirigir de vuelta
-  return NextResponse.redirect(new URL(redirectTo, request.url));
+  // Redirigir de vuelta utilizando el host correcto para producción/desarrollo
+  const host = request.headers.get('host') || 'matchply.com';
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+  const redirectUrl = new URL(redirectTo, `${protocol}://${host}`);
+
+  return NextResponse.redirect(redirectUrl);
 }
