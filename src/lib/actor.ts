@@ -116,7 +116,7 @@ export async function getOrCreateGuestActor(): Promise<RequestActor> {
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + GUEST_COOKIE_MAX_AGE * 1000);
 
-  const [guest] = await db
+  const [guest] = (await db
     .insert(users)
     .values({
       name: 'Invitado',
@@ -127,7 +127,7 @@ export async function getOrCreateGuestActor(): Promise<RequestActor> {
       guestTokenHash: hashGuestToken(token),
       guestExpiresAt: expiresAt,
     })
-    .returning();
+    .returning()) as any[];
 
   setGuestCookie(token);
 

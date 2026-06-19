@@ -68,7 +68,7 @@ export async function createBaseCv(title: string) {
 
     const isFirst = cvCount === 0;
 
-    const [newCv] = await db
+    const [newCv] = (await db
       .insert(cvs)
       .values({
         userId,
@@ -82,7 +82,7 @@ export async function createBaseCv(title: string) {
         pageMargin: 36,
         scale: 1.0,
       })
-      .returning();
+      .returning()) as any[];
 
     // Log de auditoría para creación manual de CV (solo usuarios reales)
     if (actor.kind === "user") {
@@ -331,7 +331,7 @@ export async function createCvPlaceholder(updates: {
         .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
         .limit(1);
 
-      const [newCv] = await tx
+      const [newCv] = (await tx
         .insert(cvs)
         .values({
           userId: userId,
@@ -345,7 +345,7 @@ export async function createCvPlaceholder(updates: {
           pageMargin: principalCv?.pageMargin || 36,
           scale: principalCv?.scale || 1.0,
         })
-        .returning();
+        .returning()) as any[];
 
       newCvId = newCv.id;
     });
@@ -355,5 +355,46 @@ export async function createCvPlaceholder(updates: {
   } catch (error: any) {
     console.error("Error creating CV placeholder:", error);
     return { error: error.message || "Failed to create CV placeholder" };
+  }
+}
+
+export async function updateUserMcpSettings(
+  mcpCvId: string | null,
+  mcpProfile: any
+) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    // Validate mcpCvId if provided
+    if (mcpCvId) {
+      const [cv] = await db.select().from(cvs).where(eq(cvs.id, mcpCvId)).limit(1);
+      if (!cv || cv.userId !== userId) {
+        throw new Error("Forbidden or CV not found");
+      }
+    }
+
+    await db
+      .update(users)
+      .set({
+        mcpCvId: mcpCvId || null,
+        mcpProfile: mcpProfile || null,
+      })
+      .where(eq(users.id, userId));
+
+    // Log de auditoría
+    await createAuditLog("mcp_settings_update", userId, session.user.email || null, {
+      hasMcpCv: !!mcpCvId,
+    });
+
+    revalidatePath("/dashboard/integrations");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating MCP settings:", error);
+    return { error: error.message || "Failed to update MCP settings" };
   }
 }

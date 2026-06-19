@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
               newCvId = targetCvId;
             } else {
               // Insertar el nuevo CV como base e isPrincipal
-              const [insertedCv] = await tx
+              const [insertedCv] = (await tx
                 .insert(cvs)
                 .values({
                   userId: userId,
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
                   pageMargin: 36,
                   scale: 1.0,
                 })
-                .returning();
+                .returning()) as any[];
               newCvId = insertedCv.id;
             }
           });

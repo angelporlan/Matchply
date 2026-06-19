@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
           ? `Optimizado - ${title} (${company})`
           : `[API] - ${title} (${company})`;
 
-        const [newCv] = await db
+        const [newCv] = (await db
           .insert(cvs)
           .values({
             userId,
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
             pageMargin,
             scale,
           })
-          .returning();
+          .returning()) as any[];
 
         cvId = newCv.id;
         console.log(`Created tailored CV for ${userEmail}: ${cvId}`);
@@ -299,10 +299,10 @@ export async function POST(req: NextRequest) {
         cvId: cvId || null,
       };
 
-      const [newOffer] = await db
+      const [newOffer] = (await db
         .insert(jobOffers)
         .values(insertData)
-        .returning();
+        .returning()) as any[];
 
       offerId = newOffer.id;
       console.log(`Created new job offer for user ${userId}: ${offerId}`);

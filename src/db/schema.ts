@@ -17,6 +17,8 @@ export const users = pgTable('user', {
   isGuest: boolean('isGuest').default(false).notNull(),
   guestTokenHash: text('guestTokenHash').unique(),
   guestExpiresAt: timestamp('guestExpiresAt', { mode: 'date' }),
+  mcpProfile: jsonb('mcpProfile'),
+  mcpCvId: uuid('mcpCvId'),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 

@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, cvs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
-import ApiKeyConsole from '@/components/subscription/ApiKeyConsole';
+import IntegrationsTabs from '@/components/subscription/IntegrationsTabs';
 
 export default async function IntegrationsPage() {
   const session = await auth();
@@ -24,6 +24,17 @@ export default async function IntegrationsPage() {
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
+  // Obtener CVs del usuario para la selección en el MCP
+  const userCvs = await db
+    .select({
+      id: cvs.id,
+      title: cvs.title,
+      isBase: cvs.isBase,
+      isPrincipal: cvs.isPrincipal,
+    })
+    .from(cvs)
+    .where(eq(cvs.userId, userId));
+
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background blurs */}
@@ -32,10 +43,17 @@ export default async function IntegrationsPage() {
 
       {/* Main Container */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-        <ApiKeyConsole initialApiKey={dbUser?.apiKey || null} isPremium={isPremium} />
+        <IntegrationsTabs
+          isPremium={isPremium}
+          initialApiKey={dbUser?.apiKey || null}
+          userCvs={userCvs}
+          initialMcpCvId={dbUser?.mcpCvId || null}
+          initialMcpProfile={dbUser?.mcpProfile as any}
+        />
       </main>
     </div>
   );
 }
 
 export const dynamic = 'force-dynamic';
+

@@ -225,7 +225,7 @@ export async function createJobOffer(offerData: {
       throw new Error("Unauthorized");
     }
 
-    const [newOffer] = await db
+    const [newOffer] = (await db
       .insert(jobOffers)
       .values({
         userId: session.user.id,
@@ -236,7 +236,7 @@ export async function createJobOffer(offerData: {
         description: offerData.description || null,
         status: "interested"
       })
-      .returning();
+      .returning()) as any[];
 
     // Log de auditoría para creación de candidatura
     await createAuditLog("job_offer_create", session.user.id, session.user.email || null, {

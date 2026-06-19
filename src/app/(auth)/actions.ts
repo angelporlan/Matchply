@@ -35,7 +35,7 @@ export async function registerUser(prevState: any, formData: FormData) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insertar usuario
-    const [newUser] = await db
+    const [newUser] = (await db
       .insert(users)
       .values({
         name,
@@ -43,7 +43,7 @@ export async function registerUser(prevState: any, formData: FormData) {
         passwordHash,
         subscriptionStatus: "none"
       })
-      .returning();
+      .returning()) as any[];
 
     // Log de auditoría para registro tradicional
     await createAuditLog("user_register", newUser.id, newUser.email, {

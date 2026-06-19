@@ -83,7 +83,7 @@ export async function createTrialCv(formData: FormData) {
 
     const isFirst = existingCvs.length === 0;
 
-    const [newCv] = await db
+    const [newCv] = (await db
       .insert(cvs)
       .values({
         userId: actor.userId,
@@ -97,7 +97,7 @@ export async function createTrialCv(formData: FormData) {
         pageMargin: 36,
         scale: 1.0,
       })
-      .returning();
+      .returning()) as any[];
 
     if (actor.kind === "user") {
       await createAuditLog("cv_create_manual", actor.userId, actor.email, {

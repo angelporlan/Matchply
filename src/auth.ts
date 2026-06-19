@@ -54,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .limit(1);
 
           if (!existingUser) {
-            const [newUser] = await db
+            const [newUser] = (await db
               .insert(users)
               .values({
                 name: user.name || "Usuario de Google",
@@ -63,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 role: "user",
                 subscriptionStatus: "none",
               })
-              .returning();
+              .returning()) as any[];
             user.id = newUser.id;
             (user as any).role = newUser.role;
 

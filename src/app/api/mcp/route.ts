@@ -169,6 +169,22 @@ const MCP_TOOLS = [
       required: ['query'],
     },
   },
+  {
+    name: 'evaluar_oferta',
+    description:
+      'Analiza detalladamente una oferta de trabajo contra tu currículum basándose en tus preferencias y pretensiones configuradas en Matchply. Genera puntuaciones (sobre 100 y desglosadas por dimensiones), palabras clave faltantes y Red Flags.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título del puesto de la oferta de trabajo.' },
+        company: { type: 'string', description: 'Nombre de la empresa.' },
+        description: { type: 'string', description: 'Descripción de la oferta.' },
+        url: { type: 'string', description: 'URL original del anuncio (opcional).' },
+        platform: { type: 'string', description: 'Plataforma donde se encontró (linkedin, infojobs, indeed, other) (opcional).' },
+      },
+      required: ['title', 'company', 'description'],
+    },
+  },
 ];
 
 // ─────────────────────────────────────────────
@@ -191,13 +207,25 @@ async function executeTool(
         };
       }
 
-      // 1. Get base CV
-      const [baseCv] = await db
-        .select()
-        .from(cvs)
-        .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-        .orderBy(desc(cvs.isPrincipal))
-        .limit(1);
+      const [userRecord] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      // 1. Get base CV (either custom mcpCvId or fallback)
+      let baseCv = null;
+      if (userRecord?.mcpCvId) {
+        [baseCv] = await db
+          .select()
+          .from(cvs)
+          .where(and(eq(cvs.userId, userId), eq(cvs.id, userRecord.mcpCvId)))
+          .limit(1);
+      }
+      if (!baseCv) {
+        [baseCv] = await db
+          .select()
+          .from(cvs)
+          .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
+          .orderBy(desc(cvs.isPrincipal))
+          .limit(1);
+      }
 
       if (!baseCv) {
         return {
@@ -209,8 +237,6 @@ async function executeTool(
           ],
         };
       }
-
-      const [userRecord] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
       // 2. Generate optimized CV with AI
       let cvMarkdownTailored = '';
@@ -239,7 +265,7 @@ async function executeTool(
       // 3. Create the tailored CV in DB
       let cvId: string | null = null;
       if (cvMarkdownTailored.trim()) {
-        const [newCv] = await db
+        const [newCv] = (await db
           .insert(cvs)
           .values({
             userId,
@@ -253,11 +279,63 @@ async function executeTool(
             pageMargin: baseCv.pageMargin,
             scale: baseCv.scale,
           })
-          .returning();
+          .returning()) as any[];
         cvId = newCv.id;
       }
 
-      // 4. Upsert job application
+      // 4. Run evaluation with AI
+      let scoreOverall: number | null = null;
+      let scoreBreakdown: any = null;
+      let redFlags: any = null;
+      let tldr: string | null = null;
+      let legitimacyTier: string | null = null;
+      let rawReport: string | null = null;
+      let parsedResult: any = null;
+
+      try {
+        const evalStream = await AIService.analyzeSTARStream({
+          cvMarkdown: baseCv.content,
+          jobDescription: description,
+          company,
+          userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
+          mcpProfile: userRecord?.mcpProfile,
+        });
+
+        const evalReader = evalStream.getReader();
+        const evalDecoder = new TextDecoder();
+        let evalAccumulated = '';
+        while (true) {
+          const { done, value } = await evalReader.read();
+          if (done) break;
+          evalAccumulated += evalDecoder.decode(value, { stream: true });
+        }
+
+        const cleanJson = evalAccumulated.trim();
+        try {
+          parsedResult = JSON.parse(cleanJson);
+        } catch {
+          const jsonBlockRegex = /\{[\s\S]*\}/;
+          const match = cleanJson.match(jsonBlockRegex);
+          if (match) {
+            try {
+              parsedResult = JSON.parse(match[0]);
+            } catch {}
+          }
+        }
+
+        if (parsedResult) {
+          scoreOverall = parsedResult.score !== undefined ? parseFloat((parsedResult.score / 20).toFixed(1)) : null;
+          scoreBreakdown = parsedResult.scoreBreakdown || null;
+          redFlags = parsedResult.redFlags || null;
+          tldr = parsedResult.scoreReason || parsedResult.verdict || null;
+          legitimacyTier = parsedResult.legitimacyTier || null;
+          rawReport = parsedResult.verdict || null;
+        }
+      } catch (evalErr) {
+        console.error('[MCP Tool optimize] AI evaluation error:', evalErr);
+      }
+
+      // 5. Upsert job application
       let existingOffer = null;
       if (url) {
         const [offer] = await db
@@ -284,6 +362,12 @@ async function executeTool(
         description,
         status: 'interested',
         source: 'mcp_server',
+        scoreOverall,
+        scoreBreakdown,
+        redFlags,
+        tldr,
+        legitimacyTier,
+        rawReport,
         updatedAt: new Date(),
       };
 
@@ -295,20 +379,208 @@ async function executeTool(
         offerId = existingOffer.id;
         await db.update(jobOffers).set(offerData).where(eq(jobOffers.id, offerId));
       } else {
-        const [newOffer] = await db.insert(jobOffers).values({ ...offerData, userId }).returning();
+        const [newOffer] = (await db.insert(jobOffers).values({ ...offerData, userId }).returning()) as any[];
         offerId = newOffer.id;
       }
 
-      // 5. Audit & revalidate
+      // 6. Audit & revalidate
       await createAuditLog('mcp_cv_optimize', userId, userEmail, { offerId, title, company, cvId });
       revalidatePath('/dashboard');
       revalidatePath('/dashboard/kanban');
+
+      let responseText = `✅ **CV Optimizado con Éxito y Añadido al Kanban**\n\n` +
+        `- **Empresa:** ${company}\n` +
+        `- **Puesto:** ${title}\n` +
+        `- **Estado:** Interesado (Kanban)\n` +
+        `- **ID de la Postulación:** \`${offerId}\`\n\n`;
+
+      if (parsedResult) {
+        responseText += `🏆 **Puntuación de Match:** **${parsedResult.score}/100**\n` +
+          `📌 **Veredicto:** _${parsedResult.scoreReason || parsedResult.verdict || ''}_\n\n`;
+        if (Array.isArray(parsedResult.redFlags) && parsedResult.redFlags.length > 0) {
+          responseText += `⚠️ **Red Flags:**\n` + parsedResult.redFlags.map((rf: any) => `* **${rf.title}**: _${rf.description}_`).join('\n') + `\n\n`;
+        }
+      }
+
+      responseText += `El currículum se adaptó correctamente siguiendo tu perfil. Ya está disponible en tu dashboard para previsualizar y exportar a PDF.`;
 
       return {
         content: [
           {
             type: 'text',
-            text: `✅ **CV Optimizado con Éxito y Añadido al Kanban**\n\n- **Empresa:** ${company}\n- **Puesto:** ${title}\n- **Estado:** Interesado (Kanban)\n- **ID de la Postulación:** \`${offerId}\`\n\nEl currículum se adaptó correctamente siguiendo tu perfil. Ya está disponible en tu dashboard para previsualizar y exportar a PDF.`,
+            text: responseText,
+          },
+        ],
+      };
+    }
+
+    case 'evaluar_oferta': {
+      const { title, company, description, url, platform } = args;
+
+      if (!title || !company || !description) {
+        return {
+          content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: title, company o description.' }],
+        };
+      }
+
+      const [userRecord] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      // Resolve base CV
+      let baseCv = null;
+      if (userRecord?.mcpCvId) {
+        [baseCv] = await db
+          .select()
+          .from(cvs)
+          .where(and(eq(cvs.userId, userId), eq(cvs.id, userRecord.mcpCvId)))
+          .limit(1);
+      }
+      if (!baseCv) {
+        [baseCv] = await db
+          .select()
+          .from(cvs)
+          .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
+          .orderBy(desc(cvs.isPrincipal))
+          .limit(1);
+      }
+
+      if (!baseCv) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'No tienes un currículum base subido en Matchply. Sube tu CV base en formato markdown desde la plataforma web antes de evaluar.',
+            },
+          ],
+        };
+      }
+
+      // Execute evaluation with AI
+      let parsedResult: any = null;
+      let evalAccumulated = '';
+      try {
+        const evalStream = await AIService.analyzeSTARStream({
+          cvMarkdown: baseCv.content,
+          jobDescription: description,
+          company,
+          userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
+          mcpProfile: userRecord?.mcpProfile,
+        });
+
+        const evalReader = evalStream.getReader();
+        const evalDecoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await evalReader.read();
+          if (done) break;
+          evalAccumulated += evalDecoder.decode(value, { stream: true });
+        }
+
+        const cleanJson = evalAccumulated.trim();
+        try {
+          parsedResult = JSON.parse(cleanJson);
+        } catch {
+          const jsonBlockRegex = /\{[\s\S]*\}/;
+          const match = cleanJson.match(jsonBlockRegex);
+          if (match) {
+            try {
+              parsedResult = JSON.parse(match[0]);
+            } catch {}
+          }
+        }
+      } catch (err: any) {
+        console.error('[MCP Tool evaluate] AI generation error:', err);
+        return {
+          content: [{ type: 'text', text: `Error al evaluar la oferta con IA: ${err.message}` }],
+        };
+      }
+
+      if (!parsedResult) {
+        return {
+          content: [{ type: 'text', text: 'Error: El modelo de IA no devolvió una evaluación en formato JSON válido.' }],
+        };
+      }
+
+      // Map scores and parameters for DB
+      const scoreOverall = parsedResult.score !== undefined ? parseFloat((parsedResult.score / 20).toFixed(1)) : null;
+      const scoreBreakdown = parsedResult.scoreBreakdown || null;
+      const redFlags = parsedResult.redFlags || null;
+      const tldr = parsedResult.scoreReason || parsedResult.verdict || null;
+      const legitimacyTier = parsedResult.legitimacyTier || null;
+      const rawReport = parsedResult.verdict || null;
+
+      // Upsert job application in DB
+      let existingOffer = null;
+      if (url) {
+        const [offer] = await db
+          .select()
+          .from(jobOffers)
+          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.url, url)))
+          .limit(1);
+        existingOffer = offer;
+      } else {
+        const [offer] = await db
+          .select()
+          .from(jobOffers)
+          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.title, title), eq(jobOffers.company, company)))
+          .limit(1);
+        existingOffer = offer;
+      }
+
+      const offerData: any = {
+        title,
+        company,
+        url: url || null,
+        platform: platform || 'other',
+        description,
+        status: existingOffer?.status || 'interested',
+        source: 'mcp_server',
+        scoreOverall,
+        scoreBreakdown,
+        redFlags,
+        tldr,
+        legitimacyTier,
+        rawReport,
+        updatedAt: new Date(),
+      };
+
+      let offerId = '';
+      if (existingOffer) {
+        offerId = existingOffer.id;
+        await db.update(jobOffers).set(offerData).where(eq(jobOffers.id, offerId));
+      } else {
+        const [newOffer] = (await db.insert(jobOffers).values({ ...offerData, userId }).returning()) as any[];
+        offerId = newOffer.id;
+      }
+
+      // Audit & revalidate
+      await createAuditLog('mcp_job_offer_evaluate', userId, userEmail, { offerId, title, company, score: parsedResult.score });
+      revalidatePath('/dashboard');
+      revalidatePath('/dashboard/kanban');
+
+      // Format clean report for response
+      const breakdownText = scoreBreakdown 
+        ? `\n- **Alineación Técnica:** ${scoreBreakdown.tech_stack || 'N/A'}/5.0\n- **Ajuste de Experiencia:** ${scoreBreakdown.experience_fit || 'N/A'}/5.0\n- **Pretensión Salarial:** ${scoreBreakdown.salary_fit || 'N/A'}/5.0\n- **Modalidad de Trabajo:** ${scoreBreakdown.work_mode || 'N/A'}/5.0\n- **Fit Cultural:** ${scoreBreakdown.culture_alignment || 'N/A'}/5.0`
+        : '';
+
+      const redFlagsText = Array.isArray(redFlags) && redFlags.length > 0
+        ? redFlags.map((rf: any) => `⚠️ **${rf.title}**\n  _${rf.description}_`).join('\n')
+        : 'Ninguna detectada ✅';
+
+      const keywordsText = Array.isArray(parsedResult.missingKeywords) && parsedResult.missingKeywords.length > 0
+        ? parsedResult.missingKeywords.join(', ')
+        : 'Ninguna';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔍 **Evaluación de la Oferta: ${company} — ${title}**\n\n` +
+                  `🏆 **Puntuación Global de Match:** **${parsedResult.score}/100**\n` +
+                  `📊 **Detalle por Dimensiones (1.0 - 5.0):**${breakdownText}\n\n` +
+                  `📌 **Resumen / Veredicto:**\n_${tldr || 'No disponible'}_\n\n` +
+                  `🚨 **Red Flags Detectadas:**\n${redFlagsText}\n\n` +
+                  `🔑 **Palabras Clave Faltantes (ATS):**\n${keywordsText}\n\n` +
+                  `📁 **Legitimidad de la Oferta:** \`${legitimacyTier || 'No analizado'}\`\n\n` +
+                  `La oferta ha sido añadida a tu Kanban en la columna **"Interesado"** (ID: \`${offerId}\`). Puedes optimizar tu CV para este puesto ejecutando la herramienta de optimización.`,
           },
         ],
       };
@@ -354,7 +626,7 @@ async function executeTool(
         return { content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: title o company.' }] };
       }
 
-      const [newOffer] = await db
+      const [newOffer] = (await db
         .insert(jobOffers)
         .values({
           userId,
@@ -366,7 +638,7 @@ async function executeTool(
           description: description || null,
           source: 'mcp_server',
         })
-        .returning();
+        .returning()) as any[];
 
       await createAuditLog('mcp_job_offer_create', userId, userEmail, { offerId: newOffer.id, title, company });
       revalidatePath('/dashboard');

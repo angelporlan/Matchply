@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
               .where(eq(cvs.id, targetCvId));
             optimizedCvId = targetCvId;
           } else {
-            const [optimizedCv] = await db
+            const [optimizedCv] = (await db
               .insert(cvs)
               .values({
                 userId: userId,
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
                 pageMargin: baseCv.pageMargin,
                 scale: baseCv.scale
               })
-              .returning();
+              .returning()) as any[];
             optimizedCvId = optimizedCv.id;
           }
 

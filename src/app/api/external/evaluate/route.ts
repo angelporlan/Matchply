@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
       jobDescription: description,
       company: company,
       userSubscriptionStatus: user.subscriptionStatus,
+      mcpProfile: user.mcpProfile,
     });
 
     // Consumir el stream de IA para construir la respuesta completa
