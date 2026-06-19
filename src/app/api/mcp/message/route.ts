@@ -74,8 +74,9 @@ export async function processMcpRequest(
   try {
     switch (method) {
       case 'initialize': {
+        const clientVersion = params?.protocolVersion || '2024-11-05';
         respondSuccess({
-          protocolVersion: '2024-11-05',
+          protocolVersion: clientVersion,
           capabilities: {
             tools: {}
           },
