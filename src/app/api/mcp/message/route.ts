@@ -10,6 +10,7 @@ function sendSseMessage(controller: ReadableStreamDefaultController, message: an
   try {
     const payload = `event: message\ndata: ${JSON.stringify(message)}\n\n`;
     controller.enqueue(new TextEncoder().encode(payload));
+    console.log(`[MCP Response] sent message:`, JSON.stringify(message));
   } catch (error) {
     console.error('[MCP] Failed to send SSE message:', error);
   }
@@ -53,6 +54,7 @@ export async function processMcpRequest(
   method: string,
   params: any
 ) {
+  console.log(`[MCP Request] session=${session.userId} email=${session.userEmail} method=${method} id=${id}`, JSON.stringify(params));
   const { controller, userId, userEmail } = session;
 
   // Helper to send success responses
