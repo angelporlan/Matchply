@@ -185,6 +185,24 @@ const MCP_TOOLS = [
       required: ['title', 'company', 'description'],
     },
   },
+  {
+    name: 'obtener_preferencias_mcp',
+    description:
+      'Obtiene las preferencias de búsqueda de empleo configuradas por el candidato (pretensiones salariales, años de experiencia, roles objetivo, puntuaciones de ubicación y notas adicionales).',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'obtener_cv_base',
+    description:
+      'Obtiene el contenido en Markdown del currículum base seleccionado del candidato en Matchply (experiencia, habilidades, educación).',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
 // ─────────────────────────────────────────────
@@ -753,6 +771,105 @@ async function executeTool(
         console.error('[MCP Tool search] error:', err);
         return {
           content: [{ type: 'text', text: `Error al consultar WeWorkRemotely: ${err.message}` }],
+        };
+      }
+    }
+
+    case 'obtener_preferencias_mcp': {
+      try {
+        const [dbUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (!dbUser) {
+          return {
+            content: [{ type: 'text', text: 'Error: Usuario no encontrado.' }],
+          };
+        }
+
+        const profile = (dbUser.mcpProfile as any) || {};
+        const responseText = `🧠 **Preferencias del Perfil MCP de Matchply**\n\n` +
+          `- **Años de Experiencia Real:** ${profile.experienceYears ?? 'No configurado'}\n` +
+          `- **Pretensiones Salariales (EUR/año):**\n` +
+          `  - Mínimo Aceptable: ${profile.salaryMin ? `${profile.salaryMin} EUR` : 'No configurado'}\n` +
+          `  - Salario Objetivo: ${profile.salaryTarget ? `${profile.salaryTarget} EUR` : 'No configurado'}\n` +
+          `- **Roles & Tecnologías Objetivo:** ${profile.targetRoles && profile.targetRoles.length > 0 ? profile.targetRoles.join(', ') : 'Ninguno configurado'}\n` +
+          `- **Preferencia de Ubicación (1.0 - 5.0):**\n` +
+          ((profile.locations && profile.locations.length > 0)
+            ? profile.locations.map((loc: any) => `  - ${loc.name}: ${loc.score}`).join('\n')
+            : '  - Ninguna configurada') + '\n' +
+          `- **Matriz de Ajuste por Experiencia Exigida:**\n` +
+          `  - Junior / < 1 año: ${profile.experienceFitRules?.['under-1'] ?? 'No configurada'}\n` +
+          `  - Mid / 1-3 años: ${profile.experienceFitRules?.['1-3'] ?? 'No configurada'}\n` +
+          `  - Exactamente 4 años: ${profile.experienceFitRules?.['4'] ?? 'No configurada'}\n` +
+          `  - Senior / 5+ años: ${profile.experienceFitRules?.['5+'] ?? 'No configurada'}\n` +
+          `- **Notas Adicionales de Contexto:** ${profile.additionalNotes || 'Ninguna'}`;
+
+        return {
+          content: [{ type: 'text', text: responseText }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text', text: `Error al obtener preferencias: ${err.message}` }],
+        };
+      }
+    }
+
+    case 'obtener_cv_base': {
+      try {
+        const [dbUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (!dbUser) {
+          return {
+            content: [{ type: 'text', text: 'Error: Usuario no encontrado.' }],
+          };
+        }
+
+        let baseCv: any = null;
+        if (dbUser.mcpCvId) {
+          [baseCv] = await db
+            .select()
+            .from(cvs)
+            .where(and(eq(cvs.userId, userId), eq(cvs.id, dbUser.mcpCvId)))
+            .limit(1);
+        }
+        if (!baseCv) {
+          [baseCv] = await db
+            .select()
+            .from(cvs)
+            .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
+            .orderBy(desc(cvs.isPrincipal))
+            .limit(1);
+        }
+
+        if (!baseCv) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No tienes un currículum base subido en Matchply. Sube tu CV base en formato markdown desde la plataforma web.',
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `📄 **Currículum Base (${baseCv.title}):**\n\n\`\`\`markdown\n${baseCv.content}\n\`\`\``,
+            },
+          ],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text', text: `Error al obtener CV base: ${err.message}` }],
         };
       }
     }
