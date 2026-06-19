@@ -160,7 +160,7 @@ const MCP_TOOLS = [
   {
     name: 'buscar_ofertas_remotas',
     description:
-      'Busca vacantes activas de programación en tiempo real consultando el feed público de WeWorkRemotely.',
+      'Busca vacantes activas de programación en tiempo real consultando el feed público de WeWorkRemotely. NOTA: Si esta consulta no arroja resultados o falla la red, el agente de IA debe utilizar de forma proactiva sus propias herramientas de búsqueda en la web (navegador) para buscar ofertas de empleo relevantes para el usuario en internet.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -763,24 +763,63 @@ async function executeTool(
       }
 
       try {
-        const res = await fetch('https://weworkremotely.com/api/v1/jobs', {
+        const res = await fetch('https://weworkremotely.com/remote-jobs.rss', {
           headers: { 'User-Agent': 'MatchplyMCP/1.0' },
         });
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch from WWR: ${res.status}`);
+          throw new Error(`Failed to fetch from WWR RSS: ${res.status}`);
         }
 
-        const data = await res.json();
-        const jobs = data.jobs || [];
+        const xmlText = await res.text();
+        const items: any[] = [];
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+
+        while ((match = itemRegex.exec(xmlText)) !== null) {
+          const itemContent = match[1];
+          
+          const titleMatch = itemContent.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || itemContent.match(/<title>([\s\S]*?)<\/title>/);
+          const linkMatch = itemContent.match(/<link>([\s\S]*?)<\/link>/);
+          const pubDateMatch = itemContent.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+          const categoryMatch = itemContent.match(/<category><!\[CDATA\[([\s\S]*?)\]\]><\/category>/) || itemContent.match(/<category>([\s\S]*?)<\/category>/);
+          
+          const rawTitle = titleMatch ? titleMatch[1].trim() : '';
+          const url = linkMatch ? linkMatch[1].trim() : '';
+          const pubDate = pubDateMatch ? pubDateMatch[1].trim() : '';
+          const category = categoryMatch ? categoryMatch[1].trim() : 'General';
+          
+          let company = 'WeWorkRemotely';
+          let title = rawTitle;
+          
+          if (rawTitle.includes(' at ')) {
+            const parts = rawTitle.split(' at ');
+            title = parts[0].trim();
+            company = parts[1].trim();
+          } else if (rawTitle.includes(':')) {
+            const parts = rawTitle.split(':');
+            company = parts[0].trim();
+            title = parts[1].trim();
+          }
+          
+          items.push({
+            title,
+            company,
+            url,
+            pubDate,
+            category,
+            rawTitle
+          });
+        }
 
         const queryLower = query.toLowerCase();
-        const filtered = jobs
+        const filtered = items
           .filter(
             (job: any) =>
-              job.title?.toLowerCase().includes(queryLower) ||
-              job.company?.toLowerCase().includes(queryLower) ||
-              job.description?.toLowerCase().includes(queryLower)
+              job.title.toLowerCase().includes(queryLower) ||
+              job.company.toLowerCase().includes(queryLower) ||
+              job.rawTitle.toLowerCase().includes(queryLower) ||
+              job.category.toLowerCase().includes(queryLower)
           )
           .slice(0, 5);
 
@@ -789,7 +828,10 @@ async function executeTool(
             content: [
               {
                 type: 'text',
-                text: `No se encontraron ofertas activas para "${query}" en WeWorkRemotely en este momento.`,
+                text: `No se encontraron ofertas activas para "${query}" en el feed de WeWorkRemotely.
+
+[INSTRUCCIÓN PARA EL AGENTE DE IA / LLM]:
+Dado que no se encontraron resultados locales en el feed, por favor realiza una búsqueda en internet en tiempo real (usando tus propias herramientas de navegación web o búsqueda) para encontrar ofertas de empleo recientes e interesantes para "${query}". Obtén sus detalles (título, empresa, descripción y URL) y preséntaselas al usuario para poder evaluarlas u optimizar su CV con Matchply.`,
               },
             ],
           };
@@ -797,7 +839,7 @@ async function executeTool(
 
         const jobCards = filtered
           .map((job: any, index: number) => {
-            return `${index + 1}. **${job.company}** - **${job.title}**\n   - 📍 Ubicación: ${job.candidate_required_location || 'Remoto a nivel mundial'}\n   - 📂 Categoría: ${job.category}\n   - 🔗 Enlace: [Ver oferta](${job.url})\n   - 📅 Publicado: ${new Date(job.pub_date).toLocaleDateString()}`;
+            return `${index + 1}. **${job.company}** - **${job.title}**\n   - 📂 Categoría: ${job.category}\n   - 🔗 Enlace: [Ver oferta](${job.url})\n   - 📅 Publicado: ${job.pubDate ? new Date(job.pubDate).toLocaleDateString() : 'N/A'}`;
           })
           .join('\n\n');
 
@@ -805,14 +847,22 @@ async function executeTool(
           content: [
             {
               type: 'text',
-              text: `🔍 **Ofertas encontradas para "${query}" en WeWorkRemotely:**\n\n${jobCards}\n\n*Consejo: Puedes decirme "Optimiza mi CV para la oferta número X" copiando la descripción de la oferta o indicándome los detalles.*`,
+              text: `🔍 **Ofertas encontradas para "${query}" en WeWorkRemotely (Feed RSS):**\n\n${jobCards}\n\n*Consejo: Copia los detalles o enlace de cualquiera de ellas y pídeme "Evalúa esta oferta" u "Optimiza mi CV para la oferta número X".*`,
             },
           ],
         };
       } catch (err: any) {
         console.error('[MCP Tool search] error:', err);
         return {
-          content: [{ type: 'text', text: `Error al consultar WeWorkRemotely: ${err.message}` }],
+          content: [
+            {
+              type: 'text',
+              text: `El feed directo de WeWorkRemotely no está disponible temporalmente (Error: ${err.message}).
+
+[INSTRUCCIÓN PARA EL AGENTE DE IA / LLM]:
+Debido a que el feed falló con un error, por favor realiza una búsqueda en internet en tiempo real (usando tus propias herramientas de navegación web o búsqueda) para encontrar ofertas de empleo recientes e interesantes para "${query}". Obtén sus detalles (título, empresa, descripción y URL) y preséntaselas al usuario para poder evaluarlas u optimizar su CV con Matchply.`,
+            },
+          ],
         };
       }
     }
