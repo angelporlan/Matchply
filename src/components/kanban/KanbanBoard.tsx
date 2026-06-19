@@ -6,9 +6,9 @@ import NextLink from 'next/link';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer, updateJobOfferStatus } from '@/app/dashboard/kanban/actions';
+import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction } from '@/app/dashboard/kanban/actions';
 import { formatDate } from '@/lib/utils';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -101,9 +101,47 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     });
   };
 
-  const handleCopyData = async () => {
-    const targetOffers = getFilteredOffersForCopy();
-    if (targetOffers.length === 0) return;
+  const getOffersReportText = (filterType: 'all' | 'today' | '7days' | 'custom', startVal: string, endVal: string, limitForAi = false) => {
+    let targetOffers = localOffers.filter((offer) => {
+      if (isArchivedStatus(offer.status)) return false;
+
+      let matchesDateFilter = true;
+      if (filterType !== 'all') {
+        const offerDate = new Date(offer.createdAt);
+        offerDate.setHours(0, 0, 0, 0);
+        const offerTime = offerDate.getTime();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTime = today.getTime();
+
+        if (filterType === 'today') {
+          matchesDateFilter = offerTime === todayTime;
+        } else if (filterType === '7days') {
+          const sevenDaysAgo = new Date(today);
+          sevenDaysAgo.setDate(today.getDate() - 7);
+          const sevenDaysAgoTime = sevenDaysAgo.getTime();
+          matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
+        } else if (filterType === 'custom') {
+          if (startVal) {
+            const start = new Date(startVal + 'T00:00:00');
+            matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
+          }
+          if (endVal) {
+            const end = new Date(endVal + 'T00:00:00');
+            matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
+          }
+        }
+      }
+      return matchesDateFilter;
+    });
+
+    if (targetOffers.length === 0) return '';
+
+    // Limit to the 8 most recent applications if limitForAi is true to prevent token overload
+    if (limitForAi && targetOffers.length > 8) {
+      targetOffers = targetOffers.slice(0, 8);
+    }
 
     const usedCvIds = new Set<string>();
     targetOffers.forEach(o => {
@@ -120,15 +158,15 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     const cvsSectionTitle = isEs ? 'CURRÍCULUMS VINCULADOS' : 'LINKED CVs';
     
     let periodValue = '';
-    if (copyDateFilter === 'all') {
+    if (filterType === 'all') {
       periodValue = isEs ? 'Todas las postulaciones' : 'All applications';
-    } else if (copyDateFilter === 'today') {
+    } else if (filterType === 'today') {
       periodValue = isEs ? 'Hoy' : 'Today';
-    } else if (copyDateFilter === '7days') {
+    } else if (filterType === '7days') {
       periodValue = isEs ? 'Últimos 7 días' : 'Last 7 days';
-    } else if (copyDateFilter === 'custom') {
-      const startStr = copyStartDate ? formatDate(new Date(copyStartDate + 'T00:00:00')) : '...';
-      const endStr = copyEndDate ? formatDate(new Date(copyEndDate + 'T00:00:00')) : '...';
+    } else if (filterType === 'custom') {
+      const startStr = startVal ? formatDate(new Date(startVal + 'T00:00:00')) : '...';
+      const endStr = endVal ? formatDate(new Date(endVal + 'T00:00:00')) : '...';
       periodValue = isEs ? `Rango: ${startStr} - ${endStr}` : `Range: ${startStr} - ${endStr}`;
     }
 
@@ -151,6 +189,12 @@ ${applicationsSectionTitle} (${targetOffers.length})
       const cvObj = offer.cvId ? userCvs.find(cv => cv.id === offer.cvId) : null;
       const cvTitle = cvObj ? cvObj.title : (isEs ? 'Ninguno' : 'None');
 
+      // Truncate job description if limitForAi is enabled
+      let descriptionText = offer.description || (isEs ? 'Sin descripción' : 'No description');
+      if (limitForAi && descriptionText.length > 600) {
+        descriptionText = descriptionText.substring(0, 600) + '... [Descripción truncada para optimización de tokens]';
+      }
+
       textStr += `
 --------------------------------------------------
 ${idx + 1}. ${offer.title.toUpperCase()} en ${offer.company.toUpperCase()}
@@ -163,7 +207,7 @@ ${idx + 1}. ${offer.title.toUpperCase()} en ${offer.company.toUpperCase()}
 • ${isEs ? 'CV Vinculado' : 'Linked CV'}: ${cvTitle}
 
 • ${isEs ? 'Descripción' : 'Description'}:
-${offer.description || (isEs ? 'Sin descripción' : 'No description')}
+${descriptionText}
 `;
     });
 
@@ -180,6 +224,12 @@ ${cvsSectionTitle} (${uniqueCvs.length})
           .map(o => `  - ${o.title} en ${o.company} (${t(`kanban.columns.${o.status}.title`)})`)
           .join('\n');
 
+        // Truncate CV content if limitForAi is enabled
+        let cvContentText = cv.content;
+        if (limitForAi && cvContentText.length > 3000) {
+          cvContentText = cvContentText.substring(0, 3000) + '\n... [Contenido del CV truncado para optimización de tokens]';
+        }
+
         textStr += `
 --------------------------------------------------
 CV: ${cv.title}
@@ -187,11 +237,18 @@ ${isEs ? 'Utilizado en las siguientes postulaciones:' : 'Used in the following a
 ${offersList}
 
 ${isEs ? 'Contenido del CV:' : 'CV Content:'}
-${cv.content}
+${cvContentText}
 --------------------------------------------------
 `;
       });
     }
+
+    return textStr;
+  };
+
+  const handleCopyData = async () => {
+    const textStr = getOffersReportText(copyDateFilter, copyStartDate, copyEndDate);
+    if (!textStr) return;
 
     try {
       await navigator.clipboard.writeText(textStr);
@@ -203,6 +260,260 @@ ${cv.content}
     } catch (err) {
       console.error('Error al copiar al portapapeles:', err);
     }
+  };
+
+  // AI Chatbot States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  const [chatInputValue, setChatInputValue] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Suggested quick questions
+  const chatSuggestedQuestions = language === 'es' 
+    ? [
+        { id: 'common_failures', text: '¿Cuáles son mis fallos más comunes?' },
+        { id: 'improve_cv', text: '¿Cómo puedo adaptar mejor mis CVs?' },
+        { id: 'general_advice', text: 'Dame un consejo general para mi embudo' }
+      ]
+    : [
+        { id: 'common_failures', text: 'What are my most common failures?' },
+        { id: 'improve_cv', text: 'How can I adapt my CVs better?' },
+        { id: 'general_advice', text: 'Give me a general tip for my funnel' }
+      ];
+
+  // Initialize chat with greeting
+  useEffect(() => {
+    if (isChatOpen && chatMessages.length === 0) {
+      const isEs = language === 'es';
+      setChatMessages([
+        {
+          role: 'assistant',
+          content: isEs
+            ? "¡Hola! Bienvenido a tu Asesor de Carrera IA en Matchply. Analizaré tu embudo de candidaturas activas y currículums para ayudarte a identificar qué puede estar fallando en tus procesos y cómo solucionarlo.\n\n¿Quieres que analice tus postulaciones actuales?"
+            : "Hello! Welcome to your AI Career Coach at Matchply. I will analyze your active application funnel and resumes to help you identify what might be failing and how to fix it.\n\nWould you like me to analyze your current applications?"
+        }
+      ]);
+    }
+  }, [isChatOpen, chatMessages, language]);
+
+  // Observer/Interval typing simulation
+  const startTypingSimulation = (fullText: string, onUpdate: (text: string) => void, onComplete: () => void) => {
+    let currentLength = 0;
+    const speed = 12; // Speed in ms
+    const interval = setInterval(() => {
+      currentLength += 4; // Add 4 chars at a time
+      if (currentLength >= fullText.length) {
+        onUpdate(fullText);
+        clearInterval(interval);
+        onComplete();
+      } else {
+        onUpdate(fullText.substring(0, currentLength));
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  };
+
+  const handleStartAiAnalysis = async () => {
+    if (isChatLoading) return;
+    setIsChatLoading(true);
+    const isEs = language === 'es';
+    
+    // Add user message to trigger analysis
+    const userMsg = isEs ? "Analiza mi embudo de postulaciones, por favor." : "Analyze my applications funnel, please.";
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+
+    // Format target offers using active board date filters
+    const reportText = getOffersReportText(dateFilter, startDate, endDate, true);
+
+    if (!reportText) {
+      setIsChatLoading(false);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: isEs
+          ? "No he encontrado candidaturas activas en tu tablero según el filtro de fechas seleccionado. Por favor, crea candidaturas antes de realizar el análisis."
+          : "I couldn't find any active applications on your board matching the selected date filters. Please create some applications before analyzing."
+      }]);
+      return;
+    }
+
+    try {
+      const result = await analyzeFailuresAction(reportText);
+      if (result.error) {
+        setIsChatLoading(false);
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: isEs
+            ? `Lo siento, ha ocurrido un error al procesar el análisis: ${result.error}`
+            : `Sorry, an error occurred while processing the analysis: ${result.error}`
+        }]);
+      } else if (result.analysis) {
+        // Add an empty assistant message to fill with typing simulation
+        setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        
+        startTypingSimulation(
+          result.analysis,
+          (partialText) => {
+            setChatMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: partialText };
+              return updated;
+            });
+          },
+          () => {
+            setIsChatLoading(false);
+          }
+        );
+      }
+    } catch (err) {
+      setIsChatLoading(false);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: isEs
+          ? "Lo siento, ocurrió un error inesperado de red al conectar con el motor de IA."
+          : "Sorry, an unexpected network error occurred while connecting to the AI engine."
+      }]);
+    }
+  };
+
+  const handleSendChatMessage = async (e: React.FormEvent | string) => {
+    if (typeof e !== 'string') {
+      e.preventDefault();
+    }
+    const messageText = typeof e === 'string' ? e : chatInputValue;
+    if (!messageText.trim() || isChatLoading) return;
+
+    if (typeof e !== 'string') {
+      setChatInputValue('');
+    }
+    
+    setIsChatLoading(true);
+    setChatMessages(prev => [...prev, { role: 'user', content: messageText }]);
+
+    const isEs = language === 'es';
+    const reportText = getOffersReportText(dateFilter, startDate, endDate, true);
+    
+    const updatedHistory = [...chatMessages, { role: 'user', content: messageText }];
+    const conversationHistoryText = updatedHistory
+      .slice(-6) // Include last 6 messages for context
+      .map(msg => `${msg.role === 'user' ? 'Usuario' : 'Asistente de IA'}: ${msg.content}`)
+      .join('\n\n');
+
+    const promptContext = `
+[DATOS DE POSTULACIONES DEL USUARIO]
+${reportText}
+
+[HISTORIAL RECIENTE DEL CHAT]
+${conversationHistoryText}
+
+[NUEVA CONSULTA DEL USUARIO]
+${messageText}
+
+Responde de forma concisa y directa al usuario.
+`;
+
+    try {
+      const result = await analyzeFailuresAction(promptContext);
+      if (result.error) {
+        setIsChatLoading(false);
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: isEs
+            ? `Lo siento, ha ocurrido un error al responder: ${result.error}`
+            : `Sorry, an error occurred while generating a response: ${result.error}`
+        }]);
+      } else if (result.analysis) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        
+        startTypingSimulation(
+          result.analysis,
+          (partialText) => {
+            setChatMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: partialText };
+              return updated;
+            });
+          },
+          () => {
+            setIsChatLoading(false);
+          }
+        );
+      }
+    } catch (err) {
+      setIsChatLoading(false);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: isEs
+          ? "Lo siento, ha ocurrido un error al conectar con la IA."
+          : "Sorry, an error occurred while communicating with the AI."
+      }]);
+    }
+  };
+
+  const renderMessageContent = (content: string) => {
+    if (!content) return <span className="inline-block w-1.5 h-3.5 bg-[#8b5cf6] dark:bg-violet-400 animate-pulse ml-0.5" />;
+
+    const lines = content.split('\n');
+    return lines.map((line, lineIdx) => {
+      if (!line.trim()) {
+        return <div key={lineIdx} className="h-2" />;
+      }
+      
+      if (line.startsWith('### ')) {
+        return <h4 key={lineIdx} className="text-xs font-bold text-[#1e1b4b] dark:text-white mt-3 mb-1.5 font-display">{line.slice(4)}</h4>;
+      }
+      if (line.startsWith('## ')) {
+        return <h3 key={lineIdx} className="text-sm font-bold text-[#1e1b4b] dark:text-white mt-4 mb-2 border-b border-[#1e1b4b]/10 dark:border-white/5 pb-1 font-display">{line.slice(3)}</h3>;
+      }
+      if (line.startsWith('# ')) {
+        return <h2 key={lineIdx} className="text-base font-bold text-[#1e1b4b] dark:text-white mt-4 mb-2 font-display">{line.slice(2)}</h2>;
+      }
+      if (line.startsWith('---') || line.startsWith('===')) {
+        return <hr key={lineIdx} className="my-2 border-[#1e1b4b]/10 dark:border-white/5" />;
+      }
+
+      const listMatch = line.match(/^(\s*)[-\*•]\s+(.*)$/);
+      let processedText: React.ReactNode = line;
+      let isListItem = false;
+      let textToProcess = line;
+
+      if (listMatch) {
+        isListItem = true;
+        textToProcess = listMatch[2];
+      }
+
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      const parts = [];
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = boldRegex.exec(textToProcess)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(textToProcess.substring(lastIndex, match.index));
+        }
+        parts.push(<strong key={match.index} className="font-bold text-[#1e1b4b] dark:text-white">{match[1]}</strong>);
+        lastIndex = boldRegex.lastIndex;
+      }
+      
+      if (lastIndex < textToProcess.length) {
+        parts.push(textToProcess.substring(lastIndex));
+      }
+      
+      processedText = parts.length > 0 ? parts : textToProcess;
+
+      if (isListItem) {
+        return (
+          <li key={lineIdx} className="ml-4 list-disc text-xs text-[#1e1b4b]/80 dark:text-slate-300 font-sans my-0.5 leading-relaxed">
+            {processedText}
+          </li>
+        );
+      }
+
+      return (
+        <p key={lineIdx} className="text-xs text-[#1e1b4b]/80 dark:text-slate-300 font-sans leading-relaxed my-1">
+          {processedText}
+        </p>
+      );
+    });
   };
 
   // Hydration state
@@ -1016,6 +1327,126 @@ ${cv.content}
           offer={offers.find(o => o.id === selectedOfferForDetails.id) || selectedOfferForDetails}
           userCvs={userCvs}
         />
+      )}
+
+      {/* Botón Redondo Flotante de IA Chatbot */}
+      <button
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-[#8b5cf6] to-[#a78bfa] text-white flex items-center justify-center shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 border border-[#8b5cf6]/20 transition-all hover:scale-105 active:scale-95 duration-300 group"
+        aria-label="Asesor de Carrera IA"
+        title="Asesor de Carrera IA"
+      >
+        <Sparkles className="w-6 h-6 animate-pulse group-hover:rotate-12 transition-transform duration-300" />
+      </button>
+
+      {/* Panel Flotante de IA Chatbot */}
+      {isChatOpen && (
+        <div className="fixed bottom-24 right-6 w-96 h-[550px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[16px] shadow-2xl z-40 overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 font-sans text-left">
+          {/* Cabecera del Chat */}
+          <div className="shrink-0 p-4 bg-[#1e1b4b] dark:bg-[#0b0f19] text-white flex items-center justify-between border-b border-[#1e1b4b]/10 dark:border-white/5">
+            <div className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+              <div>
+                <h4 className="text-xs font-bold font-display tracking-wide">Asesor de Carrera IA</h4>
+                <p className="text-[10px] text-slate-400">Matchply Coach</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-[8px] hover:bg-white/10 transition-all"
+            >
+              <X className="w-4 h-4 stroke-[1.75]" />
+            </button>
+          </div>
+
+          {/* Historial de Mensajes */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-[#0b0f19]/20 scrollbar-custom">
+            {chatMessages.map((msg, idx) => {
+              const isAssistant = msg.role === 'assistant';
+              return (
+                <div
+                  key={idx}
+                  className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-1 duration-200`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-[12px] p-3 text-xs shadow-sm leading-relaxed ${
+                      isAssistant
+                        ? 'bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 text-[#1e1b4b] dark:text-slate-200'
+                        : 'bg-[#8b5cf6] text-white'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      {isAssistant ? renderMessageContent(msg.content) : msg.content}
+                    </div>
+
+                    {/* Botón de acción inicial en el primer mensaje de la IA */}
+                    {isAssistant && idx === 0 && chatMessages.length === 1 && (
+                      <div className="mt-3 flex justify-start">
+                        <button
+                          onClick={handleStartAiAnalysis}
+                          disabled={isChatLoading}
+                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-[11px] font-bold shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3 h-3 stroke-[2]" />
+                          {language === 'es' ? 'Analizar mi embudo' : 'Analyze my funnel'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Cargador de la IA */}
+            {isChatLoading && chatMessages[chatMessages.length - 1]?.role === 'user' && (
+              <div className="flex justify-start animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 rounded-[12px] p-3 shadow-sm flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Preguntas sugeridas */}
+          {chatMessages.length > 1 && !isChatLoading && (
+            <div className="px-4 py-2 bg-slate-50/50 dark:bg-[#0b0f19]/10 border-t border-[#1e1b4b]/5 dark:border-white/5 flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
+              {chatSuggestedQuestions.map((q) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => handleSendChatMessage(q.text)}
+                  className="px-2.5 py-1.5 rounded-full border border-[#8b5cf6]/20 bg-white dark:bg-[#1f2937] hover:border-[#8b5cf6]/50 hover:bg-[#8b5cf6]/5 dark:hover:bg-violet-950/20 text-[#8b5cf6] dark:text-violet-400 text-[10px] font-bold transition-all shadow-sm"
+                >
+                  {q.text}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input de Envío */}
+          <form
+            onSubmit={handleSendChatMessage}
+            className="shrink-0 p-3 bg-white dark:bg-[#1f2937] border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={chatInputValue}
+              onChange={(e) => setChatInputValue(e.target.value)}
+              disabled={isChatLoading}
+              placeholder={language === 'es' ? 'Pregunta algo a tu asesor...' : 'Ask your coach something...'}
+              className="flex-1 bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+            />
+            <button
+              type="submit"
+              disabled={!chatInputValue.trim() || isChatLoading}
+              className="p-2 rounded-[8px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+            >
+              <SendHorizontal className="w-4 h-4 stroke-[1.75]" />
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

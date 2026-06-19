@@ -63,6 +63,10 @@ async function seed() {
       .delete(prompts)
       .where(eq(prompts.key, 'star_optimize'));
 
+    await db
+      .delete(prompts)
+      .where(eq(prompts.key, 'analyze_failures'));
+
     const promptsToSeed = [
       {
         name: 'Análisis de Match',
@@ -322,6 +326,19 @@ Debes adaptar la estructura para que cumpla estrictamente con las reglas de rend
         isActive: true,
         isArchived: false,
         isStrict: true,
+      },
+      {
+        name: 'Análisis de Fallos de Candidaturas',
+        nameEn: 'Applications Failure Analysis',
+        key: 'analyze_failures',
+        description: 'Prompt para el Asesor de Carrera IA que analiza fallos en el historial de candidaturas y propone mejoras.',
+        descriptionEn: 'Prompt for the AI Career Coach that analyzes failures in job applications history and proposes improvements.',
+        color: '#8b5cf6', // Púrpura
+        systemPrompt: 'Eres un consultor experto en selección y reclutamiento (career coach) de Matchply. Tu misión es analizar el historial de candidaturas (postulaciones de empleo) y currículums del usuario para identificar patrones de rechazo, errores en su perfil o descripción, y proponer un plan de acción concreto y estructurado para mejorar su tasa de conversión en las ofertas. Sé directo, profesional, empático y estructurado en Markdown. No uses saludos excesivamente largos, ve directo al grano y mantén un tono premium y ejecutivo.',
+        userPrompt: 'Aquí tienes el reporte de mis candidaturas actuales y los currículums utilizados:\n\n{{report}}\n\nPor favor, analiza en qué estoy fallando y dame consejos específicos para mejorar.',
+        isActive: true,
+        isArchived: false,
+        isStrict: false,
       }
     ];
 

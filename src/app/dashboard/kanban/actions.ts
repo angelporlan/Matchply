@@ -1,7 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { jobOffers } from "@/db/schema";
+import { jobOffers, users } from "@/db/schema";
+import { AIService } from "@/lib/ai-service";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -306,5 +307,43 @@ export async function updateJobOfferDetails(
   } catch (error: any) {
     console.error("Error updating offer details:", error);
     return { error: error.message || "Failed to update offer details" };
+  }
+}
+
+export async function analyzeFailuresAction(targetOffersText: string) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    // 1. Obtener usuario para comprobar suscripción
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // 2. Ejecutar análisis de la IA
+    const analysis = await AIService.analyzeFailures({
+      targetOffersText,
+      userSubscriptionStatus: user.subscriptionStatus
+    });
+
+    // 3. Crear log de auditoría
+    await createAuditLog("cv_analyze_failures_ai", userId, user.email || null, {
+      textLength: targetOffersText.length
+    });
+
+    return { analysis };
+  } catch (error: any) {
+    console.error("Error analyzing failures:", error);
+    return { error: error.message || "Failed to analyze failures" };
   }
 }
