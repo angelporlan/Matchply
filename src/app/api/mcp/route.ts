@@ -12,13 +12,21 @@ import { createAuditLog } from '@/lib/audit';
 
 /** Resolve user from Bearer token in Authorization header */
 async function resolveUserFromBearer(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) return null;
+  let token = '';
 
-  // Support both "Bearer <token>" and raw token
-  const token = authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7).trim()
-    : authHeader.trim();
+  const authHeader = req.headers.get('authorization');
+  if (authHeader) {
+    token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : authHeader.trim();
+  } else {
+    // Fallback: extract token from query parameters
+    const { searchParams } = new URL(req.url);
+    const queryToken = searchParams.get('token');
+    if (queryToken) {
+      token = queryToken.trim();
+    }
+  }
 
   if (!token) return null;
 
@@ -35,8 +43,12 @@ async function resolveUserFromBearer(req: NextRequest) {
   // Global API Key fallback
   const globalToken = process.env.MATCHPLY_EXTERNAL_API_KEY;
   if (globalToken && token === globalToken) {
-    // Need an email from a custom header or the first admin user
-    const email = req.headers.get('x-matchply-user-email');
+    // Need an email from a custom header, query param, or fallback
+    let email = req.headers.get('x-matchply-user-email');
+    if (!email) {
+      const { searchParams } = new URL(req.url);
+      email = searchParams.get('userEmail');
+    }
     if (email) {
       const [user] = await db
         .select()
