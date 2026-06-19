@@ -326,7 +326,8 @@ export default function JobOfferDetailsPage({
   const scoreVal = offer.scoreOverall !== null ? offer.scoreOverall : 0;
   const radius = 45;
   const circumference = 2 * Math.PI * radius; // 282.74
-  const strokeDashoffset = circumference - (circumference * scoreVal) / 5;
+  const isPercentage = scoreVal > 5;
+  const strokeDashoffset = circumference - (circumference * scoreVal) / (isPercentage ? 100 : 5);
 
   return (
     <div className="space-y-6">
@@ -429,10 +430,10 @@ export default function JobOfferDetailsPage({
                 </svg>
                 <div className="absolute flex flex-col items-center font-display">
                   <span className="text-3xl font-black text-[#1e1b4b] dark:text-white leading-none">
-                    {scoreVal.toFixed(1)}
+                    {isPercentage ? scoreVal.toFixed(0) : scoreVal.toFixed(1)}
                   </span>
                   <span className="text-[9px] font-bold text-[#1e1b4b]/30 dark:text-slate-550 uppercase mt-1">
-                    de 5
+                    {isPercentage ? 'de 100' : 'de 5'}
                   </span>
                 </div>
               </div>
@@ -444,7 +445,9 @@ export default function JobOfferDetailsPage({
                     return (
                       <div key={key} className="flex justify-between items-center text-[10px] font-sans">
                         <span className="text-[#1e1b4b]/60 dark:text-slate-400 capitalize font-medium">{key.replace(/_/g, ' ')}</span>
-                        <span className="font-bold text-[#1e1b4b] dark:text-slate-200">{parsedVal.toFixed(1)}/5</span>
+                        <span className="font-bold text-[#1e1b4b] dark:text-slate-200">
+                          {parsedVal.toFixed(isPercentage ? 0 : 1)}{isPercentage ? '/100' : '/5'}
+                        </span>
                       </div>
                     );
                   })}

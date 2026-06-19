@@ -342,12 +342,33 @@ async function executeTool(
         }
 
         if (parsedResult) {
-          scoreOverall = parsedResult.score !== undefined ? parseFloat((parsedResult.score / 20).toFixed(1)) : null;
-          scoreBreakdown = parsedResult.scoreBreakdown || null;
-          redFlags = parsedResult.redFlags || null;
-          tldr = parsedResult.scoreReason || parsedResult.verdict || null;
+          scoreOverall = parsedResult.score !== undefined ? parseFloat(parsedResult.score.toFixed(1)) : null;
+          scoreBreakdown = parsedResult.dimensions ? JSON.stringify(
+            parsedResult.dimensions.reduce((acc: any, curr: any) => {
+              acc[curr.name] = parseFloat(curr.percentage.toFixed(1));
+              return acc;
+            }, {})
+          ) : null;
+          redFlags = parsedResult.redFlags ? JSON.stringify(parsedResult.redFlags) : null;
+          tldr = parsedResult.scoreReason || null;
           legitimacyTier = parsedResult.legitimacyTier || null;
-          rawReport = parsedResult.verdict || null;
+          
+          // Construct structured markdown sections for rawReport
+          rawReport = `## B) Match con CV y Gaps Técnicos\n` +
+            `- **Puntuación de compatibilidad:** ${parsedResult.score}/100 (${parsedResult.scoreLabel || 'Analizado'})\n` +
+            `- **Razón del score:** ${parsedResult.scoreReason || ''}\n\n` +
+            `## C) Análisis de Stack Tecnológico\n` +
+            `### Tecnologías coincidentes detectadas:\n` +
+            (parsedResult.presentKeywords && parsedResult.presentKeywords.length > 0
+              ? parsedResult.presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
+              : '- Ninguna detectada') + '\n\n' +
+            `### Tecnologías requeridas ausentes (Gaps):\n` +
+            (parsedResult.missingKeywords && parsedResult.missingKeywords.length > 0
+              ? parsedResult.missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
+              : '- Ninguno detectado') + '\n\n' +
+            `## E) Blueprint de Personalización del CV\n` +
+            `Veredicto final del Reclutador:\n\n` +
+            `${parsedResult.verdict || ''}`;
         }
       } catch (evalErr) {
         console.error('[MCP Tool optimize] AI evaluation error:', evalErr);
@@ -518,12 +539,33 @@ async function executeTool(
       }
 
       // Map scores and parameters for DB
-      const scoreOverall = parsedResult.score !== undefined ? parseFloat((parsedResult.score / 20).toFixed(1)) : null;
-      const scoreBreakdown = parsedResult.scoreBreakdown || null;
-      const redFlags = parsedResult.redFlags || null;
-      const tldr = parsedResult.scoreReason || parsedResult.verdict || null;
+      const scoreOverall = parsedResult.score !== undefined ? parseFloat(parsedResult.score.toFixed(1)) : null;
+      const scoreBreakdown = parsedResult.dimensions ? JSON.stringify(
+        parsedResult.dimensions.reduce((acc: any, curr: any) => {
+          acc[curr.name] = parseFloat(curr.percentage.toFixed(1));
+          return acc;
+        }, {})
+      ) : null;
+      const redFlags = parsedResult.redFlags ? JSON.stringify(parsedResult.redFlags) : null;
+      const tldr = parsedResult.scoreReason || null;
       const legitimacyTier = parsedResult.legitimacyTier || null;
-      const rawReport = parsedResult.verdict || null;
+      
+      // Construct structured markdown sections for rawReport
+      const rawReport = `## B) Match con CV y Gaps Técnicos\n` +
+        `- **Puntuación de compatibilidad:** ${parsedResult.score}/100 (${parsedResult.scoreLabel || 'Analizado'})\n` +
+        `- **Razón del score:** ${parsedResult.scoreReason || ''}\n\n` +
+        `## C) Análisis de Stack Tecnológico\n` +
+        `### Tecnologías coincidentes detectadas:\n` +
+        (parsedResult.presentKeywords && parsedResult.presentKeywords.length > 0
+          ? parsedResult.presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
+          : '- Ninguna detectada') + '\n\n' +
+        `### Tecnologías requeridas ausentes (Gaps):\n` +
+        (parsedResult.missingKeywords && parsedResult.missingKeywords.length > 0
+          ? parsedResult.missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
+          : '- Ninguno detectado') + '\n\n' +
+        `## E) Blueprint de Personalización del CV\n` +
+        `Veredicto final del Reclutador:\n\n` +
+        `${parsedResult.verdict || ''}`;
 
       // Upsert job application in DB
       let existingOffer = null;
@@ -575,12 +617,12 @@ async function executeTool(
       revalidatePath('/dashboard/kanban');
 
       // Format clean report for response
-      const breakdownText = scoreBreakdown 
-        ? `\n- **Alineación Técnica:** ${scoreBreakdown.tech_stack || 'N/A'}/5.0\n- **Ajuste de Experiencia:** ${scoreBreakdown.experience_fit || 'N/A'}/5.0\n- **Pretensión Salarial:** ${scoreBreakdown.salary_fit || 'N/A'}/5.0\n- **Modalidad de Trabajo:** ${scoreBreakdown.work_mode || 'N/A'}/5.0\n- **Fit Cultural:** ${scoreBreakdown.culture_alignment || 'N/A'}/5.0`
+      const breakdownText = Array.isArray(parsedResult.dimensions)
+        ? '\n' + parsedResult.dimensions.map((d: any) => `- **${d.name}:** ${d.percentage}/100`).join('\n')
         : '';
 
-      const redFlagsText = Array.isArray(redFlags) && redFlags.length > 0
-        ? redFlags.map((rf: any) => `⚠️ **${rf.title}**\n  _${rf.description}_`).join('\n')
+      const redFlagsText = Array.isArray(parsedResult.redFlags) && parsedResult.redFlags.length > 0
+        ? parsedResult.redFlags.map((rf: any) => `⚠️ **${rf.title}**\n  _${rf.description}_`).join('\n')
         : 'Ninguna detectada ✅';
 
       const keywordsText = Array.isArray(parsedResult.missingKeywords) && parsedResult.missingKeywords.length > 0
@@ -593,7 +635,7 @@ async function executeTool(
             type: 'text',
             text: `🔍 **Evaluación de la Oferta: ${company} — ${title}**\n\n` +
                   `🏆 **Puntuación Global de Match:** **${parsedResult.score}/100**\n` +
-                  `📊 **Detalle por Dimensiones (1.0 - 5.0):**${breakdownText}\n\n` +
+                  `📊 **Detalle por Dimensiones (0 - 100):**${breakdownText}\n\n` +
                   `📌 **Resumen / Veredicto:**\n_${tldr || 'No disponible'}_\n\n` +
                   `🚨 **Red Flags Detectadas:**\n${redFlagsText}\n\n` +
                   `🔑 **Palabras Clave Faltantes (ATS):**\n${keywordsText}\n\n` +

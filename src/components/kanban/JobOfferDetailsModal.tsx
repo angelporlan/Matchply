@@ -665,24 +665,26 @@ export default function JobOfferDetailsModal({
                                     cy="40"
                                     r="34"
                                     className={`fill-transparent transition-all duration-1000 ${
-                                      (offer.scoreOverall ?? 0) >= 4.0
+                                      (offer.scoreOverall ?? 0) >= (offer.scoreOverall && offer.scoreOverall > 5 ? 80.0 : 4.0)
                                         ? 'stroke-emerald-500'
-                                        : (offer.scoreOverall ?? 0) >= 3.0
+                                        : (offer.scoreOverall ?? 0) >= (offer.scoreOverall && offer.scoreOverall > 5 ? 60.0 : 3.0)
                                         ? 'stroke-[#8b5cf6]'
                                         : 'stroke-rose-500'
                                     }`}
                                     strokeWidth="6"
                                     strokeDasharray={2 * Math.PI * 34}
-                                    strokeDashoffset={2 * Math.PI * 34 - ((offer.scoreOverall ?? 0) / 5) * (2 * Math.PI * 34)}
+                                    strokeDashoffset={2 * Math.PI * 34 - ((offer.scoreOverall ?? 0) / (offer.scoreOverall && offer.scoreOverall > 5 ? 100 : 5)) * (2 * Math.PI * 34)}
                                     strokeLinecap="round"
                                   />
                                 </svg>
                                 <div className="absolute flex flex-col items-center">
                                   <span className="text-xl font-black text-[#1e1b4b] dark:text-white leading-none">
-                                    {offer.scoreOverall ? offer.scoreOverall.toFixed(1) : '0.0'}
+                                    {offer.scoreOverall 
+                                      ? (offer.scoreOverall > 5 ? offer.scoreOverall.toFixed(0) : offer.scoreOverall.toFixed(1))
+                                      : '0.0'}
                                   </span>
                                   <span className="text-[8px] font-bold text-[#1e1b4b]/30 dark:text-slate-550 uppercase mt-0.5">
-                                    de 5
+                                    {offer.scoreOverall && offer.scoreOverall > 5 ? 'de 100' : 'de 5'}
                                   </span>
                                 </div>
                               </div>
