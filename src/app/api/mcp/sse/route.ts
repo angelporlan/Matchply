@@ -81,7 +81,18 @@ export async function GET(req: NextRequest) {
 
       // Send initial connect message pointing to the message endpoint
       // We pass the sessionId in the query param so the message handler can route requests back to this SSE channel.
-      const baseUrl = req.nextUrl.origin;
+      const nextAuthUrl = (globalThis as any).process?.env?.NEXTAUTH_URL;
+      const forwardedHost = req.headers.get('x-forwarded-host');
+      const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+      
+      let baseUrl = nextAuthUrl;
+      if (!baseUrl) {
+        if (forwardedHost) {
+          baseUrl = `${forwardedProto}://${forwardedHost}`;
+        } else {
+          baseUrl = req.nextUrl.origin;
+        }
+      }
       const messageUrl = `${baseUrl}/api/mcp/message?sessionId=${sessionId}`;
       
       const connectPayload = `event: connect\ndata: ${messageUrl}\n\n`;
