@@ -54,33 +54,26 @@ export default function McpProfileConsole({
 
   // Form states
   const [mcpCvId, setMcpCvId] = useState<string>(initialMcpCvId || '');
-  const [experienceYears, setExperienceYears] = useState<number>(initialMcpProfile?.experienceYears ?? 2);
-  const [salaryMin, setSalaryMin] = useState<number>(initialMcpProfile?.salaryMin ?? 30000);
-  const [salaryTarget, setSalaryTarget] = useState<number>(initialMcpProfile?.salaryTarget ?? 35000);
+  const [experienceYears, setExperienceYears] = useState<number>(initialMcpProfile?.experienceYears ?? 0);
+  const [salaryMin, setSalaryMin] = useState<number>(initialMcpProfile?.salaryMin ?? 0);
+  const [salaryTarget, setSalaryTarget] = useState<number>(initialMcpProfile?.salaryTarget ?? 0);
   const [additionalNotes, setAdditionalNotes] = useState<string>(initialMcpProfile?.additionalNotes ?? '');
 
   // Roles states
-  const [targetRoles, setTargetRoles] = useState<string[]>(initialMcpProfile?.targetRoles ?? [
-    'Full Stack Developer',
-    'AI Integration / Automation Engineer'
-  ]);
+  const [targetRoles, setTargetRoles] = useState<string[]>(initialMcpProfile?.targetRoles ?? []);
   const [newRole, setNewRole] = useState('');
 
   // Locations states
-  const [locations, setLocations] = useState<LocationPreference[]>(initialMcpProfile?.locations ?? [
-    { name: 'Remote EU', score: 4.5 },
-    { name: 'Remote outside EU', score: 4.0 },
-    { name: 'On-site / Hybrid Spain', score: 4.5 }
-  ]);
+  const [locations, setLocations] = useState<LocationPreference[]>(initialMcpProfile?.locations ?? []);
   const [newLocationName, setNewLocationName] = useState('');
-  const [newLocationScore, setNewLocationScore] = useState(4.0);
+  const [newLocationScore, setNewLocationScore] = useState(5.0);
 
   // Experience Fit Rules states
   const [expRules, setExpRules] = useState({
-    'under-1': initialMcpProfile?.experienceFitRules?.['under-1'] ?? 3.0,
+    'under-1': initialMcpProfile?.experienceFitRules?.['under-1'] ?? 5.0,
     '1-3': initialMcpProfile?.experienceFitRules?.['1-3'] ?? 5.0,
-    '4': initialMcpProfile?.experienceFitRules?.['4'] ?? 3.5,
-    '5+': initialMcpProfile?.experienceFitRules?.['5+'] ?? 1.5,
+    '4': initialMcpProfile?.experienceFitRules?.['4'] ?? 5.0,
+    '5+': initialMcpProfile?.experienceFitRules?.['5+'] ?? 5.0,
   });
 
   const handleAddRole = (e: React.FormEvent) => {
