@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function processMcpRequest(
+export async function processMcpRequest(
   session: { controller: ReadableStreamDefaultController; userId: string; userEmail: string },
   id: any,
   method: string,

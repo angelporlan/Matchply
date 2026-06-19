@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { processMcpRequest } from '@/app/api/mcp/message/route';
 
 // Extend globalThis to store sessions
 declare global {
@@ -93,10 +94,18 @@ export async function GET(req: NextRequest) {
           baseUrl = req.nextUrl.origin;
         }
       }
-      const messageUrl = `${baseUrl}/api/mcp/message?sessionId=${sessionId}`;
-      
-      const connectPayload = `event: connect\ndata: ${messageUrl}\n\n`;
-      controller.enqueue(new TextEncoder().encode(connectPayload));
+
+      // Add a tiny 200ms delay to make sure the client has established event listeners
+      setTimeout(() => {
+        try {
+          const messageUrl = `${baseUrl}/api/mcp/message?sessionId=${sessionId}`;
+          const connectPayload = `event: connect\ndata: ${messageUrl}\n\n`;
+          controller.enqueue(new TextEncoder().encode(connectPayload));
+          console.log(`[MCP] Sent connect event for session ${sessionId} to ${messageUrl}`);
+        } catch (e) {
+          console.error(`[MCP] Failed to send connect event:`, e);
+        }
+      }, 200);
 
       // Cleanup on close
       req.signal.addEventListener('abort', () => {
@@ -119,6 +128,59 @@ export async function GET(req: NextRequest) {
       'X-Accel-Buffering': 'no',
     },
   });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
+
+    if (!token) {
+      return NextResponse.json({ error: 'Missing token query parameter' }, { status: 401 });
+    }
+
+    // Verify token and resolve user
+    let user = null;
+    if (token.startsWith('matchply_usr_')) {
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.apiKey, token))
+        .limit(1);
+      user = dbUser;
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized or user not found' }, { status: 401 });
+    }
+
+    // Find the active session for this user
+    let session = null;
+    if (globalThis.mcpSessions) {
+      session = Array.from(globalThis.mcpSessions.values()).find(
+        (sess) => sess.userId === user.id
+      ) || null;
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'Active SSE session not found' }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const { jsonrpc, id, method, params } = body;
+
+    if (jsonrpc !== '2.0') {
+      return NextResponse.json({ error: 'Invalid JSON-RPC version' }, { status: 400 });
+    }
+
+    // Forward the message to the MCP handler
+    processMcpRequest(session, id, method, params);
+
+    return new Response(null, { status: 200 });
+  } catch (error: any) {
+    console.error('[MCP SSE POST] Error:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
 }
 
 export const dynamic = 'force-dynamic';
