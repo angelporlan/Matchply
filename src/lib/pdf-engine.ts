@@ -304,7 +304,14 @@ function slugifyFile(value: string): string {
 }
 
 export function parseCvMarkdown(content: string): CVContent {
-  const lines = content.split('\n').map(normalizeLine);
+  // Sanitize Unicode characters that are not supported by built-in PDF fonts or cause rendering boxes
+  const sanitizedContent = (content || '')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-') // replace all variants of dashes/hyphens with a standard ASCII hyphen
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')             // replace curly/smart double quotes with straight double quotes
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")             // replace curly/smart single quotes with straight single quotes
+    .replace(/\u00ad/g, '');                                 // remove soft hyphens (invisible control characters that render as boxes)
+
+  const lines = sanitizedContent.split('\n').map(normalizeLine);
   const cv: CVContent = {
     name: 'Curriculum Vitae',
     contact: [],
