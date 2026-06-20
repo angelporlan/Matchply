@@ -456,6 +456,48 @@ export default function JobOfferDetailsPage({
             </div>
           )}
 
+          {/* CV vinculado selector */}
+          <div className="bg-[#fafafa] dark:bg-[#0b0f19]/35 border border-[#1e1b4b]/5 dark:border-white/5 p-4 rounded-[12px] space-y-3 font-display">
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+                Currículum Vinculado
+              </h4>
+              <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans leading-relaxed">
+                Asigna o edita el CV optimizado para esta oferta.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-2 rounded-[8px] flex items-center gap-2">
+                <Link2 className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-550 stroke-[1.75]" />
+                <select
+                  value={selectedCv}
+                  onChange={handleCvChange}
+                  disabled={loading}
+                  className="w-full bg-transparent text-[11px] text-[#1e1b4b] dark:text-slate-300 font-bold focus:outline-none cursor-pointer pr-4 font-sans"
+                >
+                  <option value="">{t('kanban.modal.noCvLinked')}</option>
+                  {userCvs.map((cv) => (
+                    <option key={cv.id} value={cv.id}>
+                      {cv.title.length > 30 ? cv.title.substring(0, 30) + '...' : cv.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {offer.cvId && (
+                <a
+                  href={`/editor/${offer.cvId}`}
+                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 py-2.5 rounded-[8px] shadow-sm transition-all flex items-center justify-center gap-1.5 w-full"
+                >
+                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
+                  Editar CV adaptado
+                </a>
+              )}
+            </div>
+          </div>
+
           {/* TL;DR */}
           {offer.tldr && (
             <div className="space-y-1.5 font-display">
@@ -505,48 +547,6 @@ export default function JobOfferDetailsPage({
               </div>
             );
           })()}
-
-          {/* CV vinculado selector */}
-          <div className="bg-[#fafafa] dark:bg-[#0b0f19]/35 border border-[#1e1b4b]/5 dark:border-white/5 p-4 rounded-[12px] space-y-3 font-display">
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
-                Currículum Vinculado
-              </h4>
-              <p className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans leading-relaxed">
-                Asigna o edita el CV optimizado para esta oferta.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-2 rounded-[8px] flex items-center gap-2">
-                <Link2 className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-550 stroke-[1.75]" />
-                <select
-                  value={selectedCv}
-                  onChange={handleCvChange}
-                  disabled={loading}
-                  className="w-full bg-transparent text-[11px] text-[#1e1b4b] dark:text-slate-300 font-bold focus:outline-none cursor-pointer pr-4 font-sans"
-                >
-                  <option value="">{t('kanban.modal.noCvLinked')}</option>
-                  {userCvs.map((cv) => (
-                    <option key={cv.id} value={cv.id}>
-                      {cv.title.length > 30 ? cv.title.substring(0, 30) + '...' : cv.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {offer.cvId && (
-                <a
-                  href={`/editor/${offer.cvId}`}
-                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 py-2.5 rounded-[8px] shadow-sm transition-all flex items-center justify-center gap-1.5 w-full"
-                >
-                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                  Editar CV adaptado
-                </a>
-              )}
-            </div>
-          </div>
 
           {/* Fechas de Registro */}
           <div className="border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4 space-y-2 font-display text-[11px]">
