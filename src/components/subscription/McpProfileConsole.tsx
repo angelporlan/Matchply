@@ -38,6 +38,7 @@ interface McpProfileConsoleProps {
       '5+'?: number;
     };
     additionalNotes?: string;
+    customRssUrl?: string;
   } | null;
 }
 
@@ -58,6 +59,7 @@ export default function McpProfileConsole({
   const [salaryMin, setSalaryMin] = useState<number>(initialMcpProfile?.salaryMin ?? 0);
   const [salaryTarget, setSalaryTarget] = useState<number>(initialMcpProfile?.salaryTarget ?? 0);
   const [additionalNotes, setAdditionalNotes] = useState<string>(initialMcpProfile?.additionalNotes ?? '');
+  const [customRssUrl, setCustomRssUrl] = useState<string>(initialMcpProfile?.customRssUrl ?? '');
 
   // Roles states
   const [targetRoles, setTargetRoles] = useState<string[]>(initialMcpProfile?.targetRoles ?? []);
@@ -125,7 +127,8 @@ export default function McpProfileConsole({
       salaryTarget,
       locations,
       experienceFitRules: expRules,
-      additionalNotes
+      additionalNotes,
+      customRssUrl
     };
 
     const result = await updateUserMcpSettings(mcpCvId || null, mcpProfile);
@@ -459,7 +462,23 @@ export default function McpProfileConsole({
           </div>
         </div>
 
-        {/* 6. Notas Adicionales */}
+        {/* 6. Feed RSS Personalizado */}
+        <div className="space-y-2 font-sans font-light">
+          <label className="text-xs font-semibold text-[#1e1b4b] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+            {language === 'es' ? 'Feed RSS Personalizado (InfoJobs, LinkedIn, etc.)' : 'Custom RSS Feed URL (InfoJobs, LinkedIn, etc.)'}
+          </label>
+          <input
+            type="url"
+            value={customRssUrl}
+            onChange={(e) => setCustomRssUrl(e.target.value)}
+            placeholder={language === 'es' 
+              ? 'Pega la URL de tu feed RSS personalizado (ej. desde tu búsqueda en InfoJobs o LinkedIn)' 
+              : 'Paste your custom RSS feed URL (e.g., from your InfoJobs or LinkedIn job search)'}
+            className="w-full bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2 text-xs text-[#1e1b4b] dark:text-white outline-none focus:border-[#8b5cf6]/50"
+          />
+        </div>
+
+        {/* 7. Notas Adicionales */}
         <div className="space-y-2 font-sans font-light">
           <label className="text-xs font-semibold text-[#1e1b4b] dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
             {language === 'es' ? 'Notas Adicionales de Contexto' : 'Additional Context & Notes'}

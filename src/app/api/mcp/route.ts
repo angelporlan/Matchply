@@ -160,7 +160,7 @@ const MCP_TOOLS = [
   {
     name: 'buscar_ofertas_remotas',
     description:
-      'Busca vacantes activas de programación en tiempo real consultando el feed público de WeWorkRemotely. NOTA: Si esta consulta no arroja resultados o falla la red, el agente de IA debe utilizar de forma proactiva sus propias herramientas de búsqueda en la web (navegador) para buscar ofertas de empleo relevantes para el usuario en internet.',
+      'Busca vacantes activas en tiempo real consultando el feed público de WeWorkRemotely o el Feed RSS personalizado configurado por el usuario en su perfil. NOTA: Si esta consulta no arroja resultados o falla la red, el agente de IA debe utilizar de forma proactiva sus propias herramientas de búsqueda en la web (navegador) para buscar ofertas de empleo relevantes para el usuario en internet.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -762,13 +762,25 @@ async function executeTool(
         return { content: [{ type: 'text', text: 'Error: Falta el argumento requerido: query.' }] };
       }
 
+      let feedName = 'WeWorkRemotely';
       try {
-        const res = await fetch('https://weworkremotely.com/remote-jobs.rss', {
+        const [dbUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        const profile = (dbUser?.mcpProfile as any) || {};
+        const feedUrl = profile.customRssUrl || 'https://weworkremotely.com/remote-jobs.rss';
+        const isCustom = !!profile.customRssUrl;
+        feedName = isCustom ? 'Feed RSS Personalizado' : 'WeWorkRemotely';
+
+        const res = await fetch(feedUrl, {
           headers: { 'User-Agent': 'MatchplyMCP/1.0' },
         });
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch from WWR RSS: ${res.status}`);
+          throw new Error(`Failed to fetch from RSS (${feedName}): ${res.status}`);
         }
 
         const xmlText = await res.text();
@@ -789,17 +801,31 @@ async function executeTool(
           const pubDate = pubDateMatch ? pubDateMatch[1].trim() : '';
           const category = categoryMatch ? categoryMatch[1].trim() : 'General';
           
-          let company = 'WeWorkRemotely';
+          let company = '';
+          const creatorMatch = itemContent.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || 
+                               itemContent.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/) || 
+                               itemContent.match(/<author>([\s\S]*?)<\/author>/);
+          if (creatorMatch) {
+            company = creatorMatch[1].trim();
+          }
+
           let title = rawTitle;
-          
           if (rawTitle.includes(' at ')) {
             const parts = rawTitle.split(' at ');
             title = parts[0].trim();
-            company = parts[1].trim();
+            if (!company) company = parts[1].trim();
+          } else if (rawTitle.includes(' - ')) {
+            const parts = rawTitle.split(' - ');
+            title = parts[0].trim();
+            if (!company) company = parts[1].trim();
           } else if (rawTitle.includes(':')) {
             const parts = rawTitle.split(':');
-            company = parts[0].trim();
+            if (!company) company = parts[0].trim();
             title = parts[1].trim();
+          }
+          
+          if (!company) {
+            company = isCustom ? 'Feed RSS' : 'WeWorkRemotely';
           }
           
           items.push({
@@ -828,7 +854,7 @@ async function executeTool(
             content: [
               {
                 type: 'text',
-                text: `No se encontraron ofertas activas para "${query}" en el feed de WeWorkRemotely.
+                text: `No se encontraron ofertas activas para "${query}" en el feed (${feedName}).
 
 [INSTRUCCIÓN PARA EL AGENTE DE IA / LLM]:
 Dado que no se encontraron resultados locales en el feed, por favor realiza una búsqueda en internet en tiempo real (usando tus propias herramientas de navegación web o búsqueda) para encontrar ofertas de empleo recientes e interesantes para "${query}". Obtén sus detalles (título, empresa, descripción y URL) y preséntaselas al usuario para poder evaluarlas u optimizar su CV con Matchply.`,
@@ -847,7 +873,7 @@ Dado que no se encontraron resultados locales en el feed, por favor realiza una 
           content: [
             {
               type: 'text',
-              text: `🔍 **Ofertas encontradas para "${query}" en WeWorkRemotely (Feed RSS):**\n\n${jobCards}\n\n*Consejo: Copia los detalles o enlace de cualquiera de ellas y pídeme "Evalúa esta oferta" u "Optimiza mi CV para la oferta número X".*`,
+              text: `🔍 **Ofertas encontradas para "${query}" en ${feedName} (Feed RSS):**\n\n${jobCards}\n\n*Consejo: Copia los detalles o enlace de cualquiera de ellas y pídeme "Evalúa esta oferta" u "Optimiza mi CV para la oferta número X".*`,
             },
           ],
         };
@@ -857,7 +883,7 @@ Dado que no se encontraron resultados locales en el feed, por favor realiza una 
           content: [
             {
               type: 'text',
-              text: `El feed directo de WeWorkRemotely no está disponible temporalmente (Error: ${err.message}).
+              text: `El feed directo (${feedName}) no está disponible temporalmente (Error: ${err.message}).
 
 [INSTRUCCIÓN PARA EL AGENTE DE IA / LLM]:
 Debido a que el feed falló con un error, por favor realiza una búsqueda en internet en tiempo real (usando tus propias herramientas de navegación web o búsqueda) para encontrar ofertas de empleo recientes e interesantes para "${query}". Obtén sus detalles (título, empresa, descripción y URL) y preséntaselas al usuario para poder evaluarlas u optimizar su CV con Matchply.`,
