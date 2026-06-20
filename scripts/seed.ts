@@ -85,44 +85,32 @@ Descripción de la oferta de trabajo:
 
 Actua como un reclutador senior de esta empresa exacta, analiza mi cv contra esta descripcion de referencia y dame una puntuacion de match sobre 100, las cinco palabras clave que me faltan y las 3 redflags que un responsable de selección pillaría en menos de 10 segundos.
 
+CRÍTICO: El siguiente JSON es una plantilla estructural de ejemplo. Debes rellenar todos los campos basándote única y exclusivamente en tu análisis real del CV y de la oferta proporcionados. NO copies bajo ningún concepto los valores de ejemplo (como tecnologías, años o la puntuación '38'). Genera una evaluación original basada al 100% en los datos reales del CV y la oferta.
+
 Responde exactamente con este formato JSON:
 {
-  "score": 38,
-  "scoreLabel": "Match bajo — aplicar sin adaptar es tiempo perdido",
-  "scoreReason": "El perfil tiene base técnica real, pero la oferta exige un stack muy distinto: Python/FastAPI, arquitecturas event-driven, Snowflake/Databricks y 5+ años en producción. Hay trabajo de adaptación serio antes de enviar.",
+  "score": 0,
+  "scoreLabel": "Ejemplo: Match Alto / Match Medio / Match Bajo",
+  "scoreReason": "Ejemplo de justificación detallada y resumida de la puntuación en base a las coincidencias y diferencias reales encontradas.",
   "dimensions": [
-    { "name": "Años de experiencia", "percentage": 20 },
-    { "name": "Stack backend", "percentage": 30 },
-    { "name": "Frontend", "percentage": 55 },
-    { "name": "Datos / cloud", "percentage": 5 },
-    { "name": "IA / ML infra", "percentage": 40 },
-    { "name": "Distributed systems", "percentage": 10 }
+    { "name": "Ejemplo Dimensión 1", "percentage": 0 },
+    { "name": "Ejemplo Dimensión 2", "percentage": 0 }
   ],
   "missingKeywords": [
-    "Python / FastAPI",
-    "Celery / pub-sub",
-    "Snowflake / Databricks",
-    "gRPC / async batching",
-    "MLOps / model serving"
+    "Ejemplo Palabra Clave Requerida Faltante 1",
+    "Ejemplo Palabra Clave Requerida Faltante 2"
   ],
   "presentKeywords": [
-    "LLMs", "REST APIs", "Node.js", "Docker", "Angular", "TypeScript"
+    "Ejemplo Palabra Clave Requerida Presente 1",
+    "Ejemplo Palabra Clave Requerida Presente 2"
   ],
   "redFlags": [
     {
-      "title": "2 años de experiencia vs. requisito de 5+",
-      "description": "La oferta pide \\"5+ years in production environments\\". Tienes 2. No es un matiz — es el primer filtro automático en cualquier ATS y el motivo de descarte más rápido en criba manual."
-    },
-    {
-      "title": "Python y FastAPI ausentes del CV",
-      "description": "El stack backend de la oferta es 100% Python/FastAPI/ASGI. Tu CV muestra Node.js y PHP/Laravel — tecnologías válidas, pero no las que el reclutador está buscando cuando escanea en diagonal."
-    },
-    {
-      "title": "Sin trazas de arquitecturas distribuidas ni datos cloud",
-      "description": "La oferta repite \\"distributed systems\\", \\"event-driven\\", \\"Snowflake\\", \\"Databricks\\", \\"Celery\\". Tu CV no menciona ninguno. Para alguien que lee 200 CVs, la ausencia de estas palabras es un no inmediato."
+      "title": "Ejemplo de Alerta 1",
+      "description": "Ejemplo de por qué se considera una alerta de criba en base a la comparación real."
     }
   ],
-  "verdict": "Mi veredicto como reclutador: esta oferta está diseñada para un perfil senior con experiencia sólida en infraestructura ML distribuida. No es que seas malo — es que el rol tiene requisitos muy específicos que hoy no están en tu CV ni probablemente en tu experiencia real."
+  "verdict": "Ejemplo de veredicto final detallado e imparcial del reclutador."
 }`,
         isActive: true,
         isArchived: false,
