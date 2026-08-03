@@ -5,6 +5,11 @@ import { eq, and, desc } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/lib/audit';
+import {
+  listExternalApplications,
+  updateExternalApplication,
+  upsertExternalApplication,
+} from '@/lib/application-service';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -102,6 +107,8 @@ const MCP_TOOLS = [
           type: 'string',
           description: 'Plataforma donde se encontró (linkedin, infojobs, indeed, other) (opcional).',
         },
+        externalSource: { type: 'string', description: 'Origen externo estable (opcional).' },
+        externalId: { type: 'string', description: 'Identificador dentro del origen externo (opcional).' },
       },
       required: ['title', 'company', 'description'],
     },
@@ -136,6 +143,8 @@ const MCP_TOOLS = [
         url: { type: 'string', description: 'Enlace de la oferta (opcional).' },
         platform: { type: 'string', description: 'Plataforma (opcional).' },
         description: { type: 'string', description: 'Detalle de la oferta (opcional).' },
+        externalSource: { type: 'string', description: 'Origen externo estable (opcional).' },
+        externalId: { type: 'string', description: 'Identificador dentro del origen externo (opcional).' },
       },
       required: ['title', 'company'],
     },
@@ -153,6 +162,8 @@ const MCP_TOOLS = [
           enum: ['interested', 'applied', 'interview', 'offer', 'rejected'],
           description: 'Nuevo estado o columna en el tablero Kanban.',
         },
+        nextFollowupDate: { type: ['string', 'null'], description: 'Próxima fecha de seguimiento ISO (opcional).' },
+        expectedUpdatedAt: { type: 'string', description: 'Versión updatedAt para evitar sobrescribir cambios (opcional).' },
       },
       required: ['offerId', 'status'],
     },
@@ -181,6 +192,8 @@ const MCP_TOOLS = [
         description: { type: 'string', description: 'Descripción de la oferta.' },
         url: { type: 'string', description: 'URL original del anuncio (opcional).' },
         platform: { type: 'string', description: 'Plataforma donde se encontró (linkedin, infojobs, indeed, other) (opcional).' },
+        externalSource: { type: 'string', description: 'Origen externo estable (opcional).' },
+        externalId: { type: 'string', description: 'Identificador dentro del origen externo (opcional).' },
       },
       required: ['title', 'company', 'description'],
     },
@@ -217,7 +230,7 @@ async function executeTool(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   switch (toolName) {
     case 'optimizar_cv': {
-      const { title, company, description, url, platform } = args;
+      const { title, company, description, url, platform, externalSource, externalId } = args;
 
       if (!title || !company || !description) {
         return {
@@ -374,26 +387,8 @@ async function executeTool(
         console.error('[MCP Tool optimize] AI evaluation error:', evalErr);
       }
 
-      // 5. Upsert job application
-      let existingOffer = null;
-      if (url) {
-        const [offer] = await db
-          .select()
-          .from(jobOffers)
-          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.url, url)))
-          .limit(1);
-        existingOffer = offer;
-      } else {
-        const [offer] = await db
-          .select()
-          .from(jobOffers)
-          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.title, title), eq(jobOffers.company, company)))
-          .limit(1);
-        existingOffer = offer;
-      }
-
-      let offerId = '';
-      const offerData: any = {
+      // 5. Upsert through the same service used by the external API.
+      const { offer: syncedOffer } = await upsertExternalApplication(userId, {
         title,
         company,
         url: url || null,
@@ -401,26 +396,17 @@ async function executeTool(
         description,
         status: 'interested',
         source: 'mcp_server',
+        externalSource,
+        externalId,
+        cvId,
         scoreOverall,
         scoreBreakdown,
         redFlags,
         tldr,
         legitimacyTier,
         rawReport,
-        updatedAt: new Date(),
-      };
-
-      if (cvId) {
-        offerData.cvId = cvId;
-      }
-
-      if (existingOffer) {
-        offerId = existingOffer.id;
-        await db.update(jobOffers).set(offerData).where(eq(jobOffers.id, offerId));
-      } else {
-        const [newOffer] = (await db.insert(jobOffers).values({ ...offerData, userId }).returning()) as any[];
-        offerId = newOffer.id;
-      }
+      });
+      const offerId = syncedOffer.id;
 
       // 6. Audit & revalidate
       await createAuditLog('mcp_cv_optimize', userId, userEmail, { offerId, title, company, cvId });
@@ -454,7 +440,7 @@ async function executeTool(
     }
 
     case 'evaluar_oferta': {
-      const { title, company, description, url, platform } = args;
+      const { title, company, description, url, platform, externalSource, externalId } = args;
 
       if (!title || !company || !description) {
         return {
@@ -567,49 +553,25 @@ async function executeTool(
         `Veredicto final del Reclutador:\n\n` +
         `${parsedResult.verdict || ''}`;
 
-      // Upsert job application in DB
-      let existingOffer = null;
-      if (url) {
-        const [offer] = await db
-          .select()
-          .from(jobOffers)
-          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.url, url)))
-          .limit(1);
-        existingOffer = offer;
-      } else {
-        const [offer] = await db
-          .select()
-          .from(jobOffers)
-          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.title, title), eq(jobOffers.company, company)))
-          .limit(1);
-        existingOffer = offer;
-      }
-
-      const offerData: any = {
+      // Upsert through the shared application service.
+      const { offer: evaluatedOffer } = await upsertExternalApplication(userId, {
         title,
         company,
         url: url || null,
         platform: platform || 'other',
         description,
-        status: existingOffer?.status || 'interested',
+        status: 'interested',
         source: 'mcp_server',
+        externalSource,
+        externalId,
         scoreOverall,
         scoreBreakdown,
         redFlags,
         tldr,
         legitimacyTier,
         rawReport,
-        updatedAt: new Date(),
-      };
-
-      let offerId = '';
-      if (existingOffer) {
-        offerId = existingOffer.id;
-        await db.update(jobOffers).set(offerData).where(eq(jobOffers.id, offerId));
-      } else {
-        const [newOffer] = (await db.insert(jobOffers).values({ ...offerData, userId }).returning()) as any[];
-        offerId = newOffer.id;
-      }
+      });
+      const offerId = evaluatedOffer.id;
 
       // Audit & revalidate
       await createAuditLog('mcp_job_offer_evaluate', userId, userEmail, { offerId, title, company, score: parsedResult.score });
@@ -649,11 +611,7 @@ async function executeTool(
     case 'listar_postulaciones': {
       const { status } = args || {};
 
-      const results = await db
-        .select()
-        .from(jobOffers)
-        .where(eq(jobOffers.userId, userId))
-        .orderBy(desc(jobOffers.updatedAt));
+      const results = await listExternalApplications(userId);
 
       const filteredResults = status ? results.filter((o: any) => o.status === status) : results;
 
@@ -680,25 +638,23 @@ async function executeTool(
     }
 
     case 'crear_postulacion': {
-      const { title, company, status, url, platform, description } = args;
+      const { title, company, status, url, platform, description, externalSource, externalId } = args;
 
       if (!title || !company) {
         return { content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: title o company.' }] };
       }
 
-      const [newOffer] = (await db
-        .insert(jobOffers)
-        .values({
-          userId,
-          title,
-          company,
-          status: status || 'interested',
-          url: url || null,
-          platform: platform || 'other',
-          description: description || null,
-          source: 'mcp_server',
-        })
-        .returning()) as any[];
+      const { offer: newOffer } = await upsertExternalApplication(userId, {
+        title,
+        company,
+        status: status || 'interested',
+        url: url || undefined,
+        platform: platform || 'other',
+        description: description || undefined,
+        source: 'mcp_server',
+        externalSource,
+        externalId,
+      });
 
       await createAuditLog('mcp_job_offer_create', userId, userEmail, { offerId: newOffer.id, title, company });
       revalidatePath('/dashboard');
@@ -715,7 +671,7 @@ async function executeTool(
     }
 
     case 'actualizar_estado_postulacion': {
-      const { offerId, status } = args;
+      const { offerId, status, nextFollowupDate, expectedUpdatedAt } = args;
 
       if (!offerId || !status) {
         return { content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: offerId o status.' }] };
@@ -735,7 +691,11 @@ async function executeTool(
         };
       }
 
-      await db.update(jobOffers).set({ status, updatedAt: new Date() }).where(eq(jobOffers.id, offerId));
+      await updateExternalApplication(userId, offerId, {
+        status,
+        nextFollowupDate,
+        expectedUpdatedAt,
+      });
 
       await createAuditLog('mcp_job_offer_update_status', userId, userEmail, {
         offerId,

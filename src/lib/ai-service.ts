@@ -53,6 +53,15 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
 ¡REGLA DE ENTREGA SUPERESTRICTA!: Devuelve única y exclusivamente el contenido del currículum optimizado en formato Markdown (.MD). No incluyas explicaciones, preámbulos, comentarios iniciales ni finales, ni envuelvas tu respuesta en bloques de código triple acento grave (\`\`\`markdown o \`\`\`). Tu respuesta completa debe ser directamente el currículum parseable.
 `;
 
+const CV_HONESTY_INSTRUCTIONS = `
+REGLAS DE FIDELIDAD DEL CV:
+- No inventes experiencia, tecnologías, responsabilidades, empresas, fechas, logros ni métricas.
+- No conviertas conocimiento adyacente en experiencia directa. Conserva claramente el nivel de evidencia del CV base.
+- Mantén todos los logros relevantes existentes y evita lenguaje genérico o clichés propios de textos generados por IA.
+- Reescribe como máximo 6 viñetas del CV completo. El resto debe conservarse sustancialmente igual.
+- Si una palabra clave de la oferta no está respaldada por el CV base, no la añadas como habilidad o experiencia.
+`;
+
 
 export interface OptimizeRequest {
   baseCvMarkdown: string;
@@ -145,7 +154,7 @@ export class AIService {
       const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
@@ -166,7 +175,7 @@ export class AIService {
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
         : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
@@ -269,7 +278,7 @@ export class AIService {
       const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
@@ -289,7 +298,7 @@ export class AIService {
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
         : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective;
       const finalUserPrompt = userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
         : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;

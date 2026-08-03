@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -52,6 +52,8 @@ export const jobOffers = pgTable('job_offer', {
   
   // Pipeline / Scraping
   source: text('source'), // ej. 'ashby', 'greenhouse', 'linkedin'
+  externalSource: text('externalSource'), // Integración estable, ej. 'local_job_archive'
+  externalId: text('externalId'), // ID estable dentro de la integración externa
   livenessStatus: text('livenessStatus').default('active'), // 'active' | 'expired'
   
   // Evaluación de IA
@@ -77,7 +79,10 @@ export const jobOffers = pgTable('job_offer', {
   
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
-});
+}, (table) => ({
+  externalIdentityIdx: uniqueIndex('job_offer_external_identity_idx')
+    .on(table.userId, table.externalSource, table.externalId),
+}));
 
 // Tabla de Configuración de la Aplicación (Configuración de IA)
 export const settings = pgTable('setting', {

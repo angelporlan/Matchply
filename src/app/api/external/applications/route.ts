@@ -1,343 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { users, jobOffers, cvs } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
 import { createAuditLog } from '@/lib/audit';
+import { ExternalAuthError, resolveExternalUser } from '@/lib/external-auth';
+import {
+  createApplicationCvFromMarkdown,
+  listExternalApplications,
+  optimizeApplicationCv,
+  upsertExternalApplication,
+} from '@/lib/application-service';
 import { revalidatePath } from 'next/cache';
-import { AIService } from '@/lib/ai-service';
+
+function errorResponse(error: unknown) {
+  if (error instanceof ExternalAuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+  const message = error instanceof Error ? error.message : 'Internal Server Error';
+  return NextResponse.json({ error: message }, { status: 500 });
+}
+
+function publicOffer(offer: any, req: NextRequest) {
+  const origin = new URL(req.url).origin;
+  return {
+    ...offer,
+    editorUrl: offer.cvId ? `${origin}/editor/${offer.cvId}` : null,
+    offerUrl: `${origin}/dashboard/kanban/offer/${offer.id}`,
+  };
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await resolveExternalUser(req);
+    const url = new URL(req.url);
+    const applications = await listExternalApplications(user.id, {
+      externalSource: url.searchParams.get('externalSource') || undefined,
+      updatedSince: url.searchParams.get('updatedSince') || undefined,
+    });
+    return NextResponse.json({ applications: applications.map(item => publicOffer(item, req)) });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Validar la cabecera Authorization (Bearer Token)
-    const authHeader = req.headers.get('Authorization');
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Missing or malformed Authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const token = authHeader.substring(7); // Extraer token
-
-    let user = null;
-    let userId = '';
-    let userEmail = '';
-
-    // A. Comprobar si es una clave de API Personal de usuario
-    if (token.startsWith('matchply_usr_')) {
-      const [dbUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.apiKey, token))
-        .limit(1);
-
-      if (!dbUser) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Invalid User API Key' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      user = dbUser;
-      userId = dbUser.id;
-      userEmail = dbUser.email;
-    } else {
-      // B. Retrocompatibilidad: Validar con la Clave de API Global
-      const expectedGlobalToken = process.env.MATCHPLY_EXTERNAL_API_KEY;
-
-      if (!expectedGlobalToken) {
-        console.error('Error: MATCHPLY_EXTERNAL_API_KEY is not defined in environment variables.');
-        return new NextResponse(
-          JSON.stringify({ error: 'Server integration is not configured' }),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (token !== expectedGlobalToken) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Invalid API key' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // 2. Parsear el cuerpo de la petición
     const body = await req.json();
-    const {
-      userEmail: bodyUserEmail,
-      title,
-      company,
-      url,
-      platform,
-      description,
-      status,
-      source,
-      livenessStatus,
-      scoreOverall,
-      scoreBreakdown,
-      tldr,
-      redFlags,
-      legitimacyTier,
-      rawReport,
-      cvMarkdownTailored,
-      optimizeCv,
-      targetProofPoints,
-      coverLetter,
-      outreachMessage,
-      interviewStories,
-      interviewQuestions,
-      nextFollowupDate,
-      rejectionPatternTags,
-    } = body;
-
-    // Campos obligatorios generales
-    if (!title || !company) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Missing required fields: title or company' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    const user = await resolveExternalUser(req, body.userEmail);
+    if (!body.title || !body.company) {
+      return NextResponse.json({ error: 'Missing required fields: title or company' }, { status: 400 });
     }
 
-    // 3. Resolver usuario si usamos la Clave Global (debe proveer email)
-    if (!userId) {
-      const emailToLookup = bodyUserEmail;
-      
-      if (!emailToLookup) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Missing required field: userEmail' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
+    const { offer, created } = await upsertExternalApplication(user.id, body);
+    let finalOffer = offer;
+    let cvWarning: string | null = null;
+    try {
+      if (typeof body.cvMarkdownTailored === 'string' && body.cvMarkdownTailored.trim()) {
+        const cvResult = await createApplicationCvFromMarkdown(
+          user.id,
+          offer.id,
+          body.cvMarkdownTailored,
         );
+        finalOffer = cvResult.offer;
+      } else if (body.optimizeCv === true) {
+        const cvResult = await optimizeApplicationCv(user.id, offer.id, false);
+        finalOffer = cvResult.offer;
       }
-
-      const [dbUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, emailToLookup))
-        .limit(1);
-
-      if (!dbUser) {
-        return new NextResponse(
-          JSON.stringify({ error: `User not found with email: ${emailToLookup}` }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      user = dbUser;
-      userId = dbUser.id;
-      userEmail = dbUser.email;
-    } else {
-      // Si ya tenemos el usuario por API Key Personal, forzamos su propio email
-      userEmail = user!.email;
+    } catch (error) {
+      // Compatibilidad histórica: la candidatura se conserva aunque falle el CV.
+      cvWarning = error instanceof Error ? error.message : 'CV optimization failed';
     }
-
-    if (!user) {
-      return new NextResponse(
-        JSON.stringify({ error: 'User resolution failed' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Nota: La sincronización de candidaturas está disponible para todos los usuarios.
-
-    // 4. Obtener CV Base del usuario (necesario para optimizeCv y cvMarkdownTailored)
-    const [baseCv] = await db
-      .select()
-      .from(cvs)
-      .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-      .orderBy(desc(cvs.isPrincipal))
-      .limit(1);
-
-    const templateName = baseCv?.templateName || 'harvard';
-    const accentColor = baseCv?.accentColor || '#1a5f7a';
-    const fontFamily = baseCv?.fontFamily || 'helvetica';
-    const pageMargin = baseCv?.pageMargin ?? 36;
-    const scale = baseCv?.scale ?? 1.0;
-
-    // 4a. Si optimizeCv=true, generar CV optimizado con IA del lado del servidor
-    let resolvedCvMarkdown: string | null = cvMarkdownTailored || null;
-
-    if (optimizeCv && !resolvedCvMarkdown && baseCv && description) {
-      try {
-        console.log(`[Applications] Optimizing CV for ${userEmail} — ${title} at ${company}`);
-        const aiStream = await AIService.optimizeCVStream({
-          baseCvMarkdown: baseCv.content,
-          jobDescription: description,
-          userSubscriptionStatus: user.subscriptionStatus,
-          candidateName: user.name || ''
-        });
-
-        // Consumir el stream completo
-        const reader = aiStream.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulated += decoder.decode(value, { stream: true });
-        }
-
-        if (accumulated.trim()) {
-          resolvedCvMarkdown = accumulated.trim();
-          console.log(`[Applications] CV optimized successfully for ${userEmail} (${accumulated.length} chars)`);
-        }
-      } catch (optimizeError: any) {
-        console.error('[Applications] Error optimizing CV:', optimizeError.message);
-        // Continuamos sin CV optimizado, no bloqueamos la candidatura
-      }
-    }
-
-    // 4b. Crear CV Adaptado en Matchply si tenemos markdown (de optimizeCv o cvMarkdownTailored)
-    let cvId: string | null = null;
-    if (resolvedCvMarkdown) {
-      try {
-        const cvTitle = optimizeCv
-          ? `Optimizado - ${title} (${company})`
-          : `[API] - ${title} (${company})`;
-
-        const [newCv] = (await db
-          .insert(cvs)
-          .values({
-            userId,
-            title: cvTitle,
-            content: resolvedCvMarkdown,
-            isBase: false,
-            isPrincipal: false,
-            templateName,
-            accentColor,
-            fontFamily,
-            pageMargin,
-            scale,
-          })
-          .returning()) as any[];
-
-        cvId = newCv.id;
-        console.log(`Created tailored CV for ${userEmail}: ${cvId}`);
-      } catch (cvError) {
-        console.error('Error creating tailored CV for application:', cvError);
-        // Continuamos incluso si falla la creación del CV, no bloqueamos la candidatura entera
-      }
-    }
-
-    // 5. Inserción o Actualización Idempotente en la tabla job_offer
-    let existingOffer = null;
-
-    if (url) {
-      // Buscar por URL y userId
-      const [offer] = await db
-        .select()
-        .from(jobOffers)
-        .where(and(eq(jobOffers.userId, userId), eq(jobOffers.url, url)))
-        .limit(1);
-      existingOffer = offer;
-    } else {
-      // Buscar por title, company y userId si no hay URL
-      const [offer] = await db
-        .select()
-        .from(jobOffers)
-        .where(
-          and(
-            eq(jobOffers.userId, userId),
-            eq(jobOffers.title, title),
-            eq(jobOffers.company, company)
-          )
-        )
-        .limit(1);
-      existingOffer = offer;
-    }
-
-    const jobOfferData: any = {
-      title,
-      company,
-      url: url || null,
-      platform: platform || 'other',
-      description: description || null,
-      status: status || 'interested',
-      source: source || 'api',
-      livenessStatus: livenessStatus || 'active',
-      scoreOverall: scoreOverall !== undefined ? parseFloat(scoreOverall) : null,
-      scoreBreakdown: scoreBreakdown || null,
-      tldr: tldr || null,
-      redFlags: redFlags || null,
-      legitimacyTier: legitimacyTier || null,
-      rawReport: rawReport || null,
-      targetProofPoints: targetProofPoints || null,
-      coverLetter: coverLetter || null,
-      outreachMessage: outreachMessage || null,
-      interviewStories: interviewStories || null,
-      interviewQuestions: interviewQuestions || null,
-      nextFollowupDate: nextFollowupDate ? new Date(nextFollowupDate) : null,
-      rejectionPatternTags: rejectionPatternTags || null,
-      updatedAt: new Date(),
-    };
-
-    let offerId = '';
-    let actionType = '';
-
-    if (existingOffer) {
-      offerId = existingOffer.id;
-      actionType = 'job_offer_sync_update';
-
-      // Si se generó un nuevo CV en esta sincronización, lo vinculamos, de lo contrario dejamos el que tenía
-      const updateData = { ...jobOfferData };
-      if (cvId) {
-        updateData.cvId = cvId;
-      }
-
-      await db
-        .update(jobOffers)
-        .set(updateData)
-        .where(eq(jobOffers.id, offerId));
-
-      console.log(`Updated job offer for user ${userId}: ${offerId}`);
-    } else {
-      actionType = 'job_offer_sync_create';
-      
-      const insertData = {
-        ...jobOfferData,
-        userId,
-        cvId: cvId || null,
-      };
-
-      const [newOffer] = (await db
-        .insert(jobOffers)
-        .values(insertData)
-        .returning()) as any[];
-
-      offerId = newOffer.id;
-      console.log(`Created new job offer for user ${userId}: ${offerId}`);
-    }
-
-    // 6. Registrar log de auditoría
-    await createAuditLog(actionType, userId, user.email, {
-      offerId,
-      title,
-      company,
-      source: jobOfferData.source,
-      hasCv: !!cvId,
-    });
-
-    // Revalidar el path del Dashboard para que se reflejen los cambios visuales en el Kanban
+    await createAuditLog(
+      created ? 'job_offer_sync_create' : 'job_offer_sync_update',
+      user.id,
+      user.email,
+      {
+        offerId: offer.id,
+        title: offer.title,
+        company: offer.company,
+        externalSource: offer.externalSource,
+        externalId: offer.externalId,
+      },
+    );
     revalidatePath('/dashboard');
     revalidatePath('/dashboard/kanban');
-
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        offerId,
-        cvId: cvId || existingOffer?.cvId || null,
-        message: existingOffer
-          ? 'Application updated successfully'
-          : 'Application created successfully',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
-  } catch (error: any) {
-    console.error('Error in external applications sync route:', error);
-    return new NextResponse(
-      JSON.stringify({ error: error.message || 'Internal Server Error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return NextResponse.json({
+      success: true,
+      created,
+      application: publicOffer(finalOffer, req),
+      offerId: finalOffer.id,
+      cvId: finalOffer.cvId,
+      cvWarning,
+    });
+  } catch (error) {
+    return errorResponse(error);
   }
 }
 

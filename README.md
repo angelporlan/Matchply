@@ -106,6 +106,18 @@ npm run lint
 ```
 Ejecuta el linter (ESLint) para verificar estilos y buenas prácticas.
 
+### Integración externa de candidaturas
+
+Las rutas bajo `/api/external` aceptan una clave personal `matchply_usr_…` mediante `Authorization: Bearer`. La lógica de candidaturas es compartida con el servidor MCP para conservar la compatibilidad.
+
+- `GET/POST /api/external/applications`: listado e importación idempotente por `externalSource` + `externalId`.
+- `PATCH /api/external/applications/{id}`: estado y próxima fecha, con `expectedUpdatedAt` para detectar conflictos (`409`).
+- `POST /api/external/applications/{id}/cv`: abre el CV vinculado o crea una nueva versión cuando `regenerate` es `true`.
+- `GET/PUT /api/external/profile`: perfil, criterios y pesos.
+- `GET/PUT /api/external/profile/base-cv`: consulta, creación o selección explícita del CV base.
+
+Antes de desplegar esta integración debe aplicarse la migración `drizzle/0009_mixed_natasha_romanoff.sql`. Añade la identidad externa única por usuario sin modificar candidaturas existentes.
+
 ---
 
 ## 🐳 Contenedores (Docker)
