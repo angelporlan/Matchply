@@ -906,7 +906,7 @@ export default function AdminClient({
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light font-sans">
-                  * Por defecto para el plan Free se utiliza el modelo `openai/gpt-oss-120b:free` provisto por OpenRouter.
+                  * Por defecto para el plan Free se utiliza el enrutador `openrouter/free` provisto por OpenRouter.
                 </div>
               </div>
 
@@ -952,7 +952,7 @@ export default function AdminClient({
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light font-sans">
-                  * Por defecto para el plan PRO se utiliza el modelo `deepseek/deepseek-v4-flash` provisto por OpenRouter. Recomendaciones: para DeepSeek oficial usar `deepseek-chat`, para Gemini usar `gemini-1.5-pro` o `gemini-1.5-flash`.
+                  * Por defecto para el plan PRO se utiliza el modelo `deepseek/deepseek-chat` provisto por OpenRouter. Recomendaciones: para DeepSeek oficial usar `deepseek-chat`, para Gemini usar `gemini-2.0-flash` o `gemini-1.5-pro`.
                 </div>
               </div>
 
