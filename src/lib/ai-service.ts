@@ -8,6 +8,7 @@ import {
   DEFAULT_PRO_MODEL,
   getDefaultModelForProvider
 } from './models';
+import { canAccessFeature } from './subscription';
 
 
 const MARKDOWN_STRUCTURE_INSTRUCTIONS = `
@@ -113,7 +114,7 @@ export class AIService {
   }
 
   static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<string> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
     // 1. Cargar el prompt activo o el seleccionado desde la DB si existe
     let systemPrompt: string | null = null;
@@ -191,7 +192,7 @@ export class AIService {
   }
 
   static async importCV({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<string> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
     let systemPrompt: string | null = null;
     let userPromptTemplate: string | null = null;
@@ -238,7 +239,7 @@ export class AIService {
   }
 
   static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, candidateName }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
     let systemPrompt: string | null = null;
     let userPromptTemplate: string | null = null;
@@ -314,7 +315,7 @@ export class AIService {
   }
 
   static async importCVStream({ rawText, userSubscriptionStatus, candidateName }: { rawText: string; userSubscriptionStatus: string; candidateName?: string }): Promise<ReadableStream<Uint8Array>> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
     let systemPrompt: string | null = null;
     let userPromptTemplate: string | null = null;
@@ -819,7 +820,7 @@ export class AIService {
     userSubscriptionStatus: string;
     mcpProfile?: any;
   }): Promise<ReadableStream<Uint8Array>> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
     
     const provider = isPro 
       ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
@@ -971,7 +972,7 @@ Ejemplo de cómo debe ser esta sección en tu JSON:
     candidateName?: string;
     promptId?: string;
   }): Promise<ReadableStream<Uint8Array>> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
     
     const provider = isPro 
       ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
@@ -1132,7 +1133,7 @@ Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el 
     jobTitle: string;
     userSubscriptionStatus: string;
   }): Promise<{ outreachMessage: string; coverLetter: string; interviewQuestions: any[] }> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
     
     const provider = isPro 
       ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
@@ -1203,7 +1204,7 @@ Descripción: ${jobDescription}`;
   }
 
   static async analyzeFailures({ targetOffersText, userSubscriptionStatus }: { targetOffersText: string; userSubscriptionStatus: string }): Promise<string> {
-    const isPro = userSubscriptionStatus === 'active';
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
     const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_FREE_PROVIDER : DEFAULT_FREE_PROVIDER);
     const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
 

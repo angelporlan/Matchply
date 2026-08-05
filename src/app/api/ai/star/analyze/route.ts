@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
+import { canAccessFeature } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return new NextResponse('User not found', { status: 404 });
+    }
+
+    if (!canAccessFeature(user.subscriptionStatus, 'star', { isGuest: user.isGuest })) {
+      return new NextResponse('A PRO subscription is required to use STAR optimization', { status: 403 });
     }
 
     // 2. Obtener el stream de IA

@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
+import { requireUserFeature } from "@/lib/permissions";
 
 const ARCHIVED_STATUS_PREFIX = "archived:";
 const VALID_PIPELINE_STATUSES = ["interested", "applied", "interview", "offer", "rejected"] as const;
@@ -32,6 +33,7 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -74,6 +76,7 @@ export async function archiveJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -114,6 +117,7 @@ export async function restoreArchivedJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -150,6 +154,7 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -183,6 +188,7 @@ export async function deleteJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -224,6 +230,7 @@ export async function createJobOffer(offerData: {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [newOffer] = (await db
       .insert(jobOffers)
@@ -270,6 +277,7 @@ export async function updateJobOfferDetails(
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const [offer] = await db
       .select()
@@ -316,6 +324,7 @@ export async function analyzeFailuresAction(targetOffersText: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
+    await requireUserFeature(session.user.id, "kanban");
 
     const userId = session.user.id;
 

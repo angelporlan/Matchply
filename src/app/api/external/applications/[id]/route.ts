@@ -7,6 +7,7 @@ import {
   updateExternalApplication,
 } from '@/lib/application-service';
 import { revalidatePath } from 'next/cache';
+import { SubscriptionAccessError } from '@/lib/permissions';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -30,6 +31,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
   } catch (error) {
     if (error instanceof ExternalAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof SubscriptionAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     if (error instanceof ApplicationNotFoundError) {

@@ -8,9 +8,13 @@ import {
   upsertExternalApplication,
 } from '@/lib/application-service';
 import { revalidatePath } from 'next/cache';
+import { SubscriptionAccessError } from '@/lib/permissions';
 
 function errorResponse(error: unknown) {
   if (error instanceof ExternalAuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+  if (error instanceof SubscriptionAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
   const message = error instanceof Error ? error.message : 'Internal Server Error';

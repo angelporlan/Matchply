@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { stripe, STRIPE_SECRET_KEY, STRIPE_PRICE_ID_PRO, getAppUrl } from '@/lib/stripe';
-import { isProSubscription } from '@/lib/subscription';
+import { ALL_CV_TEMPLATES, isProSubscription } from '@/lib/subscription';
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
     }
 
     const origin = getAppUrl();
+    const requestedTemplate = req.nextUrl.searchParams.get('template');
+    const template = requestedTemplate && ALL_CV_TEMPLATES.includes(requestedTemplate as typeof ALL_CV_TEMPLATES[number])
+      ? requestedTemplate
+      : null;
+    const sourceParam = req.nextUrl.searchParams.get('source');
+    const source = sourceParam && /^[a-zA-Z0-9_-]{1,64}$/.test(sourceParam) ? sourceParam : null;
     let customerId = user.stripeCustomerId;
 
     // 2. Crear cliente de Stripe si no existe
@@ -53,7 +59,7 @@ export async function GET(req: NextRequest) {
     if (isProSubscription(user.subscriptionStatus) && user.stripeSubscriptionId) {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${origin}/dashboard`,
+      return_url: `${origin}/dashboard`,
       });
 
       return NextResponse.redirect(portalSession.url);
@@ -75,8 +81,8 @@ export async function GET(req: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard?checkout=cancel`,
+      success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}${template ? `&template=${encodeURIComponent(template)}` : ''}${source ? `&source=${encodeURIComponent(source)}` : ''}`,
+      cancel_url: `${origin}/dashboard?checkout=cancel${template ? `&template=${encodeURIComponent(template)}` : ''}${source ? `&source=${encodeURIComponent(source)}` : ''}`,
       allow_promotion_codes: true,
       customer_update: {
         name: 'auto',
@@ -85,10 +91,14 @@ export async function GET(req: NextRequest) {
       subscription_data: {
         metadata: {
           userId: user.id,
+          ...(template ? { template } : {}),
+          ...(source ? { source } : {}),
         },
       },
       metadata: {
-        userId: user.id
+        userId: user.id,
+        ...(template ? { template } : {}),
+        ...(source ? { source } : {}),
       }
     });
 

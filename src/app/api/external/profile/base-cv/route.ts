@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { cvs, users } from '@/db/schema';
 import { createAuditLog } from '@/lib/audit';
 import { ExternalAuthError, resolveExternalUser } from '@/lib/external-auth';
+import { canCreateCv } from '@/lib/subscription';
 
 async function selectedBaseCv(user: any) {
   if (user.mcpCvId) {
@@ -57,6 +58,18 @@ export async function PUT(req: NextRequest) {
       if (!body.title?.trim() || !body.content?.trim()) {
         return NextResponse.json({ error: 'title and content are required for a new base CV' }, { status: 400 });
       }
+
+      const existingCvs = await db
+        .select({ id: cvs.id })
+        .from(cvs)
+        .where(eq(cvs.userId, user.id));
+      if (!canCreateCv(user.subscriptionStatus, existingCvs.length, { isGuest: user.isGuest })) {
+        return NextResponse.json(
+          { error: 'The Free plan includes one CV. Upgrade to PRO to create unlimited resumes.' },
+          { status: 403 },
+        );
+      }
+
       [cv] = await db.insert(cvs).values({
         userId: user.id,
         title: body.title.trim(),

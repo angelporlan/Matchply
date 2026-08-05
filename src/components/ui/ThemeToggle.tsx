@@ -2,10 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 export default function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { language } = useLanguage();
+  const isSpanish = language === 'es';
+  const toggleLabel = theme === 'light'
+    ? (isSpanish ? 'Activar modo oscuro' : 'Enable dark mode')
+    : (isSpanish ? 'Activar modo claro' : 'Enable light mode');
 
   useEffect(() => {
     setMounted(true);
@@ -46,8 +52,8 @@ export default function ThemeToggle() {
     <button
       onClick={toggleTheme}
       className="p-2 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
-      aria-label="Toggle dark mode"
-      title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+      aria-label={toggleLabel}
+      title={toggleLabel}
     >
       {theme === 'light' ? (
         <Moon className="w-4 h-4 stroke-[1.75] transition-transform duration-300 rotate-0 hover:rotate-12" />

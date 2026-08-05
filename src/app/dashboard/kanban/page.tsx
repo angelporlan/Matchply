@@ -25,6 +25,10 @@ export default async function KanbanPage() {
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
+  if (!isPremium) {
+    redirect('/dashboard/subscription');
+  }
+
   // 2. Obtener lista de currículums del usuario
   const userCvs = await db
     .select()

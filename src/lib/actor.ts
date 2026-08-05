@@ -4,10 +4,12 @@ import { cvs, jobOffers, users } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { GUEST_MAX_CVS } from '@/lib/subscription';
+
+export { GUEST_MAX_CVS } from '@/lib/subscription';
 
 export const GUEST_COOKIE_NAME = 'matchply_guest';
 export const GUEST_TTL_DAYS = 7;
-export const GUEST_MAX_CVS = 3;
 
 const GUEST_COOKIE_MAX_AGE = GUEST_TTL_DAYS * 24 * 60 * 60;
 

@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { generatePdfBuffer } from '@/lib/pdf-engine';
 import { createAuditLog } from '@/lib/audit';
 import { getActor } from '@/lib/actor';
+import { getAllowedCvTemplate } from '@/lib/subscription';
 
 export async function GET(req: NextRequest) {
   try {
@@ -49,7 +50,9 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await generatePdfBuffer(cv.content, {
-      template: cv.templateName,
+      template: getAllowedCvTemplate(actor.subscriptionStatus, cv.templateName, {
+        isGuest: actor.kind === 'guest',
+      }),
       accentColor: cv.accentColor || '#1a5f7a',
       fontFamily: cv.fontFamily || 'helvetica',
       pageMargin: cv.pageMargin ?? 36,
@@ -90,7 +93,9 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await generatePdfBuffer(content, {
-      template: template || 'harvard',
+      template: getAllowedCvTemplate(actor.subscriptionStatus, template, {
+        isGuest: actor.kind === 'guest',
+      }),
       accentColor: accentColor || null,
       fontFamily: fontFamily || 'helvetica',
       pageMargin: pageMargin || 36,

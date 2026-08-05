@@ -24,6 +24,10 @@ export default async function StarMethodPage() {
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
+  if (!isPremium) {
+    redirect('/dashboard/subscription');
+  }
+
   // 2. Obtener la lista de currículums del usuario (Principal primero)
   const userCvs = await db
     .select()

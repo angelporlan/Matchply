@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { jobOffers, cvs, users } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
+import { canAccessFeature } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return new NextResponse('User not found', { status: 404 });
+    }
+
+    if (!canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest })) {
+      return new NextResponse('A PRO subscription is required to access Kanban', { status: 403 });
     }
 
     // 3. Find candidate CV (prefer linked cvId, then principal cv, then any cv)

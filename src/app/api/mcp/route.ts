@@ -10,6 +10,7 @@ import {
   updateExternalApplication,
   upsertExternalApplication,
 } from '@/lib/application-service';
+import { canAccessFeature } from '@/lib/subscription';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -1077,6 +1078,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest })) {
+      return NextResponse.json(
+        jsonRpcError(null, -32003, 'A PRO subscription is required to use Matchply MCP tools'),
+        { status: 403, headers: corsHeaders() },
+      );
+    }
+
     // Parse body
     const body = await req.json();
 
@@ -1125,6 +1133,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid or missing Bearer token' },
       { status: 401, headers: corsHeaders() }
+    );
+  }
+
+  if (!canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest })) {
+    return NextResponse.json(
+      { error: 'A PRO subscription is required to use Matchply MCP tools' },
+      { status: 403, headers: corsHeaders() },
     );
   }
 

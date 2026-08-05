@@ -7,9 +7,19 @@ import { auth } from "@/auth";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
-import { isProSubscription } from "@/lib/subscription";
+import {
+  canAccessFeature,
+  canCreateCv,
+  canUseCvTemplate,
+} from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
+
+function cvLimitMessage(isGuest: boolean) {
+  return isGuest
+    ? `Has alcanzado el límite de ${GUEST_MAX_CVS} CVs de prueba. Regístrate para conservarlos y seguir creando.`
+    : "El plan Gratuito permite un único CV. Actualiza a PRO para crear currículums ilimitados.";
+}
 
 export async function setPrincipalCv(cvId: string) {
   try {
@@ -58,12 +68,10 @@ export async function createBaseCv(title: string) {
 
     const userId = actor.userId;
 
-    // Contar cuántos CVs base tiene el usuario ya
+    // Aplicar el límite correspondiente al nivel de acceso antes de insertar.
     const cvCount = await getGuestCvCount(userId);
-    if (actor.kind === "guest") {
-      if (cvCount >= GUEST_MAX_CVS) {
-        throw new Error("Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.");
-      }
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+      throw new Error(cvLimitMessage(actor.kind === "guest"));
     }
 
     const isFirst = cvCount === 0;
@@ -176,6 +184,13 @@ export async function updateCvStyling(
       throw new Error("Forbidden or CV not found");
     }
 
+    if (
+      updates.templateName
+      && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest" })
+    ) {
+      throw new Error("Las plantillas Modern, Minimal, Creative y Swiss requieren una suscripción PRO.");
+    }
+
     await db
       .update(cvs)
       .set(updates)
@@ -230,8 +245,7 @@ export async function generateUserApiKey() {
       .where(eq(users.id, userId))
       .limit(1);
 
-    const isPremium = isProSubscription(dbUser?.subscriptionStatus);
-    if (!isPremium) {
+    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
       throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
     }
 
@@ -272,8 +286,7 @@ export async function revokeUserApiKey() {
       .where(eq(users.id, userId))
       .limit(1);
 
-    const isPremium = isProSubscription(dbUser?.subscriptionStatus);
-    if (!isPremium) {
+    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
       throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
     }
 
@@ -308,11 +321,26 @@ export async function createCvPlaceholder(updates: {
 
     const userId = actor.userId;
 
-    if (actor.kind === "guest") {
-      const cvCount = await getGuestCvCount(userId);
-      if (cvCount >= GUEST_MAX_CVS) {
-        throw new Error("Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.");
+    const cvCount = await getGuestCvCount(userId);
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+      if (actor.kind === "guest") {
+        throw new Error(cvLimitMessage(true));
       }
+
+      // Free mantiene un único CV: importaciones y optimizaciones básicas
+      // reutilizan el CV existente en vez de crear una copia adicional.
+      const [existingCv] = await db
+        .select({ id: cvs.id })
+        .from(cvs)
+        .where(eq(cvs.userId, userId))
+        .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt))
+        .limit(1);
+
+      if (!existingCv) {
+        throw new Error(cvLimitMessage(false));
+      }
+
+      return { success: true, cvId: existingCv.id, reused: true };
     }
 
     let newCvId = '';

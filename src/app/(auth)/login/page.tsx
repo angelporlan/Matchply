@@ -7,11 +7,14 @@ import Link from 'next/link';
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
+import { buildClaimPath, getAuthIntent } from '@/lib/auth-intent';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLanguage();
+  const intent = getAuthIntent(searchParams);
+  const claimPath = buildClaimPath(intent);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +30,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
     setError(null);
     try {
-      await signIn('google', { callbackUrl: '/auth/claim?next=/dashboard' });
+      await signIn('google', { callbackUrl: claimPath });
     } catch (err) {
       setError('unexpected');
     } finally {
@@ -50,7 +53,7 @@ export default function LoginPage() {
       if (res?.error) {
         setError('CredentialsSignin');
       } else {
-        router.push('/auth/claim?next=/dashboard');
+        router.push(claimPath);
         router.refresh();
       }
     } catch (err) {

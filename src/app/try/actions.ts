@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getGuestCvCount, getOrCreateGuestActor, GUEST_MAX_CVS } from "@/lib/actor";
+import { canCreateCv } from "@/lib/subscription";
 
 // @ts-ignore
 import pdf from "pdf-parse";
@@ -33,11 +34,11 @@ export async function createTrialCv(formData: FormData) {
     const mode = formData.get("mode") as "template" | "text" | "pdf" | null;
     const titleFromForm = (formData.get("title") as string | null)?.trim();
 
-    if (actor.kind === "guest") {
-      const cvCount = await getGuestCvCount(actor.userId);
-      if (cvCount >= GUEST_MAX_CVS) {
-        return fail("Has alcanzado el limite de 3 CVs de prueba. Registrate para conservarlos y seguir creando.");
-      }
+    const cvCount = await getGuestCvCount(actor.userId);
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+      return fail(actor.kind === "guest"
+        ? `Has alcanzado el limite de ${GUEST_MAX_CVS} CVs de prueba. Registrate para conservarlos y seguir creando.`
+        : "El plan Gratuito permite un unico CV. Actualiza a PRO para crear curriculums ilimitados.");
     }
 
     let title = titleFromForm || "Mi Curriculum de prueba";

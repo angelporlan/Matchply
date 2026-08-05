@@ -28,7 +28,6 @@ function useIsNarrowViewport(breakpoint = 768) {
 
   return isNarrow;
 }
-
 export function ParticlesCanvas({ disabled = false }: { disabled?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -816,6 +815,7 @@ export default function LandingPageClient({ session }: { session: any }) {
     { id: '4', title: 'AI Lead', company: 'OpenAI', template: 'Minimal CV', status: 'oferta', accepted: true },
   ]);
   const [activeColumn, setActiveColumn] = useState<string | null>(null);
+  const [applications, setApplications] = useState(10);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/plain', id);
@@ -1374,134 +1374,104 @@ export default function LandingPageClient({ session }: { session: any }) {
         </div>
       </section>
 
-      {/* Pricing Grid */}
-      <section id="pricing" className="py-24 border-t border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#0b0f19] relative scroll-mt-24 transition-colors duration-300" ref={pricingInViewRef}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <section className="border-t border-[#1e1b4b]/5 bg-white py-20 dark:border-white/5 dark:bg-[#0b0f19] sm:py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.proof.eyebrow')}</p>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.proof.title')}</h2>
+            <p className="mt-4 text-base leading-7 text-[#1e1b4b]/65 dark:text-slate-300">{t('landing.conversion.proof.subtitle')}</p>
+          </div>
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {[
+              ['landing.conversion.proof.item1Title', 'landing.conversion.proof.item1Desc'],
+              ['landing.conversion.proof.item2Title', 'landing.conversion.proof.item2Desc'],
+              ['landing.conversion.proof.item3Title', 'landing.conversion.proof.item3Desc'],
+            ].map(([titleKey, descKey]) => (
+              <article key={titleKey} className="rounded-2xl border border-[#1e1b4b]/9 bg-[#fafafa] p-6 dark:border-white/8 dark:bg-[#151b28]">
+                <CheckCircle className="h-6 w-6 text-[#2ecc71]" strokeWidth={1.75} />
+                <h3 className="mt-5 font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t(titleKey)}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#1e1b4b]/65 dark:text-slate-300">{t(descKey)}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-5 text-[#1e1b4b]/50 dark:text-slate-500">{t('landing.conversion.proof.disclaimer')}</p>
+        </div>
+      </section>
 
-          <div className="text-center mb-20">
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-[#1e1b4b] dark:text-white mb-4">
-              {t('landing.pricing.title')}
-            </h2>
-            <p className="text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-xl mx-auto">
-              {t('landing.pricing.subtitle')}
-            </p>
+      <section id="pricing" className="scroll-mt-24 border-y border-[#1e1b4b]/5 bg-[#f7f7fb] py-20 dark:border-white/5 dark:bg-[#101521] sm:py-24" ref={pricingInViewRef}>
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.pricing.eyebrow')}</p>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.pricing.title')}</h2>
+            <p className="mt-4 text-base leading-7 text-[#1e1b4b]/65 dark:text-slate-300">{t('landing.conversion.pricing.subtitle')}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            <article className="order-2 flex flex-col rounded-2xl border border-[#1e1b4b]/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#151b28] sm:p-8 md:order-1">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.pricing.freeLabel')}</p>
+              <h3 className="mt-3 font-display text-xl font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.freeAudience')}</h3>
+              <div className="mt-6 flex items-end gap-2"><span className="font-display text-5xl font-black text-[#1e1b4b] dark:text-white">0 €</span><span className="pb-1 text-sm text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.freePeriod')}</span></div>
+              <ul className="mt-8 flex-1 space-y-4 text-sm text-[#1e1b4b] dark:text-white">
+                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2ecc71]" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.freeFeature${index}`)}</span></li>)}
+              </ul>
+              <Link href="/try?source=pricing-free" className="mt-8 inline-flex items-center justify-center rounded-[8px] border border-[#1e1b4b]/12 px-5 py-3.5 font-display text-sm font-extrabold text-[#1e1b4b] transition-colors hover:bg-[#f4f3ff] dark:border-white/10 dark:text-white dark:hover:bg-white/5">{t('landing.conversion.pricing.freeCta')}</Link>
+              <p className="mt-3 text-center text-xs leading-5 text-[#1e1b4b]/48 dark:text-slate-500">{t('landing.conversion.pricing.freeNote')}</p>
+            </article>
 
-            {/* Free Plan */}
-            <motion.div
-              className="bg-white dark:bg-[#1f2937] p-8 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex flex-col justify-between shadow-sm relative"
-              initial={{ opacity: 0, x: -30 }}
-              animate={pricingInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.6 }}
-            >
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#1e1b4b]/50 dark:text-slate-400 font-display">{t('landing.pricing.free.kicker')}</span>
-                <h3 className="text-2xl font-bold text-[#1e1b4b] dark:text-white font-display mt-2 mb-4">{t('landing.pricing.free.name')}</h3>
-                <div className="flex items-baseline gap-1 mb-8">
-                  <span className="text-4xl font-black text-[#1e1b4b] dark:text-white font-display">€0</span>
-                  <span className="text-xs text-[#1e1b4b]/60 dark:text-slate-400">{t('landing.pricing.free.period')}</span>
-                </div>
-                <ul className="space-y-4 text-xs sm:text-sm font-light text-[#1e1b4b]/80 dark:text-slate-200">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.free.feature1')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.free.feature2')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.free.feature3')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.free.feature4')}</span>
-                  </li>
-                </ul>
-              </div>
-              <Link
-                href={session ? "/dashboard" : "/try"}
-                className="w-full mt-8 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 text-[#1e1b4b] dark:text-slate-200 text-center font-bold py-3.5 rounded-[8px] transition-all shadow-sm font-display text-sm"
-              >
-                {t('landing.pricing.free.cta')}
-              </Link>
-            </motion.div>
+            <article className="relative order-1 flex flex-col rounded-2xl border border-[#8b5cf6]/40 bg-white p-6 shadow-[0_18px_60px_-28px_rgba(139,92,246,0.55)] dark:bg-[#151b28] sm:p-8 md:order-2">
+              <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-[#8b5cf6] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-md">{t('landing.conversion.pricing.proBadge')}</span>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.pricing.proLabel')}</p>
+              <h3 className="mt-3 font-display text-xl font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.proAudience')}</h3>
+              <div className="mt-6 flex flex-wrap items-end gap-x-2 gap-y-1"><span className="font-display text-5xl font-black text-[#1e1b4b] dark:text-white">10 €</span><span className="pb-1 text-sm text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.proPeriod')}</span><span className="w-full text-xs font-bold text-[#8b5cf6]">{t('landing.conversion.pricing.proDaily')}</span></div>
+              <ul className="mt-8 flex-1 space-y-4 text-sm text-[#1e1b4b] dark:text-white">
+                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2ecc71]" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.proFeature${index}`)}</span></li>)}
+              </ul>
+              <Link href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="mt-8 inline-flex items-center justify-center rounded-[8px] bg-[#2ecc71] px-5 py-4 font-display text-sm font-extrabold text-white shadow-lg shadow-[#2ecc71]/15 transition-colors hover:bg-[#29b765]">{t('landing.conversion.pricing.proCta')}</Link>
+              <p className="mt-3 text-center text-xs leading-5 text-[#1e1b4b]/48 dark:text-slate-500">{t('landing.conversion.pricing.proNote')}</p>
+            </article>
+          </div>
 
-            {/* PRO Plan (Interactive Highlight + Shimmer Button) */}
-            <motion.div
-              className="bg-white dark:bg-[#1f2937] p-8 rounded-[12px] border border-[#8b5cf6]/40 relative flex flex-col justify-between transition-shadow duration-700"
-              style={{
-                boxShadow: pricingInView
-                  ? '0 0 50px -12px rgba(139, 92, 246, 0.45)'
-                  : '0 4px 6px -1px rgba(0,0,0,0.05)',
-              }}
-              initial={{ opacity: 0, x: 30 }}
-              animate={pricingInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.6 }}
-            >
-              {/* Badge Recommended */}
-              <div className="absolute -top-3 right-6 bg-gradient-to-r from-[#8b5cf6] to-[#2ecc71] text-white text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full font-display shadow-md shadow-[#8b5cf6]/20">
-                {t('landing.pricing.pro.badge')}
-              </div>
+          <div className="mt-10 overflow-hidden rounded-2xl border border-[#1e1b4b]/10 bg-white dark:border-white/10 dark:bg-[#151b28]">
+            <div className="border-b border-[#1e1b4b]/8 px-5 py-4 dark:border-white/8"><h3 className="font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.compareTitle')}</h3></div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+                <thead><tr className="bg-[#f7f8fb] dark:bg-[#0b0f19]"><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.compareCapability')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.compareFree')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#8b5cf6]">{t('landing.conversion.pricing.comparePro')}</th></tr></thead>
+                <tbody>
+                  {[1, 2, 3, 4, 5, 6].map((index) => { const [capability, freeValue, proValue] = t(`landing.conversion.pricing.row${index}`).split('|'); return <tr key={capability} className="border-t border-[#1e1b4b]/7 dark:border-white/7"><th scope="row" className="px-5 py-3.5 font-semibold text-[#1e1b4b] dark:text-white">{capability}</th><td className="px-5 py-3.5 text-[#1e1b4b]/60 dark:text-slate-300">{freeValue}</td><td className="px-5 py-3.5 font-semibold text-[#1e1b4b] dark:text-white">{proValue}</td></tr>; })}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#8b5cf6] font-display">{t('landing.pricing.pro.kicker')}</span>
-                <h3 className="text-2xl font-bold text-[#1e1b4b] dark:text-white font-display mt-2 mb-4">{t('landing.pricing.pro.name')}</h3>
-                <div className="flex items-baseline gap-1 mb-8">
-                  <span className="text-4xl font-black text-[#1e1b4b] dark:text-white font-display">€10</span>
-                  <span className="text-xs text-[#1e1b4b]/60 dark:text-slate-400">{t('landing.pricing.pro.period')}</span>
-                </div>
-                <ul className="space-y-4 text-xs sm:text-sm font-light text-[#1e1b4b]/80 dark:text-slate-200">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span className="font-semibold text-[#1e1b4b] dark:text-white">{t('landing.pricing.pro.feature1')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.pro.feature2')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.pro.feature3')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span className="font-semibold text-[#1e1b4b] dark:text-white">{t('landing.pricing.pro.feature4')}</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-[#2ecc71] stroke-[1.75]" />
-                    <span>{t('landing.pricing.pro.feature5')}</span>
-                  </li>
-                </ul>
-              </div>
-
-              {session ? (
-                <a
-                  href="/api/stripe/checkout"
-                  className="w-full mt-8 bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] text-center font-extrabold py-4 rounded-[8px] transition-all shadow-md shadow-[#1e1b4b]/10 dark:shadow-white/5 font-display text-sm hover-shimmer-btn"
-                >
-                  {t('landing.pricing.pro.checkoutCta')}
-                </a>
-              ) : (
-                <Link
-                  href="/try"
-                  className="w-full mt-8 bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] text-center font-extrabold py-4 rounded-[8px] transition-all shadow-md shadow-[#1e1b4b]/10 dark:shadow-white/5 font-display text-sm hover-shimmer-btn"
-                >
-                  {t('landing.pricing.pro.registerCta')}
-                </Link>
-              )}
-            </motion.div>
-
+          <div className="mt-6 rounded-2xl border border-[#1e1b4b]/10 bg-white p-5 dark:border-white/10 dark:bg-[#151b28] sm:p-6">
+            <h3 className="font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.calculatorTitle')}</h3>
+            <label htmlFor="application-volume" className="mt-4 flex items-center justify-between gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><span>{t('landing.conversion.pricing.calculatorLabel')}</span><span className="rounded-md bg-[#8b5cf6]/10 px-2.5 py-1 font-extrabold text-[#7c3aed] dark:text-[#c4b5fd]">{applications}</span></label>
+            <input id="application-volume" type="range" min="2" max="30" value={applications} onChange={(event) => setApplications(Number(event.target.value))} className="mt-3 w-full accent-[#8b5cf6]" />
+            <div className="mt-5 rounded-xl bg-[#1e1b4b] p-4 text-white"><p className="text-xs text-white/65">{t('landing.conversion.pricing.calculatorPrefix')}</p><p className="mt-1 font-display text-2xl font-black">{(10 / applications).toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</p><p className="mt-1 text-xs text-white/65">{t('landing.conversion.pricing.calculatorSuffix')}</p></div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-[#1e1b4b]/10 dark:border-white/10 text-center text-xs text-[#1e1b4b]/40 dark:text-slate-500 font-light bg-[#fafafa] dark:bg-[#0b0f19] transition-colors duration-300 relative z-10">
-        <p>&copy; {new Date().getFullYear()} Matchply. {t('landing.footer.tagline')}</p>
+      <section className="bg-white py-20 dark:bg-[#0b0f19] sm:py-24">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="text-center"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.faq.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-extrabold text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.faq.title')}</h2></div>
+          <div className="mt-10 divide-y divide-[#1e1b4b]/8 rounded-2xl border border-[#1e1b4b]/10 bg-[#fafafa] px-5 dark:divide-white/8 dark:border-white/10 dark:bg-[#151b28] sm:px-7">
+            {[1, 2, 3, 4, 5].map((index) => <details key={index} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-extrabold text-[#1e1b4b] dark:text-white">{t(`landing.conversion.faq.q${index}`)}<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1e1b4b]/5 text-[#1e1b4b]/60 transition-transform group-open:rotate-45 dark:bg-white/8 dark:text-slate-300">+</span></summary><p className="max-w-2xl pb-1 pr-10 pt-3 text-sm leading-6 text-[#1e1b4b]/64 dark:text-slate-300">{t(`landing.conversion.faq.a${index}`)}</p></details>)}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#1e1b4b] py-16 text-center text-white dark:bg-[#151b28] sm:py-20">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#a78bfa]">{t('landing.conversion.final.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-black sm:text-4xl">{t('landing.conversion.final.title')}</h2><p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/70">{t('landing.conversion.final.subtitle')}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/try?source=final-cta" className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#2ecc71] px-6 py-4 font-display font-extrabold text-white hover:bg-[#29b765]">{t('landing.conversion.final.primary')}<ArrowRight className="h-5 w-5" strokeWidth={1.75} /></Link><Link href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="inline-flex items-center justify-center rounded-[8px] border border-white/20 bg-white/10 px-6 py-4 font-display font-extrabold text-white hover:bg-white/15">{t('landing.conversion.final.secondary')}</Link></div></div>
+      </section>
+
+      <footer className="border-t border-[#1e1b4b]/10 bg-[#fafafa] py-12 dark:border-white/10 dark:bg-[#0b0f19]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:grid-cols-[1.3fr_0.7fr_0.7fr] sm:px-6 lg:px-8">
+          <div><Logo iconSize="sm" textSize="md" /><p className="mt-4 max-w-sm text-sm leading-6 text-[#1e1b4b]/58 dark:text-slate-400">{t('landing.conversion.footer.tagline')}</p><p className="mt-4 text-xs font-semibold text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.payments')}</p></div>
+          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.product')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><a href="#features">{t('landing.conversion.footer.how')}</a><a href="#templates">{t('landing.conversion.footer.templates')}</a><a href="#pricing">{t('landing.conversion.footer.pricing')}</a></nav></div>
+          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.trust')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><Link href="/privacy">{t('landing.conversion.footer.privacy')}</Link><Link href="/terms">{t('landing.conversion.footer.terms')}</Link><Link href="/cookies">{t('landing.conversion.footer.cookies')}</Link><a href="mailto:soporte@matchply.com">{t('landing.conversion.footer.support')}</a></nav></div>
+        </div>
+        <div className="mx-auto mt-10 max-w-7xl border-t border-[#1e1b4b]/8 px-4 pt-6 text-xs text-[#1e1b4b]/42 dark:border-white/8 dark:text-slate-500">© {new Date().getFullYear()} Matchply. {t('landing.footer.tagline')}</div>
       </footer>
     </div>
   );

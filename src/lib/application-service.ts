@@ -2,6 +2,7 @@ import { and, desc, eq, gt } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
+import { requireUserFeature } from '@/lib/permissions';
 
 export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
@@ -73,6 +74,7 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
 }
 
 export async function upsertExternalApplication(userId: string, input: ExternalApplicationInput) {
+  await requireUserFeature(userId, 'kanban');
   const existing = await findExisting(userId, input);
   const score = input.scoreOverall === null || input.scoreOverall === undefined
     ? null
@@ -120,6 +122,7 @@ export async function listExternalApplications(
   userId: string,
   filters: { externalSource?: string; updatedSince?: string } = {},
 ) {
+  await requireUserFeature(userId, 'kanban');
   const clauses = [eq(jobOffers.userId, userId)];
   if (filters.externalSource) clauses.push(eq(jobOffers.externalSource, filters.externalSource));
   if (filters.updatedSince) {
@@ -130,6 +133,7 @@ export async function listExternalApplications(
 }
 
 export async function getOwnedApplication(userId: string, offerId: string) {
+  await requireUserFeature(userId, 'kanban');
   const [offer] = await db.select().from(jobOffers).where(and(
     eq(jobOffers.id, offerId),
     eq(jobOffers.userId, userId),

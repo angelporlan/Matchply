@@ -1,17 +1,21 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, User, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { registerUser } from '../actions';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
+import { buildClaimPath, getAuthIntent } from '@/lib/auth-intent';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
+  const intent = getAuthIntent(searchParams);
+  const claimPath = buildClaimPath(intent);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +28,7 @@ export default function RegisterPage() {
     setGoogleLoading(true);
     setError(null);
     try {
-      await signIn('google', { callbackUrl: '/auth/claim?next=/dashboard' });
+      await signIn('google', { callbackUrl: claimPath });
     } catch (err) {
       setError('unexpected');
     } finally {
@@ -58,12 +62,12 @@ export default function RegisterPage() {
 
         if (loginRes?.error) {
           setTimeout(() => {
-            router.push('/login');
+            router.push(`/login?callbackUrl=${encodeURIComponent(claimPath)}`);
           }, 1200);
           return;
         }
 
-        router.push('/auth/claim?next=/dashboard');
+        router.push(claimPath);
       }
     } catch (err) {
       setError('unexpected');

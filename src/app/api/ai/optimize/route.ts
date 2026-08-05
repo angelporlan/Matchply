@@ -6,6 +6,11 @@ import { eq } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
+import {
+  canAccessFeature,
+  canCreateCv,
+  getAllowedCvTemplate,
+} from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +21,17 @@ export async function POST(req: NextRequest) {
 
     const userId = actor.userId;
     const body = await req.json();
-    const { baseCvId, jobTitle, company, url, platform, jobDescription, promptId, addToKanban = true, targetCvId } = body;
+    const {
+      baseCvId,
+      jobTitle,
+      company,
+      url,
+      platform,
+      jobDescription,
+      promptId,
+      addToKanban = true,
+      targetCvId: requestedTargetCvId,
+    } = body;
 
     if (!baseCvId || !jobTitle || !company || !jobDescription) {
       return new NextResponse('Missing required fields', { status: 400 });
@@ -48,6 +63,24 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Forbidden', { status: 403 });
     }
 
+    let targetCvId = requestedTargetCvId as string | null | undefined;
+    if (!targetCvId) {
+      const existingCvs = await db
+        .select({ id: cvs.id })
+        .from(cvs)
+        .where(eq(cvs.userId, userId));
+
+      if (!canCreateCv(user.subscriptionStatus, existingCvs.length, { isGuest: user.isGuest })) {
+        if (user.isGuest) {
+          return new NextResponse('Guest CV limit reached', { status: 403 });
+        }
+
+        // La optimización básica de Free sustituye su único CV en lugar de
+        // crear una segunda versión guardada.
+        targetCvId = baseCv.id;
+      }
+    }
+
     if (targetCvId) {
       const [targetCv] = await db
         .select({ id: cvs.id, userId: cvs.userId })
@@ -59,6 +92,15 @@ export async function POST(req: NextRequest) {
         return new NextResponse('Forbidden', { status: 403 });
       }
     }
+
+    const allowedTemplate = getAllowedCvTemplate(
+      user.subscriptionStatus,
+      baseCv.templateName,
+      { isGuest: user.isGuest },
+    );
+    const shouldAddToKanban = Boolean(addToKanban)
+      && canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest });
+    const shouldSavePartialResult = Boolean(targetCvId) && targetCvId !== baseCv.id;
 
     // 3. Obtener el stream de IA
     const aiStream = await AIService.optimizeCVStream({
@@ -89,7 +131,7 @@ export async function POST(req: NextRequest) {
             const now = Date.now();
             if (now - lastWriteTime > 3000) {
               lastWriteTime = now;
-              if (targetCvId) {
+              if (targetCvId && shouldSavePartialResult) {
                 await db.update(cvs)
                   .set({ content: accumulatedContent })
                   .where(eq(cvs.id, targetCvId))
@@ -105,7 +147,8 @@ export async function POST(req: NextRequest) {
               .update(cvs)
               .set({
                 content: accumulatedContent,
-                title: `Optimizado - ${jobTitle} (${company})`
+                title: `Optimizado - ${jobTitle} (${company})`,
+                templateName: allowedTemplate,
               })
               .where(eq(cvs.id, targetCvId));
             optimizedCvId = targetCvId;
@@ -117,7 +160,7 @@ export async function POST(req: NextRequest) {
                 title: `Optimizado - ${jobTitle} (${company})`,
                 content: accumulatedContent,
                 isBase: false,
-                templateName: baseCv.templateName,
+                templateName: allowedTemplate,
                 accentColor: baseCv.accentColor,
                 fontFamily: baseCv.fontFamily,
                 pageMargin: baseCv.pageMargin,
@@ -134,11 +177,11 @@ export async function POST(req: NextRequest) {
             jobTitle,
             company,
             platform,
-            addToKanban
+            addToKanban: shouldAddToKanban,
           });
 
           // 5. Guardar Candidatura en Kanban
-          if (addToKanban) {
+          if (shouldAddToKanban) {
             const [existingOffer] = await db
               .select()
               .from(jobOffers)

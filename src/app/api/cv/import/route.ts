@@ -7,6 +7,7 @@ import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { translations } from '@/lib/i18n/translations';
+import { canCreateCv } from '@/lib/subscription';
 
 // @ts-ignore
 import pdf from 'pdf-parse';
@@ -24,27 +25,33 @@ export async function POST(req: NextRequest) {
     }
     const userId = actor.userId;
 
-    if (actor.kind === 'guest') {
-      const cvCount = await getGuestCvCount(userId);
-      if (cvCount >= GUEST_MAX_CVS) {
-        return NextResponse.json({
-          success: false,
-          error: lang === 'es' 
-            ? 'Has alcanzado el límite de 3 CVs de prueba. Regístrate para conservarlos y seguir creando.' 
-            : 'You have reached the limit of 3 trial CVs. Register to save them and keep creating.'
-        }, { status: 400 });
-      }
-    }
-
     // 2. Extraer datos del formulario (multipart/form-data)
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const text = formData.get('text') as string | null;
     const targetCvId = formData.get('targetCvId') as string | null;
 
+    // Las actualizaciones de un CV existente no consumen un nuevo cupo.
+    if (!targetCvId) {
+      const cvCount = await getGuestCvCount(userId);
+      if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === 'guest' })) {
+        return NextResponse.json({
+          success: false,
+          error: actor.kind === 'guest'
+            ? (lang === 'es'
+              ? `Has alcanzado el límite de ${GUEST_MAX_CVS} CVs de prueba. Regístrate para conservarlos y seguir creando.`
+              : `You have reached the limit of ${GUEST_MAX_CVS} trial CVs. Register to save them and keep creating.`)
+            : (lang === 'es'
+              ? 'El plan Gratuito permite un único CV. Actualiza a PRO para crear currículums ilimitados.'
+              : 'The Free plan includes one CV. Upgrade to PRO to create unlimited resumes.')
+        }, { status: 403 });
+      }
+    }
+
+    let shouldSavePartialResult = false;
     if (targetCvId) {
       const [targetCv] = await db
-        .select({ id: cvs.id, userId: cvs.userId })
+        .select({ id: cvs.id, userId: cvs.userId, content: cvs.content })
         .from(cvs)
         .where(eq(cvs.id, targetCvId))
         .limit(1);
@@ -52,6 +59,9 @@ export async function POST(req: NextRequest) {
       if (!targetCv || targetCv.userId !== userId) {
         return new NextResponse('Forbidden', { status: 403 });
       }
+
+      // No sobrescribir parcialmente un CV Free reutilizado si el stream falla.
+      shouldSavePartialResult = targetCv.content.length === 0;
     }
 
     let cvText = '';
@@ -143,7 +153,7 @@ export async function POST(req: NextRequest) {
             const now = Date.now();
             if (now - lastWriteTime > 3000) {
               lastWriteTime = now;
-              if (targetCvId) {
+              if (targetCvId && shouldSavePartialResult) {
                 await db.update(cvs)
                   .set({ content: accumulatedContent })
                   .where(eq(cvs.id, targetCvId))

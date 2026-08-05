@@ -24,6 +24,10 @@ export default async function ArchivedOffersPage() {
   const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
+  if (!isPremium) {
+    redirect('/dashboard/subscription');
+  }
+
   // 2. Obtener currículums del usuario
   const userCvs = await db
     .select()

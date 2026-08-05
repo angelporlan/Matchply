@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { cvs, users, prompts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import EditorClient from '@/components/editor/EditorClient';
-import { isProSubscription } from '@/lib/subscription';
+import { getAllowedCvTemplate, isProSubscription } from '@/lib/subscription';
 import { getActor } from '@/lib/actor';
 
 interface EditorPageProps {
@@ -77,6 +77,10 @@ export default async function EditorPage({ params }: EditorPageProps) {
 
   const subscriptionStatus = actor.subscriptionStatus || dbUser?.subscriptionStatus || 'none';
   const isPremium = !isGuest && isProSubscription(subscriptionStatus);
+  const editorCv = {
+    ...cv,
+    templateName: getAllowedCvTemplate(subscriptionStatus, cv.templateName, { isGuest }),
+  };
 
   // 3. Obtener prompts no archivados para optimización de CV
   const availablePrompts = await db
@@ -106,7 +110,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
 
   return (
     <EditorClient
-      cv={cv}
+      cv={editorCv}
       isPremium={isPremium}
       availablePrompts={availablePrompts || []}
       baseCvContent={baseCvContent}

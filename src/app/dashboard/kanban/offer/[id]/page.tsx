@@ -35,6 +35,10 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
   const subscriptionStatus = dbUser.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
+  if (!isPremium) {
+    redirect('/dashboard/subscription');
+  }
+
   // 2. Fetch job offer
   const [offer] = await db
     .select()
