@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -55,6 +55,7 @@ export const jobOffers = pgTable('job_offer', {
   externalSource: text('externalSource'), // Integración estable, ej. 'local_job_archive'
   externalId: text('externalId'), // ID estable dentro de la integración externa
   livenessStatus: text('livenessStatus').default('active'), // 'active' | 'expired'
+  sourceMetadata: jsonb('sourceMetadata'), // Payload normalizado y metadatos visibles de la fuente
   
   // Evaluación de IA
   scoreOverall: doublePrecision('scoreOverall'), // ej. 4.4
@@ -82,6 +83,110 @@ export const jobOffers = pgTable('job_offer', {
 }, (table) => ({
   externalIdentityIdx: uniqueIndex('job_offer_external_identity_idx')
     .on(table.userId, table.externalSource, table.externalId),
+}));
+
+// Códigos de un solo uso para vincular la extensión de Chrome.
+export const extensionPairingCodes = pgTable('extension_pairing_code', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  codeHash: text('codeHash').notNull().unique(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }).notNull(),
+  consumedAt: timestamp('consumedAt', { mode: 'date' }),
+}, (table) => ({
+  userStatusIdx: index('extension_pairing_code_user_status_idx').on(table.userId, table.expiresAt, table.consumedAt),
+}));
+
+// Sesiones limitadas de la extensión. Nunca se almacena el token en claro.
+export const extensionInstallations = pgTable('extension_installation', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  tokenPrefix: text('tokenPrefix').notNull(),
+  extensionVersion: text('extensionVersion'),
+  status: text('status').default('active').notNull(), // active | revoked | expired
+  lastSeenAt: timestamp('lastSeenAt', { mode: 'date' }),
+  lastCaptureAt: timestamp('lastCaptureAt', { mode: 'date' }),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }).notNull(),
+  revokedAt: timestamp('revokedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index('extension_installation_user_idx').on(table.userId),
+  statusIdx: index('extension_installation_status_idx').on(table.status, table.expiresAt),
+}));
+
+// Fuente de verdad de la cola de investigación PostgreSQL.
+export const jobResearchRuns = pgTable('job_research_run', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  jobOfferId: uuid('jobOfferId').references(() => jobOffers.id, { onDelete: 'cascade' }).notNull(),
+  status: text('status').default('queued').notNull(),
+  trigger: text('trigger').default('extension_capture').notNull(),
+  attempt: integer('attempt').default(0).notNull(),
+  leaseUntil: timestamp('leaseUntil', { mode: 'date' }),
+  nextAttemptAt: timestamp('nextAttemptAt', { mode: 'date' }),
+  quotaPeriodStart: timestamp('quotaPeriodStart', { mode: 'date' }).notNull(),
+  engineVersion: text('engineVersion').default('linkedin-research-v1').notNull(),
+  lastError: text('lastError'),
+  scoreOverall: doublePrecision('scoreOverall'),
+  confidence: doublePrecision('confidence'),
+  report: jsonb('report'),
+  startedAt: timestamp('startedAt', { mode: 'date' }),
+  completedAt: timestamp('completedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  queueIdx: index('job_research_run_queue_idx').on(table.status, table.nextAttemptAt, table.leaseUntil),
+  offerIdx: index('job_research_run_offer_idx').on(table.jobOfferId, table.createdAt),
+  userIdx: index('job_research_run_user_idx').on(table.userId, table.createdAt),
+  quotaOfferIdx: uniqueIndex('job_research_run_quota_offer_idx').on(table.userId, table.quotaPeriodStart, table.jobOfferId),
+}));
+
+export const jobResearchAgentRuns = pgTable('job_research_agent_run', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  researchRunId: uuid('researchRunId').references(() => jobResearchRuns.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').notNull(),
+  provider: text('provider'),
+  model: text('model'),
+  status: text('status').default('queued').notNull(),
+  result: jsonb('result'),
+  error: text('error'),
+  startedAt: timestamp('startedAt', { mode: 'date' }),
+  completedAt: timestamp('completedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  runRoleIdx: uniqueIndex('job_research_agent_run_role_idx').on(table.researchRunId, table.role),
+}));
+
+export const jobResearchSources = pgTable('job_research_source', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  researchRunId: uuid('researchRunId').references(() => jobResearchRuns.id, { onDelete: 'cascade' }).notNull(),
+  agentRunId: uuid('agentRunId').references(() => jobResearchAgentRuns.id, { onDelete: 'set null' }),
+  url: text('url').notNull(),
+  canonicalUrl: text('canonicalUrl').notNull(),
+  title: text('title'),
+  domain: text('domain'),
+  sourceType: text('sourceType').default('web').notNull(),
+  publishedAt: timestamp('publishedAt', { mode: 'date' }),
+  retrievedAt: timestamp('retrievedAt', { mode: 'date' }).defaultNow().notNull(),
+  excerpt: text('excerpt'),
+  contentHash: text('contentHash').notNull(),
+  confidence: doublePrecision('confidence'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  runCanonicalIdx: uniqueIndex('job_research_source_run_canonical_idx').on(table.researchRunId, table.canonicalUrl),
+  runIdx: index('job_research_source_run_idx').on(table.researchRunId),
+}));
+
+export const researchQuotaPeriods = pgTable('research_quota_period', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  periodStart: timestamp('periodStart', { mode: 'date' }).notNull(),
+  usedOffers: integer('usedOffers').default(0).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  userPeriodIdx: uniqueIndex('research_quota_period_user_period_idx').on(table.userId, table.periodStart),
 }));
 
 // Tabla de Configuración de la Aplicación (Configuración de IA)
@@ -130,6 +235,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
   jobOffers: many(jobOffers),
   auditLogs: many(auditLogs),
+  extensionPairingCodes: many(extensionPairingCodes),
+  extensionInstallations: many(extensionInstallations),
+  jobResearchRuns: many(jobResearchRuns),
+  researchQuotaPeriods: many(researchQuotaPeriods),
 }));
 
 export const cvsRelations = relations(cvs, ({ one, many }) => ({
@@ -142,6 +251,35 @@ export const jobOffersRelations = relations(jobOffers, ({ one }) => ({
   cv: one(cvs, { fields: [jobOffers.cvId], references: [cvs.id] }),
 }));
 
+export const extensionPairingCodesRelations = relations(extensionPairingCodes, ({ one }) => ({
+  user: one(users, { fields: [extensionPairingCodes.userId], references: [users.id] }),
+}));
+
+export const extensionInstallationsRelations = relations(extensionInstallations, ({ one }) => ({
+  user: one(users, { fields: [extensionInstallations.userId], references: [users.id] }),
+}));
+
+export const jobResearchRunsRelations = relations(jobResearchRuns, ({ one, many }) => ({
+  user: one(users, { fields: [jobResearchRuns.userId], references: [users.id] }),
+  jobOffer: one(jobOffers, { fields: [jobResearchRuns.jobOfferId], references: [jobOffers.id] }),
+  agentRuns: many(jobResearchAgentRuns),
+  sources: many(jobResearchSources),
+}));
+
+export const jobResearchAgentRunsRelations = relations(jobResearchAgentRuns, ({ one, many }) => ({
+  researchRun: one(jobResearchRuns, { fields: [jobResearchAgentRuns.researchRunId], references: [jobResearchRuns.id] }),
+  sources: many(jobResearchSources),
+}));
+
+export const jobResearchSourcesRelations = relations(jobResearchSources, ({ one }) => ({
+  researchRun: one(jobResearchRuns, { fields: [jobResearchSources.researchRunId], references: [jobResearchRuns.id] }),
+  agentRun: one(jobResearchAgentRuns, { fields: [jobResearchSources.agentRunId], references: [jobResearchAgentRuns.id] }),
+}));
+
+export const researchQuotaPeriodsRelations = relations(researchQuotaPeriods, ({ one }) => ({
+  user: one(users, { fields: [researchQuotaPeriods.userId], references: [users.id] }),
+}));
+
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
 }));
@@ -149,6 +287,12 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
+export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;
+export type ExtensionInstallation = typeof extensionInstallations.$inferSelect;
+export type JobResearchRun = typeof jobResearchRuns.$inferSelect;
+export type JobResearchAgentRun = typeof jobResearchAgentRuns.$inferSelect;
+export type JobResearchSource = typeof jobResearchSources.$inferSelect;
+export type ResearchQuotaPeriod = typeof researchQuotaPeriods.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Prompt = typeof prompts.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
