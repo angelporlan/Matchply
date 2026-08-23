@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Key, Settings } from 'lucide-react';
+import { Key, Link2, Settings } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import ApiKeyConsole from './ApiKeyConsole';
 import McpProfileConsole from './McpProfileConsole';
+import LinkedInExtensionConsole from './LinkedInExtensionConsole';
 
 interface CVOption {
   id: string;
@@ -37,6 +38,18 @@ interface IntegrationsTabsProps {
     };
     additionalNotes?: string;
   } | null;
+  initialInstallations: Array<{
+    id: string;
+    tokenPrefix: string;
+    extensionVersion: string | null;
+    status: string;
+    lastSeenAt: Date | null;
+    lastCaptureAt: Date | null;
+    expiresAt: Date;
+    revokedAt: Date | null;
+    createdAt: Date;
+  }>;
+  initialQuota: { used: number; limit: number };
 }
 
 export default function IntegrationsTabs({
@@ -45,9 +58,11 @@ export default function IntegrationsTabs({
   userCvs,
   initialMcpCvId,
   initialMcpProfile,
+  initialInstallations,
+  initialQuota,
 }: IntegrationsTabsProps) {
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'api' | 'mcp'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'mcp' | 'linkedin'>('api');
 
   // Si no es premium, ApiKeyConsole gestionará el upsell/bloqueo de todo el apartado.
   if (!isPremium) {
@@ -70,6 +85,17 @@ export default function IntegrationsTabs({
           {language === 'es' ? 'Clave API y Conexión' : 'API Key & Connection'}
         </button>
         <button
+          onClick={() => setActiveTab('linkedin')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all outline-none ${
+            activeTab === 'linkedin'
+              ? 'border-[#8b5cf6] text-[#8b5cf6]'
+              : 'border-transparent text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+          }`}
+        >
+          <Link2 className="w-4 h-4 stroke-[1.75]" />
+          LinkedIn
+        </button>
+        <button
           onClick={() => setActiveTab('mcp')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all outline-none ${
             activeTab === 'mcp'
@@ -86,12 +112,14 @@ export default function IntegrationsTabs({
       <div className="transition-all duration-300">
         {activeTab === 'api' ? (
           <ApiKeyConsole initialApiKey={initialApiKey} isPremium={true} />
-        ) : (
+        ) : activeTab === 'mcp' ? (
           <McpProfileConsole
             userCvs={userCvs}
             initialMcpCvId={initialMcpCvId}
             initialMcpProfile={initialMcpProfile}
           />
+        ) : (
+          <LinkedInExtensionConsole initialInstallations={initialInstallations} initialQuota={initialQuota} />
         )}
       </div>
     </div>

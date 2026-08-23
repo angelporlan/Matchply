@@ -5,6 +5,8 @@ import { users, cvs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import IntegrationsTabs from '@/components/subscription/IntegrationsTabs';
+import { getResearchQuota } from '@/lib/research/queue';
+import { listExtensionInstallations } from '@/lib/extension-auth';
 
 export default async function IntegrationsPage() {
   const session = await auth();
@@ -35,6 +37,10 @@ export default async function IntegrationsPage() {
     .from(cvs)
     .where(eq(cvs.userId, userId));
 
+  const [initialInstallations, initialQuota] = isPremium
+    ? await Promise.all([listExtensionInstallations(userId), getResearchQuota(userId)])
+    : [[], { used: 0, limit: 10, periodStart: new Date() }];
+
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background blurs */}
@@ -49,6 +55,8 @@ export default async function IntegrationsPage() {
           userCvs={userCvs}
           initialMcpCvId={dbUser?.mcpCvId || null}
           initialMcpProfile={dbUser?.mcpProfile as any}
+          initialInstallations={initialInstallations}
+          initialQuota={initialQuota}
         />
       </main>
     </div>
@@ -56,4 +64,3 @@ export default async function IntegrationsPage() {
 }
 
 export const dynamic = 'force-dynamic';
-
