@@ -9,6 +9,7 @@ import {
   getDefaultModelForProvider
 } from './models';
 import { canAccessFeature } from './subscription';
+import { getBuiltInPrompt, type BuiltInPromptKey } from './prompt-defaults';
 
 
 const MARKDOWN_STRUCTURE_INSTRUCTIONS = `
@@ -113,41 +114,50 @@ export class AIService {
       .replace(/\{\{job\}\}/g, job);
   }
 
+  /**
+   * Resuelve un prompt desde el código y permite una sobrescritura opcional
+   * desde la tabla de administración. La fila de DB nunca es obligatoria:
+   * una instalación nueva, una DB sin seed o una DB temporalmente caída
+   * siguen usando el prompt versionado en la aplicación.
+   */
+  private static async resolvePrompt(key: BuiltInPromptKey, promptId?: string) {
+    const builtInPrompt = getBuiltInPrompt(key);
+
+    try {
+      const [dbPrompt] = await db
+        .select()
+        .from(prompts)
+        .where(
+          promptId
+            ? eq(prompts.id, promptId)
+            : and(eq(prompts.key, key), eq(prompts.isActive, true))
+        )
+        .limit(1);
+
+      // No aceptamos una fila incompleta como prompt operativo. Así, incluso
+      // si existe un registro vacío o antiguo, el flujo conserva un fallback
+      // válido y totalmente versionado en código.
+      if (dbPrompt?.systemPrompt?.trim() && dbPrompt.userPrompt?.trim()) {
+        return {
+          ...builtInPrompt,
+          systemPrompt: dbPrompt.systemPrompt,
+          userPrompt: dbPrompt.userPrompt,
+          isStrict: dbPrompt.isStrict,
+        };
+      }
+    } catch (err) {
+      console.error(`[AIService] Error al obtener prompt "${key}" de la DB. Usando prompt integrado:`, err);
+    }
+
+    return builtInPrompt;
+  }
+
   static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<string> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    // 1. Cargar el prompt activo o el seleccionado desde la DB si existe
-    let systemPrompt: string | null = null;
-    let userPromptTemplate: string | null = null;
-
-    try {
-      let dbPrompt;
-      if (promptId) {
-        // Cargar prompt específico seleccionado por el usuario
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(eq(prompts.id, promptId))
-          .limit(1);
-      } else {
-        // Cargar el prompt activo por defecto
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(and(eq(prompts.key, 'optimize_cv'), eq(prompts.isActive, true)))
-          .limit(1);
-      }
-
-      if (dbPrompt) {
-        systemPrompt = dbPrompt.systemPrompt;
-        if (dbPrompt.isStrict) {
-          systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
-        }
-        userPromptTemplate = dbPrompt.userPrompt;
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt de la DB:", err);
-    }
+    const resolvedPrompt = await this.resolvePrompt('optimize_cv', promptId);
+    const systemPrompt = resolvedPrompt.systemPrompt;
+    const userPromptTemplate = resolvedPrompt.userPrompt;
 
     if (!isPro) {
       // [FREE] Enrutamiento Plan FREE
@@ -194,29 +204,8 @@ export class AIService {
   static async importCV({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<string> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    let systemPrompt: string | null = null;
-    let userPromptTemplate: string | null = null;
-    let isStrict = false;
-
-    try {
-      const [dbPrompt] = await db
-        .select()
-        .from(prompts)
-        .where(and(eq(prompts.key, 'import_cv'), eq(prompts.isActive, true)))
-        .limit(1);
-
-      if (dbPrompt) {
-        systemPrompt = dbPrompt.systemPrompt;
-        isStrict = dbPrompt.isStrict;
-        userPromptTemplate = dbPrompt.userPrompt;
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt de importación de la DB:", err);
-    }
-
-    if (!systemPrompt || !userPromptTemplate) {
-      throw new Error("IMPORT_PROMPT_MISSING");
-    }
+    const resolvedPrompt = await this.resolvePrompt('import_cv');
+    const { systemPrompt, userPrompt: userPromptTemplate, isStrict } = resolvedPrompt;
 
     const provider = isPro 
       ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
@@ -241,35 +230,9 @@ export class AIService {
   static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, candidateName }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    let systemPrompt: string | null = null;
-    let userPromptTemplate: string | null = null;
-
-    try {
-      let dbPrompt;
-      if (promptId) {
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(eq(prompts.id, promptId))
-          .limit(1);
-      } else {
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(and(eq(prompts.key, 'optimize_cv'), eq(prompts.isActive, true)))
-          .limit(1);
-      }
-
-      if (dbPrompt) {
-        systemPrompt = dbPrompt.systemPrompt;
-        if (dbPrompt.isStrict) {
-          systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS;
-        }
-        userPromptTemplate = dbPrompt.userPrompt;
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt de la DB:", err);
-    }
+    const resolvedPrompt = await this.resolvePrompt('optimize_cv', promptId);
+    const systemPrompt = resolvedPrompt.systemPrompt;
+    const userPromptTemplate = resolvedPrompt.userPrompt;
 
     const resolvedName = this.extractCandidateName(baseCvMarkdown) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
@@ -317,29 +280,8 @@ export class AIService {
   static async importCVStream({ rawText, userSubscriptionStatus, candidateName }: { rawText: string; userSubscriptionStatus: string; candidateName?: string }): Promise<ReadableStream<Uint8Array>> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    let systemPrompt: string | null = null;
-    let userPromptTemplate: string | null = null;
-    let isStrict = false;
-
-    try {
-      const [dbPrompt] = await db
-        .select()
-        .from(prompts)
-        .where(and(eq(prompts.key, 'import_cv'), eq(prompts.isActive, true)))
-        .limit(1);
-
-      if (dbPrompt) {
-        systemPrompt = dbPrompt.systemPrompt;
-        isStrict = dbPrompt.isStrict;
-        userPromptTemplate = dbPrompt.userPrompt;
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt de importación de la DB:", err);
-    }
-
-    if (!systemPrompt || !userPromptTemplate) {
-      throw new Error("IMPORT_PROMPT_MISSING");
-    }
+    const resolvedPrompt = await this.resolvePrompt('import_cv');
+    const { systemPrompt, userPrompt: userPromptTemplate, isStrict } = resolvedPrompt;
 
     const provider = isPro 
       ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
@@ -830,17 +772,9 @@ export class AIService {
       ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
       : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
-    // 1. Intentar cargar el prompt activo de star_analyze desde la base de datos
-    let dbPrompt;
-    try {
-      [dbPrompt] = await db
-        .select()
-        .from(prompts)
-        .where(and(eq(prompts.key, 'star_analyze'), eq(prompts.isActive, true)))
-        .limit(1);
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt star_analyze de la DB:", err);
-    }
+    // El prompt integrado se usa siempre como fallback; la DB solo puede
+    // aportar una sobrescritura completa y válida.
+    const dbPrompt = await this.resolvePrompt('star_analyze');
 
     const defaultSystem = `Eres un reclutador senior experto de la empresa "{{company}}". Tu tarea es evaluar el currículum del candidato contra la descripción de la oferta de trabajo y responder con un objeto JSON estructurado que contenga un análisis exhaustivo.
 Es crítico que respondas única y exclusivamente con el objeto JSON válido, sin preámbulos, sin explicaciones, sin comentarios y sin bloques de código Markdown (no uses triple backticks \`\`\`json). Tu respuesta debe ser directamente parseable por JSON.parse.`;
@@ -985,25 +919,9 @@ Ejemplo de cómo debe ser esta sección en tu JSON:
     const resolvedName = this.extractCandidateName(cvMarkdown) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
 
-    // 1. Intentar cargar el prompt de star_optimize desde la base de datos
-    let dbPrompt;
-    try {
-      if (promptId) {
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(eq(prompts.id, promptId))
-          .limit(1);
-      } else {
-        [dbPrompt] = await db
-          .select()
-          .from(prompts)
-          .where(and(eq(prompts.key, 'star_optimize'), eq(prompts.isActive, true)))
-          .limit(1);
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt star_optimize de la DB:", err);
-    }
+    // El prompt integrado se usa siempre como fallback; la DB solo puede
+    // aportar una sobrescritura completa y válida.
+    const dbPrompt = await this.resolvePrompt('star_optimize', promptId);
 
     const defaultSystem = `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
 Debes reescribir la sección de experiencia laboral del candidato de acuerdo con las instrucciones provistas por el usuario.
@@ -1208,23 +1126,8 @@ Descripción: ${jobDescription}`;
     const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_FREE_PROVIDER : DEFAULT_FREE_PROVIDER);
     const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
 
-    let systemPrompt = "Eres un consultor experto en selección y reclutamiento (career coach) de Matchply. Tu misión es analizar el historial de candidaturas (postulaciones de empleo) y currículums del usuario para identificar patrones de rechazo, errores en su perfil o descripción, y proponer un plan de acción concreto y estructurado para mejorar su tasa de conversión en las ofertas. Sé directo, profesional, empático y estructurado en Markdown. No uses saludos excesivamente largos, ve directo al grano and mantén un tono premium y ejecutivo.";
-    let userPromptTemplate = "Aquí tienes el reporte de mis candidaturas actuales y los currículums utilizados:\n\n{{report}}\n\nPor favor, analiza en qué estoy fallando y dame consejos específicos para mejorar.";
-
-    try {
-      const [dbPrompt] = await db
-        .select()
-        .from(prompts)
-        .where(and(eq(prompts.key, 'analyze_failures'), eq(prompts.isActive, true)))
-        .limit(1);
-
-      if (dbPrompt) {
-        systemPrompt = dbPrompt.systemPrompt;
-        userPromptTemplate = dbPrompt.userPrompt;
-      }
-    } catch (err) {
-      console.error("[AIService] Error al obtener prompt analyze_failures de la DB:", err);
-    }
+    const resolvedPrompt = await this.resolvePrompt('analyze_failures');
+    const { systemPrompt, userPrompt: userPromptTemplate } = resolvedPrompt;
 
     const finalUserPrompt = userPromptTemplate.replace(/\{\{report\}\}/g, targetOffersText);
 

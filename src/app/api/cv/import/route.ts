@@ -122,14 +122,10 @@ export async function POST(req: NextRequest) {
       });
     } catch (err: any) {
       console.error('Error al iniciar stream de importación con IA:', err);
-      const isPromptMissing = err.message === 'IMPORT_PROMPT_MISSING' || err.message.includes('import_cv');
-      const errorMessage = isPromptMissing
-        ? translations[lang].dashboard.errors.importPromptMissing
-        : translations[lang].dashboard.errors.genericAiError;
 
       return NextResponse.json({
         success: false,
-        error: errorMessage
+        error: translations[lang].dashboard.errors.genericAiError
       }, { status: 500 });
     }
 
