@@ -5,6 +5,7 @@ export interface ModelOption {
 
 export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
   openrouter: [
+    { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (OpenRouter)' },
     { value: 'openrouter/free', label: 'OpenRouter Auto (Gratuito)' },
     { value: 'google/gemma-2-9b-it:free', label: 'Gemma 2 9B (Free)' },
     { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (Free)' },
@@ -22,6 +23,7 @@ export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
 
 export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
   openrouter: [
+    { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (OpenRouter)' },
     { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (OpenRouter)' },
     { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1 (OpenRouter)' },
     { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash (OpenRouter)' },
@@ -40,10 +42,10 @@ export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
 
 // Defaults
 export const DEFAULT_FREE_PROVIDER = 'openrouter';
-export const DEFAULT_FREE_MODEL = 'openrouter/free';
+export const DEFAULT_FREE_MODEL = 'google/gemini-2.5-flash-lite';
 
 export const DEFAULT_PRO_PROVIDER = 'openrouter';
-export const DEFAULT_PRO_MODEL = 'deepseek/deepseek-chat';
+export const DEFAULT_PRO_MODEL = 'google/gemini-2.5-flash-lite';
 
 /**
  * Returns the default model for a given provider if the provider changes
