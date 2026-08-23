@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test scripts/*.test.ts",
+    "research:worker": "tsx scripts/research-worker.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -43,6 +46,7 @@
     "drizzle-kit": "^0.21.4",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
+    "tsx": "^4.23.12",
     "typescript": "^5.4.5"
   }
 }

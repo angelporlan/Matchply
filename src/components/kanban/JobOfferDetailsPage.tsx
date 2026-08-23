@@ -17,6 +17,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parseSections, parseMarkdownTable, extractSTARStories, ParsedSTARStory, ParsedReport } from '@/lib/ai-parser';
+import ResearchPanel from './ResearchPanel';
 
 // Markdown-to-HTML parser function locally
 function mdToHtml(markdown: string): string {
@@ -67,20 +68,22 @@ interface JobOfferDetailsPageProps {
   initialOffer: JobOffer;
   userCvs: CV[];
   isPremium: boolean;
+  initialResearch?: any;
 }
 
 export default function JobOfferDetailsPage({
   initialOffer,
   userCvs,
-  isPremium
+  isPremium,
+  initialResearch = null,
 }: JobOfferDetailsPageProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [offer, setOffer] = useState<JobOffer>(initialOffer);
   
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'ai_eval' | 'star_stories' | 'outreach' | 'details'>(
-    initialOffer.scoreOverall !== null ? 'ai_eval' : 'details'
+  const [activeTab, setActiveTab] = useState<'research' | 'ai_eval' | 'star_stories' | 'outreach' | 'details'>(
+    initialResearch ? 'research' : initialOffer.scoreOverall !== null ? 'ai_eval' : 'details'
   );
   
   const [expandedStory, setExpandedStory] = useState<number | null>(null);
@@ -610,6 +613,17 @@ export default function JobOfferDetailsPage({
 
           {/* Barra de pestañas */}
           <div className="flex border-b border-[#1e1b4b]/10 dark:border-white/5 pb-px overflow-x-auto scrollbar-none gap-4 shrink-0 font-display">
+            <button
+              type="button"
+              onClick={() => setActiveTab('research')}
+              className={`pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-1.5 ${
+                activeTab === 'research'
+                  ? 'border-[#8b5cf6] text-[#8b5cf6] dark:text-violet-400'
+                  : 'border-transparent text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b]/70 dark:hover:text-slate-200'
+              }`}
+            >
+              ✦ Investigación
+            </button>
             {offer.rawReport && (
               <button
                 type="button"
@@ -660,6 +674,9 @@ export default function JobOfferDetailsPage({
 
           {/* CONTENIDOS DE PESTAÑAS */}
           <div className="flex-1 bg-white dark:bg-[#1f2937] p-5 md:p-6 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] shadow-sm">
+            {activeTab === 'research' && (
+              <ResearchPanel offerId={offer.id} initialResearch={initialResearch} />
+            )}
             
             {/* PESTAÑA: EVALUACIÓN IA */}
             {activeTab === 'ai_eval' && offer.rawReport && (

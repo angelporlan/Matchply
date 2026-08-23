@@ -11,6 +11,7 @@ import {
   upsertExternalApplication,
 } from '@/lib/application-service';
 import { canAccessFeature } from '@/lib/subscription';
+import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/queue';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -197,6 +198,29 @@ const MCP_TOOLS = [
         externalId: { type: 'string', description: 'Identificador dentro del origen externo (opcional).' },
       },
       required: ['title', 'company', 'description'],
+    },
+  },
+  {
+    name: 'investigar_oferta',
+    description: 'Encola una investigación profunda de una oferta existente. Analiza oferta, empresa, personas profesionales, historia/noticias y riesgos sin enviar candidaturas ni mensajes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        offerId: { type: 'string', description: 'UUID de la oferta existente en Matchply.' },
+        retry: { type: 'boolean', description: 'Reintentar si la investigación anterior falló o quedó parcial.' },
+      },
+      required: ['offerId'],
+    },
+  },
+  {
+    name: 'consultar_investigacion',
+    description: 'Consulta el estado, score, informe, agentes y fuentes de la investigación de una oferta.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        offerId: { type: 'string', description: 'UUID de la oferta existente en Matchply.' },
+      },
+      required: ['offerId'],
     },
   },
   {
@@ -638,6 +662,45 @@ async function executeTool(
       };
     }
 
+    case 'investigar_oferta': {
+      const { offerId, retry } = args || {};
+      if (!offerId) return { content: [{ type: 'text', text: 'Error: Falta el argumento requerido: offerId.' }] };
+      const research = await enqueueResearchForOffer(userId, offerId, {
+        trigger: 'mcp',
+        retryFailed: retry === true,
+      });
+      await createAuditLog('mcp_research_requested', userId, userEmail, { offerId, runId: research.run?.id || null, status: research.status });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          accepted: research.accepted,
+          runId: research.run?.id || null,
+          status: research.status,
+          message: research.status === 'queued' ? 'Investigación encolada; consulta consultar_investigacion para ver el progreso.' : 'No se ha creado otro run activo para esta oferta.',
+        }) }],
+      };
+    }
+
+    case 'consultar_investigacion': {
+      const { offerId } = args || {};
+      if (!offerId) return { content: [{ type: 'text', text: 'Error: Falta el argumento requerido: offerId.' }] };
+      const research = await getResearchRunForUser(userId, offerId);
+      if (!research) return { content: [{ type: 'text', text: 'Esta oferta todavía no tiene una investigación.' }] };
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          id: research.id,
+          status: research.status,
+          attempt: research.attempt,
+          score: research.scoreOverall,
+          confidence: research.confidence,
+          report: research.report,
+          agents: research.agents.map(agent => ({ role: agent.role, status: agent.status, error: agent.error })),
+          sources: research.sources.map(source => ({ title: source.title, url: source.url, domain: source.domain, excerpt: source.excerpt })),
+          lastError: research.lastError,
+          updatedAt: research.updatedAt,
+        }) }],
+      };
+    }
+
     case 'crear_postulacion': {
       const { title, company, status, url, platform, description, externalSource, externalId } = args;
 
@@ -970,7 +1033,7 @@ async function handleJsonRpcRequest(
   const { id, method, params } = body;
   const isNotification = id === undefined || id === null;
 
-  console.log(`[MCP Streamable] method=${method} id=${id} user=${userEmail}`, JSON.stringify(params));
+  console.log(`[MCP Streamable] method=${method} id=${id} user=${userEmail}`);
 
   switch (method) {
     case 'initialize': {

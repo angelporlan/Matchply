@@ -5,6 +5,7 @@ import { jobOffers, cvs, users } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/kanban/JobOfferDetailsPage';
+import { getResearchRunForUser } from '@/lib/research/queue';
 
 interface OfferPageProps {
   params: {
@@ -57,6 +58,8 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));
 
+  const initialResearch = await getResearchRunForUser(userId, offerId);
+
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background blurs */}
@@ -68,6 +71,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
           initialOffer={offer}
           userCvs={userCvs}
           isPremium={isPremium}
+          initialResearch={initialResearch}
         />
       </main>
     </div>

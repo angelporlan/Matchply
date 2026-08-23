@@ -27,6 +27,28 @@ services:
     container_name: nextprof_web
     ports:
       - "3002:3000"
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - NODE_ENV=development
+      - NEXT_DISABLE_SWC_PATCH=1
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Worker interno: no expone puertos y consume la cola PostgreSQL.
+  research_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nextprof_research_worker
+    command: npm run research:worker
     environment:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=development

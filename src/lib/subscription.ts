@@ -12,7 +12,9 @@ export type SubscriptionFeature =
   | 'premiumTemplates'
   | 'star'
   | 'kanban'
-  | 'apiKeys';
+  | 'apiKeys'
+  | 'linkedinExtension'
+  | 'deepResearch';
 
 type PlanEntitlements = {
   maxCvs: number | null;
@@ -30,6 +32,8 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       star: false,
       kanban: false,
       apiKeys: false,
+      linkedinExtension: false,
+      deepResearch: false,
     },
   },
   free: {
@@ -41,6 +45,8 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       star: false,
       kanban: false,
       apiKeys: false,
+      linkedinExtension: false,
+      deepResearch: false,
     },
   },
   pro: {
@@ -52,6 +58,8 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       star: true,
       kanban: true,
       apiKeys: true,
+      linkedinExtension: true,
+      deepResearch: true,
     },
   },
 };

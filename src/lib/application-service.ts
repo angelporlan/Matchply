@@ -22,6 +22,7 @@ export type ExternalApplicationInput = {
   externalSource?: string;
   externalId?: string;
   livenessStatus?: string;
+  sourceMetadata?: unknown;
   scoreOverall?: number | string | null;
   scoreBreakdown?: unknown;
   tldr?: string | null;
@@ -90,6 +91,7 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
     externalSource: input.externalSource || existing?.externalSource || null,
     externalId: input.externalId || existing?.externalId || null,
     livenessStatus: input.livenessStatus || 'active',
+    sourceMetadata: input.sourceMetadata ?? existing?.sourceMetadata ?? null,
     scoreOverall: Number.isFinite(score) ? score : null,
     scoreBreakdown: input.scoreBreakdown ?? null,
     tldr: input.tldr || null,
