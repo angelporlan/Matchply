@@ -8,6 +8,7 @@ import {
   updateJobOfferCv, 
   updateJobOfferStatus 
 } from '@/app/dashboard/kanban/actions';
+import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -90,6 +91,7 @@ export default function JobOfferDetailsPage({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [optimizingCv, setOptimizingCv] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form State for editing details
@@ -206,6 +208,46 @@ export default function JobOfferDetailsPage({
   };
 
   const statusConfig = getStatusConfig(offer.status);
+
+  // Handle Create & Optimize CV for this offer with AI
+  const handleOptimizeCvForOffer = async () => {
+    setOptimizingCv(true);
+    setError(null);
+    try {
+      const baseCv = userCvs.find(c => c.isBase) || userCvs.find(c => c.isPrincipal) || userCvs[0];
+      if (!baseCv) {
+        throw new Error('Primero crea o importa tu Currículum Base en Matchply para poder optimizarlo.');
+      }
+
+      const placeholderRes = await createCvPlaceholder({
+        title: `CV - ${offer.title} (${offer.company})`,
+        isBase: false,
+        isPrincipal: false,
+      });
+
+      if (!placeholderRes.success || !placeholderRes.cvId) {
+        throw new Error(placeholderRes.error || 'Error al crear el nuevo currículum.');
+      }
+
+      const targetCvId = placeholderRes.cvId;
+      await updateJobOfferCv(offer.id, targetCvId);
+
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+        baseCvId: baseCv.id,
+        jobTitle: offer.title,
+        company: offer.company,
+        url: offer.url || undefined,
+        platform: offer.platform || 'linkedin',
+        jobDescription: offer.description || '',
+        targetCvId: targetCvId,
+      }));
+
+      router.push(`/editor/${targetCvId}?optimize=true`);
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar la optimización.');
+      setOptimizingCv(false);
+    }
+  };
 
   // Handle CV change
   const handleCvChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -366,6 +408,20 @@ export default function JobOfferDetailsPage({
           </div>
 
           <button
+            type="button"
+            onClick={handleOptimizeCvForOffer}
+            disabled={optimizingCv || loading}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#7c3aed] px-3.5 py-2 rounded-[8px] shadow-sm shadow-[#8b5cf6]/20 transition-all font-display disabled:opacity-50"
+          >
+            {optimizingCv ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
+            )}
+            <span>{offer.cvId ? 'Re-optimizar CV con IA' : '✨ Optimizar CV con IA'}</span>
+          </button>
+
+          <button
             onClick={() => setIsEditing(!isEditing)}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#1e1b4b] dark:bg-white dark:text-[#0b0f19] hover:bg-[#1e1b4b]/95 dark:hover:bg-slate-100 px-4 py-2 rounded-[8px] shadow-sm transition-all font-display"
           >
@@ -489,14 +545,35 @@ export default function JobOfferDetailsPage({
                 </select>
               </div>
 
-              {offer.cvId && (
-                <a
-                  href={`/editor/${offer.cvId}`}
-                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 py-2.5 rounded-[8px] shadow-sm transition-all flex items-center justify-center gap-1.5 w-full"
+              {offer.cvId ? (
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <a
+                    href={`/editor/${offer.cvId}`}
+                    className="text-xs font-bold text-[#1e1b4b] dark:text-white bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-slate-800 py-2 rounded-[8px] transition-all flex items-center justify-center gap-1 text-center"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
+                    Editar CV
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleOptimizeCvForOffer}
+                    disabled={optimizingCv || loading}
+                    className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#7c3aed] py-2 rounded-[8px] shadow-sm transition-all flex items-center justify-center gap-1 disabled:opacity-50"
+                  >
+                    {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                    Re-optimizar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOptimizeCvForOffer}
+                  disabled={optimizingCv || loading}
+                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#7c3aed] py-2.5 rounded-[8px] shadow-sm shadow-[#8b5cf6]/20 transition-all flex items-center justify-center gap-1.5 w-full disabled:opacity-50 mt-1"
                 >
-                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                  Editar CV adaptado
-                </a>
+                  {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                  ✨ Crear y optimizar CV con IA
+                </button>
               )}
             </div>
           </div>

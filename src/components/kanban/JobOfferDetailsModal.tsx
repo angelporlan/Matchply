@@ -8,6 +8,7 @@ import {
   updateJobOfferDetails, 
   updateJobOfferCv
 } from '@/app/dashboard/kanban/actions';
+import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -95,6 +96,7 @@ export default function JobOfferDetailsModal({
     setMounted(true);
   }, []);
   const [loading, setLoading] = useState(false);
+  const [optimizingCv, setOptimizingCv] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form State para Edición
@@ -232,6 +234,47 @@ export default function JobOfferDetailsModal({
   };
 
   const statusConfig = getStatusConfig(offer.status);
+
+  // Handle Create & Optimize CV for this offer with AI
+  const handleOptimizeCvForOffer = async () => {
+    setOptimizingCv(true);
+    setError(null);
+    try {
+      const baseCv = userCvs.find(c => c.isBase) || userCvs.find(c => c.isPrincipal) || userCvs[0];
+      if (!baseCv) {
+        throw new Error('Primero crea o importa tu Currículum Base en Matchply para poder optimizarlo.');
+      }
+
+      const placeholderRes = await createCvPlaceholder({
+        title: `CV - ${offer.title} (${offer.company})`,
+        isBase: false,
+        isPrincipal: false,
+      });
+
+      if (!placeholderRes.success || !placeholderRes.cvId) {
+        throw new Error(placeholderRes.error || 'Error al crear el nuevo currículum.');
+      }
+
+      const targetCvId = placeholderRes.cvId;
+      await updateJobOfferCv(offer.id, targetCvId);
+
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+        baseCvId: baseCv.id,
+        jobTitle: offer.title,
+        company: offer.company,
+        url: offer.url || undefined,
+        platform: offer.platform || 'linkedin',
+        jobDescription: offer.description || '',
+        targetCvId: targetCvId,
+      }));
+
+      onClose();
+      router.push(`/editor/${targetCvId}?optimize=true`);
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar la optimización.');
+      setOptimizingCv(false);
+    }
+  };
 
   // Cambiar CV vinculado
   const handleCvChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -608,18 +651,38 @@ export default function JobOfferDetailsModal({
                               </div>
                             </div>
 
-                            {/* Si hay un CV enlazado, dar un botón premium para ir a verlo/editarlo */}
-                            {offer.cvId && (
-                              <div className="border-t border-[#1e1b4b]/5 dark:border-white/5 pt-3 flex justify-end">
-                                <a
-                                  href={`/editor/${offer.cvId}`}
-                                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 px-4 py-2 rounded-[8px] shadow-sm transition-all flex items-center gap-1.5"
+                            <div className="border-t border-[#1e1b4b]/5 dark:border-white/5 pt-3 flex items-center justify-end gap-2">
+                              {offer.cvId ? (
+                                <>
+                                  <a
+                                    href={`/editor/${offer.cvId}`}
+                                    className="text-xs font-bold text-[#1e1b4b] dark:text-white bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-slate-800 px-3.5 py-2 rounded-[8px] transition-all flex items-center gap-1.5"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
+                                    {t('kanban.modal.viewCvBtn')}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={handleOptimizeCvForOffer}
+                                    disabled={optimizingCv || loading}
+                                    className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#7c3aed] px-3.5 py-2 rounded-[8px] shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                  >
+                                    {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                                    Re-optimizar con IA
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleOptimizeCvForOffer}
+                                  disabled={optimizingCv || loading}
+                                  className="text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#7c3aed] px-4 py-2 rounded-[8px] shadow-sm shadow-[#8b5cf6]/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
                                 >
-                                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                                  {t('kanban.modal.viewCvBtn')}
-                                </a>
-                              </div>
-                            )}
+                                  {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                                  ✨ Crear y optimizar CV con IA
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* Descripción Completa */}

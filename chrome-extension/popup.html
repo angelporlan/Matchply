@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Matchply · LinkedIn Capture</title>
+  <style>
+    :root {
+      --canvas: #FAFAFA;
+      --card-bg: #FFFFFF;
+      --ink: #1E1B4B;
+      --ink-muted: #64748B;
+      --ink-light: #94A3B8;
+      --border: #E2E8F0;
+      --border-focus: #8B5CF6;
+      --accent-ai: #8B5CF6;
+      --accent-ai-dark: #7C3AED;
+      --accent-ai-light: #EDE9FE;
+      --accent-green: #2ECC71;
+      --accent-green-dark: #27AE60;
+      --accent-green-light: #D1FAE5;
+      --radius-card: 12px;
+      --radius-btn: 8px;
+      --shadow-sm: 0 1px 3px rgba(30, 27, 75, 0.05);
+      --shadow-md: 0 4px 12px -2px rgba(30, 27, 75, 0.08), 0 2px 6px -1px rgba(30, 27, 75, 0.04);
+      --shadow-ai: 0 4px 14px rgba(139, 92, 246, 0.25);
+      --shadow-green: 0 4px 14px rgba(46, 204, 113, 0.25);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 328px;
+      padding: 16px;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--accent-ai) 0%, var(--accent-ai-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      box-shadow: 0 2px 6px rgba(139, 92, 246, 0.35);
+    }
+
+    .brand-title {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .brand-title span {
+      color: var(--accent-ai);
+    }
+
+    /* BADGE DE ESTADO */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: #F1F5F9;
+      color: var(--ink-muted);
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+
+    .status-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-light);
+    }
+
+    .status-badge.connected {
+      background: var(--accent-green-light);
+      color: #065F46;
+      border-color: #A7F3D0;
+    }
+
+    .status-badge.connected .dot {
+      background: var(--accent-green);
+      box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
+    }
+
+    /* TARJETAS */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* BOTONES */
+    button {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      border: 0;
+      border-radius: var(--radius-btn);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-capture {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--accent-green);
+      color: #FFF;
+      font-size: 12.5px;
+      box-shadow: var(--shadow-green);
+      margin-bottom: 10px;
+    }
+
+    .btn-capture:hover {
+      background: var(--accent-green-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-capture:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-ai {
+      width: 100%;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, var(--accent-ai) 0%, var(--accent-ai-dark) 100%);
+      color: #FFF;
+      box-shadow: var(--shadow-ai);
+    }
+
+    .btn-ai:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-ai:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 7px;
+      background: transparent;
+      color: var(--ink-muted);
+      border: 1px solid transparent;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .btn-ghost:hover {
+      color: #EF4444;
+      background: #FEF2F2;
+      border-color: #FEE2E2;
+    }
+
+    /* MODOS DE CAPTURA (PILLS) */
+    .mode-pills {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .mode-pill {
+      padding: 8px 10px;
+      background: var(--canvas);
+      color: var(--ink-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-btn);
+      font-weight: 600;
+    }
+
+    .mode-pill.active {
+      background: var(--accent-ai-light);
+      color: var(--accent-ai-dark);
+      border-color: #C4B5FD;
+      font-weight: 700;
+    }
+
+    /* DELAY RANGE SLIDER & PRESETS */
+    .delay-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    .delay-value {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent-ai);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      background: #E2E8F0;
+      border-radius: 4px;
+      outline: none;
+      margin-bottom: 10px;
+      accent-color: var(--accent-ai);
+      cursor: pointer;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .preset-btn {
+      padding: 6px 0;
+      background: var(--canvas);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+
+    .preset-btn.active {
+      background: var(--accent-ai-light);
+      border-color: #C4B5FD;
+      color: var(--accent-ai-dark);
+      font-weight: 700;
+    }
+
+    /* TOGGLE SWITCH */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-switch {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #CBD5E1;
+      transition: .2s;
+      border-radius: 20px;
+    }
+
+    .slider-switch:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+
+    input:checked + .slider-switch {
+      background-color: var(--accent-ai);
+    }
+
+    input:checked + .slider-switch:before {
+      transform: translateX(16px);
+    }
+
+    /* INPUT DE EMPAREJAMIENTO */
+    .pairing-input-wrapper {
+      position: relative;
+      margin: 10px 0;
+    }
+
+    .pairing-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-btn);
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--ink);
+      background: var(--canvas);
+      transition: all 0.2s ease;
+    }
+
+    .pairing-input:focus {
+      outline: none;
+      border-color: var(--accent-ai);
+      background: #FFF;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+    }
+
+    /* MENSAJES DE ESTADO */
+    #statusMessage {
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 8px;
+      min-height: 16px;
+      transition: all 0.2s ease;
+    }
+    .msg-ok { color: var(--accent-green-dark); }
+    .msg-err { color: #DC2626; }
+
+    /* ICONOS SVG CON STROKE 1.75 */
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke-width: 1.75;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <!-- CABECERA -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#FFF;">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+        </svg>
+      </div>
+      <span class="brand-title">Matchply <span>Capture</span></span>
+    </div>
+    <div id="connBadge" class="status-badge">
+      <span class="dot"></span>
+      <span id="connBadgeText">No vinculada</span>
+    </div>
+  </header>
+
+  <!-- SECCIÓN 1: VINCULAR CON MATCHPLY (Si no hay token) -->
+  <div id="pairingCard" class="card">
+    <p class="card-label">
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+      Vincular con tu cuenta
+    </p>
+    <p style="margin: 0 0 8px; color: var(--ink-muted); font-size: 12px; line-height: 1.4;">
+      Ve a <b>Matchply → Integraciones → LinkedIn</b>, genera un código temporal y pégalo aquí:
+    </p>
+    <div class="pairing-input-wrapper">
+      <input id="pairingCodeInput" class="pairing-input" type="text" maxlength="8" autocomplete="one-time-code" placeholder="ABCD2345">
+    </div>
+    <button id="pairBtn" class="btn-ai" type="button">
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+      Conectar extensión
+    </button>
+  </div>
+
+  <!-- SECCIÓN 2: PANEL DE CONTROL ACTIVO -->
+  <div id="connectedPanel" hidden>
+    <button id="saveNowBtn" class="btn-capture" type="button">
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+      Capturar oferta actual ahora
+    </button>
+
+    <div class="card">
+      <p class="card-label">
+        <svg class="icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Comportamiento en LinkedIn
+      </p>
+
+      <div class="mode-pills">
+        <button id="modeAutoBtn" class="mode-pill active" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Automática
+        </button>
+        <button id="modeManualBtn" class="mode-pill" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+          Manual
+        </button>
+      </div>
+
+      <div id="delaySection">
+        <div class="delay-header">
+          <span style="font-size: 11.5px; color: var(--ink-muted); font-weight: 600;">Tiempo de lectura previo</span>
+          <span id="delayDisplay" class="delay-value">3s</span>
+        </div>
+        <input id="delaySlider" type="range" min="1" max="20" step="1" value="3">
+        <div class="presets-grid">
+          <button type="button" class="preset-btn" data-sec="1">1s</button>
+          <button type="button" class="preset-btn active" data-sec="3">3s</button>
+          <button type="button" class="preset-btn" data-sec="5">5s</button>
+          <button type="button" class="preset-btn" data-sec="10">10s</button>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <span>Indicador flotante en página</span>
+        <label class="switch">
+          <input id="widgetToggle" type="checkbox" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+    </div>
+
+    <button id="disconnectBtn" class="btn-ghost" type="button">
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+        <line x1="12" y1="2" x2="12" y2="12"/>
+      </svg>
+      Desconectar de Matchply
+    </button>
+  </div>
+
+  <div id="statusMessage"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

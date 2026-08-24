@@ -47,6 +47,3 @@ yarn-error.log*
 
 # Video promocional
 promo-video/dist/
-
-#chrome
-chrome-extension/
