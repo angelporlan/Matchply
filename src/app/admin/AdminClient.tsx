@@ -952,7 +952,7 @@ export default function AdminClient({
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light font-sans">
-                  * Por defecto para el plan PRO se utiliza el modelo `deepseek/deepseek-chat` provisto por OpenRouter. Recomendaciones: para DeepSeek oficial usar `deepseek-chat`, para Gemini usar `gemini-2.0-flash` o `gemini-1.5-pro`.
+                  * Recomendaciones: para Gemini Oficial (Google) usar `gemini-3.5-flash-lite` o `gemini-3.6-flash`, para DeepSeek oficial usar `deepseek-chat`.
                 </div>
               </div>
 

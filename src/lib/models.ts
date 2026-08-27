@@ -16,8 +16,10 @@ export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
     { value: 'deepseek-reasoner', label: 'DeepSeek-R1' }
   ],
   gemini: [
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
+    { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
+    { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
   ]
 };
 
@@ -35,17 +37,19 @@ export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
     { value: 'deepseek-reasoner', label: 'DeepSeek-R1' }
   ],
   gemini: [
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' }
+    { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
+    { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
   ]
 };
 
 // Defaults
-export const DEFAULT_FREE_PROVIDER = 'openrouter';
-export const DEFAULT_FREE_MODEL = 'google/gemini-2.5-flash-lite';
+export const DEFAULT_FREE_PROVIDER = 'gemini';
+export const DEFAULT_FREE_MODEL = 'gemini-3.5-flash-lite';
 
-export const DEFAULT_PRO_PROVIDER = 'openrouter';
-export const DEFAULT_PRO_MODEL = 'google/gemini-2.5-flash-lite';
+export const DEFAULT_PRO_PROVIDER = 'gemini';
+export const DEFAULT_PRO_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * Returns the default model for a given provider if the provider changes
