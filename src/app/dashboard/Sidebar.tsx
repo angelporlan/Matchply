@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles, Terminal, UserPlus } from 'lucide-react';
+import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Sparkles, Terminal, UserPlus, SlidersHorizontal } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
@@ -49,6 +49,12 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       name: t('sidebar.menu.kanban'),
       href: '/dashboard/kanban',
       icon: Kanban,
+    },
+    {
+      name: language === 'es' ? 'Mi Perfil & Criterios' : 'Career Profile',
+      href: '/dashboard/profile',
+      icon: SlidersHorizontal,
+      isAi: true,
     },
     {
       name: t('sidebar.menu.star') || 'Método STAR',

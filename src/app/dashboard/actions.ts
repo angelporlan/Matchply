@@ -426,3 +426,45 @@ export async function updateUserMcpSettings(
     return { error: error.message || "Failed to update MCP settings" };
   }
 }
+
+export async function saveUserCareerProfileAction(profileData: any) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const currentProfile = (user?.mcpProfile as any) || {};
+
+    const updatedProfile = {
+      ...currentProfile,
+      ...profileData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await db
+      .update(users)
+      .set({
+        mcpProfile: updatedProfile,
+      })
+      .where(eq(users.id, userId));
+
+    await createAuditLog("career_profile_update", userId, session.user.email || null, {
+      hasBio: !!profileData.bio,
+      targetRolesCount: Array.isArray(profileData.targetRoles) ? profileData.targetRoles.length : 0,
+    });
+
+    revalidatePath("/dashboard/profile");
+    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/integrations");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving career profile:", error);
+    return { error: error.message || "Failed to save career profile" };
+  }
+}
+

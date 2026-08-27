@@ -136,22 +136,15 @@ export async function ingestLinkedInOffer(
     status: 'interested',
   });
 
-  const research = await enqueueResearchForOffer(userId, offer.id, { trigger: 'extension_capture' });
   await markExtensionCapture(installationId);
   await createAuditLog(created ? 'extension_job_capture_create' : 'extension_job_capture_update', userId, null, {
     offerId: offer.id,
     sourceJobId,
-    researchStatus: research.status,
   });
 
   return {
     success: true,
     created,
     application: { id: offer.id },
-    research: {
-      accepted: research.accepted,
-      runId: research.run?.id || null,
-      status: research.status as ResearchStatus,
-    },
   };
 }

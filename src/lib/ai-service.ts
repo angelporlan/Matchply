@@ -1182,4 +1182,219 @@ ${rejectedOffers > 0
 
     return analysis;
   }
+
+  static async curateOffersBatch({
+    baseCvMarkdown,
+    userCareerProfile,
+    offers,
+    userSubscriptionStatus,
+    targetThreshold = 65,
+  }: {
+    baseCvMarkdown: string;
+    userCareerProfile?: any;
+    offers: Array<{
+      id: string;
+      title: string;
+      company: string;
+      description: string | null;
+      platform: string;
+      scoreOverall?: number | null;
+      tldr?: string | null;
+    }>;
+    userSubscriptionStatus: string;
+    targetThreshold?: number;
+  }): Promise<{
+    curated: Array<{
+      id: string;
+      title: string;
+      company: string;
+      score: number;
+      decision: 'keep' | 'archive';
+      fitReason: string;
+      highlightSkills?: string[];
+    }>;
+  }> {
+    if (!offers || offers.length === 0) {
+      return { curated: [] };
+    }
+
+    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
+    const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_FREE_PROVIDER : DEFAULT_FREE_PROVIDER);
+    const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
+
+    // Extraer reglas personalizadas para inyectarlas directamente en el system prompt como restricciones duras
+    const userCurationRules = userCareerProfile?.curationCriteria || '';
+
+    const systemPrompt = `Eres un asesor de selección y estratega de empleo experto de Matchply.
+Tu objetivo es realizar un triaje inteligente, riguroso y transparente de una lista de ofertas de empleo frente al perfil profesional y preferencias del candidato (fuente principal de la verdad).
+
+## PROTOCOLO DE EVALUACIÓN OBLIGATORIO
+
+Para CADA oferta de la lista, sigue este orden ESTRICTO:
+
+### PASO 1 — VERIFICAR REGLAS PERSONALIZADAS (RESTRICCIONES DURAS)
+Antes de evaluar NADA más, aplica las REGLAS PERSONALIZADAS del candidato.
+Estas reglas son INQUEBRANTABLES y tienen PRIORIDAD ABSOLUTA sobre cualquier coincidencia técnica.
+Si una regla dice "penaliza X", la puntuación MÁXIMA posible de esa oferta es 30/100, sin importar que el stack sea perfecto.
+${userCurationRules ? `
+
+### ⛔ REGLAS PERSONALIZADAS DEL CANDIDATO (INQUEBRANTABLES):
+${userCurationRules}
+
+Cada regla se aplica SIEMPRE. Si la oferta viola alguna de estas reglas, su score MÁXIMO es 30 y la decision DEBE ser "archive". No hay excepciones.
+` : ''}
+
+### PASO 2 — EVALUAR ENCAJE TÉCNICO
+Solo si la oferta NO viola ninguna regla personalizada, evalúa:
+- Coincidencia con stack tecnológico del candidato
+- Modalidad de trabajo compatible
+- Rango salarial aceptable
+- Años de experiencia solicitados vs reales
+- Tipo de empresa preferido
+
+### PASO 3 — CALCULAR SCORE Y DECISIÓN
+1. 'score': Número entero de 0 a 100.
+   - Si viola una regla personalizada → score MÁXIMO 30.
+   - Si no viola reglas → evaluar encaje técnico normalmente.
+2. 'decision':
+   - "keep" si score >= ${targetThreshold}.
+   - "archive" si score < ${targetThreshold}.
+3. 'fitReason': Explicación directa en 1 frase (máx 25 palabras).
+   - Si penalizada por regla: Indica qué regla se violó (ej: "Penalizada: oferta redactada íntegramente en inglés según tus reglas").
+   - Si keep: Por qué encaja (ej: "Stack TypeScript/React alineado, remoto y salario en rango").
+   - Si archive por bajo encaje: Motivo técnico concreto.
+4. 'highlightSkills': Array de 2-4 tecnologías o requisitos clave.
+
+## FORMATO DE RESPUESTA
+Devuelve ESTRICTAMENTE un JSON válido:
+{
+  "curated": [
+    {
+      "id": "ID_DE_LA_OFERTA",
+      "score": 85,
+      "decision": "keep",
+      "fitReason": "Motivo claro...",
+      "highlightSkills": ["Skill1", "Skill2"]
+    }
+  ]
+}`;
+
+    // Construcción del contexto del candidato priorizando el perfil rico
+    let candidateContext = '';
+    if (userCareerProfile && (userCareerProfile.bio || userCareerProfile.targetRoles || userCareerProfile.curationCriteria)) {
+      candidateContext += `### FUENTE DE LA VERDAD - PERFIL & PREFERENCIAS DEL CANDIDATO:\n`;
+      if (userCareerProfile.bio) candidateContext += `- Trayectoria & Stack: ${userCareerProfile.bio}\n`;
+      if (userCareerProfile.targetRoles?.length) candidateContext += `- Roles Objetivo: ${Array.isArray(userCareerProfile.targetRoles) ? userCareerProfile.targetRoles.join(', ') : userCareerProfile.targetRoles}\n`;
+      if (userCareerProfile.experienceYears !== undefined && userCareerProfile.experienceYears !== null) candidateContext += `- Años de Experiencia Real: ${userCareerProfile.experienceYears} años\n`;
+      if (userCareerProfile.preferredWorkplaces?.length) candidateContext += `- Modalidades Aceptadas: ${Array.isArray(userCareerProfile.preferredWorkplaces) ? userCareerProfile.preferredWorkplaces.join(', ') : userCareerProfile.preferredWorkplaces}\n`;
+      if (userCareerProfile.preferredLocations) candidateContext += `- Ubicaciones Deseadas: ${userCareerProfile.preferredLocations}\n`;
+      if (userCareerProfile.companyPreferences) candidateContext += `- Preferencias de Empresa: ${userCareerProfile.companyPreferences}\n`;
+      if (userCareerProfile.salaryMin || userCareerProfile.salaryTarget) candidateContext += `- Rango Salarial: Min ${userCareerProfile.salaryMin || 'No especificado'}€/año, Target ${userCareerProfile.salaryTarget || 'No especificado'}€/año\n`;
+    }
+    if (baseCvMarkdown) {
+      candidateContext += `\n### CURRÍCULUM COMPLEMENTARIO DEL CANDIDATO:\n${baseCvMarkdown.slice(0, 2500)}\n`;
+    }
+    if (!candidateContext.trim()) {
+      candidateContext = "Perfil general de Desarrollo de Software.";
+    }
+
+    // Preparamos el payload en bloques compactos sin enviar puntuaciones anteriores para no sesgar la evaluación
+    const simplifiedOffers = offers.map(o => ({
+      id: o.id,
+      title: o.title,
+      company: o.company,
+      platform: o.platform,
+      descriptionSnippet: o.description ? o.description.slice(0, 1200).replace(/\s+/g, ' ') : undefined,
+    }));
+
+    const userPrompt = `${candidateContext}
+${userCurationRules ? `
+### ⛔ RECORDATORIO CRÍTICO — REGLAS PERSONALIZADAS (APLICA ANTES QUE NADA):
+${userCurationRules}
+Si una oferta viola alguna de estas reglas, su score MÁXIMO es 30 y la decision OBLIGATORIAMENTE es "archive".
+` : ''}
+### LISTA DE OFERTAS A EVALUAR (${simplifiedOffers.length}):
+${JSON.stringify(simplifiedOffers, null, 2)}
+
+IMPORTANTE: Evalúa PRIMERO si cada oferta viola las reglas personalizadas del candidato. Solo después evalúa el encaje técnico. Devuelve el JSON completo con las ${simplifiedOffers.length} ofertas.`;
+
+    try {
+      let rawResponse = '';
+      if (provider === 'gemini') {
+        rawResponse = await this.callGeminiOficial('', '', model, systemPrompt, userPrompt);
+      } else if (provider === 'deepseek') {
+        rawResponse = await this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt);
+      } else {
+        rawResponse = await this.callOpenRouter('', '', model, systemPrompt, userPrompt);
+      }
+
+      let cleanJson = rawResponse.trim();
+      if (cleanJson.includes('```')) {
+        const start = cleanJson.indexOf('{');
+        const end = cleanJson.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          cleanJson = cleanJson.slice(start, end + 1);
+        }
+      }
+
+      const parsed = JSON.parse(cleanJson);
+      if (parsed && Array.isArray(parsed.curated)) {
+        const resultsMap = new Map<string, any>(parsed.curated.map((c: any) => [c.id, c]));
+        
+        const finalCurated = offers.map(offer => {
+          const evalResult = resultsMap.get(offer.id);
+          const score = typeof evalResult?.score === 'number' 
+            ? evalResult.score 
+            : 50;
+          
+          const decision: 'keep' | 'archive' = evalResult?.decision === 'keep' || evalResult?.decision === 'archive'
+            ? evalResult.decision
+            : (score >= targetThreshold ? 'keep' : 'archive');
+
+          const fitReason = evalResult?.fitReason || (
+            decision === 'keep' 
+              ? `Afinidad alta (${score}%) con tu perfil base y rol de ${offer.title}.` 
+              : `Afinidad baja (${score}%). Requisitos técnicos no alineados con tu CV principal.`
+          );
+
+          return {
+            id: offer.id,
+            title: offer.title,
+            company: offer.company,
+            score,
+            decision,
+            fitReason,
+            highlightSkills: Array.isArray(evalResult?.highlightSkills) ? evalResult.highlightSkills : [],
+          };
+        });
+
+        return { curated: finalCurated };
+      }
+    } catch (err) {
+      console.warn("[AIService.curateOffersBatch] AI call failed. Using heuristic fallback:", err);
+    }
+
+    // Fallback heurístico inteligente si falla la red con el proveedor de IA
+    const fallbackCurated = offers.map(offer => {
+      const existingScore = offer.scoreOverall 
+        ? (offer.scoreOverall > 5 ? Math.round(offer.scoreOverall) : Math.round(offer.scoreOverall * 20))
+        : 60;
+      
+      const isKeep = existingScore >= targetThreshold;
+      return {
+        id: offer.id,
+        title: offer.title,
+        company: offer.company,
+        score: existingScore,
+        decision: (isKeep ? 'keep' : 'archive') as 'keep' | 'archive',
+        fitReason: isKeep 
+          ? `Coincidencia favorable en el puesto de ${offer.title} (${existingScore}% match).`
+          : `Encaje secundario (${existingScore}% match). Se recomienda priorizar ofertas con mayor afinidad técnica.`,
+        highlightSkills: [offer.platform, offer.company],
+      };
+    });
+
+    return { curated: fallbackCurated };
+  }
 }
+
