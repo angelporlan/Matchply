@@ -6,7 +6,8 @@ import { JobOffer, CV } from '@/db/schema';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv, 
-  updateJobOfferStatus 
+  updateJobOfferStatus,
+  evaluateSingleOfferMatchAction,
 } from '@/app/dashboard/kanban/actions';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
@@ -83,6 +84,7 @@ export default function JobOfferDetailsPage({
   const [offer, setOffer] = useState<JobOffer>(initialOffer);
   
   const [isEditing, setIsEditing] = useState(false);
+  const [evaluatingMatch, setEvaluatingMatch] = useState(false);
   const [activeTab, setActiveTab] = useState<'research' | 'ai_eval' | 'star_stories' | 'outreach' | 'details'>(
     initialResearch ? 'research' : initialOffer.scoreOverall !== null ? 'ai_eval' : 'details'
   );
@@ -512,6 +514,32 @@ export default function JobOfferDetailsPage({
                   })}
                 </div>
               )}
+
+              {/* Botón para recalcular match con perfil actual */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setEvaluatingMatch(true);
+                  try {
+                    const res = await evaluateSingleOfferMatchAction(offer.id);
+                    if (res.success && typeof res.score === 'number') {
+                      setOffer(prev => ({ ...prev, scoreOverall: res.score }));
+                      router.refresh();
+                    }
+                  } finally {
+                    setEvaluatingMatch(false);
+                  }
+                }}
+                disabled={evaluatingMatch}
+                className="mt-3 w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-[#8b5cf6]/10 to-[#7c3aed]/10 hover:from-[#8b5cf6]/20 hover:to-[#7c3aed]/20 text-[#8b5cf6] border border-[#8b5cf6]/25 text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 font-display"
+              >
+                {evaluatingMatch ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>{evaluatingMatch ? 'Evaluando...' : '⚡ Recalcular Match con tu Perfil'}</span>
+              </button>
             </div>
           )}
 

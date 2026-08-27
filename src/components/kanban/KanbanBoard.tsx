@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { JobOffer, CV } from '@/db/schema';
 import KanbanCard from './KanbanCard';
+import KanbanDenseListItem from './KanbanDenseListItem';
+import CurateWithAiModal from './CurateWithAiModal';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction } from '@/app/dashboard/kanban/actions';
+import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers } from '@/app/dashboard/kanban/actions';
 import { formatDate } from '@/lib/utils';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -47,6 +49,28 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+
+  // AI Curation Modal State & Sort
+  const [isCurateModalOpen, setIsCurateModalOpen] = useState(false);
+  const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
+  const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Bulk Archive State
+  const [archiveTarget, setArchiveTarget] = useState<{
+    isOpen: boolean;
+    columnId: string;
+    columnTitle: string;
+    offerIds: string[];
+    count: number;
+  }>({
+    isOpen: false,
+    columnId: '',
+    columnTitle: '',
+    offerIds: [],
+    count: 0,
+  });
+  const [isArchivingBulk, setIsArchivingBulk] = useState(false);
 
   // Copy Modal States
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
@@ -531,6 +555,57 @@ Responde de forma concisa y directa al usuario.
     setLocalOffers(offers);
   }, [offers]);
 
+  // Bulk Archive Handlers
+  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: JobOffer[]) => {
+    if (offersToArchive.length === 0) return;
+    setArchiveTarget({
+      isOpen: true,
+      columnId,
+      columnTitle,
+      offerIds: offersToArchive.map(o => o.id),
+      count: offersToArchive.length,
+    });
+  };
+
+  const handleConfirmArchiveAll = async () => {
+    if (archiveTarget.offerIds.length === 0) return;
+    setIsArchivingBulk(true);
+
+    const idsSet = new Set(archiveTarget.offerIds);
+    const targetStatus = `archived:${archiveTarget.columnId}`;
+    const count = archiveTarget.count;
+
+    // Optimistic UI update
+    setLocalOffers(prev =>
+      prev.map(o => idsSet.has(o.id) ? { ...o, status: targetStatus, updatedAt: new Date() } : o)
+    );
+
+    setArchiveTarget(prev => ({ ...prev, isOpen: false }));
+
+    try {
+      const result = await archiveMultipleJobOffers(archiveTarget.offerIds);
+      if (result.success) {
+        setCurationToast({
+          message: t('kanban.board.archiveAllSuccess')
+            ? t('kanban.board.archiveAllSuccess').replace('{count}', count.toString())
+            : `📦 Se han archivado ${count} candidaturas correctamente`,
+          type: 'success',
+        });
+        setTimeout(() => setCurationToast(null), 5000);
+        router.refresh();
+      } else {
+        alert(result.error || 'Error al archivar las ofertas');
+        router.refresh();
+      }
+    } catch (err: any) {
+      console.error('Error al archivar ofertas:', err);
+      alert('Error inesperado al archivar ofertas');
+      router.refresh();
+    } finally {
+      setIsArchivingBulk(false);
+    }
+  };
+
   // Drag and Drop Handlers
   const handleDragStart = (start: any) => {
     setDraggingOfferId(start.draggableId);
@@ -922,13 +997,26 @@ Responde de forma concisa y directa al usuario.
         </div>
       </div>
 
-      {/* Grid de Columnas (Kanban) */}
+      {/* Grid de Columnas (Kanban Asimétrico) */}
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="-mx-4 px-4 overflow-x-auto pb-4 scrollbar-custom">
-          <div className="grid min-w-[1180px] grid-cols-5 gap-4 items-start">
+          <div className="grid min-w-[1240px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 items-start">
             {columns.map((column) => {
               const rawColumnOffers = boardOffers.filter((offer) => offer.status === column.id);
-              const columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
+              let columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
+
+              if (column.id === 'interested') {
+                columnOffers = [...columnOffers].sort((a, b) => {
+                  if (interestedSortMode === 'score') {
+                    const scoreA = (a as any).scoreOverall ?? -1;
+                    const scoreB = (b as any).scoreOverall ?? -1;
+                    if (scoreA !== scoreB) return scoreB - scoreA;
+                  }
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+              }
+
+              const isInterested = column.id === 'interested';
 
               return (
                 <div
@@ -959,27 +1047,97 @@ Responde de forma concisa y directa al usuario.
                         </span>
                       </div>
                     </div>
-                    {rawColumnOffers.length > 0 && (
-                      <div className="mt-3 h-1.5 rounded-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${column.color.split(' ')[1]}`}
-                          style={{
-                            width: `${Math.max(8, Math.round((columnOffers.length / rawColumnOffers.length) * 100))}%`,
-                            opacity: hasActiveFilters ? 0.8 : 1,
+
+                    {/* Botón de Curación Inteligente, Test UI, Ordenación y Archivar Todas exclusivo para la columna Interés */}
+                    {isInterested && rawColumnOffers.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSimulationMode(false);
+                            setIsCurateModalOpen(true);
                           }}
-                        />
+                          className="flex-1 text-[11px] font-bold py-1.5 px-2 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white shadow-xs shadow-[#8b5cf6]/20 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-1.5 font-display min-w-0"
+                        >
+                          <Sparkles className="w-3 h-3 stroke-[2] text-violet-200 shrink-0" />
+                          <span className="truncate">Curar con IA</span>
+                          <span className="bg-white/20 px-1.5 py-0.2 rounded text-[10px] shrink-0">
+                            {rawColumnOffers.length}
+                          </span>
+                        </button>
+
+                        {/* Botón temporal para probar animación de streaming sin gastar tokens */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSimulationMode(true);
+                            setIsCurateModalOpen(true);
+                          }}
+                          title="Probar animación de streaming en vivo sin consumir tokens"
+                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/25 transition-all flex items-center gap-1 shrink-0"
+                        >
+                          <span>🧪 Test UI</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setInterestedSortMode(prev => prev === 'score' ? 'date' : 'score')}
+                          title={interestedSortMode === 'score' ? "Ordenado por Score IA (Click para ordenar por fecha)" : "Ordenado por Fecha (Click para ordenar por Score IA)"}
+                          className={`text-[10.5px] font-bold px-2 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shrink-0 ${
+                            interestedSortMode === 'score'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                              : 'bg-white dark:bg-[#111827] text-slate-500 border-[#1e1b4b]/10 dark:border-white/10'
+                          }`}
+                        >
+                          <ArrowUpDown className="w-3 h-3 stroke-[2]" />
+                          <span>{interestedSortMode === 'score' ? 'Score' : 'Fecha'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
+                          title={t('kanban.board.archiveAllTooltip')}
+                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#111827] hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
+                        >
+                          <Archive className="w-3 h-3 stroke-[2]" />
+                          <span>{t('kanban.board.archiveAllBtn')}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {rawColumnOffers.length > 0 && !isInterested && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${column.color.split(' ')[1]}`}
+                            style={{
+                              width: `${Math.max(8, Math.round((columnOffers.length / rawColumnOffers.length) * 100))}%`,
+                              opacity: hasActiveFilters ? 0.8 : 1,
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
+                          title={t('kanban.board.archiveAllTooltip')}
+                          className="text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors shrink-0"
+                        >
+                          <Archive className="w-3 h-3 stroke-[2]" />
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Lista de tarjetas */}
+                  {/* Lista de elementos (Lista densa en Interés, Tarjetas en las demás) */}
                   <Droppable droppableId={column.id}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
                         className={`flex-1 overflow-y-auto scrollbar-custom p-3 pr-2 transition-all duration-200 ${
-                          viewMode === 'compact' ? 'space-y-2.5' : 'space-y-4'
+                          isInterested 
+                            ? 'space-y-1.5' 
+                            : viewMode === 'compact' ? 'space-y-2.5' : 'space-y-4'
                         } ${
                           snapshot.isDraggingOver
                             ? 'bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 shadow-inner border border-dashed border-[#8b5cf6]/25 dark:border-violet-500/25 rounded-b-[12px] -m-[1px]'
@@ -1000,6 +1158,16 @@ Responde de forma concisa y directa al usuario.
                               </>
                             )}
                           </div>
+                        ) : isInterested ? (
+                          columnOffers.map((offer, index) => (
+                            <KanbanDenseListItem
+                              key={offer.id}
+                              offer={offer}
+                              index={index}
+                              onOpenDetails={setSelectedOfferForDetails}
+                              onDelete={handleDeleteOffer}
+                            />
+                          ))
                         ) : (
                           columnOffers.map((offer, index) => (
                             <KanbanCard
@@ -1320,6 +1488,70 @@ Responde de forma concisa y directa al usuario.
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmación para Archivar Todas las Candidaturas de la Columna */}
+      {archiveTarget.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[16px] p-6 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 font-sans text-left">
+            {/* Adorno visual */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full filter blur-3xl pointer-events-none" />
+
+            <div className="flex items-start gap-3.5 mb-5 relative z-10">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+                <Archive className="w-5 h-5 stroke-[1.75]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white font-display">
+                  {t('kanban.board.archiveAllConfirmTitle')}
+                </h3>
+                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1.5 leading-relaxed font-sans">
+                  {t('kanban.board.archiveAllConfirmDesc')
+                    .replace('{count}', archiveTarget.count.toString())
+                    .replace('{column}', archiveTarget.columnTitle)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
+                disabled={isArchivingBulk}
+                className="text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-all shrink-0"
+              >
+                <X className="w-4 h-4 stroke-[1.75]" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/10 relative z-10 font-display">
+              <button
+                type="button"
+                onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
+                disabled={isArchivingBulk}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#1e1b4b]/70 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmArchiveAll}
+                disabled={isArchivingBulk}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-98 text-white shadow-sm shadow-amber-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isArchivingBulk ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Archivando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
+                    <span>{t('kanban.board.archiveAllConfirmBtn')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedOfferForDetails && (
         <JobOfferDetailsModal
           isOpen={!!selectedOfferForDetails}
@@ -1327,6 +1559,52 @@ Responde de forma concisa y directa al usuario.
           offer={offers.find(o => o.id === selectedOfferForDetails.id) || selectedOfferForDetails}
           userCvs={userCvs}
         />
+      )}
+
+      {/* Modal de Curación Inteligente de Candidaturas con IA (Efecto Mazo de Cartas) */}
+      <CurateWithAiModal
+        isOpen={isCurateModalOpen}
+        onClose={() => setIsCurateModalOpen(false)}
+        onSuccess={(summary) => {
+          router.refresh();
+          if (summary) {
+            setCurationToast({
+              message: `🎉 ¡${summary.total} candidaturas puntuadas con éxito! (${summary.kept} aptas, ${summary.archived} suspensas)`,
+              type: 'success',
+            });
+            setTimeout(() => setCurationToast(null), 6000);
+          }
+        }}
+        onScoresUpdated={(newScores) => {
+          const scoreMap = new Map(newScores.map((s) => [s.id, s.score]));
+          setLocalOffers((prev) =>
+            prev.map((o) => {
+              const updatedScore = scoreMap.get(o.id);
+              return updatedScore !== undefined ? { ...o, scoreOverall: updatedScore } : o;
+            })
+          );
+        }}
+        offersCount={boardOffers.filter(o => o.status === 'interested').length}
+        offers={boardOffers.filter(o => o.status === 'interested')}
+        isSimulation={isSimulationMode}
+      />
+
+      {/* Toast Flotante tras Curación Exitosa */}
+      {curationToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] px-5 py-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/10 flex items-center gap-3 font-display text-xs font-bold">
+            <div className="w-6 h-6 rounded-full bg-[#2ECC71]/20 text-[#2ECC71] flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+            </div>
+            <span>{curationToast.message}</span>
+            <button
+              onClick={() => setCurationToast(null)}
+              className="ml-2 text-white/50 dark:text-black/50 hover:text-white dark:hover:text-black"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Botón Redondo Flotante de IA Chatbot */}
