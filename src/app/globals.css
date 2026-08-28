@@ -235,6 +235,19 @@ details[open] .faq-answer {
   }
 }
 
+@keyframes curate-scan-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.curate-scan-shimmer {
+  animation: curate-scan-shimmer 1.6s ease-in-out infinite;
+}
+
 .hover-shimmer-btn {
   position: relative;
   overflow: hidden;

@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, cvs } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import CareerProfileForm from '@/components/profile/CareerProfileForm';
-import { SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default async function ProfilePreferencesPage() {
   const session = await auth();
@@ -19,6 +19,18 @@ export default async function ProfilePreferencesPage() {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+
+  const userCvs = await db
+    .select({
+      id: cvs.id,
+      title: cvs.title,
+      isBase: cvs.isBase,
+      isPrincipal: cvs.isPrincipal,
+      content: cvs.content,
+    })
+    .from(cvs)
+    .where(eq(cvs.userId, userId))
+    .orderBy(desc(cvs.createdAt));
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -38,13 +50,16 @@ export default async function ProfilePreferencesPage() {
               Mi Perfil & Criterios de Búsqueda
             </h1>
             <p className="text-xs sm:text-sm text-[#1e1b4b]/60 dark:text-slate-400 font-sans max-w-2xl">
-              Configura tu trayectoria, preferencias de empresa, modalidad y las reglas personalizadas para que la IA cure y puntúe tus ofertas de LinkedIn con máxima precisión.
+              Configura tu experiencia técnica, proyectos estrella y reglas de puntuación para que la IA evalúe ofertas de LinkedIn y adapte tus currículums con máxima precisión.
             </p>
           </div>
         </div>
 
         {/* Formulario de Perfil */}
-        <CareerProfileForm initialProfile={dbUser?.mcpProfile as any} />
+        <CareerProfileForm
+          initialProfile={dbUser?.mcpProfile as any}
+          userCvs={userCvs}
+        />
       </main>
     </div>
   );

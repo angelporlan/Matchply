@@ -14,6 +14,7 @@ import {
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
+import { parseHardConstraints } from "@/lib/curation-constraints";
 
 function cvLimitMessage(isGuest: boolean) {
   return isGuest
@@ -406,11 +407,20 @@ export async function updateUserMcpSettings(
       }
     }
 
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const currentProfile = (user?.mcpProfile as Record<string, unknown> | null) || {};
+    const incomingProfile = mcpProfile && typeof mcpProfile === 'object' ? mcpProfile : {};
+    const mergedProfile = {
+      ...currentProfile,
+      ...incomingProfile,
+      updatedAt: new Date().toISOString(),
+    };
+
     await db
       .update(users)
       .set({
         mcpCvId: mcpCvId || null,
-        mcpProfile: mcpProfile || null,
+        mcpProfile: mergedProfile,
       })
       .where(eq(users.id, userId));
 
@@ -420,6 +430,8 @@ export async function updateUserMcpSettings(
     });
 
     revalidatePath("/dashboard/integrations");
+    revalidatePath("/dashboard/profile");
+    revalidatePath("/dashboard/kanban");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating MCP settings:", error);
@@ -438,10 +450,15 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const currentProfile = (user?.mcpProfile as any) || {};
+    const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
 
     const updatedProfile = {
       ...currentProfile,
-      ...profileData,
+      ...profileFields,
+      hardConstraints: parseHardConstraints({
+        curationCriteria: profileFields?.curationCriteria,
+        bio: profileFields?.bio,
+      }),
       updatedAt: new Date().toISOString(),
     };
 
