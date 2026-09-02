@@ -471,6 +471,7 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
     await createAuditLog("career_profile_update", userId, session.user.email || null, {
       hasBio: !!profileData.bio,
+      hasMasterDocument: !!profileFields?.masterDocument,
       targetRolesCount: Array.isArray(profileData.targetRoles) ? profileData.targetRoles.length : 0,
     });
 

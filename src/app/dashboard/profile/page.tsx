@@ -50,7 +50,7 @@ export default async function ProfilePreferencesPage() {
               Mi Perfil & Criterios de Búsqueda
             </h1>
             <p className="text-xs sm:text-sm text-[#1e1b4b]/60 dark:text-slate-400 font-sans max-w-2xl">
-              Configura tu experiencia técnica, proyectos estrella y reglas de puntuación para que la IA evalúe ofertas de LinkedIn y adapte tus currículums con máxima precisión.
+              Pega tu experiencia (CV, LinkedIn o notas). La IA infiere tu perfil de software y redacta un documento maestro. Decir a qué rol aspiras es opcional.
             </p>
           </div>
         </div>

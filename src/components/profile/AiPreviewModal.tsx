@@ -37,6 +37,7 @@ interface AiPreviewModalProps {
     salaryMin?: number | '';
     salaryTarget?: number | '';
     curationCriteria: string;
+    masterDocument?: string;
   };
   constraintChips: string[];
 }
@@ -109,7 +110,7 @@ export default function AiPreviewModal({
               Payload de Contexto del Candidato:
             </p>
             <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto border border-slate-800">
-{`### PERFIL DEL CANDIDATO:
+{`${profileData.masterDocument ? `### DOCUMENTO MAESTRO:\n${profileData.masterDocument}\n\n` : ''}### PERFIL DEL CANDIDATO:
 - Trayectoria & Stack: ${profileData.bio || '(Sin biografía definida)'}
 - Roles Objetivo: ${profileData.targetRoles?.join(', ') || '(Sin definir)'}
 - Años de Experiencia: ${profileData.experienceYears || 'N/D'}

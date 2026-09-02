@@ -11,6 +11,7 @@ import {
   canCreateCv,
   getAllowedCvTemplate,
 } from '@/lib/subscription';
+import { formatCareerProfileContext } from '@/lib/profile-classification';
 
 export async function POST(req: NextRequest) {
   try {
@@ -108,7 +109,8 @@ export async function POST(req: NextRequest) {
       jobDescription: jobDescription,
       userSubscriptionStatus: user.subscriptionStatus,
       promptId: promptId,
-      candidateName: user.name || ''
+      candidateName: user.name || '',
+      careerProfileContext: formatCareerProfileContext(user.mcpProfile),
     });
 
     const reader = aiStream.getReader();

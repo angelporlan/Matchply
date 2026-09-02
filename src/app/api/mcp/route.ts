@@ -12,6 +12,7 @@ import {
 } from '@/lib/application-service';
 import { canAccessFeature } from '@/lib/subscription';
 import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/queue';
+import { formatCareerProfileContext } from '@/lib/profile-classification';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -302,6 +303,7 @@ async function executeTool(
           jobDescription: description,
           userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
           candidateName: userRecord?.name || '',
+          careerProfileContext: formatCareerProfileContext(userRecord?.mcpProfile),
         });
 
         const reader = aiStream.getReader();

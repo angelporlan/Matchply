@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       jobDescription: jobDescription,
       company: company,
       userSubscriptionStatus: user.subscriptionStatus,
+      mcpProfile: user.mcpProfile,
     });
 
     const reader = aiStream.getReader();

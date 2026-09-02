@@ -10,31 +10,45 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { action, currentProfile, qaList, sectionType, currentContent } = body || {};
+    const { action, currentProfile, qaList, sectionType, currentContent, dumpText, optionalTarget, classification } = body || {};
 
-    if (action === 'generate_questions') {
+    if (action === 'start_interview' || action === 'generate_questions') {
+      const dump = (dumpText || currentProfile?.bio || currentProfile?.masterDocument || '').trim();
+      const classification = await AIService.classifyCareerProfile({
+        dumpText: dump,
+        optionalTarget,
+        userSubscriptionStatus: actor.subscriptionStatus,
+      });
       const questions = await AIService.generateProfileInterviewQuestions({
         currentProfile: currentProfile || {},
+        classification,
+        dumpText: dump,
+        optionalTarget,
         userSubscriptionStatus: actor.subscriptionStatus,
       });
 
       return NextResponse.json({
         success: true,
+        classification,
         questions,
       });
     }
 
     if (action === 'synthesize_profile') {
-      if (!qaList || !Array.isArray(qaList) || qaList.length === 0) {
+      const dump = (dumpText || currentProfile?.bio || '').trim();
+      if ((!qaList || !Array.isArray(qaList) || qaList.length === 0) && !dump) {
         return NextResponse.json({
           success: false,
-          error: 'No se enviaron respuestas para sintetizar el perfil.',
+          error: 'Pega tu experiencia o responde al menos una pregunta.',
         }, { status: 400 });
       }
 
       const synthesizedProfile = await AIService.synthesizeProfileFromInterview({
         currentProfile: currentProfile || {},
-        qaList,
+        qaList: Array.isArray(qaList) ? qaList : [],
+        dumpText: dump,
+        optionalTarget,
+        classification: classification || currentProfile?.classification,
         userSubscriptionStatus: actor.subscriptionStatus,
       });
 

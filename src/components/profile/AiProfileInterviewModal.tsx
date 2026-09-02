@@ -1,33 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sparkles,
   X,
   Loader2,
-  Check,
   HelpCircle,
-  ArrowRight,
-  MessageSquare,
   Bot,
-  Plus,
   RefreshCw,
-  Send,
-  Zap,
 } from 'lucide-react';
 import DictationTextarea from './DictationTextarea';
-
-interface QuestionItem {
-  id: string;
-  category: string;
-  question: string;
-  hint: string;
-  suggestedAnswers: string[];
-}
+import type { InterviewQuestion, ProfileClassification } from '@/lib/profile-classification';
 
 interface AiProfileInterviewModalProps {
   isOpen: boolean;
   onClose: () => void;
+  dumpText: string;
+  optionalTarget?: string;
   currentProfile: any;
   onApplyProfile: (newProfile: any) => void;
 }
@@ -35,23 +24,33 @@ interface AiProfileInterviewModalProps {
 export default function AiProfileInterviewModal({
   isOpen,
   onClose,
+  dumpText,
+  optionalTarget,
   currentProfile,
   onApplyProfile,
 }: AiProfileInterviewModalProps) {
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [step, setStep] = useState<'questions' | 'review'>('questions');
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [classification, setClassification] = useState<ProfileClassification | null>(null);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [masterDraft, setMasterDraft] = useState('');
+  const [pendingProfile, setPendingProfile] = useState<any>(null);
 
-  // Load questions when modal opens
   useEffect(() => {
-    if (isOpen) {
-      fetchQuestions();
-    }
+    if (!isOpen) return;
+    setStep('questions');
+    setAnswers({});
+    setError(null);
+    setMasterDraft('');
+    setPendingProfile(null);
+    fetchInterview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const fetchQuestions = async () => {
+  const fetchInterview = async () => {
     setLoadingQuestions(true);
     setError(null);
     try {
@@ -59,80 +58,37 @@ export default function AiProfileInterviewModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'generate_questions',
+          action: 'start_interview',
+          dumpText,
+          optionalTarget,
           currentProfile,
         }),
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.questions)) {
         setQuestions(data.questions);
+        if (data.classification) setClassification(data.classification);
       } else {
-        throw new Error(data.error || 'Error al generar preguntas de entrevista.');
+        throw new Error(data.error || 'Error al generar preguntas.');
       }
     } catch (err: any) {
       console.error('Error fetching questions:', err);
-      // Fallback default questions
-      setQuestions([
-        {
-          id: 'q1',
-          category: 'ai_ml',
-          question: '¿Qué experiencia tienes integrando modelos de IA (Gemini, OpenRouter, OpenAI), arquitecturas RAG o bases de datos vectoriales?',
-          hint: 'Permite a la IA posicionarte con autoridad técnica en roles de AI Engineer o Full Stack IA.',
-          suggestedAnswers: [
-            'Integración de Gemini y OpenAI vía OpenRouter con streaming y function calling',
-            'Experiencia con RAG, embeddings y vector DBs (Pinecone, Qdrant o pgvector)',
-            'Automatización de pipelines y orquestación de LLMs en SaaS en producción'
-          ]
-        },
-        {
-          id: 'q2',
-          category: 'projects',
-          question: '¿Cuáles han sido los proyectos o hitos más destacados de tu carrera y qué métricas o resultados obtuviste?',
-          hint: 'Las cifras cuantificables y retos de arquitectura multiplican la efectividad del matching y CV.',
-          suggestedAnswers: [
-            'Lanzamiento de SaaS de punta a punta con usuarios activos y Stripe',
-            'Desarrollo de integraciones complejas en TypeScript, Next.js y PostgreSQL',
-            'Optimización de tiempos de carga y flujos automatizados reduciendo fricción un 70%'
-          ]
-        },
-        {
-          id: 'q3',
-          category: 'target',
-          question: '¿Hacia qué rol objetivo te enfocas (ej. AI Engineer, Lead) y qué industrias o ubicaciones prefieres?',
-          hint: 'La IA usará esto para puntuar las ofertas de LinkedIn y filtrar deal-breakers.',
-          suggestedAnswers: [
-            'AI Engineer o Full Stack en startups de producto / SaaS tecnológico',
-            'Equipos Fintech internacionales en Londres o Remoto internacional',
-            'Scale-ups en crecimiento evitando consultoras masivas y proyectos legacy'
-          ]
-        }
-      ]);
+      setError(err.message || 'No se pudieron generar las preguntas. Prueba de nuevo.');
     } finally {
       setLoadingQuestions(false);
     }
-  };
-
-  const handleApplySuggestion = (questionId: string, suggestion: string) => {
-    setAnswers((prev) => {
-      const current = prev[questionId] || '';
-      if (!current.trim()) return { ...prev, [questionId]: suggestion };
-      if (current.includes(suggestion)) return prev;
-      return { ...prev, [questionId]: `${current}. ${suggestion}` };
-    });
   };
 
   const handleSynthesize = async () => {
     setSynthesizing(true);
     setError(null);
     try {
-      const qaList = questions.map((q) => ({
-        question: q.question,
-        answer: (answers[q.id] || '').trim(),
-      })).filter((qa) => qa.answer.length > 0);
-
-      if (qaList.length === 0) {
-        throw new Error('Por favor responde al menos a una pregunta o haz clic en las sugerencias para continuar.');
-      }
+      const qaList = questions
+        .map((q) => ({
+          question: q.question,
+          answer: (answers[q.id] || '').trim(),
+        }))
+        .filter((qa) => qa.answer.length > 0);
 
       const res = await fetch('/api/ai/profile/interview', {
         method: 'POST',
@@ -141,13 +97,17 @@ export default function AiProfileInterviewModal({
           action: 'synthesize_profile',
           currentProfile,
           qaList,
+          dumpText,
+          optionalTarget,
+          classification,
         }),
       });
 
       const data = await res.json();
       if (data.success && data.profile) {
-        onApplyProfile(data.profile);
-        onClose();
+        setPendingProfile({ ...data.profile, classification });
+        setMasterDraft(data.profile.masterDocument || data.profile.bio || '');
+        setStep('review');
       } else {
         throw new Error(data.error || 'Error al sintetizar el perfil.');
       }
@@ -159,32 +119,39 @@ export default function AiProfileInterviewModal({
     }
   };
 
+  const handleConfirm = () => {
+    if (!pendingProfile) return;
+    onApplyProfile({
+      ...pendingProfile,
+      masterDocument: masterDraft.trim(),
+      classification,
+    });
+    onClose();
+  };
+
   if (!isOpen) return null;
+
+  const answeredCount = questions.filter((q) => (answers[q.id] || '').trim()).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0b0f19]/70 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-[#111827] border border-[#8B5CF6]/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Modal Header */}
         <div className="p-5 border-b border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-[#8B5CF6]/10 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8B5CF6] to-[#7c3aed] text-white flex items-center justify-center shadow-sm">
               <Bot className="w-5 h-5 stroke-[1.75]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold text-[#1e1b4b] dark:text-white font-display">
-                  Copiloto de Entrevista IA
-                </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8B5CF6]/15 text-[#8B5CF6]">
-                  Modo Precisión
-                </span>
-              </div>
+              <h2 className="text-base font-extrabold text-[#1e1b4b] dark:text-white font-display">
+                {step === 'review' ? 'Revisa tu documento maestro' : 'Copiloto de perfil'}
+              </h2>
               <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
-                Responde o haz clic en las sugerencias. La IA estructurará tu Perfil Maestro al instante.
+                {step === 'review'
+                  ? 'Edita el texto si hace falta. Esto es lo que usará la IA para puntuar ofertas y adaptar CVs.'
+                  : 'Responde solo lo que sepas. El objetivo profesional es opcional.'}
               </p>
             </div>
           </div>
-
           <button
             type="button"
             onClick={onClose}
@@ -194,105 +161,107 @@ export default function AiProfileInterviewModal({
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 shrink-0" />
+              <HelpCircle className="w-4 h-4 shrink-0 stroke-[1.75]" />
               <span>{error}</span>
             </div>
           )}
 
-          {loadingQuestions ? (
+          {classification && (
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-lg border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] font-bold text-[#6D28D9] dark:text-[#C4B5FD]">
+                {classification.summary}
+              </span>
+              {classification.stackHints.slice(0, 5).map((hint) => (
+                <span
+                  key={hint}
+                  className="inline-flex items-center rounded-lg border border-[#1e1b4b]/10 dark:border-white/10 px-2.5 py-1 text-[11px] font-bold text-[#1e1b4b] dark:text-slate-300"
+                >
+                  {hint}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {step === 'questions' && loadingQuestions && (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-3">
               <Loader2 className="w-8 h-8 text-[#8B5CF6] animate-spin stroke-[1.75]" />
               <p className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
-                Analizando tu contexto y formulando preguntas clave…
+                Leyendo tu experiencia y preparando preguntas…
               </p>
               <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans">
-                Buscando puntos ciegos técnicos para maximizar tu score de matching.
+                Solo preguntaremos lo que no está claro en lo que has pegado.
               </p>
             </div>
-          ) : (
-            <div className="space-y-6">
+          )}
+
+          {step === 'questions' && !loadingQuestions && (
+            <div className="space-y-5">
               {questions.map((q, index) => (
                 <div
                   key={q.id}
-                  className="bg-slate-50 dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-xl p-4.5 space-y-3 transition-all hover:border-[#8B5CF6]/40"
+                  className="bg-slate-50 dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-xl p-4 space-y-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B5CF6]">
-                        Pregunta {index + 1}
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#1e1b4b] dark:text-white font-display leading-snug">
-                        {q.question}
-                      </h4>
-                      {q.hint && (
-                        <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
-                          💡 {q.hint}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Suggestion Pills */}
-                  {q.suggestedAnswers?.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">
-                        Sugerencias rápidas (haz clic para añadir):
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B5CF6]">
+                      Pregunta {index + 1}
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-bold text-[#1e1b4b] dark:text-white font-display leading-snug">
+                      {q.question}
+                    </h4>
+                    {q.hint && (
+                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+                        {q.hint}
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {q.suggestedAnswers.map((suggestion, sIdx) => {
-                          const isSelected = (answers[q.id] || '').includes(suggestion);
-                          return (
-                            <button
-                              key={sIdx}
-                              type="button"
-                              onClick={() => handleApplySuggestion(q.id, suggestion)}
-                              className={`text-[11px] text-left px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[#8B5CF6]/15 text-[#8B5CF6] border-[#8B5CF6]/40 font-bold'
-                                  : 'bg-white dark:bg-[#111827] text-slate-600 dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8B5CF6]/30'
-                              }`}
-                            >
-                              <Plus className="w-3 h-3 inline mr-1 stroke-[1.75]" />
-                              {suggestion}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dictation / Custom Answer */}
-                  <div className="pt-2">
-                    <DictationTextarea
-                      id={`answer-${q.id}`}
-                      label="Tu respuesta (o dicta con el micrófono):"
-                      value={answers[q.id] || ''}
-                      onChange={(val) => setAnswers((prev) => ({ ...prev, [q.id]: val }))}
-                      rows={3}
-                      placeholder="Escribe o amplía con tus detalles técnicos reales..."
-                    />
+                    )}
                   </div>
+                  <DictationTextarea
+                    id={`answer-${q.id}`}
+                    label="Tu respuesta"
+                    value={answers[q.id] || ''}
+                    onChange={(val) => setAnswers((prev) => ({ ...prev, [q.id]: val }))}
+                    rows={3}
+                    placeholder="Escribe o dicta. Si no aplica, déjalo vacío."
+                  />
                 </div>
               ))}
             </div>
           )}
+
+          {step === 'review' && (
+            <DictationTextarea
+              id="master-review"
+              label="Documento maestro"
+              value={masterDraft}
+              onChange={setMasterDraft}
+              rows={12}
+              placeholder="Resumen de quién eres, qué has hecho y con qué tecnologías."
+            />
+          )}
         </div>
 
-        {/* Modal Footer */}
         <div className="p-4 border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between bg-slate-50 dark:bg-[#0e1422]">
-          <button
-            type="button"
-            onClick={fetchQuestions}
-            disabled={loadingQuestions || synthesizing}
-            className="text-xs font-bold text-slate-500 hover:text-[#8B5CF6] flex items-center gap-1.5 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className="w-3.5 h-3.5 stroke-[1.75]" />
-            <span>Generar otras preguntas</span>
-          </button>
+          {step === 'questions' ? (
+            <button
+              type="button"
+              onClick={fetchInterview}
+              disabled={loadingQuestions || synthesizing}
+              className="text-xs font-bold text-slate-500 hover:text-[#8B5CF6] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>Otras preguntas</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setStep('questions')}
+              className="text-xs font-bold text-slate-500 hover:text-[#8B5CF6] transition-colors"
+            >
+              Volver a las preguntas
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <button
@@ -302,24 +271,37 @@ export default function AiProfileInterviewModal({
             >
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={handleSynthesize}
-              disabled={synthesizing || loadingQuestions}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6D28D9] text-white text-xs font-bold shadow-md shadow-[#8B5CF6]/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer active:scale-98"
-            >
-              {synthesizing ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Sintetizando Perfil Maestro…</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                  <span>Sintetizar y Aplicar al Perfil</span>
-                </>
-              )}
-            </button>
+            {step === 'questions' ? (
+              <button
+                type="button"
+                onClick={handleSynthesize}
+                disabled={synthesizing || loadingQuestions}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#7c3aed] text-white text-xs font-bold shadow-md shadow-[#8B5CF6]/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {synthesizing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Redactando documento…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
+                    <span>
+                      {answeredCount === 0 ? 'Redactar solo con lo pegado' : 'Redactar documento'}
+                    </span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={!masterDraft.trim()}
+                className="px-5 py-2 rounded-xl bg-[#2ECC71] hover:bg-[#27AE60] text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                Usar este documento
+              </button>
+            )}
           </div>
         </div>
       </div>
