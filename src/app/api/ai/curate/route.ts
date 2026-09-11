@@ -7,6 +7,8 @@ import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { requireUserFeature } from '@/lib/permissions';
 import { revalidatePath } from 'next/cache';
+import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { curateOfferColumns } from '@/lib/job-offer-queries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,20 +51,29 @@ export async function POST(req: Request) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
+  try {
+    consumeRateLimit(`ai:curate:${userId}`, 4, 10 * 60_000);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return new NextResponse(error.message, { status: 429 });
+    }
+    throw error;
+  }
+
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) {
     return new NextResponse('User not found', { status: 404 });
   }
 
-  const userCvsList = await db
-    .select()
+  const [baseCv] = await db
+    .select({ id: cvs.id, title: cvs.title, content: cvs.content, isBase: cvs.isBase, isPrincipal: cvs.isPrincipal })
     .from(cvs)
     .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt));
+    .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))
+    .limit(1);
 
-  const baseCv = userCvsList.find((c) => c.isBase || c.isPrincipal) || userCvsList[0];
   const interestedOffers = await db
-    .select()
+    .select(curateOfferColumns)
     .from(jobOffers)
     .where(and(eq(jobOffers.userId, userId), eq(jobOffers.status, 'interested')))
     .orderBy(desc(jobOffers.createdAt));

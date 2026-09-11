@@ -5,6 +5,7 @@ import { cvs, users, jobOffers } from '@/db/schema';
 import { eq, desc, and, like } from 'drizzle-orm';
 import ArchivedOffersClient from './ArchivedOffersClient';
 import { isProSubscription } from '@/lib/subscription';
+import { cvListColumns, kanbanOfferColumns } from '@/lib/job-offer-queries';
 
 export default async function ArchivedOffersPage() {
   const session = await auth();
@@ -30,14 +31,13 @@ export default async function ArchivedOffersPage() {
 
   // 2. Obtener currículums del usuario
   const userCvs = await db
-    .select()
+    .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));
 
-  // 3. Obtener solo ofertas/candidaturas archivadas (status empieza con 'archived:')
   const offers = await db
-    .select()
+    .select(kanbanOfferColumns)
     .from(jobOffers)
     .where(
       and(

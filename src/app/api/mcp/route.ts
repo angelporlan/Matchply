@@ -13,6 +13,7 @@ import {
 import { canAccessFeature } from '@/lib/subscription';
 import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/queue';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
+import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -1148,6 +1149,18 @@ export async function POST(req: NextRequest) {
         jsonRpcError(null, -32003, 'A PRO subscription is required to use Matchply MCP tools'),
         { status: 403, headers: corsHeaders() },
       );
+    }
+
+    try {
+      consumeRateLimit(`mcp:${user.id}`, 60, 60_000);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return NextResponse.json(
+          jsonRpcError(null, -32029, error.message),
+          { status: 429, headers: corsHeaders() },
+        );
+      }
+      throw error;
     }
 
     // Parse body

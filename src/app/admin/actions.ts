@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { users, cvs, jobOffers, settings, prompts, auditLogs } from '@/db/schema';
 import { eq, and, not, sql, desc, gte, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { clearAiSettingsCache } from '@/lib/ai-settings';
 
 // Helper de seguridad para asegurar que solo los admins llaman a estas acciones
 async function verifyAdmin() {
@@ -154,6 +155,7 @@ export async function updateAISetting(key: string, value: string) {
         set: { value, updatedAt: new Date() },
       });
 
+    clearAiSettingsCache();
     revalidatePath('/admin');
     return { success: true };
   } catch (error: any) {

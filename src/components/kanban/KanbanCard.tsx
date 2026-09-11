@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { JobOffer, CV } from '@/db/schema';
+import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
 import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer, archiveJobOffer } from '@/app/dashboard/kanban/actions';
 import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Archive, Sparkles, Clock, FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
@@ -11,9 +11,9 @@ import { Draggable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface KanbanCardProps {
-  offer: JobOffer;
-  userCvs: CV[];
-  onOpenDetails: (offer: JobOffer) => void;
+  offer: KanbanOfferSummary;
+  userCvs: CvListItem[];
+  onOpenDetails: (offer: KanbanOfferSummary) => void;
   density?: 'compact' | 'comfortable';
   index: number;
   onDelete?: (offerId: string) => void;

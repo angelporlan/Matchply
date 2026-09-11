@@ -78,6 +78,13 @@
       "when": 1787480075126,
       "tag": "0010_dusty_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1789120000000,
+      "tag": "0011_kanban_list_indexes",
+      "breakpoints": true
     }
   ]
 }

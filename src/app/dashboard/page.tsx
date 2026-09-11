@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, jobOffers, prompts } from '@/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
+import { cvListColumns } from '@/lib/job-offer-queries';
 import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText, PartyPopper } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
@@ -50,20 +51,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // 2. Obtener lista de currículums del usuario (Principal primero, luego más recientes)
   const userCvs = await db
-    .select()
+    .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
 
-  // 3. Contar candidaturas
-  const offers = await db
-    .select()
+  const offerCounts = await db
+    .select({
+      status: jobOffers.status,
+      count: sql<number>`count(*)::int`,
+    })
     .from(jobOffers)
-    .where(eq(jobOffers.userId, userId));
+    .where(eq(jobOffers.userId, userId))
+    .groupBy(jobOffers.status);
 
-  const totalOffers = offers.length;
-  const interviewOffers = offers.filter(o => o.status === 'interview').length;
-  const successfulOffers = offers.filter(o => o.status === 'offer').length;
+  const totalOffers = offerCounts.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  const interviewOffers = Number(offerCounts.find((row) => row.status === 'interview')?.count || 0);
+  const successfulOffers = Number(offerCounts.find((row) => row.status === 'offer')?.count || 0);
 
   // 4. Obtener prompts no archivados para optimización de CV
   const availablePrompts = await db

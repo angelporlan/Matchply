@@ -36,7 +36,9 @@ export const cvs = pgTable('cv', {
   pageMargin: doublePrecision('pageMargin').default(36),
   scale: doublePrecision('scale').default(1.0),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index('cv_user_id_idx').on(table.userId),
+}));
 
 // Tabla de Ofertas de Trabajo y Seguimiento (Candidaturas)
 export const jobOffers = pgTable('job_offer', {
@@ -83,6 +85,8 @@ export const jobOffers = pgTable('job_offer', {
 }, (table) => ({
   externalIdentityIdx: uniqueIndex('job_offer_external_identity_idx')
     .on(table.userId, table.externalSource, table.externalId),
+  userUpdatedIdx: index('job_offer_user_updated_idx').on(table.userId, table.updatedAt),
+  userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
 }));
 
 // Códigos de un solo uso para vincular la extensión de Chrome.

@@ -32,11 +32,19 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=production
+      - DATABASE_POOL_MAX=8
+      - DATABASE_STATEMENT_TIMEOUT_MS=15000
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     restart: always
 
   # Worker interno: comparte imagen y base de datos, sin puertos públicos.
@@ -49,6 +57,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=production
+      - DATABASE_POOL_MAX=8
+      - DATABASE_STATEMENT_TIMEOUT_MS=180000
     env_file:
       - .env
     depends_on:

@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CV } from '@/db/schema';
+import { CvListItem } from '@/lib/job-offer-queries';
 import {
   Sparkles, Plus, FileText, Trash2, ArrowRight, Star, X,
   Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
@@ -84,7 +84,7 @@ const defaultPromptConfig = {
 };
 
 interface DashboardClientProps {
-  initialCvs: CV[];
+  initialCvs: CvListItem[];
   isPremium: boolean;
   availablePrompts: {
     id: string;
@@ -104,7 +104,7 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [userCvs, setUserCvs] = useState<CV[]>(initialCvs);
+  const [userCvs, setUserCvs] = useState<CvListItem[]>(initialCvs);
   const { t, language } = useLanguage();
 
   // Refresh dashboard data on mount to ensure it's always fresh and shows newly created CVs

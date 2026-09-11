@@ -32,6 +32,8 @@ services:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=development
       - NEXT_DISABLE_SWC_PATCH=1
+      - DATABASE_POOL_MAX=8
+      - DATABASE_STATEMENT_TIMEOUT_MS=15000
     env_file:
       - .env
     volumes:
@@ -53,6 +55,8 @@ services:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=development
       - NEXT_DISABLE_SWC_PATCH=1
+      - DATABASE_POOL_MAX=8
+      - DATABASE_STATEMENT_TIMEOUT_MS=180000
     env_file:
       - .env
     volumes:

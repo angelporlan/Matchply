@@ -3,6 +3,7 @@ import { and, desc, eq, gt, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { extensionInstallations, extensionPairingCodes, users } from '@/db/schema';
 import { requireUserFeature } from '@/lib/permissions';
+import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { NextRequest } from 'next/server';
 
 export const EXTENSION_SCOPE = 'linkedin:ingest' as const;
@@ -10,8 +11,6 @@ export const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 export const EXTENSION_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const pairingAttempts = new Map<string, { startedAt: number; count: number }>();
-const extensionRequests = new Map<string, { startedAt: number; count: number }>();
 
 export class ExtensionAuthError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -47,26 +46,24 @@ function extractBearer(req: NextRequest) {
   return token;
 }
 
-function rateLimit(map: Map<string, { startedAt: number; count: number }>, key: string, limit: number, windowMs: number) {
-  const now = Date.now();
-  const current = map.get(key);
-  if (!current || now - current.startedAt >= windowMs) {
-    map.set(key, { startedAt: now, count: 1 });
-    return;
+function rateLimit(key: string, limit: number, windowMs: number) {
+  try {
+    consumeRateLimit(key, limit, windowMs);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw new ExtensionAuthError(429, 'Too many extension requests; try again later');
+    }
+    throw error;
   }
-  if (current.count >= limit) {
-    throw new ExtensionAuthError(429, 'Too many extension requests; try again later');
-  }
-  current.count += 1;
 }
 
 export function rateLimitExtensionRequest(key: string) {
-  rateLimit(extensionRequests, key, 120, 60_000);
+  rateLimit(`ext:req:${key}`, 120, 60_000);
 }
 
 export async function createExtensionPairingCode(userId: string) {
   await requireUserFeature(userId, 'linkedinExtension');
-  rateLimit(pairingAttempts, userId, 5, 10 * 60_000);
+  rateLimit(`ext:pair:${userId}`, 5, 10 * 60_000);
 
   const code = createPairingCodeValue();
   const expiresAt = new Date(Date.now() + PAIRING_CODE_TTL_MS);

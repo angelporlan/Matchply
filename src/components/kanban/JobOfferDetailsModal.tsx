@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { JobOffer, CV } from '@/db/schema';
+import { JobOffer } from '@/db/schema';
+import { CvListItem } from '@/lib/job-offer-queries';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv
@@ -65,7 +66,7 @@ interface JobOfferDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   offer: JobOffer;
-  userCvs: CV[];
+  userCvs: CvListItem[];
 }
 
 export default function JobOfferDetailsModal({

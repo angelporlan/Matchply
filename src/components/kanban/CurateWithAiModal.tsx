@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, X, Check, Loader2, Building2 } from 'lucide-react';
-import { JobOffer } from '@/db/schema';
+import { KanbanOfferSummary } from '@/lib/job-offer-queries';
 
 export interface CuratedItem {
   id: string;
@@ -20,7 +20,7 @@ interface CurateWithAiModalProps {
   onSuccess: (summary?: { total: number; kept: number; archived: number }) => void;
   onScoresUpdated?: (results: CuratedItem[]) => void;
   offersCount: number;
-  offers?: JobOffer[];
+  offers?: KanbanOfferSummary[];
   isSimulation?: boolean;
 }
 

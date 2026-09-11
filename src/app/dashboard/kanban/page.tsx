@@ -6,6 +6,7 @@ import { cvs, users, jobOffers } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import KanbanBoard from '@/components/kanban/KanbanBoard';
 import { isProSubscription } from '@/lib/subscription';
+import { cvListColumns, kanbanOfferColumns } from '@/lib/job-offer-queries';
 
 export default async function KanbanPage() {
   const session = await auth();
@@ -31,14 +32,13 @@ export default async function KanbanPage() {
 
   // 2. Obtener lista de currículums del usuario
   const userCvs = await db
-    .select()
+    .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));
 
-  // 3. Obtener todas las ofertas/candidaturas de empleo del usuario
   const offers = await db
-    .select()
+    .select(kanbanOfferColumns)
     .from(jobOffers)
     .where(eq(jobOffers.userId, userId))
     .orderBy(desc(jobOffers.updatedAt));

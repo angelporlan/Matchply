@@ -6,6 +6,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/kanban/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
+import { cvListColumns } from '@/lib/job-offer-queries';
 
 interface OfferPageProps {
   params: {
@@ -53,7 +54,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
 
   // 3. Fetch user CVs
   const userCvs = await db
-    .select()
+    .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));

@@ -6,6 +6,7 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { createAuditLog } from "@/lib/audit";
+import { consumeRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -25,6 +26,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         
         const emailStr = credentials.email as string;
         const passwordStr = credentials.password as string;
+
+        try {
+          consumeRateLimit(`login:${emailStr.toLowerCase()}`, 10, 10 * 60_000);
+        } catch (error) {
+          if (error instanceof RateLimitError) return null;
+          throw error;
+        }
 
         const [user] = await db.select().from(users).where(eq(users.email, emailStr)).limit(1);
         if (!user || !user.passwordHash) return null;

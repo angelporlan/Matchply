@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { JobOffer, CV } from '@/db/schema';
+import { JobOffer } from '@/db/schema';
+import { CvListItem } from '@/lib/job-offer-queries';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv, 
@@ -68,7 +69,7 @@ function getParsedJson(field: any): any {
 
 interface JobOfferDetailsPageProps {
   initialOffer: JobOffer;
-  userCvs: CV[];
+  userCvs: CvListItem[];
   isPremium: boolean;
   initialResearch?: any;
 }

@@ -3,20 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
-import { JobOffer, CV } from '@/db/schema';
+import { JobOffer } from '@/db/schema';
+import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
 import KanbanCard from './KanbanCard';
 import KanbanDenseListItem from './KanbanDenseListItem';
 import CurateWithAiModal from './CurateWithAiModal';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers } from '@/app/dashboard/kanban/actions';
+import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/kanban/actions';
 import { formatDate } from '@/lib/utils';
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface KanbanBoardProps {
-  offers: JobOffer[];
-  userCvs: CV[];
+  offers: KanbanOfferSummary[];
+  userCvs: CvListItem[];
 }
 
 interface Column {
@@ -42,6 +43,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
@@ -125,153 +127,41 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     });
   };
 
-  const getOffersReportText = (filterType: 'all' | 'today' | '7days' | 'custom', startVal: string, endVal: string, limitForAi = false) => {
-    let targetOffers = localOffers.filter((offer) => {
-      if (isArchivedStatus(offer.status)) return false;
+  const loadOffersReportText = async (
+    filterType: 'all' | 'today' | '7days' | 'custom',
+    startVal: string,
+    endVal: string,
+    limitForAi = false,
+  ) => {
+    const result = await exportJobOffersReport({
+      dateFilter: filterType,
+      startDate: startVal,
+      endDate: endVal,
+      limitForAi,
+      language,
+    });
+    if (result.error) {
+      console.error(result.error);
+      return '';
+    }
+    return result.text || '';
+  };
 
-      let matchesDateFilter = true;
-      if (filterType !== 'all') {
-        const offerDate = new Date(offer.createdAt);
-        offerDate.setHours(0, 0, 0, 0);
-        const offerTime = offerDate.getTime();
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayTime = today.getTime();
-
-        if (filterType === 'today') {
-          matchesDateFilter = offerTime === todayTime;
-        } else if (filterType === '7days') {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(today.getDate() - 7);
-          const sevenDaysAgoTime = sevenDaysAgo.getTime();
-          matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
-        } else if (filterType === 'custom') {
-          if (startVal) {
-            const start = new Date(startVal + 'T00:00:00');
-            matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
-          }
-          if (endVal) {
-            const end = new Date(endVal + 'T00:00:00');
-            matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
-          }
-        }
+  const handleOpenDetails = async (offer: KanbanOfferSummary) => {
+    setDetailsLoading(true);
+    setSelectedOfferForDetails(null);
+    try {
+      const result = await getOwnedJobOffer(offer.id);
+      if (result.offer) {
+        setSelectedOfferForDetails(result.offer);
       }
-      return matchesDateFilter;
-    });
-
-    if (targetOffers.length === 0) return '';
-
-    // Limit to the 8 most recent applications if limitForAi is true to prevent token overload
-    if (limitForAi && targetOffers.length > 8) {
-      targetOffers = targetOffers.slice(0, 8);
+    } finally {
+      setDetailsLoading(false);
     }
-
-    const usedCvIds = new Set<string>();
-    targetOffers.forEach(o => {
-      if (o.cvId) usedCvIds.add(o.cvId);
-    });
-
-    const uniqueCvs = userCvs.filter(cv => usedCvIds.has(cv.id));
-    const isEs = language === 'es';
-    
-    const titleText = isEs ? 'REPORTE DE POSTULACIONES - MATCHPLY' : 'APPLICATIONS REPORT - MATCHPLY';
-    const periodLabel = isEs ? 'Período' : 'Period';
-    const exportDateLabel = isEs ? 'Fecha de exportación' : 'Export date';
-    const applicationsSectionTitle = isEs ? 'POSTULACIONES COPIADAS' : 'COPIED APPLICATIONS';
-    const cvsSectionTitle = isEs ? 'CURRÍCULUMS VINCULADOS' : 'LINKED CVs';
-    
-    let periodValue = '';
-    if (filterType === 'all') {
-      periodValue = isEs ? 'Todas las postulaciones' : 'All applications';
-    } else if (filterType === 'today') {
-      periodValue = isEs ? 'Hoy' : 'Today';
-    } else if (filterType === '7days') {
-      periodValue = isEs ? 'Últimos 7 días' : 'Last 7 days';
-    } else if (filterType === 'custom') {
-      const startStr = startVal ? formatDate(new Date(startVal + 'T00:00:00')) : '...';
-      const endStr = endVal ? formatDate(new Date(endVal + 'T00:00:00')) : '...';
-      periodValue = isEs ? `Rango: ${startStr} - ${endStr}` : `Range: ${startStr} - ${endStr}`;
-    }
-
-    const todayDate = new Date();
-    const formattedExportDate = `${formatDate(todayDate)} ${todayDate.toLocaleTimeString(language === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit' })}`;
-
-    let textStr = `==================================================
-${titleText}
-==================================================
-• ${periodLabel}: ${periodValue}
-• ${exportDateLabel}: ${formattedExportDate}
-
-==================================================
-${applicationsSectionTitle} (${targetOffers.length})
-==================================================
-`;
-
-    targetOffers.forEach((offer, idx) => {
-      const statusText = t(`kanban.columns.${offer.status}.title`);
-      const cvObj = offer.cvId ? userCvs.find(cv => cv.id === offer.cvId) : null;
-      const cvTitle = cvObj ? cvObj.title : (isEs ? 'Ninguno' : 'None');
-
-      // Truncate job description if limitForAi is enabled
-      let descriptionText = offer.description || (isEs ? 'Sin descripción' : 'No description');
-      if (limitForAi && descriptionText.length > 600) {
-        descriptionText = descriptionText.substring(0, 600) + '... [Descripción truncada para optimización de tokens]';
-      }
-
-      textStr += `
---------------------------------------------------
-${idx + 1}. ${offer.title.toUpperCase()} en ${offer.company.toUpperCase()}
---------------------------------------------------
-• ${isEs ? 'Puesto' : 'Job Title'}: ${offer.title}
-• ${isEs ? 'Empresa' : 'Company'}: ${offer.company}
-• ${isEs ? 'Enlace' : 'Link'}: ${offer.url || (isEs ? 'No proporcionado' : 'Not provided')}
-• ${isEs ? 'Plataforma' : 'Platform'}: ${offer.platform}
-• ${isEs ? 'Estado' : 'Status'}: ${statusText}
-• ${isEs ? 'CV Vinculado' : 'Linked CV'}: ${cvTitle}
-
-• ${isEs ? 'Descripción' : 'Description'}:
-${descriptionText}
-`;
-    });
-
-    if (uniqueCvs.length > 0) {
-      textStr += `
-==================================================
-${cvsSectionTitle} (${uniqueCvs.length})
-==================================================
-`;
-
-      uniqueCvs.forEach((cv) => {
-        const offersUsingThisCv = targetOffers.filter(o => o.cvId === cv.id);
-        const offersList = offersUsingThisCv
-          .map(o => `  - ${o.title} en ${o.company} (${t(`kanban.columns.${o.status}.title`)})`)
-          .join('\n');
-
-        // Truncate CV content if limitForAi is enabled
-        let cvContentText = cv.content;
-        if (limitForAi && cvContentText.length > 3000) {
-          cvContentText = cvContentText.substring(0, 3000) + '\n... [Contenido del CV truncado para optimización de tokens]';
-        }
-
-        textStr += `
---------------------------------------------------
-CV: ${cv.title}
-${isEs ? 'Utilizado en las siguientes postulaciones:' : 'Used in the following applications:'}
-${offersList}
-
-${isEs ? 'Contenido del CV:' : 'CV Content:'}
-${cvContentText}
---------------------------------------------------
-`;
-      });
-    }
-
-    return textStr;
   };
 
   const handleCopyData = async () => {
-    const textStr = getOffersReportText(copyDateFilter, copyStartDate, copyEndDate);
+    const textStr = await loadOffersReportText(copyDateFilter, copyStartDate, copyEndDate);
     if (!textStr) return;
 
     try {
@@ -347,7 +237,7 @@ ${cvContentText}
     setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
 
     // Format target offers using active board date filters
-    const reportText = getOffersReportText(dateFilter, startDate, endDate, true);
+    const reportText = await loadOffersReportText(dateFilter, startDate, endDate, true);
 
     if (!reportText) {
       setIsChatLoading(false);
@@ -414,7 +304,7 @@ ${cvContentText}
     setChatMessages(prev => [...prev, { role: 'user', content: messageText }]);
 
     const isEs = language === 'es';
-    const reportText = getOffersReportText(dateFilter, startDate, endDate, true);
+    const reportText = await loadOffersReportText(dateFilter, startDate, endDate, true);
     
     const updatedHistory = [...chatMessages, { role: 'user', content: messageText }];
     const conversationHistoryText = updatedHistory
@@ -556,7 +446,7 @@ Responde de forma concisa y directa al usuario.
   }, [offers]);
 
   // Bulk Archive Handlers
-  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: JobOffer[]) => {
+  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: KanbanOfferSummary[]) => {
     if (offersToArchive.length === 0) return;
     setArchiveTarget({
       isOpen: true,
@@ -1164,7 +1054,7 @@ Responde de forma concisa y directa al usuario.
                               key={offer.id}
                               offer={offer}
                               index={index}
-                              onOpenDetails={setSelectedOfferForDetails}
+                              onOpenDetails={handleOpenDetails}
                               onDelete={handleDeleteOffer}
                             />
                           ))
@@ -1174,7 +1064,7 @@ Responde de forma concisa y directa al usuario.
                               key={offer.id}
                               offer={offer}
                               userCvs={userCvs}
-                              onOpenDetails={setSelectedOfferForDetails}
+                              onOpenDetails={handleOpenDetails}
                               density={viewMode}
                               index={index}
                               onDelete={handleDeleteOffer}
@@ -1552,11 +1442,19 @@ Responde de forma concisa y directa al usuario.
         </div>
       )}
 
+      {detailsLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="rounded-xl bg-white dark:bg-[#1f2937] px-4 py-3 text-sm text-[#1e1b4b] dark:text-white shadow-lg">
+            {language === 'es' ? 'Cargando oferta…' : 'Loading offer…'}
+          </div>
+        </div>
+      )}
+
       {selectedOfferForDetails && (
         <JobOfferDetailsModal
           isOpen={!!selectedOfferForDetails}
           onClose={() => setSelectedOfferForDetails(null)}
-          offer={offers.find(o => o.id === selectedOfferForDetails.id) || selectedOfferForDetails}
+          offer={selectedOfferForDetails}
           userCvs={userCvs}
         />
       )}

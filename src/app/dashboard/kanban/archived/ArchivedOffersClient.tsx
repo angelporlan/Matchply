@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
-import { JobOffer, CV } from '@/db/schema';
-import { restoreArchivedJobOffer, deleteJobOffer, updateJobOfferCv } from '@/app/dashboard/kanban/actions';
+import { JobOffer } from '@/db/schema';
+import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
+import { restoreArchivedJobOffer, deleteJobOffer, updateJobOfferCv, getOwnedJobOffer } from '@/app/dashboard/kanban/actions';
 import JobOfferDetailsModal from '@/components/kanban/JobOfferDetailsModal';
 import AlertModal from '@/components/ui/AlertModal';
 import { formatDate } from '@/lib/utils';
@@ -17,8 +18,8 @@ import {
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface ArchivedOffersClientProps {
-  offers: JobOffer[];
-  userCvs: CV[];
+  offers: KanbanOfferSummary[];
+  userCvs: CvListItem[];
   isPremium: boolean;
 }
 
@@ -34,8 +35,22 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
   // States
   const [loading, setLoading] = useState<string | null>(null); // Guardará el ID de la oferta en acción
   const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [offerToDelete, setOfferToDelete] = useState<JobOffer | null>(null);
+
+  const handleOpenDetails = async (offer: KanbanOfferSummary) => {
+    setDetailsLoading(true);
+    setSelectedOfferForDetails(null);
+    try {
+      const result = await getOwnedJobOffer(offer.id);
+      if (result.offer) {
+        setSelectedOfferForDetails(result.offer);
+      }
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+  const [offerToDelete, setOfferToDelete] = useState<KanbanOfferSummary | null>(null);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,7 +147,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
     setLoading(null);
   };
 
-  const handleDeleteClick = (offer: JobOffer) => {
+  const handleDeleteClick = (offer: KanbanOfferSummary) => {
     setOfferToDelete(offer);
     setIsDeleteModalOpen(true);
   };
@@ -421,7 +436,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
             return (
               <div
                 key={offer.id}
-                onClick={() => setSelectedOfferForDetails(offer)}
+                onClick={() => handleOpenDetails(offer)}
                 className={`bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10 hover:shadow-md transition-all rounded-[12px] p-5 relative overflow-hidden flex flex-col justify-between group cursor-pointer ${
                   isOfferLoading ? 'opacity-50 pointer-events-none' : ''
                 }`}
@@ -478,7 +493,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                   <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      onClick={() => setSelectedOfferForDetails(offer)}
+                      onClick={() => handleOpenDetails(offer)}
                       className="text-[#1e1b4b]/50 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] transition-all hover:shadow-xs"
                       title={t('kanban.archived.cardDetailsBtn')}
                     >
@@ -571,12 +586,19 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
         </div>
       )}
 
-      {/* Modales de Detalles y Confirmación */}
+      {detailsLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="rounded-xl bg-white dark:bg-[#1f2937] px-4 py-3 text-sm text-[#1e1b4b] dark:text-white shadow-lg">
+            {language === 'es' ? 'Cargando oferta…' : 'Loading offer…'}
+          </div>
+        </div>
+      )}
+
       {selectedOfferForDetails && (
         <JobOfferDetailsModal
           isOpen={!!selectedOfferForDetails}
           onClose={() => setSelectedOfferForDetails(null)}
-          offer={offers.find(o => o.id === selectedOfferForDetails.id) || selectedOfferForDetails}
+          offer={selectedOfferForDetails}
           userCvs={userCvs}
         />
       )}

@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { requireUserFeature } from "@/lib/permissions";
+import { formatDate } from "@/lib/utils";
 
 const ARCHIVED_STATUS_PREFIX = "archived:";
 const VALID_PIPELINE_STATUSES = ["interested", "applied", "interview", "offer", "rejected"] as const;
@@ -25,6 +26,216 @@ function getRestoreStatus(status: string): PipelineStatus {
   }
 
   return getValidPipelineStatus(status.slice(ARCHIVED_STATUS_PREFIX.length));
+}
+
+const COLUMN_TITLES: Record<'es' | 'en', Record<string, string>> = {
+  es: {
+    interested: 'Interesado',
+    applied: 'Aplicado',
+    interview: 'Entrevista',
+    offer: 'Oferta',
+    rejected: 'Rechazado',
+  },
+  en: {
+    interested: 'Interested',
+    applied: 'Applied',
+    interview: 'Interview',
+    offer: 'Offer',
+    rejected: 'Rejected',
+  },
+};
+
+export async function getOwnedJobOffer(offerId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+    await requireUserFeature(session.user.id, "kanban");
+
+    const [offer] = await db
+      .select()
+      .from(jobOffers)
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, session.user.id)))
+      .limit(1);
+
+    if (!offer) {
+      throw new Error("Offer not found");
+    }
+
+    return { success: true as const, offer };
+  } catch (error: any) {
+    console.error("Error loading job offer:", error);
+    return { error: error.message || "Failed to load offer" };
+  }
+}
+
+export async function exportJobOffersReport(options: {
+  dateFilter: 'all' | 'today' | '7days' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  limitForAi?: boolean;
+  language?: 'es' | 'en';
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+    await requireUserFeature(session.user.id, "kanban");
+
+    const language = options.language === 'en' ? 'en' : 'es';
+    const isEs = language === 'es';
+    const userId = session.user.id;
+
+    const offers = await db
+      .select({
+        id: jobOffers.id,
+        title: jobOffers.title,
+        company: jobOffers.company,
+        url: jobOffers.url,
+        platform: jobOffers.platform,
+        status: jobOffers.status,
+        cvId: jobOffers.cvId,
+        description: jobOffers.description,
+        createdAt: jobOffers.createdAt,
+      })
+      .from(jobOffers)
+      .where(eq(jobOffers.userId, userId))
+      .orderBy(desc(jobOffers.createdAt));
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    let targetOffers = offers.filter((offer) => {
+      if (offer.status.startsWith(ARCHIVED_STATUS_PREFIX)) return false;
+      if (options.dateFilter === 'all') return true;
+
+      const offerDate = new Date(offer.createdAt);
+      offerDate.setHours(0, 0, 0, 0);
+      const offerTime = offerDate.getTime();
+
+      if (options.dateFilter === 'today') return offerTime === todayTime;
+      if (options.dateFilter === '7days') return offerTime >= sevenDaysAgo.getTime() && offerTime <= todayTime;
+      if (options.dateFilter === 'custom') {
+        let matches = true;
+        if (options.startDate) {
+          matches = matches && offerTime >= new Date(`${options.startDate}T00:00:00`).getTime();
+        }
+        if (options.endDate) {
+          matches = matches && offerTime <= new Date(`${options.endDate}T00:00:00`).getTime();
+        }
+        return matches;
+      }
+      return true;
+    });
+
+    if (options.limitForAi && targetOffers.length > 8) {
+      targetOffers = targetOffers.slice(0, 8);
+    }
+
+    if (targetOffers.length === 0) {
+      return { success: true as const, text: '' };
+    }
+
+    const usedCvIds = Array.from(new Set(targetOffers.map((offer) => offer.cvId).filter((id): id is string => Boolean(id))));
+    const linkedCvs = usedCvIds.length
+      ? await db
+          .select({ id: cvs.id, title: cvs.title, content: cvs.content })
+          .from(cvs)
+          .where(and(eq(cvs.userId, userId), inArray(cvs.id, usedCvIds)))
+      : [];
+    const cvById = new Map(linkedCvs.map((cv) => [cv.id, cv]));
+
+    const titleText = isEs ? 'REPORTE DE POSTULACIONES - MATCHPLY' : 'APPLICATIONS REPORT - MATCHPLY';
+    const periodLabel = isEs ? 'Período' : 'Period';
+    const exportDateLabel = isEs ? 'Fecha de exportación' : 'Export date';
+    const applicationsSectionTitle = isEs ? 'POSTULACIONES COPIADAS' : 'COPIED APPLICATIONS';
+    const cvsSectionTitle = isEs ? 'CURRÍCULUMS VINCULADOS' : 'LINKED CVs';
+
+    let periodValue = isEs ? 'Todas las postulaciones' : 'All applications';
+    if (options.dateFilter === 'today') periodValue = isEs ? 'Hoy' : 'Today';
+    else if (options.dateFilter === '7days') periodValue = isEs ? 'Últimos 7 días' : 'Last 7 days';
+    else if (options.dateFilter === 'custom') {
+      const startStr = options.startDate ? formatDate(new Date(`${options.startDate}T00:00:00`)) : '...';
+      const endStr = options.endDate ? formatDate(new Date(`${options.endDate}T00:00:00`)) : '...';
+      periodValue = isEs ? `Rango: ${startStr} - ${endStr}` : `Range: ${startStr} - ${endStr}`;
+    }
+
+    const formattedExportDate = `${formatDate(new Date())} ${new Date().toLocaleTimeString(isEs ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit' })}`;
+
+    let textStr = `==================================================
+${titleText}
+==================================================
+• ${periodLabel}: ${periodValue}
+• ${exportDateLabel}: ${formattedExportDate}
+
+==================================================
+${applicationsSectionTitle} (${targetOffers.length})
+==================================================
+`;
+
+    targetOffers.forEach((offer, idx) => {
+      const statusText = COLUMN_TITLES[language][offer.status] || offer.status;
+      const cvObj = offer.cvId ? cvById.get(offer.cvId) : null;
+      const cvTitle = cvObj ? cvObj.title : (isEs ? 'Ninguno' : 'None');
+      let descriptionText = offer.description || (isEs ? 'Sin descripción' : 'No description');
+      if (options.limitForAi && descriptionText.length > 600) {
+        descriptionText = `${descriptionText.substring(0, 600)}... [Descripción truncada para optimización de tokens]`;
+      }
+
+      textStr += `
+--------------------------------------------------
+${idx + 1}. ${offer.title.toUpperCase()} en ${offer.company.toUpperCase()}
+--------------------------------------------------
+• ${isEs ? 'Puesto' : 'Job Title'}: ${offer.title}
+• ${isEs ? 'Empresa' : 'Company'}: ${offer.company}
+• ${isEs ? 'Enlace' : 'Link'}: ${offer.url || (isEs ? 'No proporcionado' : 'Not provided')}
+• ${isEs ? 'Plataforma' : 'Platform'}: ${offer.platform}
+• ${isEs ? 'Estado' : 'Status'}: ${statusText}
+• ${isEs ? 'CV Vinculado' : 'Linked CV'}: ${cvTitle}
+
+• ${isEs ? 'Descripción' : 'Description'}:
+${descriptionText}
+`;
+    });
+
+    if (linkedCvs.length > 0) {
+      textStr += `
+==================================================
+${cvsSectionTitle} (${linkedCvs.length})
+==================================================
+`;
+      linkedCvs.forEach((cv) => {
+        const offersUsingThisCv = targetOffers.filter((offer) => offer.cvId === cv.id);
+        const offersList = offersUsingThisCv
+          .map((offer) => `  - ${offer.title} en ${offer.company} (${COLUMN_TITLES[language][offer.status] || offer.status})`)
+          .join('\n');
+        let cvContentText = cv.content;
+        if (options.limitForAi && cvContentText.length > 3000) {
+          cvContentText = `${cvContentText.substring(0, 3000)}\n... [Contenido del CV truncado para optimización de tokens]`;
+        }
+        textStr += `
+--------------------------------------------------
+CV: ${cv.title}
+${isEs ? 'Utilizado en las siguientes postulaciones:' : 'Used in the following applications:'}
+${offersList}
+
+${isEs ? 'Contenido del CV:' : 'CV Content:'}
+${cvContentText}
+--------------------------------------------------
+`;
+      });
+    }
+
+    return { success: true as const, text: textStr };
+  } catch (error: any) {
+    console.error("Error exporting job offers:", error);
+    return { error: error.message || "Failed to export offers" };
+  }
 }
 
 export async function updateJobOfferStatus(offerId: string, newStatus: string) {

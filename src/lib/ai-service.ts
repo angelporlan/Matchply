@@ -1,6 +1,8 @@
 import { db } from '@/db';
-import { settings, prompts } from '@/db/schema';
+import { prompts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getAiSetting } from '@/lib/ai-settings';
+import { AI_FETCH_TIMEOUT_MS, AI_STREAM_CONNECT_TIMEOUT_MS, fetchWithTimeout } from '@/lib/http';
 import {
   DEFAULT_FREE_PROVIDER,
   DEFAULT_FREE_MODEL,
@@ -125,17 +127,7 @@ export class AIService {
   }
 
   private static async getSetting(key: string, defaultValue: string): Promise<string> {
-    try {
-      const [setting] = await db
-        .select()
-        .from(settings)
-        .where(eq(settings.key, key))
-        .limit(1);
-      return setting ? setting.value : defaultValue;
-    } catch (e) {
-      console.error(`[AIService] Error al leer setting "${key}" de la DB. Usando default "${defaultValue}":`, e);
-      return defaultValue;
-    }
+    return getAiSetting(key, defaultValue);
   }
 
   private static templatePrompt(template: string, cv: string, job: string): string {
@@ -401,7 +393,7 @@ export class AIService {
     }
 
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${key}`,
@@ -422,7 +414,7 @@ export class AIService {
             }
           ]
         })
-      });
+      }, AI_FETCH_TIMEOUT_MS);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -453,7 +445,7 @@ export class AIService {
     }
 
     try {
-      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      const response = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${key}`,
@@ -473,7 +465,7 @@ export class AIService {
             }
           ]
         })
-      });
+      }, AI_FETCH_TIMEOUT_MS);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -504,7 +496,7 @@ export class AIService {
     }
 
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
         {
           method: "POST",
@@ -526,7 +518,8 @@ export class AIService {
               temperature: 0.2,
             }
           })
-        }
+        },
+        AI_FETCH_TIMEOUT_MS,
       );
 
       if (!response.ok) {
@@ -574,7 +567,7 @@ export class AIService {
       sanitizedModel = 'openai/' + sanitizedModel;
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${key}`,
@@ -590,7 +583,7 @@ export class AIService {
           { role: "user", content: userPrompt }
         ]
       })
-    });
+    }, AI_STREAM_CONNECT_TIMEOUT_MS);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -612,7 +605,7 @@ export class AIService {
       return this.streamMockResponse(cv, job, `DeepSeek Oficial (Modelo: ${model})`);
     }
 
-    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    const response = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${key}`,
@@ -627,7 +620,7 @@ export class AIService {
           { role: "user", content: userPrompt }
         ]
       })
-    });
+    }, AI_STREAM_CONNECT_TIMEOUT_MS);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -649,7 +642,7 @@ export class AIService {
       return this.streamMockResponse(cv, job, `Gemini Oficial (Modelo: ${model})`);
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`,
       {
         method: "POST",
@@ -671,7 +664,8 @@ export class AIService {
             temperature: 0.2,
           }
         })
-      }
+      },
+      AI_STREAM_CONNECT_TIMEOUT_MS,
     );
 
     if (!response.ok) {

@@ -12,6 +12,7 @@ import {
   getAllowedCvTemplate,
 } from '@/lib/subscription';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
+import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,14 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = actor.userId;
+    try {
+      consumeRateLimit(`ai:optimize:${userId}`, 8, 10 * 60_000);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return new NextResponse(error.message, { status: 429 });
+      }
+      throw error;
+    }
     const body = await req.json();
     const {
       baseCvId,

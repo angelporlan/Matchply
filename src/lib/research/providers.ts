@@ -1,9 +1,7 @@
 import { createHash } from 'crypto';
 import { isIP } from 'net';
 import { lookup } from 'node:dns/promises';
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { settings } from '@/db/schema';
+import { getAiSetting } from '@/lib/ai-settings';
 import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER, getDefaultModelForProvider } from '@/lib/models';
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -162,12 +160,8 @@ export async function fetchPublicSource(result: WebSearchResult): Promise<Public
 }
 
 export async function getProModelConfig() {
-  const getSetting = async (key: string, fallback: string) => {
-    const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
-    return row?.value || fallback;
-  };
-  const provider = await getSetting('pro_provider', DEFAULT_PRO_PROVIDER);
-  const model = await getSetting('pro_model', getDefaultModelForProvider('pro', provider));
+  const provider = await getAiSetting('pro_provider', DEFAULT_PRO_PROVIDER);
+  const model = await getAiSetting('pro_model', getDefaultModelForProvider('pro', provider));
   return { provider, model: model || DEFAULT_PRO_MODEL };
 }
 

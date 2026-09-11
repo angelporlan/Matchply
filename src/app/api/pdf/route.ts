@@ -6,12 +6,23 @@ import { generatePdfBuffer } from '@/lib/pdf-engine';
 import { createAuditLog } from '@/lib/audit';
 import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
+import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
 
 export async function GET(req: NextRequest) {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    try {
+      consumeRateLimit(`pdf:${actor.userId}`, 60, 60_000);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return new NextResponse(error.message, { status: 429 });
+      }
+      throw error;
     }
 
     const { searchParams } = new URL(req.url);
@@ -49,7 +60,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const buffer = await generatePdfBuffer(cv.content, {
+    const pdfOptions = {
       template: getAllowedCvTemplate(actor.subscriptionStatus, cv.templateName, {
         isGuest: actor.kind === 'guest',
       }),
@@ -58,7 +69,20 @@ export async function GET(req: NextRequest) {
       pageMargin: cv.pageMargin ?? 36,
       fontSize: (cv.scale ?? 1.0) * 12.5, // back-converting scale to fontSize
       showIcons: true
+    };
+    const cacheKey = pdfCacheKey({
+      content: cv.content,
+      template: pdfOptions.template,
+      accentColor: pdfOptions.accentColor,
+      fontFamily: pdfOptions.fontFamily,
+      pageMargin: pdfOptions.pageMargin,
+      fontSize: pdfOptions.fontSize,
     });
+    let buffer = getCachedPdf(cacheKey);
+    if (!buffer) {
+      buffer = await generatePdfBuffer(cv.content, pdfOptions);
+      setCachedPdf(cacheKey, buffer);
+    }
 
     const userName = actor.name || 'User';
     const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
@@ -85,6 +109,15 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    try {
+      consumeRateLimit(`pdf:${actor.userId}`, 60, 60_000);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return new NextResponse(error.message, { status: 429 });
+      }
+      throw error;
+    }
+
     const body = await req.json();
     const { content, template, accentColor, fontFamily, pageMargin, scale } = body;
 
@@ -92,7 +125,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Missing content', { status: 400 });
     }
 
-    const buffer = await generatePdfBuffer(content, {
+    const pdfOptions = {
       template: getAllowedCvTemplate(actor.subscriptionStatus, template, {
         isGuest: actor.kind === 'guest',
       }),
@@ -101,7 +134,20 @@ export async function POST(req: NextRequest) {
       pageMargin: pageMargin || 36,
       fontSize: (scale || 1.0) * 12.5,
       showIcons: true
+    };
+    const cacheKey = pdfCacheKey({
+      content,
+      template: pdfOptions.template,
+      accentColor: pdfOptions.accentColor,
+      fontFamily: pdfOptions.fontFamily,
+      pageMargin: pdfOptions.pageMargin,
+      fontSize: pdfOptions.fontSize,
     });
+    let buffer = getCachedPdf(cacheKey);
+    if (!buffer) {
+      buffer = await generatePdfBuffer(content, pdfOptions);
+      setCachedPdf(cacheKey, buffer);
+    }
 
     return new Response(new Uint8Array(buffer), {
       headers: {
