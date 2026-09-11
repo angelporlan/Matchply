@@ -85,6 +85,13 @@
       "when": 1789120000000,
       "tag": "0011_kanban_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1789123600000,
+      "tag": "0012_ai_job_queue",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, jobOffers, cvs } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { AIService } from '@/lib/ai-service';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/lib/audit';
 import {
@@ -12,8 +11,12 @@ import {
 } from '@/lib/application-service';
 import { canAccessFeature } from '@/lib/subscription';
 import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/queue';
-import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { enqueueAiJob, getAiJobForUser } from '@/lib/ai-jobs/queue';
+import { settleAiJob } from '@/lib/ai-jobs/settle';
+import { formatPendingJobMessage } from '@/lib/ai-jobs/evaluation';
+import type { AiJob } from '@/db/schema';
+import type { AiJobKind } from '@/lib/ai-jobs/types';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -203,6 +206,18 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'consultar_trabajo_ia',
+    description:
+      'Consulta el estado de un trabajo de IA encolado (optimización o evaluación). Usa el ID devuelto si la herramienta anterior aún no había terminado.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        jobId: { type: 'string', description: 'UUID del trabajo de IA.' },
+      },
+      required: ['jobId'],
+    },
+  },
+  {
     name: 'investigar_oferta',
     description: 'Encola una investigación profunda de una oferta existente. Analiza oferta, empresa, personas profesionales, historia/noticias y riesgos sin enviar candidaturas ni mensajes.',
     inputSchema: {
@@ -245,6 +260,44 @@ const MCP_TOOLS = [
   },
 ];
 
+function mcpJobResponse(job: AiJob) {
+  if (job.status === 'completed') {
+    const result = (job.result || {}) as { message?: string; parsed?: unknown };
+    const text = typeof result.message === 'string'
+      ? result.message
+      : JSON.stringify(result.parsed ?? result, null, 2);
+    return { content: [{ type: 'text' as const, text }] };
+  }
+  if (job.status === 'failed') {
+    return {
+      content: [{ type: 'text' as const, text: `Error al ejecutar el trabajo de IA: ${job.lastError || 'AI_JOB_FAILED'}` }],
+    };
+  }
+  return {
+    content: [{ type: 'text' as const, text: formatPendingJobMessage(job.id, job.kind) }],
+  };
+}
+
+async function runOfferAiJob(kind: Extract<AiJobKind, 'mcp_optimize' | 'mcp_evaluate'>, args: any, userId: string) {
+  const { title, company, description, url, platform, externalSource, externalId } = args || {};
+  if (!title || !company || !description) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: Faltan argumentos requeridos: title, company o description.' }],
+    };
+  }
+  const job = await enqueueAiJob({
+    userId,
+    kind,
+    payload: { title, company, description, url, platform, externalSource, externalId },
+  });
+  const settled = await settleAiJob(job.id);
+  if (settled.status === 'completed') {
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/kanban');
+  }
+  return mcpJobResponse(settled);
+}
+
 // ─────────────────────────────────────────────
 // Tool Execution
 // ─────────────────────────────────────────────
@@ -256,384 +309,26 @@ async function executeTool(
   userEmail: string
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   switch (toolName) {
-    case 'optimizar_cv': {
-      const { title, company, description, url, platform, externalSource, externalId } = args;
+    case 'optimizar_cv':
+      return runOfferAiJob('mcp_optimize', args, userId);
 
-      if (!title || !company || !description) {
+    case 'evaluar_oferta':
+      return runOfferAiJob('mcp_evaluate', args, userId);
+
+    case 'consultar_trabajo_ia': {
+      const jobId = args?.jobId;
+      if (!jobId) {
         return {
-          content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: title, company o description.' }],
+          content: [{ type: 'text', text: 'Error: Falta el argumento requerido jobId.' }],
         };
       }
-
-      const [userRecord] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-
-      // 1. Get base CV (either custom mcpCvId or fallback)
-      let baseCv = null;
-      if (userRecord?.mcpCvId) {
-        [baseCv] = await db
-          .select()
-          .from(cvs)
-          .where(and(eq(cvs.userId, userId), eq(cvs.id, userRecord.mcpCvId)))
-          .limit(1);
-      }
-      if (!baseCv) {
-        [baseCv] = await db
-          .select()
-          .from(cvs)
-          .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-          .orderBy(desc(cvs.isPrincipal))
-          .limit(1);
-      }
-
-      if (!baseCv) {
+      const job = await getAiJobForUser(userId, jobId);
+      if (!job) {
         return {
-          content: [
-            {
-              type: 'text',
-              text: 'No tienes un currículum base subido en Matchply. Sube tu CV base en formato markdown desde la plataforma web antes de optimizar.',
-            },
-          ],
+          content: [{ type: 'text', text: 'No encontré ese trabajo de IA o no te pertenece.' }],
         };
       }
-
-      // 2. Generate optimized CV with AI
-      let cvMarkdownTailored = '';
-      try {
-        const aiStream = await AIService.optimizeCVStream({
-          baseCvMarkdown: baseCv.content,
-          jobDescription: description,
-          userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
-          candidateName: userRecord?.name || '',
-          careerProfileContext: formatCareerProfileContext(userRecord?.mcpProfile),
-        });
-
-        const reader = aiStream.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          cvMarkdownTailored += decoder.decode(value, { stream: true });
-        }
-      } catch (err: any) {
-        console.error('[MCP Tool optimize] AI generation error:', err);
-        return {
-          content: [{ type: 'text', text: `Error al generar optimización con IA: ${err.message}` }],
-        };
-      }
-
-      // 3. Create the tailored CV in DB
-      let cvId: string | null = null;
-      if (cvMarkdownTailored.trim()) {
-        const [newCv] = (await db
-          .insert(cvs)
-          .values({
-            userId,
-            title: `Optimizado (MCP) - ${title} (${company})`,
-            content: cvMarkdownTailored.trim(),
-            isBase: false,
-            isPrincipal: false,
-            templateName: baseCv.templateName,
-            accentColor: baseCv.accentColor,
-            fontFamily: baseCv.fontFamily,
-            pageMargin: baseCv.pageMargin,
-            scale: baseCv.scale,
-          })
-          .returning()) as any[];
-        cvId = newCv.id;
-      }
-
-      // 4. Run evaluation with AI
-      let scoreOverall: number | null = null;
-      let scoreBreakdown: any = null;
-      let redFlags: any = null;
-      let tldr: string | null = null;
-      let legitimacyTier: string | null = null;
-      let rawReport: string | null = null;
-      let parsedResult: any = null;
-
-      try {
-        const evalStream = await AIService.analyzeSTARStream({
-          cvMarkdown: baseCv.content,
-          jobDescription: description,
-          company,
-          userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
-          mcpProfile: userRecord?.mcpProfile,
-        });
-
-        const evalReader = evalStream.getReader();
-        const evalDecoder = new TextDecoder();
-        let evalAccumulated = '';
-        while (true) {
-          const { done, value } = await evalReader.read();
-          if (done) break;
-          evalAccumulated += evalDecoder.decode(value, { stream: true });
-        }
-
-        const cleanJson = evalAccumulated.trim();
-        try {
-          parsedResult = JSON.parse(cleanJson);
-        } catch {
-          const jsonBlockRegex = /\{[\s\S]*\}/;
-          const match = cleanJson.match(jsonBlockRegex);
-          if (match) {
-            try {
-              parsedResult = JSON.parse(match[0]);
-            } catch {}
-          }
-        }
-
-        if (parsedResult) {
-          scoreOverall = parsedResult.score !== undefined ? parseFloat(parsedResult.score.toFixed(1)) : null;
-          scoreBreakdown = parsedResult.dimensions ? JSON.stringify(
-            parsedResult.dimensions.reduce((acc: any, curr: any) => {
-              acc[curr.name] = parseFloat(curr.percentage.toFixed(1));
-              return acc;
-            }, {})
-          ) : null;
-          redFlags = parsedResult.redFlags ? JSON.stringify(parsedResult.redFlags) : null;
-          tldr = parsedResult.scoreReason || null;
-          legitimacyTier = parsedResult.legitimacyTier || null;
-          
-          // Construct structured markdown sections for rawReport
-          rawReport = `## B) Match con CV y Gaps Técnicos\n` +
-            `- **Puntuación de compatibilidad:** ${parsedResult.score}/100 (${parsedResult.scoreLabel || 'Analizado'})\n` +
-            `- **Razón del score:** ${parsedResult.scoreReason || ''}\n\n` +
-            `## C) Análisis de Stack Tecnológico\n` +
-            `### Tecnologías coincidentes detectadas:\n` +
-            (parsedResult.presentKeywords && parsedResult.presentKeywords.length > 0
-              ? parsedResult.presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
-              : '- Ninguna detectada') + '\n\n' +
-            `### Tecnologías requeridas ausentes (Gaps):\n` +
-            (parsedResult.missingKeywords && parsedResult.missingKeywords.length > 0
-              ? parsedResult.missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
-              : '- Ninguno detectado') + '\n\n' +
-            `## E) Blueprint de Personalización del CV\n` +
-            `Veredicto final del Reclutador:\n\n` +
-            `${parsedResult.verdict || ''}`;
-        }
-      } catch (evalErr) {
-        console.error('[MCP Tool optimize] AI evaluation error:', evalErr);
-      }
-
-      // 5. Upsert through the same service used by the external API.
-      const { offer: syncedOffer } = await upsertExternalApplication(userId, {
-        title,
-        company,
-        url: url || null,
-        platform: platform || 'other',
-        description,
-        status: 'interested',
-        source: 'mcp_server',
-        externalSource,
-        externalId,
-        cvId,
-        scoreOverall,
-        scoreBreakdown,
-        redFlags,
-        tldr,
-        legitimacyTier,
-        rawReport,
-      });
-      const offerId = syncedOffer.id;
-
-      // 6. Audit & revalidate
-      await createAuditLog('mcp_cv_optimize', userId, userEmail, { offerId, title, company, cvId });
-      revalidatePath('/dashboard');
-      revalidatePath('/dashboard/kanban');
-
-      let responseText = `✅ **CV Optimizado con Éxito y Añadido al Kanban**\n\n` +
-        `- **Empresa:** ${company}\n` +
-        `- **Puesto:** ${title}\n` +
-        `- **Estado:** Interesado (Kanban)\n` +
-        `- **ID de la Postulación:** \`${offerId}\`\n\n`;
-
-      if (parsedResult) {
-        responseText += `🏆 **Puntuación de Match:** **${parsedResult.score}/100**\n` +
-          `📌 **Veredicto:** _${parsedResult.scoreReason || parsedResult.verdict || ''}_\n\n`;
-        if (Array.isArray(parsedResult.redFlags) && parsedResult.redFlags.length > 0) {
-          responseText += `⚠️ **Red Flags:**\n` + parsedResult.redFlags.map((rf: any) => `* **${rf.title}**: _${rf.description}_`).join('\n') + `\n\n`;
-        }
-      }
-
-      responseText += `El currículum se adaptó correctamente siguiendo tu perfil. Ya está disponible en tu dashboard para previsualizar y exportar a PDF.`;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: responseText,
-          },
-        ],
-      };
-    }
-
-    case 'evaluar_oferta': {
-      const { title, company, description, url, platform, externalSource, externalId } = args;
-
-      if (!title || !company || !description) {
-        return {
-          content: [{ type: 'text', text: 'Error: Faltan argumentos requeridos: title, company o description.' }],
-        };
-      }
-
-      const [userRecord] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-
-      // Resolve base CV
-      let baseCv = null;
-      if (userRecord?.mcpCvId) {
-        [baseCv] = await db
-          .select()
-          .from(cvs)
-          .where(and(eq(cvs.userId, userId), eq(cvs.id, userRecord.mcpCvId)))
-          .limit(1);
-      }
-      if (!baseCv) {
-        [baseCv] = await db
-          .select()
-          .from(cvs)
-          .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-          .orderBy(desc(cvs.isPrincipal))
-          .limit(1);
-      }
-
-      if (!baseCv) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'No tienes un currículum base subido en Matchply. Sube tu CV base en formato markdown desde la plataforma web antes de evaluar.',
-            },
-          ],
-        };
-      }
-
-      // Execute evaluation with AI
-      let parsedResult: any = null;
-      let evalAccumulated = '';
-      try {
-        const evalStream = await AIService.analyzeSTARStream({
-          cvMarkdown: baseCv.content,
-          jobDescription: description,
-          company,
-          userSubscriptionStatus: userRecord?.subscriptionStatus || 'none',
-          mcpProfile: userRecord?.mcpProfile,
-        });
-
-        const evalReader = evalStream.getReader();
-        const evalDecoder = new TextDecoder();
-        while (true) {
-          const { done, value } = await evalReader.read();
-          if (done) break;
-          evalAccumulated += evalDecoder.decode(value, { stream: true });
-        }
-
-        const cleanJson = evalAccumulated.trim();
-        try {
-          parsedResult = JSON.parse(cleanJson);
-        } catch {
-          const jsonBlockRegex = /\{[\s\S]*\}/;
-          const match = cleanJson.match(jsonBlockRegex);
-          if (match) {
-            try {
-              parsedResult = JSON.parse(match[0]);
-            } catch {}
-          }
-        }
-      } catch (err: any) {
-        console.error('[MCP Tool evaluate] AI generation error:', err);
-        return {
-          content: [{ type: 'text', text: `Error al evaluar la oferta con IA: ${err.message}` }],
-        };
-      }
-
-      if (!parsedResult) {
-        return {
-          content: [{ type: 'text', text: 'Error: El modelo de IA no devolvió una evaluación en formato JSON válido.' }],
-        };
-      }
-
-      // Map scores and parameters for DB
-      const scoreOverall = parsedResult.score !== undefined ? parseFloat(parsedResult.score.toFixed(1)) : null;
-      const scoreBreakdown = parsedResult.dimensions ? JSON.stringify(
-        parsedResult.dimensions.reduce((acc: any, curr: any) => {
-          acc[curr.name] = parseFloat(curr.percentage.toFixed(1));
-          return acc;
-        }, {})
-      ) : null;
-      const redFlags = parsedResult.redFlags ? JSON.stringify(parsedResult.redFlags) : null;
-      const tldr = parsedResult.scoreReason || null;
-      const legitimacyTier = parsedResult.legitimacyTier || null;
-      
-      // Construct structured markdown sections for rawReport
-      const rawReport = `## B) Match con CV y Gaps Técnicos\n` +
-        `- **Puntuación de compatibilidad:** ${parsedResult.score}/100 (${parsedResult.scoreLabel || 'Analizado'})\n` +
-        `- **Razón del score:** ${parsedResult.scoreReason || ''}\n\n` +
-        `## C) Análisis de Stack Tecnológico\n` +
-        `### Tecnologías coincidentes detectadas:\n` +
-        (parsedResult.presentKeywords && parsedResult.presentKeywords.length > 0
-          ? parsedResult.presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
-          : '- Ninguna detectada') + '\n\n' +
-        `### Tecnologías requeridas ausentes (Gaps):\n` +
-        (parsedResult.missingKeywords && parsedResult.missingKeywords.length > 0
-          ? parsedResult.missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
-          : '- Ninguno detectado') + '\n\n' +
-        `## E) Blueprint de Personalización del CV\n` +
-        `Veredicto final del Reclutador:\n\n` +
-        `${parsedResult.verdict || ''}`;
-
-      // Upsert through the shared application service.
-      const { offer: evaluatedOffer } = await upsertExternalApplication(userId, {
-        title,
-        company,
-        url: url || null,
-        platform: platform || 'other',
-        description,
-        status: 'interested',
-        source: 'mcp_server',
-        externalSource,
-        externalId,
-        scoreOverall,
-        scoreBreakdown,
-        redFlags,
-        tldr,
-        legitimacyTier,
-        rawReport,
-      });
-      const offerId = evaluatedOffer.id;
-
-      // Audit & revalidate
-      await createAuditLog('mcp_job_offer_evaluate', userId, userEmail, { offerId, title, company, score: parsedResult.score });
-      revalidatePath('/dashboard');
-      revalidatePath('/dashboard/kanban');
-
-      // Format clean report for response
-      const breakdownText = Array.isArray(parsedResult.dimensions)
-        ? '\n' + parsedResult.dimensions.map((d: any) => `- **${d.name}:** ${d.percentage}/100`).join('\n')
-        : '';
-
-      const redFlagsText = Array.isArray(parsedResult.redFlags) && parsedResult.redFlags.length > 0
-        ? parsedResult.redFlags.map((rf: any) => `⚠️ **${rf.title}**\n  _${rf.description}_`).join('\n')
-        : 'Ninguna detectada ✅';
-
-      const keywordsText = Array.isArray(parsedResult.missingKeywords) && parsedResult.missingKeywords.length > 0
-        ? parsedResult.missingKeywords.join(', ')
-        : 'Ninguna';
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `🔍 **Evaluación de la Oferta: ${company} — ${title}**\n\n` +
-                  `🏆 **Puntuación Global de Match:** **${parsedResult.score}/100**\n` +
-                  `📊 **Detalle por Dimensiones (0 - 100):**${breakdownText}\n\n` +
-                  `📌 **Resumen / Veredicto:**\n_${tldr || 'No disponible'}_\n\n` +
-                  `🚨 **Red Flags Detectadas:**\n${redFlagsText}\n\n` +
-                  `🔑 **Palabras Clave Faltantes (ATS):**\n${keywordsText}\n\n` +
-                  `📁 **Legitimidad de la Oferta:** \`${legitimacyTier || 'No analizado'}\`\n\n` +
-                  `La oferta ha sido añadida a tu Kanban en la columna **"Interesado"** (ID: \`${offerId}\`). Puedes optimizar tu CV para este puesto ejecutando la herramienta de optimización.`,
-          },
-        ],
-      };
+      return mcpJobResponse(job);
     }
 
     case 'listar_postulaciones': {

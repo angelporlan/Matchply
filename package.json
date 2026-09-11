@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test scripts/*.test.ts",
     "research:worker": "tsx scripts/research-worker.ts",
+    "ai:worker": "tsx scripts/ai-worker.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

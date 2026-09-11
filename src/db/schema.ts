@@ -234,6 +234,26 @@ export const auditLogs = pgTable('audit_log', {
   createdAtIdx: index('audit_log_created_at_idx').on(table.createdAt),
 }));
 
+export const aiJobs = pgTable('ai_job', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  kind: text('kind').notNull(),
+  status: text('status').default('queued').notNull(),
+  attempt: integer('attempt').default(0).notNull(),
+  leaseUntil: timestamp('leaseUntil', { mode: 'date' }),
+  nextAttemptAt: timestamp('nextAttemptAt', { mode: 'date' }),
+  payload: jsonb('payload').notNull(),
+  result: jsonb('result'),
+  lastError: text('lastError'),
+  startedAt: timestamp('startedAt', { mode: 'date' }),
+  completedAt: timestamp('completedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  queueIdx: index('ai_job_queue_idx').on(table.status, table.nextAttemptAt, table.leaseUntil),
+  userIdx: index('ai_job_user_idx').on(table.userId, table.createdAt),
+}));
+
 // Definición de Relaciones para Drizzle
 export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
@@ -243,6 +263,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   extensionInstallations: many(extensionInstallations),
   jobResearchRuns: many(jobResearchRuns),
   researchQuotaPeriods: many(researchQuotaPeriods),
+  aiJobs: many(aiJobs),
 }));
 
 export const cvsRelations = relations(cvs, ({ one, many }) => ({
@@ -288,6 +309,10 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
 }));
 
+export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
+  user: one(users, { fields: [aiJobs.userId], references: [users.id] }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
@@ -300,3 +325,4 @@ export type ResearchQuotaPeriod = typeof researchQuotaPeriods.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Prompt = typeof prompts.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type AiJob = typeof aiJobs.$inferSelect;

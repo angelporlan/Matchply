@@ -1,8 +1,9 @@
 import { and, desc, eq, gt } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
-import { AIService } from '@/lib/ai-service';
 import { requireUserFeature } from '@/lib/permissions';
+import { enqueueAiJob } from '@/lib/ai-jobs/queue';
+import { settleAiJob } from '@/lib/ai-jobs/settle';
 
 export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
@@ -181,54 +182,29 @@ async function resolveBaseCv(userId: string) {
   return { user, cv: base || null };
 }
 
-async function consumeStream(stream: ReadableStream<Uint8Array>) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let content = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    content += decoder.decode(value, { stream: true });
-  }
-  return content.trim();
-}
-
 export async function optimizeApplicationCv(userId: string, offerId: string, regenerate = false) {
   const offer = await getOwnedApplication(userId, offerId);
   if (offer.cvId && !regenerate) {
     return { offer, cvId: offer.cvId, created: false };
   }
   if (!offer.description) throw new Error('Application has no job description');
-  const { user, cv: baseCv } = await resolveBaseCv(userId);
-  if (!user || !baseCv) throw new Error('Base CV not found');
 
-  const stream = await AIService.optimizeCVStream({
-    baseCvMarkdown: baseCv.content,
-    jobDescription: offer.description,
-    userSubscriptionStatus: user.subscriptionStatus,
-    candidateName: user.name || '',
-  });
-  const content = await consumeStream(stream);
-  if (!content) throw new Error('AI returned an empty CV');
-
-  const [newCv] = await db.insert(cvs).values({
+  const job = await enqueueAiJob({
     userId,
-    title: `Optimizado - ${offer.title} (${offer.company})`,
-    content,
-    isBase: false,
-    isPrincipal: false,
-    templateName: baseCv.templateName,
-    accentColor: baseCv.accentColor,
-    fontFamily: baseCv.fontFamily,
-    pageMargin: baseCv.pageMargin,
-    scale: baseCv.scale,
-  }).returning();
+    kind: 'optimize_application',
+    payload: { offerId, regenerate },
+  });
+  const settled = await settleAiJob(job.id);
+  if (settled.status === 'failed') {
+    throw new Error(settled.lastError || 'CV optimization failed');
+  }
+  if (settled.status !== 'completed') {
+    throw new Error(`CV optimization is still ${settled.status}. Job ${settled.id}`);
+  }
 
-  const [updatedOffer] = await db.update(jobOffers).set({
-    cvId: newCv.id,
-    updatedAt: new Date(),
-  }).where(eq(jobOffers.id, offerId)).returning();
-  return { offer: updatedOffer, cvId: newCv.id, created: true };
+  const result = (settled.result || {}) as { cvId?: string; created?: boolean };
+  const updated = await getOwnedApplication(userId, offerId);
+  return { offer: updated, cvId: result.cvId || updated.cvId, created: Boolean(result.created) };
 }
 
 export async function createApplicationCvFromMarkdown(

@@ -66,5 +66,24 @@ services:
         condition: service_healthy
     restart: always
 
+  ai_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: nextprof_ai_worker_prod
+    command: npm run ai:worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - NODE_ENV=production
+      - DATABASE_POOL_MAX=8
+      - DATABASE_STATEMENT_TIMEOUT_MS=180000
+      - AI_WORKER_ENABLED=true
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
 volumes:
   postgres_prod_data:

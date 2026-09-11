@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users, cvs } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
-import { createAuditLog } from '@/lib/audit';
-// Subscription check removed — extension is available for all users (free + pro)
-import { AIService } from '@/lib/ai-service';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { enqueueAiJob } from '@/lib/ai-jobs/queue';
+import { settleAiJob } from '@/lib/ai-jobs/settle';
 
 export async function POST(req: NextRequest) {
   try {
@@ -120,74 +119,37 @@ export async function POST(req: NextRequest) {
     // Nota: La evaluación está disponible para todos los usuarios.
     // El AIService selecciona automáticamente el modelo de IA según el plan del usuario.
 
-    // 5. Obtener CV Base del usuario
-    const [baseCv] = await db
-      .select()
-      .from(cvs)
-      .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
-      .orderBy(desc(cvs.isPrincipal))
-      .limit(1);
+    const job = await enqueueAiJob({
+      userId,
+      kind: 'evaluate',
+      payload: { title, company, description },
+    });
+    const settled = await settleAiJob(job.id);
 
-    if (!baseCv) {
+    if (settled.status === 'failed') {
       return new NextResponse(
-        JSON.stringify({ error: 'Base CV not found. Please upload a CV first.' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: settled.lastError || 'Evaluation failed', jobId: settled.id }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (settled.status !== 'completed') {
+      return new NextResponse(
+        JSON.stringify({
+          status: settled.status,
+          jobId: settled.id,
+          message: 'Evaluation is still running. Poll GET /api/ai/jobs/' + settled.id,
+        }),
+        { status: 202, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // 6. Ejecutar evaluación con AIService
-    const aiStream = await AIService.analyzeSTARStream({
-      cvMarkdown: baseCv.content,
-      jobDescription: description,
-      company: company,
-      userSubscriptionStatus: user.subscriptionStatus,
-      mcpProfile: user.mcpProfile,
-    });
-
-    // Consumir el stream de IA para construir la respuesta completa
-    const reader = aiStream.getReader();
-    const decoder = new TextDecoder();
-    let accumulatedText = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      accumulatedText += decoder.decode(value, { stream: true });
+    const parsedResult = (settled.result as { parsed?: unknown } | null)?.parsed;
+    if (!parsedResult) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Evaluation completed without a result', jobId: settled.id }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
-    // Intentar parsear el JSON de respuesta
-    let parsedResult;
-    try {
-      parsedResult = JSON.parse(accumulatedText.trim());
-    } catch (parseError) {
-      // Fallback: Si contiene bloques de código tipo ```json ... ``` extraemos el contenido central
-      const jsonBlockRegex = /\{[\s\S]*\}/;
-      const match = accumulatedText.match(jsonBlockRegex);
-      if (match) {
-        try {
-          parsedResult = JSON.parse(match[0]);
-        } catch (subParseError) {
-          console.error('Failed to parse matched JSON substring:', match[0], subParseError);
-          return new NextResponse(
-            JSON.stringify({ error: 'Invalid JSON formatted response from AI model', raw: accumulatedText }),
-            { status: 502, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-      } else {
-        console.error('Failed to parse AI stream response as JSON:', accumulatedText, parseError);
-        return new NextResponse(
-          JSON.stringify({ error: 'Failed to parse AI response as JSON', raw: accumulatedText }),
-          { status: 502, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // 7. Registrar log de auditoría
-    await createAuditLog('job_offer_evaluate_api', userId, userEmail, {
-      title,
-      company,
-      score: parsedResult.score,
-    });
 
     return new NextResponse(
       JSON.stringify(parsedResult),
