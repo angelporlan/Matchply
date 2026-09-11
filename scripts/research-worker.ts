@@ -2,6 +2,7 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { jobResearchRuns } from '@/db/schema';
 import { runResearch } from '@/lib/research/orchestrator';
+import { log } from '@/lib/logger';
 
 const MAX_ATTEMPTS = 3;
 const LEASE_MS = 5 * 60_000;
@@ -75,21 +76,21 @@ async function workerLoop(slot: number) {
     try {
       const run = await claimNextRun();
       if (run) {
-        console.info(JSON.stringify({ event: 'research_claimed', slot, runId: run.id, attempt: run.attempt }));
+        log({ event: 'research_claimed', slot, runId: run.id, attempt: run.attempt });
         await processRun(run);
         continue;
       }
     } catch (error) {
-      console.error(JSON.stringify({ event: 'research_worker_error', slot, error: error instanceof Error ? error.message : 'unknown' }));
+      log({ event: 'research_worker_error', level: 'error', slot, error });
     }
     await new Promise(resolve => setTimeout(resolve, 2_000));
   }
 }
 
-console.info(JSON.stringify({ event: 'research_worker_started', concurrency: GLOBAL_CONCURRENCY }));
+log({ event: 'research_worker_started', concurrency: GLOBAL_CONCURRENCY });
 async function main() {
   if (!PIPELINE_ENABLED) {
-    console.info(JSON.stringify({ event: 'research_worker_disabled' }));
+    log({ event: 'research_worker_disabled' });
     await new Promise<void>(() => undefined);
     return;
   }

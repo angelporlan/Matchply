@@ -9,6 +9,7 @@ import {
   upsertExternalApplication,
 } from '@/lib/application-service';
 import { completeAiJob, failAiJob } from './queue';
+import { log } from '@/lib/logger';
 import { evaluationFields, formatMcpEvaluateMessage, formatMcpOptimizeMessage, parseJsonObject } from './evaluation';
 import type { OfferJobPayload, OptimizeApplicationPayload } from './types';
 
@@ -83,7 +84,7 @@ async function processMcpOptimize(job: AiJob) {
     }));
     parsed = parseJsonObject(evalText);
   } catch (error) {
-    console.error('[ai-job mcp_optimize] evaluation failed:', error);
+    log({ event: 'ai_job_eval_failed', level: 'warn', jobId: job.id, userId: job.userId, error });
   }
 
   const fields = parsed ? evaluationFields(parsed) : {
@@ -248,6 +249,7 @@ async function processOptimizeApplication(job: AiJob) {
 }
 
 export async function processAiJob(job: AiJob) {
+  const started = Date.now();
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
@@ -267,13 +269,23 @@ export async function processAiJob(job: AiJob) {
         throw new Error(`Unknown AI job kind: ${job.kind}`);
     }
     await completeAiJob(job.id, result);
-  } catch (error) {
-    console.error(JSON.stringify({
-      event: 'ai_job_failed',
+    log({
+      event: 'ai_job_completed',
+      userId: job.userId,
       jobId: job.id,
       kind: job.kind,
-      error: error instanceof Error ? error.message : 'unknown',
-    }));
+      durationMs: Date.now() - started,
+    });
+  } catch (error) {
+    log({
+      event: 'ai_job_failed',
+      level: 'error',
+      userId: job.userId,
+      jobId: job.id,
+      kind: job.kind,
+      durationMs: Date.now() - started,
+      error,
+    });
     await failAiJob(job, error);
   }
 }

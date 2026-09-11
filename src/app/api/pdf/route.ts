@@ -8,8 +8,10 @@ import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
+import { log } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
+  const started = Date.now();
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -79,10 +81,19 @@ export async function GET(req: NextRequest) {
       fontSize: pdfOptions.fontSize,
     });
     let buffer = getCachedPdf(cacheKey);
+    const cacheHit = Boolean(buffer);
     if (!buffer) {
       buffer = await generatePdfBuffer(cv.content, pdfOptions);
       setCachedPdf(cacheKey, buffer);
     }
+
+    log({
+      event: 'pdf_render',
+      route: '/api/pdf',
+      userId: actor.userId,
+      cacheHit,
+      durationMs: Date.now() - started,
+    });
 
     const userName = actor.name || 'User';
     const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
@@ -97,12 +108,13 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('Error generating PDF:', error);
+    log({ event: 'pdf_render', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
     return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
+  const started = Date.now();
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -144,10 +156,19 @@ export async function POST(req: NextRequest) {
       fontSize: pdfOptions.fontSize,
     });
     let buffer = getCachedPdf(cacheKey);
+    const cacheHit = Boolean(buffer);
     if (!buffer) {
       buffer = await generatePdfBuffer(content, pdfOptions);
       setCachedPdf(cacheKey, buffer);
     }
+
+    log({
+      event: 'pdf_preview',
+      route: '/api/pdf',
+      userId: actor.userId,
+      cacheHit,
+      durationMs: Date.now() - started,
+    });
 
     return new Response(new Uint8Array(buffer), {
       headers: {
@@ -157,7 +178,7 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('Error generating live PDF preview:', error);
+    log({ event: 'pdf_preview', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
     return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
   }
 }

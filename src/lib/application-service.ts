@@ -39,38 +39,52 @@ export type ExternalApplicationInput = {
   rejectionPatternTags?: unknown;
 };
 
-function normalizeStatus(value?: string): PipelineStatus {
+export function normalizeStatus(value?: string): PipelineStatus {
   return PIPELINE_STATUSES.includes(value as PipelineStatus)
     ? value as PipelineStatus
     : 'interested';
 }
 
-async function findExisting(userId: string, input: ExternalApplicationInput) {
-  const externalSource = input.externalSource;
-  const externalId = input.externalId;
-  const hasExternalIdentity = Boolean(externalSource && externalId);
-  if (hasExternalIdentity) {
-    const [offer] = await db.select().from(jobOffers).where(and(
-      eq(jobOffers.userId, userId),
-      eq(jobOffers.externalSource, externalSource!),
-      eq(jobOffers.externalId, externalId!),
-    )).limit(1);
-    if (offer) return offer;
+export type ApplicationMatchStrategy =
+  | { strategy: 'external'; externalSource: string; externalId: string }
+  | { strategy: 'url'; url: string }
+  | { strategy: 'title_company'; title: string; company: string };
+
+export function applicationMatchStrategy(input: Partial<Pick<ExternalApplicationInput, 'externalSource' | 'externalId' | 'url' | 'title' | 'company'>>): ApplicationMatchStrategy | null {
+  if (input.externalSource && input.externalId) {
+    return { strategy: 'external', externalSource: input.externalSource, externalId: input.externalId };
   }
   if (input.url) {
+    return { strategy: 'url', url: input.url };
+  }
+  if (input.title && input.company) {
+    return { strategy: 'title_company', title: input.title, company: input.company };
+  }
+  return null;
+}
+
+async function findExisting(userId: string, input: ExternalApplicationInput) {
+  const match = applicationMatchStrategy(input);
+  if (!match) return null;
+  if (match.strategy === 'external') {
     const [offer] = await db.select().from(jobOffers).where(and(
       eq(jobOffers.userId, userId),
-      eq(jobOffers.url, input.url),
+      eq(jobOffers.externalSource, match.externalSource),
+      eq(jobOffers.externalId, match.externalId),
     )).limit(1);
-    if (offer) return offer;
+    return offer || null;
   }
-  // Title/company matching is retained only for legacy clients without an
-  // exact external identity or URL. It must not merge two distinct local jobs.
-  if (hasExternalIdentity || input.url) return null;
+  if (match.strategy === 'url') {
+    const [offer] = await db.select().from(jobOffers).where(and(
+      eq(jobOffers.userId, userId),
+      eq(jobOffers.url, match.url),
+    )).limit(1);
+    return offer || null;
+  }
   const [offer] = await db.select().from(jobOffers).where(and(
     eq(jobOffers.userId, userId),
-    eq(jobOffers.title, input.title),
-    eq(jobOffers.company, input.company),
+    eq(jobOffers.title, match.title),
+    eq(jobOffers.company, match.company),
   )).limit(1);
   return offer || null;
 }

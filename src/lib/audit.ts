@@ -1,6 +1,7 @@
 import { db } from '@/db';
 import { auditLogs } from '@/db/schema';
 import { headers } from 'next/headers';
+import { log } from '@/lib/logger';
 
 /**
  * Registra una acción de auditoría en la base de datos de manera segura y no bloqueante.
@@ -35,8 +36,7 @@ export async function createAuditLog(
       // Captura fallida por ejecutarse fuera de una solicitud HTTP activa (ej. scripts o webhooks)
     }
 
-    // Inserción asíncrona sin bloquear el flujo principal
-    await db.insert(auditLogs).values({
+    void db.insert(auditLogs).values({
       userId,
       userEmail,
       action,
@@ -44,9 +44,10 @@ export async function createAuditLog(
       ipAddress,
       userAgent,
       createdAt: new Date(),
+    }).catch((error) => {
+      log({ event: 'audit_log_failed', level: 'error', action, userId: userId || undefined, error });
     });
   } catch (error) {
-    // Evitar que un error en la auditoría interrumpa la lógica principal de la app
-    console.error('Error al guardar log de auditoría:', error);
+    log({ event: 'audit_log_failed', level: 'error', action, userId: userId || undefined, error });
   }
 }

@@ -13,6 +13,7 @@ import {
 } from '@/lib/subscription';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { log } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = actor.userId;
+    log({ event: 'cv_optimize_started', route: '/api/ai/optimize', userId });
     try {
       consumeRateLimit(`ai:optimize:${userId}`, 8, 10 * 60_000);
     } catch (error) {
@@ -220,7 +222,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(metaString));
           controller.close();
         } catch (error: any) {
-          console.error("Error en streaming/DB save de optimize CV:", error);
+          log({ event: 'cv_optimize_stream_failed', level: 'error', route: '/api/ai/optimize', userId, error });
           const errString = `\n\n[ERROR:${error.message || 'Error guardando datos del CV'}]`;
           controller.enqueue(encoder.encode(errString));
           controller.close();
@@ -240,7 +242,7 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('Error in optimization route:', error);
+    log({ event: 'cv_optimize_failed', level: 'error', route: '/api/ai/optimize', error });
     return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
   }
 }

@@ -14,6 +14,7 @@ import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/q
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { enqueueAiJob, getAiJobForUser } from '@/lib/ai-jobs/queue';
 import { settleAiJob } from '@/lib/ai-jobs/settle';
+import { log } from '@/lib/logger';
 import { formatPendingJobMessage } from '@/lib/ai-jobs/evaluation';
 import type { AiJob } from '@/db/schema';
 import type { AiJobKind } from '@/lib/ai-jobs/types';
@@ -731,7 +732,7 @@ async function handleJsonRpcRequest(
   const { id, method, params } = body;
   const isNotification = id === undefined || id === null;
 
-  console.log(`[MCP Streamable] method=${method} id=${id} user=${userEmail}`);
+  log({ event: 'mcp_rpc', route: '/api/mcp', method, userId, rpcId: id });
 
   switch (method) {
     case 'initialize': {
@@ -752,7 +753,7 @@ async function handleJsonRpcRequest(
     }
 
     case 'notifications/initialized': {
-      console.log(`[MCP] Client initialized for user: ${userEmail}`);
+      log({ event: 'mcp_initialized', route: '/api/mcp', userId });
       return { response: null, isNotification: true };
     }
 
@@ -780,7 +781,7 @@ async function handleJsonRpcRequest(
           isNotification: false,
         };
       } catch (err: any) {
-        console.error(`[MCP] Error executing tool ${name}:`, err);
+        log({ event: 'mcp_tool_failed', level: 'error', route: '/api/mcp', userId, tool: name, error: err });
         return {
           response: jsonRpcError(id, -32603, err.message || 'Internal error during tool execution'),
           isNotification: false,
@@ -885,7 +886,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('[MCP POST] Error:', error);
+    log({ event: 'mcp_post_failed', level: 'error', route: '/api/mcp', error });
     return NextResponse.json(
       jsonRpcError(null, -32603, error.message || 'Internal Server Error'),
       { status: 500, headers: corsHeaders() }

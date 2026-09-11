@@ -5,13 +5,16 @@ import { eq } from 'drizzle-orm';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
 import Stripe from 'stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
+import { log } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  const started = Date.now();
   const body = await req.text();
   const signature = req.headers.get('Stripe-Signature') || '';
   const webhookSecret = STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
+    log({ event: 'stripe_webhook_misconfigured', level: 'error', route: '/api/stripe/webhook' });
     return new NextResponse('Stripe webhook secret not configured', { status: 500 });
   }
 
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
       webhookSecret
     );
   } catch (err: any) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
+    log({ event: 'stripe_webhook_invalid_signature', level: 'warn', route: '/api/stripe/webhook', error: err });
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
@@ -71,12 +74,25 @@ export async function POST(req: NextRequest) {
       }
 
       default:
-        console.log(`Unhandled Stripe Webhook Event Type: ${event.type}`);
+        log({ event: 'stripe_webhook_ignored', route: '/api/stripe/webhook', stripeEvent: event.type });
     }
 
+    log({
+      event: 'stripe_webhook_processed',
+      route: '/api/stripe/webhook',
+      stripeEvent: event.type,
+      durationMs: Date.now() - started,
+    });
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error('Stripe webhook processing error:', error);
+    log({
+      event: 'stripe_webhook_failed',
+      level: 'error',
+      route: '/api/stripe/webhook',
+      stripeEvent: event.type,
+      durationMs: Date.now() - started,
+      error,
+    });
     return new NextResponse('Webhook processing failed', { status: 500 });
   }
 }
