@@ -46,38 +46,38 @@ function highlightMarkdown(text: string): string {
       return `<span class="text-purple-700 dark:text-purple-300 font-extrabold">${renderedLine}</span>`;
     }
 
-    // List item dashes in premium brand color (text-[#8b5cf6] font-bold)
+    // List item dashes in premium brand color (text-ai font-bold)
     let hasListDash = false;
     let listContent = '';
     let listPrefix = '';
     if (renderedLine.startsWith('- ')) {
       hasListDash = true;
-      listPrefix = '<span class="text-[#8b5cf6] font-bold">-</span> ';
+      listPrefix = '<span class="text-ai font-bold">-</span> ';
       listContent = renderedLine.substring(2);
     } else if (renderedLine.startsWith('– ')) {
       hasListDash = true;
-      listPrefix = '<span class="text-[#8b5cf6] font-bold">–</span> ';
+      listPrefix = '<span class="text-ai font-bold">–</span> ';
       listContent = renderedLine.substring(2);
     } else if (renderedLine.startsWith('* ')) {
       hasListDash = true;
-      listPrefix = '<span class="text-[#8b5cf6] font-bold">*</span> ';
+      listPrefix = '<span class="text-ai font-bold">*</span> ';
       listContent = renderedLine.substring(2);
     } else {
       listContent = renderedLine;
     }
 
-    // Inline elements: **bold** (primary text-[#1e1b4b] dark:text-white) and *italic* (secondary text-[#1e1b4b]/70 dark:text-slate-400)
+    // Inline elements: **bold** (primary text-text) and *italic* (secondary text-text-muted)
     const boldMatches: string[] = [];
     let boldParsed = listContent.replace(/\*\*([^*]+)\*\*/g, (match, p1) => {
       boldMatches.push(p1);
       return `\u0001${boldMatches.length - 1}\u0002`;
     });
 
-    let italicParsed = boldParsed.replace(/\*([^*]+)\*/g, '<span class="italic text-[#1e1b4b]/70 dark:text-slate-400">*$1*</span>');
+    let italicParsed = boldParsed.replace(/\*([^*]+)\*/g, '<span class="italic text-text-muted">*$1*</span>');
 
     let finalContent = italicParsed.replace(/\u0001(\d+)\u0002/g, (match, p1) => {
       const idx = parseInt(p1, 10);
-      return `<span class="font-bold text-[#1e1b4b] dark:text-white">**${boldMatches[idx]}**</span>`;
+      return `<span class="font-bold text-text">**${boldMatches[idx]}**</span>`;
     });
 
     if (hasListDash) {
@@ -430,24 +430,24 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#090d16]/90 border border-[#1e1b4b]/10 dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
+    <div className="flex flex-col h-full bg-white dark:bg-canvas/90 border border-subtle dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
       
       {/* Title bar of the editor */}
-      <div className="flex items-center justify-between px-6 py-4 bg-[#fafafa] dark:bg-[#0d1321] border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0 select-none z-10">
+      <div className="flex items-center justify-between px-6 py-4 bg-canvas dark:bg-[#0d1321] border-b border-subtle dark:border-slate-900 shrink-0 select-none z-10">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-lg">
             <FileEdit className="w-4 h-4 stroke-[1.75]" />
           </div>
-          <span className="text-xs font-bold text-[#1e1b4b] dark:text-slate-300 tracking-wide uppercase font-display">{t('editor.markdown.title')}</span>
+          <span className="text-xs font-bold text-text tracking-wide uppercase font-display">{t('editor.markdown.title')}</span>
         </div>
 
         {/* Toggle Mode Switch & Full Screen */}
         <div className="flex items-center gap-3">
-          <div className="flex bg-[#fafafa] dark:bg-[#090d16] p-0.5 rounded-[8px] border border-[#1e1b4b]/10 dark:border-slate-800/80">
+          <div className="flex bg-canvas p-0.5 rounded-[8px] border border-subtle dark:border-slate-800/80">
             <button
               type="button"
               onClick={() => handleModeChange('visual')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'visual' ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-slate-200'}`}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'visual' ? 'bg-ai-action text-on-ai-action shadow-md shadow-ai/20' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
               <Eye className="w-3 h-3 stroke-[1.75]" />
               {t('editor.markdown.modes.visual')}
@@ -455,7 +455,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
             <button
               type="button"
               onClick={() => handleModeChange('markdown')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'markdown' ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-slate-200'}`}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'markdown' ? 'bg-ai-action text-on-ai-action shadow-md shadow-ai/20' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
               <Code className="w-3 h-3 stroke-[1.75]" />
               {t('editor.markdown.modes.markdown')}
@@ -464,7 +464,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               <button
                 type="button"
                 onClick={() => handleModeChange('diff')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'diff' ? 'bg-[#8b5cf6] text-white shadow-md shadow-[#8b5cf6]/20' : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-slate-200'}`}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[10px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${mode === 'diff' ? 'bg-ai-action text-on-ai-action shadow-md shadow-ai/20' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
               >
                 <GitCompare className="w-3.5 h-3.5 stroke-[1.75]" />
                 {t('editor.markdown.modes.diff')}
@@ -476,7 +476,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
             <button
               type="button"
               onClick={onToggleFullScreen}
-              className="p-1.5 rounded-[8px] border border-[#1e1b4b]/10 dark:border-slate-800 bg-white dark:bg-[#0b0f19] text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white transition-all shadow-sm flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
+              className="p-1.5 rounded-[8px] border border-subtle dark:border-slate-800 bg-canvas text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white transition-all shadow-sm flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
               title={isFullScreen ? t('editor.markdown.fullScreenExit') : t('editor.markdown.fullScreenEnter')}
             >
               {isFullScreen ? (
@@ -491,10 +491,10 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Diff Mode Toolbar */}
       {mode === 'diff' && (
-        <div className="flex flex-wrap items-center justify-between px-6 py-2 bg-[#fafafa]/80 dark:bg-[#0b101c]/70 border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0 select-none z-10 gap-3">
+        <div className="flex flex-wrap items-center justify-between px-6 py-2 bg-canvas/80 dark:bg-canvas/70 border-b border-subtle dark:border-slate-900 shrink-0 select-none z-10 gap-3">
           {/* Change Stats */}
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider font-display">
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
               {t('editor.markdown.diff.stats')}
             </span>
             <div className="flex items-center gap-2">
@@ -508,18 +508,18 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           </div>
 
           {/* Toggle Diff View */}
-          <div className="flex bg-[#fafafa] dark:bg-[#090d16] p-0.5 rounded-[8px] border border-[#1e1b4b]/10 dark:border-slate-800/80">
+          <div className="flex bg-canvas p-0.5 rounded-[8px] border border-subtle dark:border-slate-800/80">
             <button
               type="button"
               onClick={() => setDiffView('unified')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'unified' ? 'bg-[#8b5cf6] text-white shadow-sm' : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-slate-200'}`}
+              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'unified' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
               {t('editor.markdown.diff.unified')}
             </button>
             <button
               type="button"
               onClick={() => setDiffView('split')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'split' ? 'bg-[#8b5cf6] text-white shadow-sm' : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-slate-200'}`}
+              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'split' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
               <Columns className="w-2.5 h-2.5 stroke-[1.75]" />
               {t('editor.markdown.diff.split')}
@@ -530,18 +530,18 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Visual Editor Toolbar */}
       {mode === 'visual' && (
-        <div className="relative flex items-center flex-wrap gap-1 px-6 py-2 bg-[#fafafa]/80 dark:bg-[#0b101c]/70 border-b border-[#1e1b4b]/10 dark:border-slate-900 shrink-0 select-none z-20">
+        <div className="relative flex items-center flex-wrap gap-1 px-6 py-2 bg-canvas/80 dark:bg-canvas/70 border-b border-subtle dark:border-slate-900 shrink-0 select-none z-20">
           {/* Bold Button */}
           <div className="relative group">
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('bold')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer shrink-0"
             >
               <Bold className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.bold')}
             </div>
           </div>
@@ -552,16 +552,16 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('italic')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer shrink-0"
             >
               <Italic className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.italic')}
             </div>
           </div>
           
-          <div className="w-px h-4 bg-[#1e1b4b]/10 dark:bg-slate-800 mx-1 shrink-0" />
+          <div className="w-px h-4 bg-subtle dark:bg-surface-muted mx-1 shrink-0" />
 
           {/* List Button */}
           <div className="relative group">
@@ -569,16 +569,16 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('insertUnorderedList')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer shrink-0"
             >
               <List className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.list')}
             </div>
           </div>
 
-          <div className="w-px h-4 bg-[#1e1b4b]/10 dark:bg-slate-800 mx-1 shrink-0" />
+          <div className="w-px h-4 bg-subtle dark:bg-surface-muted mx-1 shrink-0" />
 
           {/* H1 Button */}
           <div className="relative group">
@@ -586,11 +586,11 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('formatBlock', 'H1')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
             >
               <Heading1 className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.h1')}
             </div>
           </div>
@@ -601,11 +601,11 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('formatBlock', 'H2')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
             >
               <Heading2 className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.h2')}
             </div>
           </div>
@@ -616,11 +616,11 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('formatBlock', 'H3')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer font-bold text-xs shrink-0 flex items-center gap-0.5"
             >
               <Heading3 className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.h3')}
             </div>
           </div>
@@ -631,16 +631,16 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('formatBlock', 'P')}
-              className="px-2 py-1 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer font-bold text-[10px] tracking-wider uppercase shrink-0"
+              className="px-2 py-1 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer font-bold text-[10px] tracking-wider uppercase shrink-0"
             >
               {t('editor.markdown.tooltips.paragraph')}
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.normalText')}
             </div>
           </div>
 
-          <div className="w-px h-4 bg-[#1e1b4b]/10 dark:bg-slate-800 mx-1 shrink-0" />
+          <div className="w-px h-4 bg-subtle dark:bg-surface-muted mx-1 shrink-0" />
 
           {/* Eraser Button */}
           <div className="relative group">
@@ -648,11 +648,11 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyStyle('removeFormat')}
-              className="p-1.5 rounded-lg text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-800/80 transition-all cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted/80 transition-all cursor-pointer shrink-0"
             >
               <Eraser className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-slate-950 border border-[#1e1b4b]/10 dark:border-slate-800 text-[#1e1b4b] dark:text-slate-300 text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-white dark:bg-canvas border border-control dark:border-slate-800 text-text text-[9px] font-bold tracking-wider uppercase rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-20 shadow-md">
               {t('editor.markdown.tooltips.clearFormat')}
             </div>
           </div>
@@ -660,7 +660,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
       )}
 
       {/* Editor area */}
-      <div className="flex-1 relative bg-[#fafafa]/40 dark:bg-[#090d16]/40 overflow-hidden">
+      <div className="flex-1 relative bg-canvas/40 dark:bg-canvas/40 overflow-hidden">
         
         {/* Visual WYSIWYG Mode */}
         {mode === 'visual' && (
@@ -669,16 +669,16 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               ref={editableRef}
               contentEditable={!isAiStreaming}
               onInput={handleVisualInput}
-              className="w-full min-h-full bg-transparent text-[#1e1b4b] dark:text-slate-300 font-sans text-sm leading-relaxed focus:outline-none select-text
-                empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-600 empty:before:pointer-events-none empty:before:block
-                [&_h1]:text-[#8b5cf6] dark:[&_h1]:text-purple-300 [&_h1]:text-2xl [&_h1]:font-extrabold [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-[#1e1b4b]/10 dark:[&_h1]:border-slate-800/60 [&_h1]:pb-1
-                [&_h2]:text-[#8b5cf6] dark:[&_h2]:text-purple-400 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:tracking-wide
-                [&_h3]:text-[#8b5cf6] dark:[&_h3]:text-purple-400 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
-                [&_p]:mb-3 [&_p]:leading-relaxed
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
-                [&_li]:text-[#1e1b4b] dark:[&_li]:text-slate-300 [&_li]:leading-normal
-                [&_strong]:text-[#1e1b4b] dark:[&_strong]:text-white [&_strong]:font-bold
-                [&_em]:text-[#1e1b4b]/70 dark:[&_em]:text-slate-400 [&_em]:italic"
+              className="w-full min-h-full bg-transparent text-text font-sans text-sm leading-relaxed focus:outline-none select-text
+ empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-600 empty:before:pointer-events-none empty:before:block
+ [&_h1]:text-ai dark:[&_h1]:text-purple-300 [&_h1]:text-2xl [&_h1]:font-extrabold [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-subtle dark:[&_h1]:border-slate-800/60 [&_h1]:pb-1
+ [&_h2]:text-ai dark:[&_h2]:text-purple-400 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:tracking-wide
+ [&_h3]:text-ai dark:[&_h3]:text-purple-400 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
+ [&_p]:mb-3 [&_p]:leading-relaxed
+ [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
+ [&_li]:text-text dark:[&_li]:text-slate-300 [&_li]:leading-normal
+ [&_strong]:text-text dark:[&_strong]:text-white [&_strong]:font-bold
+ [&_em]:text-text-muted dark:[&_em]:text-slate-400 [&_em]:italic"
               data-placeholder={t('editor.markdown.placeholder')}
               style={{ outline: 'none' }}
             />
@@ -691,7 +691,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
             {/* Highlighted text layer underneath */}
             <div
               ref={overlayRef}
-              className="absolute inset-0 p-6 font-mono text-sm leading-relaxed overflow-auto pointer-events-none whitespace-pre-wrap break-words text-[#1e1b4b] dark:text-slate-300 editor-scrollbar select-none"
+              className="absolute inset-0 p-6 font-mono text-sm leading-relaxed overflow-auto pointer-events-none whitespace-pre-wrap break-words text-text editor-scrollbar select-none"
               dangerouslySetInnerHTML={{ __html: highlightMarkdown(content) }}
             />
             
@@ -701,7 +701,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               value={content}
               onChange={handleChange}
               onScroll={handleScroll}
-              className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-[#8b5cf6] dark:caret-[#8b5cf6] font-mono text-sm leading-relaxed p-6 focus:outline-none resize-none selection:bg-[#8b5cf6]/20 selection:text-transparent overflow-auto editor-scrollbar border-0"
+              className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-ai dark:caret-ai font-mono text-sm leading-relaxed p-6 focus:outline-none resize-none selection:bg-ai/20 selection:text-transparent overflow-auto editor-scrollbar border-0"
               placeholder={t('editor.markdown.placeholderMarkdown')}
               spellCheck="false"
               readOnly={isAiStreaming}
@@ -714,7 +714,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           <div className="absolute inset-0 p-6 overflow-auto editor-scrollbar font-mono text-xs leading-relaxed">
             {diffView === 'unified' ? (
               /* Unified In-line Diff */
-              <div className="min-w-full flex flex-col rounded-xl overflow-hidden border border-[#1e1b4b]/10 dark:border-slate-900 bg-[#fafafa]/80 dark:bg-[#070b13]/80">
+              <div className="min-w-full flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-canvas/80 dark:bg-canvas/80">
                 {diffLines.map((line, idx) => {
                   const isAdded = line.type === 'added';
                   const isRemoved = line.type === 'removed';
@@ -722,19 +722,19 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                     ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300/90 border-l-2 border-emerald-500/80' 
                     : isRemoved 
                       ? 'bg-rose-500/10 text-rose-800 dark:text-rose-300/85 border-l-2 border-rose-500/80 line-through decoration-rose-500/50' 
-                      : 'text-[#1e1b4b]/70 dark:text-slate-400 hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-900/10 border-l-2 border-transparent';
+                      : 'text-text-muted hover:bg-surface-muted dark:hover:bg-surface/10 border-l-2 border-transparent';
                   
                   return (
                     <div key={idx} className={`flex w-full min-h-[22px] items-start ${bgClass}`}>
                       {/* Line Numbers */}
-                      <div className="w-10 select-none text-[9px] text-[#1e1b4b]/40 dark:text-slate-600 text-right pr-2 py-0.5 border-r border-[#1e1b4b]/10 dark:border-slate-900/40 shrink-0">
+                      <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
                         {line.oldLineNumber || ''}
                       </div>
-                      <div className="w-10 select-none text-[9px] text-[#1e1b4b]/40 dark:text-slate-600 text-right pr-2 py-0.5 border-r border-[#1e1b4b]/10 dark:border-slate-900/40 shrink-0">
+                      <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
                         {line.newLineNumber || ''}
                       </div>
                       {/* Diff Sign */}
-                      <div className={`w-6 select-none text-center font-bold py-0.5 shrink-0 ${isAdded ? 'text-emerald-600' : isRemoved ? 'text-rose-600' : 'text-[#1e1b4b]/30'}`}>
+                      <div className={`w-6 select-none text-center font-bold py-0.5 shrink-0 ${isAdded ? 'text-emerald-600' : isRemoved ? 'text-rose-600' : 'text-text-muted'}`}>
                         {isAdded ? '+' : isRemoved ? '-' : ' '}
                       </div>
                       {/* Line Content */}
@@ -749,8 +749,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               /* Split Side-by-side Diff */
               <div className="min-w-full flex gap-4 h-full">
                 {/* Left Side: Before (CV Base) */}
-                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-[#1e1b4b]/10 dark:border-slate-900 bg-white dark:bg-[#070b13]/80 h-full overflow-y-auto">
-                  <div className="sticky top-0 bg-[#fafafa] dark:bg-[#0c1220] border-b border-[#1e1b4b]/10 dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 z-10 uppercase select-none">
+                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
+                  <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 z-10 uppercase select-none">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                     {t('editor.markdown.diff.before')}
                   </div>
@@ -759,8 +759,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                       if (line.type === 'added') {
                         // Place-holder to keep alignment
                         return (
-                          <div key={idx} className="flex w-full min-h-[22px] bg-[#03060d]/20 text-transparent select-none border-l-2 border-transparent">
-                            <div className="w-10 border-r border-[#1e1b4b]/5 dark:border-slate-900/20 shrink-0" />
+                          <div key={idx} className="flex w-full min-h-[22px] bg-canvas/20 text-transparent select-none border-l-2 border-transparent">
+                            <div className="w-10 border-r border-subtle dark:border-slate-900/20 shrink-0" />
                             <div className="flex-1 py-0.5 px-3 pointer-events-none">
                               &nbsp;
                             </div>
@@ -770,8 +770,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                       
                       const isRemoved = line.type === 'removed';
                       return (
-                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isRemoved ? 'bg-rose-500/10 text-rose-800 dark:text-rose-350 border-l-2 border-rose-500/80 line-through decoration-rose-500/50' : 'text-[#1e1b4b]/70 dark:text-slate-400 border-l-2 border-transparent'}`}>
-                          <div className="w-10 select-none text-[9px] text-[#1e1b4b]/40 dark:text-slate-600 text-right pr-2 py-0.5 border-r border-[#1e1b4b]/10 dark:border-slate-900/40 shrink-0">
+                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isRemoved ? 'bg-rose-500/10 text-rose-800 dark:text-rose-350 border-l-2 border-rose-500/80 line-through decoration-rose-500/50' : 'text-text-muted border-l-2 border-transparent'}`}>
+                          <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
                             {line.oldLineNumber || ''}
                           </div>
                           <div className="flex-1 min-w-0 px-3 py-0.5 whitespace-pre-wrap break-words select-text">
@@ -784,8 +784,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 </div>
 
                 {/* Right Side: After (IA Optimizado) */}
-                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-[#1e1b4b]/10 dark:border-slate-900 bg-white dark:bg-[#070b13]/80 h-full overflow-y-auto">
-                  <div className="sticky top-0 bg-[#fafafa] dark:bg-[#0c1220] border-b border-[#1e1b4b]/10 dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-450 flex items-center gap-1.5 z-10 uppercase select-none">
+                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
+                  <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-450 flex items-center gap-1.5 z-10 uppercase select-none">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     {t('editor.markdown.diff.after')}
                   </div>
@@ -794,8 +794,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                       if (line.type === 'removed') {
                         // Place-holder to keep alignment
                         return (
-                          <div key={idx} className="flex w-full min-h-[22px] bg-[#03060d]/20 text-transparent select-none border-l-2 border-transparent">
-                            <div className="w-10 border-r border-[#1e1b4b]/5 dark:border-slate-900/20 shrink-0" />
+                          <div key={idx} className="flex w-full min-h-[22px] bg-canvas/20 text-transparent select-none border-l-2 border-transparent">
+                            <div className="w-10 border-r border-subtle dark:border-slate-900/20 shrink-0" />
                             <div className="flex-1 py-0.5 px-3 pointer-events-none">
                               &nbsp;
                             </div>
@@ -805,8 +805,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
                       const isAdded = line.type === 'added';
                       return (
-                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isAdded ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300/90 border-l-2 border-emerald-500/80' : 'text-[#1e1b4b]/70 dark:text-slate-400 border-l-2 border-transparent'}`}>
-                          <div className="w-10 select-none text-[9px] text-[#1e1b4b]/40 dark:text-slate-600 text-right pr-2 py-0.5 border-r border-[#1e1b4b]/10 dark:border-slate-900/40 shrink-0">
+                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isAdded ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300/90 border-l-2 border-emerald-500/80' : 'text-text-muted border-l-2 border-transparent'}`}>
+                          <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
                             {line.newLineNumber || ''}
                           </div>
                           <div className="flex-1 min-w-0 px-3 py-0.5 whitespace-pre-wrap break-words select-text">
@@ -824,26 +824,26 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
         {/* Overlay de carga premium de IA */}
         {isAiStreaming && (!content || content.trim().length === 0 || content === '<p><br></p>') && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-[#090d16]/95 backdrop-blur-md select-none z-50 transition-all duration-300">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-canvas/95 backdrop-blur-md select-none z-50 transition-all duration-300">
             <div className="relative mb-6">
               {/* Spinner animado con gradiente */}
               <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
-                <RefreshCw className="w-6 h-6 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+                <RefreshCw className="w-6 h-6 text-ai animate-spin stroke-[1.75]" />
               </div>
-              <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-[#8b5cf6] animate-pulse" />
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-ai animate-pulse" />
             </div>
             
-            <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display uppercase tracking-wider">
+            <h4 className="text-sm font-bold text-text mb-2 font-display uppercase tracking-wider">
               {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
             </h4>
             
             {/* Estado de carga actual del stream */}
-            <p className="text-xs text-[#8b5cf6] dark:text-purple-300 font-semibold tracking-wide h-6 flex items-center justify-center animate-pulse mb-3 font-display">
+            <p className="text-xs text-ai dark:text-purple-300 font-semibold tracking-wide h-6 flex items-center justify-center animate-pulse mb-3 font-display">
               {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
             </p>
             
             {/* Subconsejos rotatorios dinámicos para mayor engagement */}
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-light max-w-sm h-10 flex items-center justify-center leading-relaxed font-sans px-4 py-2 bg-slate-500/5 dark:bg-white/5 rounded-xl border border-slate-500/10 dark:border-white/5 shadow-sm">
+            <p className="text-[11px] text-slate-500 dark:text-text-muted font-light max-w-sm h-10 flex items-center justify-center leading-relaxed font-sans px-4 py-2 bg-control/5 dark:bg-white/5 rounded-xl border border-slate-500/10 dark:border-white/5 shadow-sm">
               {language === 'es' ? loadingTips[tipIndex] : loadingTipsEn[tipIndex]}
             </p>
           </div>

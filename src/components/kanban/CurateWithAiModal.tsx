@@ -469,21 +469,21 @@ export default function CurateWithAiModal({
   const archivedPreview = Array.from(map.values()).filter((i) => i.decision === 'archive').length;
 
   return (
-    <div className="fixed inset-0 bg-[#0b0f19]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
       <div
-        className="w-full max-w-md bg-[#FAFAFA] dark:bg-[#0B0F19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center p-6 relative animate-in zoom-in-95 fade-in duration-200"
+        className="w-full max-w-md bg-canvas border border-control rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center p-6 relative animate-in zoom-in-95 fade-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-full flex items-center justify-between pb-3 border-b border-[#1e1b4b]/5 dark:border-white/5">
+        <div className="w-full flex items-center justify-between pb-3 border-b border-subtle">
           <div className="flex items-center gap-2 min-w-0">
             <span
               className={`w-2.5 h-2.5 rounded-full inline-block shrink-0 ${
                 phase === 'done' || aiFinished
-                  ? 'bg-[#2ECC71]'
-                  : 'bg-[#8b5cf6] animate-pulse shadow-[0_0_10px_rgba(139,92,246,0.55)]'
+                  ? 'bg-action'
+                  : 'bg-ai-action animate-pulse shadow-[0_0_10px_rgba(139,92,246,0.55)]'
               }`}
             />
-            <span className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display truncate">
+            <span className="text-xs font-bold text-text font-display truncate">
               {error
                 ? 'Error en la curación'
                 : isSimulation
@@ -503,26 +503,26 @@ export default function CurateWithAiModal({
               abortControllerRef.current?.abort();
               onClose();
             }}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-surface-muted dark:hover:bg-white/10 transition-colors"
           >
             <X className="w-4 h-4 stroke-[1.75]" />
           </button>
         </div>
 
         <div className="w-full my-4 space-y-1.5">
-          <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1b4b]/70 dark:text-slate-400">
+          <div className="flex items-center justify-between text-[11px] font-bold text-text-muted">
             <span>
               {phase === 'done'
                 ? `${totalCards} evaluadas`
                 : `${Math.max(shownCount, 0)} de ${totalCards}`}
             </span>
-            <span className="text-[#8b5cf6] font-display tabular-nums">
+            <span className="text-ai font-display tabular-nums">
               {Math.min(100, progressPercent)}%
             </span>
           </div>
-          <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-[#111827] overflow-hidden">
+          <div className="w-full h-1.5 rounded-full bg-surface-muted dark:bg-surface overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-[#8b5cf6] via-[#a78bfa] to-[#2ECC71] transition-[width] duration-300 ease-out rounded-full"
+              className="h-full bg-gradient-to-r from-ai via-ai to-action transition-[width] duration-300 ease-out rounded-full"
               style={{ width: `${Math.min(100, progressPercent)}%` }}
             />
           </div>
@@ -538,7 +538,7 @@ export default function CurateWithAiModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 text-[#1e1b4b] dark:text-white"
+                className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-surface-muted dark:bg-white/10 text-text"
               >
                 Cerrar
               </button>
@@ -548,7 +548,7 @@ export default function CurateWithAiModal({
               <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
                 <Check className="w-7 h-7 stroke-[2.5]" />
               </div>
-              <h4 className="text-base font-extrabold text-[#1e1b4b] dark:text-white font-display">
+              <h4 className="text-base font-extrabold text-text font-display">
                 ¡Candidaturas puntuadas!
               </h4>
               <p className="text-xs text-slate-400 font-sans">
@@ -558,20 +558,20 @@ export default function CurateWithAiModal({
           ) : currentCard ? (
             <>
               {nextCard2 && !aiFinished && (
-                <div className="absolute w-[88%] h-[250px] bg-slate-100 dark:bg-[#161f30] border border-[#1e1b4b]/5 dark:border-white/5 rounded-2xl shadow-sm transform translate-y-5 scale-[0.88] opacity-30 pointer-events-none z-10" />
+                <div className="absolute w-[88%] h-[250px] bg-surface-muted dark:bg-surface border border-subtle rounded-2xl shadow-sm transform translate-y-5 scale-[0.88] opacity-30 pointer-events-none z-10" />
               )}
               {nextCard1 && !aiFinished && (
-                <div className="absolute w-[94%] h-[250px] bg-slate-50 dark:bg-[#1a2333] border border-[#1e1b4b]/8 dark:border-white/8 rounded-2xl shadow-md transform translate-y-2.5 scale-[0.94] opacity-60 pointer-events-none z-20" />
+                <div className="absolute w-[94%] h-[250px] bg-surface-muted dark:bg-surface-muted border border-text/8 dark:border-white/8 rounded-2xl shadow-md transform translate-y-2.5 scale-[0.94] opacity-60 pointer-events-none z-20" />
               )}
 
               <div
-                className={`absolute w-full h-[260px] bg-white dark:bg-[#111827] border rounded-2xl p-5 shadow-2xl flex flex-col justify-between z-30 overflow-hidden
+                className={`absolute w-full h-[260px] bg-white dark:bg-surface border rounded-2xl p-5 shadow-2xl flex flex-col justify-between z-30 overflow-hidden
                   ${cardState === 'entering' ? 'animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-150' : ''}
                   ${cardState === 'exiting' && isPassing ? 'transition-all duration-200 translate-x-[130%] rotate-12 opacity-0' : ''}
                   ${cardState === 'exiting' && isSuspended ? 'transition-all duration-200 -translate-x-[130%] -rotate-12 opacity-0' : ''}
                   ${cardState === 'exiting' && isWaitingScore ? 'transition-all duration-200 translate-y-[100%] opacity-0' : ''}
                   ${isWaitingScore
-                    ? 'border-[#8b5cf6]/25 shadow-[#8b5cf6]/10'
+                    ? 'border-ai/25 shadow-ai/10'
                     : isSuspended
                       ? 'border-rose-500/30 shadow-rose-500/10'
                       : 'border-emerald-500/30 shadow-emerald-500/10'}
@@ -579,17 +579,17 @@ export default function CurateWithAiModal({
               >
                 {isWaitingScore && (
                   <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-[#8b5cf6]/12 to-transparent curate-scan-shimmer" />
+                    <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-ai/12 to-transparent curate-scan-shimmer" />
                   </div>
                 )}
 
                 <div className="relative">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-xs shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-surface-muted dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-xs shrink-0">
                         {currentCard.company?.charAt(0) || <Building2 className="w-3.5 h-3.5 stroke-[1.75]" />}
                       </div>
-                      <span className="text-xs font-bold text-[#1e1b4b]/60 dark:text-slate-400 truncate">
+                      <span className="text-xs font-bold text-text-muted truncate">
                         {currentCard.company}
                       </span>
                     </div>
@@ -605,20 +605,20 @@ export default function CurateWithAiModal({
                         {displayScore}%
                       </span>
                     ) : (
-                      <span className="text-sm font-black px-2.5 py-1 rounded-lg font-display border border-[#8b5cf6]/20 bg-[#8b5cf6]/5 text-[#8b5cf6]">
+                      <span className="text-sm font-black px-2.5 py-1 rounded-lg font-display border border-ai/20 bg-ai/5 text-ai">
                         <Loader2 className="w-4 h-4 animate-spin inline stroke-[1.75]" />
                       </span>
                     )}
                   </div>
 
-                  <h3 className="text-sm font-extrabold text-[#1e1b4b] dark:text-white mt-2 font-display line-clamp-2 leading-snug">
+                  <h3 className="text-sm font-extrabold text-text mt-2 font-display line-clamp-2 leading-snug">
                     {currentCard.title}
                   </h3>
                 </div>
 
                 <div className="relative py-2 flex items-center justify-center min-h-[44px]">
                   {isWaitingScore ? (
-                    <div className="inline-flex items-center gap-2 text-[#8b5cf6] font-bold text-xs px-3 py-1 rounded-xl border border-[#8b5cf6]/20 bg-[#8b5cf6]/5 font-display">
+                    <div className="inline-flex items-center gap-2 text-ai font-bold text-xs px-3 py-1 rounded-xl border border-ai/20 bg-ai/5 font-display">
                       <Loader2 className="w-3.5 h-3.5 animate-spin stroke-[1.75]" />
                       Esperando veredicto…
                     </div>
@@ -633,7 +633,7 @@ export default function CurateWithAiModal({
                       </div>
                     )
                   ) : (
-                    <div className="inline-flex items-center gap-2 text-[#8b5cf6] font-bold text-xs px-3 py-1 rounded-xl border border-[#8b5cf6]/15 bg-[#8b5cf6]/5 font-display">
+                    <div className="inline-flex items-center gap-2 text-ai font-bold text-xs px-3 py-1 rounded-xl border border-ai/15 bg-ai/5 font-display">
                       <Sparkles className="w-3.5 h-3.5 stroke-[1.75] animate-pulse" />
                       Analizando veredicto…
                     </div>
@@ -642,11 +642,11 @@ export default function CurateWithAiModal({
 
                 <div className="relative pt-2 border-t border-slate-100 dark:border-white/5">
                   {displayReason ? (
-                    <p className="text-[11.5px] text-[#1e1b4b]/75 dark:text-slate-300 font-sans leading-relaxed line-clamp-2">
+                    <p className="text-[11.5px] text-text-muted dark:text-slate-300 font-sans leading-relaxed line-clamp-2">
                       {displayReason}
                     </p>
                   ) : (
-                    <div className="flex items-center gap-2 text-[11.5px] text-[#8b5cf6]/70 font-sans">
+                    <div className="flex items-center gap-2 text-[11.5px] text-ai/70 font-sans">
                       <Sparkles className="w-3.5 h-3.5 animate-pulse stroke-[1.75]" />
                       <span>La IA está evaluando esta candidatura...</span>
                     </div>
@@ -655,7 +655,7 @@ export default function CurateWithAiModal({
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-3 text-[#8b5cf6]">
+            <div className="flex flex-col items-center justify-center gap-3 text-ai">
               <Loader2 className="w-6 h-6 animate-spin stroke-[1.75]" />
               <p className="text-xs font-bold font-display">Preparando curación…</p>
             </div>

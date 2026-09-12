@@ -67,7 +67,7 @@ export default function SettingsTabs({
   return (
     <div className="space-y-6">
       {/* Selector de pestañas */}
-      <div className="flex border-b border-[#1e1b4b]/10 dark:border-white/5 pb-px gap-1 overflow-x-auto scrollbar-none">
+      <div className="flex border-b border-subtle pb-px gap-1 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -79,8 +79,8 @@ export default function SettingsTabs({
               role="tab"
               className={`flex items-center gap-2 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all outline-none whitespace-nowrap font-display ${
                 active
-                  ? 'border-[#1e1b4b] dark:border-white text-[#1e1b4b] dark:text-white'
-                  : 'border-transparent text-[#1e1b4b]/45 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                  ? 'border-text dark:border-white text-text'
+                  : 'border-transparent text-text-muted hover:text-text dark:hover:text-white'
               }`}
             >
               {tab.icon}

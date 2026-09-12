@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { updateUserNameAction } from '@/app/dashboard/actions';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { Button } from '@/components/ui/Button';
 
 interface NameFormProps {
   initialName: string;
@@ -49,7 +50,7 @@ export default function NameForm({ initialName, onSaved }: NameFormProps) {
 
   return (
     <div className="space-y-2">
-      <label htmlFor="account-name" className="block text-[10px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 uppercase tracking-wider font-display">
+      <label htmlFor="account-name" className="block text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
         {t('settings.account.nameLabel')}
       </label>
       <div className="flex items-center gap-2">
@@ -65,22 +66,21 @@ export default function NameForm({ initialName, onSaved }: NameFormProps) {
               void save();
             }
           }}
-          className="flex-1 bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] transition-colors font-sans"
+          className="flex-1 bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-colors font-sans"
           placeholder={t('sidebar.userMenu.namePlaceholder')}
         />
-        <button
+        <Button
           type="button"
+          variant="strong"
+          size="sm"
           onClick={() => void save()}
           disabled={isSaving || value.trim() === name}
-          className="inline-flex items-center gap-1.5 bg-[#1e1b4b] dark:bg-white dark:text-[#0b0f19] hover:bg-[#1e1b4b]/95 dark:hover:bg-slate-100 text-white font-bold px-4 py-2.5 rounded-[8px] text-xs transition-all shadow-sm disabled:opacity-40 font-display"
+          loading={isSaving}
+          className="shrink-0"
         >
-          {isSaving ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Check className="w-3.5 h-3.5 stroke-[1.75]" />
-          )}
+          {!isSaving && <Check className="w-3.5 h-3.5 stroke-[1.75]" />}
           <span>{t('sidebar.userMenu.save')}</span>
-        </button>
+        </Button>
       </div>
       {error ? (
         <p className="text-[10px] text-rose-500 dark:text-rose-400 font-sans mt-1">{error}</p>

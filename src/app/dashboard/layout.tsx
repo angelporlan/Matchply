@@ -29,7 +29,7 @@ export default async function DashboardLayout({
   const isPremium = isProSubscription(subscriptionStatus);
 
   return (
-    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col md:flex-row transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
+    <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={{ name: dbUser?.name || session.user.name, email: session.user.email, image: dbUser?.image || session.user.image, role: dbUser?.role }} isPremium={isPremium} />
       <div className="flex-1 min-h-screen relative z-10 overflow-y-auto">
         {children}

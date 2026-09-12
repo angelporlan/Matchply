@@ -66,27 +66,27 @@ response = requests.post(url, data=json.dumps(payload), headers=headers)
 print(response.json())`;
 
   return (
-    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b] dark:text-slate-100 font-sans transition-colors duration-300 pb-20">
+    <div className="min-h-screen bg-canvas text-text font-sans transition-colors duration-300 pb-20">
       {/* Background Decorative Glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 rounded-full filter blur-[100px] pointer-events-none" />
-      <div className="absolute top-[30%] right-1/4 w-96 h-96 bg-[#2ecc71]/5 dark:bg-[#2ecc71]/5 rounded-full filter blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-ai/5 dark:bg-ai/8 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="absolute top-[30%] right-1/4 w-96 h-96 bg-action/5 dark:bg-action/5 rounded-full filter blur-[120px] pointer-events-none" />
 
       {/* Header Bar */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#0b0f19]/80 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-canvas/80 backdrop-blur-md border-b border-subtle px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link 
             href="/dashboard" 
-            className="p-2 rounded-[8px] bg-slate-100 dark:bg-[#1f2937]/50 hover:bg-[#8b5cf6]/10 hover:text-[#8b5cf6] transition-all text-[#1e1b4b]/70 dark:text-slate-350"
+            className="p-2 rounded-[8px] bg-surface-muted/50 hover:bg-ai/10 hover:text-ai transition-all text-text-muted dark:text-slate-350"
             title="Volver al Dashboard"
           >
             <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
           </Link>
-          <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-800" />
+          <div className="h-6 w-[1px] bg-subtle dark:bg-surface-muted" />
           <div className="flex items-center gap-2">
-            <span className="font-display font-extrabold text-sm tracking-tight text-[#1e1b4b] dark:text-white">
-              MATCHPLY <span className="text-[#8b5cf6]">DOCS</span>
+            <span className="font-display font-extrabold text-sm tracking-tight text-text">
+              MATCHPLY <span className="text-ai">DOCS</span>
             </span>
-            <span className="text-[9px] uppercase tracking-wider font-extrabold text-[#8b5cf6] bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 px-2 py-0.5 rounded-full">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-ai bg-ai/10 border border-ai/30 px-2 py-0.5 rounded-full">
               Developer & User Hub
             </span>
           </div>
@@ -94,7 +94,7 @@ print(response.json())`;
 
         <Link 
           href="/dashboard/subscription" 
-          className="text-xs font-bold text-[#8b5cf6] hover:text-[#8b5cf6]/90 transition-all flex items-center gap-1"
+          className="text-xs font-bold text-ai hover:text-ai/90 transition-all flex items-center gap-1"
         >
           <Key className="w-3.5 h-3.5" />
           {language === 'es' ? 'Obtener mi API Key' : 'Get my API Key'}
@@ -105,20 +105,20 @@ print(response.json())`;
       {/* Hero Section */}
       <section className="max-w-6xl mx-auto px-6 pt-12 pb-8 text-center relative z-10">
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-1.5 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 px-3.5 py-1 rounded-full text-xs font-semibold text-[#8b5cf6]">
+          <div className="inline-flex items-center gap-1.5 bg-ai/10 dark:bg-ai/15 border border-ai/20 px-3.5 py-1 rounded-full text-xs font-semibold text-ai">
             <Sparkles className="w-3.5 h-3.5 animate-pulse" />
             {language === 'es' ? 'Integraciones y Automatizaciones al 100%' : '100% Automated Integrations & Sync'}
           </div>
           
-          <h1 className="text-3xl md:text-5xl font-display font-extrabold text-[#1e1b4b] dark:text-white leading-tight max-w-3xl mx-auto">
+          <h1 className="text-3xl md:text-5xl font-display font-extrabold text-text leading-tight max-w-3xl mx-auto">
             {language === 'es' ? (
-              <>Conecta tu Kanban de Matchply con <span className="text-[#8b5cf6] relative">Cualquier Herramienta</span></>
+              <>Conecta tu Kanban de Matchply con <span className="text-ai relative">Cualquier Herramienta</span></>
             ) : (
-              <>Connect your Matchply Kanban with <span className="text-[#8b5cf6] relative">Any Tool</span></>
+              <>Connect your Matchply Kanban with <span className="text-ai relative">Any Tool</span></>
             )}
           </h1>
 
-          <p className="text-sm md:text-base font-light text-[#1e1b4b]/60 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm md:text-base font-light text-text-muted max-w-2xl mx-auto leading-relaxed">
             {language === 'es' ? (
               "Sincroniza ofertas de empleo directamente en tu embudo visual, adapta currículums en la nube y extrae reportes de IA avanzados en tiempo real usando nuestras API Keys personales."
             ) : (
@@ -135,22 +135,22 @@ print(response.json())`;
         <div className="lg:col-span-2 space-y-10">
           
           {/* Quick Guide Card */}
-          <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 p-8 rounded-2xl shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#8b5cf6]/5 rounded-bl-full pointer-events-none" />
+          <div className="bg-surface border border-subtle p-8 rounded-2xl shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-ai/5 rounded-bl-full pointer-events-none" />
             
-            <h2 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white flex items-center gap-2 mb-6">
-              <Zap className="w-5 h-5 text-[#8b5cf6]" />
+            <h2 className="text-xl font-bold font-display text-text flex items-center gap-2 mb-6">
+              <Zap className="w-5 h-5 text-ai" />
               {language === 'es' ? 'Cómo empezar en 3 Simples Pasos' : 'How to get started in 3 Simple Steps'}
             </h2>
 
             <div className="space-y-6">
               <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-bold font-display shrink-0">1</div>
+                <div className="w-8 h-8 rounded-full bg-ai/10 text-ai flex items-center justify-center font-bold font-display shrink-0">1</div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#1e1b4b] dark:text-white">
+                  <h3 className="font-bold text-sm text-text">
                     {language === 'es' ? 'Activa tu Plan PRO' : 'Activate your PRO Plan'}
                   </h3>
-                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
                     {language === 'es' 
                       ? 'Las integraciones externas y las claves de API personales son un beneficio exclusivo de suscripción PRO. Adquiere el plan para desbloquearlas.' 
                       : 'External integrations and personal API keys are an exclusive benefit of the PRO plan. Upgrade to unlock all features.'}
@@ -159,12 +159,12 @@ print(response.json())`;
               </div>
 
               <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-bold font-display shrink-0">2</div>
+                <div className="w-8 h-8 rounded-full bg-ai/10 text-ai flex items-center justify-center font-bold font-display shrink-0">2</div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#1e1b4b] dark:text-white">
+                  <h3 className="font-bold text-sm text-text">
                     {language === 'es' ? 'Genera tu Clave de API Secreta' : 'Generate your Secret API Key'}
                   </h3>
-                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
                     {language === 'es' 
                       ? 'Dirígete a Ajustes → Integraciones y haz clic en "Generar Clave de API". Copia la clave secreta con prefijo "matchply_usr_".' 
                       : 'Navigate to Settings → Integrations and click "Generate API Key". Copy the secret key starting with prefix "matchply_usr_".'}
@@ -173,12 +173,12 @@ print(response.json())`;
               </div>
 
               <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-bold font-display shrink-0">3</div>
+                <div className="w-8 h-8 rounded-full bg-ai/10 text-ai flex items-center justify-center font-bold font-display shrink-0">3</div>
                 <div>
-                  <h3 className="font-bold text-sm text-[#1e1b4b] dark:text-white">
+                  <h3 className="font-bold text-sm text-text">
                     {language === 'es' ? 'Conecta tu Herramienta o Extensión' : 'Connect your Tool or Extension'}
                   </h3>
-                  <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 leading-relaxed">
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
                     {language === 'es' 
                       ? 'Utiliza tu clave personal para autorizar las solicitudes. Configúrala en extensiones de navegador compatibles, scripts en segundo plano o tus propias herramientas integradas.' 
                       : 'Use your personal key to authorize requests. Plug it into compatible browser extensions, background scripts, or your own integrated tools.'}
@@ -191,19 +191,19 @@ print(response.json())`;
           {/* Interactive Use Cases Panel */}
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h2 className="text-lg font-bold font-display text-[#1e1b4b] dark:text-white flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#8b5cf6]" />
+              <h2 className="text-lg font-bold font-display text-text flex items-center gap-2">
+                <Layers className="w-5 h-5 text-ai" />
                 {language === 'es' ? 'Escenarios y Casos de Uso Comunes' : 'Common Integration Scenarios'}
               </h2>
 
               {/* Custom Tabs */}
-              <div className="flex bg-slate-100 dark:bg-[#1f2937]/50 p-1 rounded-xl border border-slate-200/50 dark:border-white/5">
+              <div className="flex bg-surface-muted/50 p-1 rounded-xl border border-slate-200/50 dark:border-white/5">
                 <button
                   onClick={() => setActiveTab('extension')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     activeTab === 'extension'
-                      ? 'bg-white dark:bg-[#0b0f19] text-[#8b5cf6] shadow-xs'
-                      : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                      ? 'bg-canvas text-ai shadow-xs'
+                      : 'text-text-muted hover:text-text dark:hover:text-white'
                   }`}
                 >
                   <Chrome className="w-3.5 h-3.5" />
@@ -213,8 +213,8 @@ print(response.json())`;
                   onClick={() => setActiveTab('developer')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     activeTab === 'developer'
-                      ? 'bg-white dark:bg-[#0b0f19] text-[#8b5cf6] shadow-xs'
-                      : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                      ? 'bg-canvas text-ai shadow-xs'
+                      : 'text-text-muted hover:text-text dark:hover:text-white'
                   }`}
                 >
                   <Code className="w-3.5 h-3.5" />
@@ -224,20 +224,20 @@ print(response.json())`;
             </div>
 
             {/* Tab Contents */}
-            <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 p-8 rounded-2xl shadow-sm transition-all duration-300">
+            <div className="bg-surface border border-subtle p-8 rounded-2xl shadow-sm transition-all duration-300">
               
               {/* TAB 1: CHROME EXTENSION */}
               {activeTab === 'extension' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex gap-4 items-start">
-                    <div className="p-3 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-xl shrink-0">
+                    <div className="p-3 bg-ai/10 text-ai border border-ai/20 rounded-xl shrink-0">
                       <Puzzle className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white">
+                      <h3 className="text-base font-bold text-text">
                         {language === 'es' ? 'Sincronización con un solo clic' : 'One-Click Extension Sync'}
                       </h3>
-                      <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans font-light leading-relaxed">
+                      <p className="text-xs text-text-muted font-sans font-light leading-relaxed">
                         {language === 'es' 
                           ? 'Automatiza tu búsqueda directamente desde portales como LinkedIn, Indeed o InfoJobs usando extensiones compatibles de scraping.'
                           : 'Automate your job hunting directly from platforms like LinkedIn, Indeed, or InfoJobs using compatible web scrapers.'}
@@ -246,38 +246,38 @@ print(response.json())`;
                   </div>
 
                   {/* Visual Interface Mock */}
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-[#0b0f19] p-5 relative">
-                    <span className="absolute top-3 right-3 text-[8px] uppercase tracking-wider font-extrabold text-[#2ecc71] bg-[#2ecc71]/10 border border-[#2ecc71]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-[#2ecc71] rounded-full animate-ping" />
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-surface-muted dark:bg-canvas p-5 relative">
+                    <span className="absolute top-3 right-3 text-[8px] uppercase tracking-wider font-extrabold text-success-text bg-action/10 border border-action/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-action rounded-full animate-ping" />
                       Active Sync
                     </span>
 
-                    <h4 className="text-xs font-bold text-[#1e1b4b] dark:text-white mb-4 flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-text mb-4 flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
                       {language === 'es' ? 'Extensión de Navegador (Mock UI)' : 'Browser Extension (Mock UI)'}
                     </h4>
 
                     <div className="space-y-3 font-sans">
-                      <div className="bg-white dark:bg-[#1f2937] p-3 rounded-lg border border-slate-150 dark:border-slate-800 text-xs">
+                      <div className="bg-surface p-3 rounded-lg border border-slate-150 dark:border-slate-800 text-xs">
                         <span className="text-[10px] text-slate-400 block">{language === 'es' ? 'Vacante detectada:' : 'Detected Job:'}</span>
-                        <strong className="text-[#1e1b4b] dark:text-white">Senior React Developer</strong>
-                        <span className="text-[#1e1b4b]/60 dark:text-slate-400 block mt-0.5">Vercel Inc. &middot; Remote</span>
+                        <strong className="text-text">Senior React Developer</strong>
+                        <span className="text-text-muted block mt-0.5">Vercel Inc. &middot; Remote</span>
                       </div>
 
                       <div className="flex gap-2">
-                        <button className="flex-1 bg-[#8b5cf6] text-white hover:bg-[#8b5cf6]/90 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                        <button className="flex-1 bg-ai-action text-on-ai-action hover:bg-ai-hover py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5">
                           <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
                           {language === 'es' ? 'Sincronizar con Matchply' : 'Sync to Matchply'}
                         </button>
-                        <div className="w-12 bg-[#2ecc71]/10 text-[#2ecc71] border border-[#2ecc71]/20 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold">
+                        <div className="w-12 bg-action/10 text-success-text border border-action/20 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold">
                           <span>94%</span>
-                          <span className="text-[7px] text-[#2ecc71]/80 uppercase">Match</span>
+                          <span className="text-[7px] text-success-text/80 uppercase">Match</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs font-sans font-light text-[#1e1b4b]/60 dark:text-slate-400 leading-relaxed">
+                  <div className="text-xs font-sans font-light text-text-muted leading-relaxed">
                     {language === 'es' ? (
                       <>
                         Al pulsar <strong>"Sincronizar"</strong>, la extensión inyectará los datos automáticamente y creará una versión de currículum optimizada basada en tu CV Principal en menos de 3 segundos.
@@ -295,14 +295,14 @@ print(response.json())`;
               {activeTab === 'developer' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex gap-4 items-start">
-                    <div className="p-3 bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 rounded-xl shrink-0">
+                    <div className="p-3 bg-ai/10 text-ai border border-ai/20 rounded-xl shrink-0">
                       <Terminal className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white">
+                      <h3 className="text-base font-bold text-text">
                         {language === 'es' ? 'Desarrollo de Scripts Personalizados y API' : 'Custom Developer Scripts & API'}
                       </h3>
-                      <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans font-light leading-relaxed">
+                      <p className="text-xs text-text-muted font-sans font-light leading-relaxed">
                         {language === 'es'
                           ? 'Interactúa con nuestra API mediante Curl, Python, Node.js o configurando variables de entorno en tus propios agentes de automatización.'
                           : 'Interact with our developer endpoint using Curl, Python, Node.js, or configuring environment variables in your own automated agents.'}
@@ -312,13 +312,13 @@ print(response.json())`;
 
                   {/* Variables de Entorno Section */}
                   <div className="space-y-3 font-sans">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#1e1b4b]/80 dark:text-slate-350">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-text-muted dark:text-slate-350">
                       {language === 'es' ? 'Variables locales en tu archivo .env' : 'Local variables for your .env file'}
                     </label>
-                    <div className="relative bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-xl font-mono text-[10px] text-[#1e1b4b]/80 dark:text-slate-200 select-all leading-relaxed whitespace-pre-wrap">
+                    <div className="relative bg-canvas border border-control p-4 rounded-xl font-mono text-[10px] text-text-muted dark:text-text select-all leading-relaxed whitespace-pre-wrap">
                       <button 
                         onClick={() => handleCopy("MATCHPLY_API_KEY=matchply_usr_...\nMATCHPLY_API_URL=https://matchply.com/api/external/applications", 'key')}
-                        className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-slate-800 transition-colors text-slate-400"
+                        className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-surface-muted transition-colors text-slate-400"
                         title="Copiar configuración"
                       >
                         {copiedText === 'key' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -344,10 +344,10 @@ print(response.json())`;
                     {/* cURL Block */}
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-slate-400 font-sans">cURL</span>
-                      <div className="relative bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-xl font-mono text-[9px] text-[#1e1b4b]/80 dark:text-slate-200 select-all leading-relaxed whitespace-pre-wrap">
+                      <div className="relative bg-canvas border border-control p-4 rounded-xl font-mono text-[9px] text-text-muted dark:text-text select-all leading-relaxed whitespace-pre-wrap">
                         <button 
                           onClick={() => handleCopy(curlCommand, 'curl')}
-                          className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-slate-800 transition-colors text-slate-400"
+                          className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-surface-muted transition-colors text-slate-400"
                         >
                           {copiedText === 'curl' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
@@ -358,10 +358,10 @@ print(response.json())`;
                     {/* Python Block */}
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-slate-400 font-sans">Python</span>
-                      <div className="relative bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-xl font-mono text-[9px] text-[#1e1b4b]/80 dark:text-slate-200 select-all leading-relaxed whitespace-pre-wrap">
+                      <div className="relative bg-canvas border border-control p-4 rounded-xl font-mono text-[9px] text-text-muted dark:text-text select-all leading-relaxed whitespace-pre-wrap">
                         <button 
                           onClick={() => handleCopy(pythonCode, 'python')}
-                          className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-slate-800 transition-colors text-slate-400"
+                          className="absolute top-2.5 right-2.5 p-1.5 rounded-md hover:bg-slate-250 dark:hover:bg-surface-muted transition-colors text-slate-400"
                         >
                           {copiedText === 'python' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
@@ -379,10 +379,10 @@ print(response.json())`;
 
         {/* Right 1 Column: Interactive Payload Simulator */}
         <div className="space-y-6 lg:sticky lg:top-24">
-          <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 p-6 rounded-2xl shadow-sm space-y-6">
+          <div className="bg-surface border border-subtle p-6 rounded-2xl shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] dark:text-white flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5 text-[#8b5cf6] fill-[#8b5cf6]" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text flex items-center gap-1.5">
+                <Play className="w-3.5 h-3.5 text-ai fill-ai" />
                 {language === 'es' ? 'Simulación de Payload' : 'Payload Simulator'}
               </h3>
               <span className="text-[9px] text-slate-400 font-mono">POST 200 OK</span>
@@ -392,20 +392,20 @@ print(response.json())`;
             <div className="space-y-4 font-sans text-xs">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold text-[#8b5cf6]">title</span>
+                  <span className="font-mono text-[10px] font-bold text-ai">title</span>
                   <span className="text-[8px] text-slate-400 uppercase font-semibold">string (Required)</span>
                 </div>
-                <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-[#1e1b4b] dark:text-slate-300">
+                <div className="bg-canvas border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-text">
                   {payloadExample.title}
                 </div>
               </div>
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold text-[#8b5cf6]">company</span>
+                  <span className="font-mono text-[10px] font-bold text-ai">company</span>
                   <span className="text-[8px] text-slate-400 uppercase font-semibold">string (Required)</span>
                 </div>
-                <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-[#1e1b4b] dark:text-slate-300">
+                <div className="bg-canvas border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-text">
                   {payloadExample.company}
                 </div>
               </div>
@@ -415,7 +415,7 @@ print(response.json())`;
                   <span className="font-mono text-[10px] font-bold text-slate-400">url</span>
                   <span className="text-[8px] text-slate-400 uppercase font-semibold">string (Optional)</span>
                 </div>
-                <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-[#1e1b4b] dark:text-slate-300">
+                <div className="bg-canvas border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] truncate text-text">
                   {payloadExample.url}
                 </div>
               </div>
@@ -425,10 +425,10 @@ print(response.json())`;
                   <span className="font-mono text-[10px] font-bold text-slate-400">cvMarkdownTailored</span>
                   <span className="text-[8px] text-slate-400 uppercase font-semibold">string (Optional)</span>
                 </div>
-                <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                <div className="bg-canvas border border-slate-200/50 dark:border-slate-850 px-2.5 py-1.5 rounded-md text-[10px] font-mono text-slate-500 dark:text-text-muted truncate">
                   {payloadExample.cvMarkdownTailored}
                 </div>
-                <span className="text-[8.5px] text-[#8b5cf6] block mt-1">
+                <span className="text-[8.5px] text-ai block mt-1">
                   💡 {language === 'es' ? 'Genera automáticamente un CV con tu estética principal.' : 'Builds a resume automatically utilizing your styling settings.'}
                 </span>
               </div>
@@ -439,7 +439,7 @@ print(response.json())`;
               <span className="text-[10px] font-bold text-slate-400 font-sans block">
                 {language === 'es' ? 'Respuesta del Servidor:' : 'Server Response:'}
               </span>
-              <div className="bg-[#0b0f19] text-[#2ecc71] font-mono p-3 rounded-lg text-[9px] leading-relaxed border border-slate-800">
+              <div className="bg-canvas text-success-text font-mono p-3 rounded-lg text-[9px] leading-relaxed border border-slate-800">
                 {`{\n`}
                 {`  "success": true,\n`}
                 {`  "offerId": "job_d9a8c17...",\n`}

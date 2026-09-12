@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
+import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const promptConfigs: Record<
@@ -448,16 +449,16 @@ export default function DashboardClient({
       {/* Cabecera Tus Currículums */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
+          <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
             {t('dashboard.cvs.title')}
             {principalCv && (
-              <span className="text-[10px] py-0.5 px-2 bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 border border-[#8b5cf6]/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
-                <Star className="w-2.5 h-2.5 fill-[#8b5cf6]" />
+              <span className="text-[10px] py-0.5 px-2 bg-ai/10 text-ai border border-ai/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
+                <Star className="w-2.5 h-2.5 fill-ai" />
                 {t('dashboard.cvs.primary', { title: principalCv.title })}
               </span>
             )}
           </h3>
-          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light font-sans">{t('dashboard.cvs.subtitle')}</p>
+          <p className="text-text-muted text-xs font-light font-sans">{t('dashboard.cvs.subtitle')}</p>
         </div>
 
         {/* Acciones principales */}
@@ -470,61 +471,58 @@ export default function DashboardClient({
               value={newCvTitle}
               onChange={(e) => setNewCvTitle(e.target.value)}
               placeholder={t('dashboard.cvs.placeholder')}
-              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-4 py-2 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all w-full sm:w-44"
+              className="bg-canvas border border-control rounded-[8px] px-4 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all w-full sm:w-44"
               disabled={createLoading}
             />
-            <button
+            <Button
               type="submit"
+              variant="strong"
               disabled={createLoading}
-              className="bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-bold px-4 py-2 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
+              loading={createLoading}
+              className="shrink-0"
             >
-              {createLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4 stroke-[1.75]" />
-              )}
+              {!createLoading && <Plus className="w-4 h-4 stroke-[1.75]" />}
               {t('dashboard.cvs.create')}
-            </button>
+            </Button>
           </form>
 
           {/* Separador */}
-          <div className="hidden sm:block h-6 w-[1px] bg-[#1e1b4b]/10 dark:bg-white/10 mx-1" />
+          <div className="hidden sm:block h-6 w-[1px] bg-text/10 dark:bg-white/10 mx-1" />
 
           {/* Botón premium de Generar con IA */}
-          <button
+          <Button
             onClick={handleAiButtonClick}
-            className={`font-bold px-4 py-2.5 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm font-display hover:-translate-y-0.5 ${principalCv
-              ? 'bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white border border-[#8b5cf6]/20'
-              : 'bg-white dark:bg-[#1f2937] text-[#1e1b4b]/40 dark:text-slate-500 border border-[#1e1b4b]/10 dark:border-white/5 cursor-not-allowed'
-              }`}
+            variant={principalCv ? 'ai' : 'secondary'}
+            disabled={!principalCv}
+            className="shrink-0"
           >
             {principalCv ? (
-              <Sparkles className="w-4 h-4 text-purple-200 animate-pulse stroke-[1.75]" />
+              <Sparkles className="w-4 h-4 stroke-[1.75]" />
             ) : (
-              <Lock className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
+              <Lock className="w-3.5 h-3.5 stroke-[1.75]" />
             )}
             <span>{t('dashboard.cvs.generateAi')}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {userCvs.length === 0 ? (
-        <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] p-6 md:p-8 shadow-sm max-w-4xl mx-auto relative overflow-hidden">
+        <div className="bg-surface border border-subtle rounded-[12px] p-6 md:p-8 shadow-sm max-w-4xl mx-auto relative overflow-hidden">
           {/* Glowing background decor */}
-          <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 rounded-full filter blur-3xl pointer-events-none" />
-          <div className="absolute bottom-[-20%] left-[-20%] w-80 h-80 bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-ai/5 dark:bg-ai/8 rounded-full filter blur-3xl pointer-events-none" />
+          <div className="absolute bottom-[-20%] left-[-20%] w-80 h-80 bg-ai/5 dark:bg-ai/8 rounded-full filter blur-3xl pointer-events-none" />
 
           {importLoading ? (
             /* Loader premium del onboarding de importación */
             <div className="py-12 flex flex-col items-center justify-center text-center relative z-10">
               <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
-                  <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+                <div className="w-20 h-20 rounded-full border border-ai/20 flex items-center justify-center bg-ai/5 shadow-sm">
+                  <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
                 </div>
-                <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
+                <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-ai animate-ping opacity-30" />
               </div>
-              <h4 className="text-base font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">{t('dashboard.cvs.import.processing')}</h4>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
+              <h4 className="text-base font-bold text-text mb-2 font-display">{t('dashboard.cvs.import.processing')}</h4>
+              <p className="text-xs text-text-muted font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
                 {importStep}
               </p>
             </div>
@@ -532,13 +530,13 @@ export default function DashboardClient({
             <div className="relative z-10">
               {/* Encabezado */}
               <div className="text-center max-w-2xl mx-auto mb-8">
-                <div className="inline-flex p-3 bg-[#8b5cf6]/10 dark:bg-[#8b5cf6]/20 rounded-xl text-[#8b5cf6] dark:text-violet-400 mb-3.5 shadow-sm">
+                <div className="inline-flex p-3 bg-ai/10 dark:bg-ai/20 rounded-xl text-ai mb-3.5 shadow-sm">
                   <Sparkles className="w-6 h-6 stroke-[1.75]" />
                 </div>
-                <h3 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white leading-tight">
+                <h3 className="text-xl font-bold font-display text-text leading-tight">
                   {t('dashboard.cvs.import.title')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-2 font-sans">
+                <p className="text-xs text-text-muted mt-2 font-sans">
                   {t('dashboard.cvs.import.subtitle')}
                 </p>
               </div>
@@ -593,21 +591,21 @@ export default function DashboardClient({
                           }
                         }
                       }}
-                      className={`group border block border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center h-full flex flex-col justify-between ${dragActiveDirect ? 'border-[#8b5cf6] bg-[#8b5cf6]/5 ring-2 ring-[#8b5cf6]/20' : ''
+                      className={`group border block border-subtle hover:border-ai/40 dark:hover:border-ai/45 bg-canvas/35 hover:bg-ai/2 dark:hover:bg-ai/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center h-full flex flex-col justify-between ${dragActiveDirect ? 'border-ai bg-ai/5 ring-2 ring-ai/20' : ''
                         }`}
                     >
                       <div>
-                        <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
+                        <div className="w-12 h-12 bg-surface border border-subtle text-ai rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-ai-action group-hover:text-on-ai-action transition-all duration-300">
                           <Upload className="w-5 h-5 stroke-[1.75]" />
                         </div>
-                        <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
+                        <h4 className="font-bold text-text text-sm font-display mb-2">
                           {t('dashboard.cvs.import.pdfTitle')}
                         </h4>
-                        <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
+                        <p className="text-[11px] text-text-muted font-light font-sans leading-relaxed">
                           {dragActiveDirect ? (language === 'es' ? '¡Suelta tu PDF aquí!' : 'Drop your PDF here!') : t('dashboard.cvs.import.pdfDesc')}
                         </p>
                       </div>
-                      <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
+                      <span className="text-[11px] font-bold text-ai mt-4 inline-flex items-center justify-center gap-1 font-display">
                         {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                       </span>
                     </label>
@@ -616,20 +614,20 @@ export default function DashboardClient({
                   {/* Tarjeta Pegar Texto */}
                   <div
                     onClick={() => { setOnboardingMode('text'); setImportError(null); }}
-                    className="group border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8b5cf6]/40 dark:hover:border-[#8b5cf6]/45 bg-[#fafafa] dark:bg-[#0b0f19]/35 hover:bg-[#8b5cf6]/2 dark:hover:bg-[#8b5cf6]/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center flex flex-col justify-between"
+                    className="group border border-subtle hover:border-ai/40 dark:hover:border-ai/45 bg-canvas/35 hover:bg-ai/2 dark:hover:bg-ai/2 p-6 rounded-[12px] cursor-pointer transition-all hover:-translate-y-1 text-center flex flex-col justify-between"
                   >
                     <div>
-                      <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-[#8b5cf6] group-hover:text-white transition-all duration-300">
+                      <div className="w-12 h-12 bg-surface border border-subtle text-ai rounded-lg flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-105 group-hover:bg-ai-action group-hover:text-on-ai-action transition-all duration-300">
                         <Clipboard className="w-5 h-5 stroke-[1.75]" />
                       </div>
-                      <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm font-display mb-2">
+                      <h4 className="font-bold text-text text-sm font-display mb-2">
                         {t('dashboard.cvs.import.pasteTitle')}
                       </h4>
-                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-light font-sans leading-relaxed">
+                      <p className="text-[11px] text-text-muted font-light font-sans leading-relaxed">
                         {t('dashboard.cvs.import.pasteDesc')}
                       </p>
                     </div>
-                    <span className="text-[11px] font-bold text-[#8b5cf6] dark:text-violet-400 mt-4 inline-flex items-center justify-center gap-1 font-display">
+                    <span className="text-[11px] font-bold text-ai mt-4 inline-flex items-center justify-center gap-1 font-display">
                       {t('dashboard.cvs.import.startCta')} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                     </span>
                   </div>
@@ -645,10 +643,10 @@ export default function DashboardClient({
                     onDragLeave={handleDrag}
                     onDrop={handleDrop}
                     className={`border-2 border-dashed rounded-[12px] p-10 text-center transition-all ${dragActive
-                        ? 'border-[#8b5cf6] bg-[#8b5cf6]/5'
+                        ? 'border-ai bg-ai/5'
                         : selectedFile
                           ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
-                          : 'border-[#1e1b4b]/10 dark:border-white/10 bg-[#fafafa] dark:bg-[#0b0f19]/25 hover:border-[#8b5cf6]/30'
+                          : 'border-subtle bg-canvas/25 hover:border-ai/30'
                       }`}
                   >
                     <input
@@ -665,35 +663,35 @@ export default function DashboardClient({
                           <FileText className="w-6 h-6 stroke-[1.75]" />
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase block">{t('dashboard.cvs.import.pdfSelected')}</span>
-                          <span className="text-xs font-bold text-[#1e1b4b] dark:text-white block mt-0.5 max-w-sm mx-auto truncate font-mono">{selectedFile.name}</span>
-                          <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 block mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                          <span className="text-[10px] text-text-muted font-bold uppercase block">{t('dashboard.cvs.import.pdfSelected')}</span>
+                          <span className="text-xs font-bold text-text block mt-0.5 max-w-sm mx-auto truncate font-mono">{selectedFile.name}</span>
+                          <span className="text-[10px] text-text-muted block mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</span>
                         </div>
                       </div>
                     ) : (
                       <label htmlFor="pdf-upload" className="cursor-pointer space-y-3 block">
-                        <div className="w-12 h-12 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#8b5cf6] dark:text-violet-400 rounded-xl flex items-center justify-center mx-auto shadow-sm hover:scale-105 transition-transform duration-300">
+                        <div className="w-12 h-12 bg-surface border border-subtle text-ai rounded-xl flex items-center justify-center mx-auto shadow-sm hover:scale-105 transition-transform duration-300">
                           <Upload className="w-5 h-5 stroke-[1.75]" />
                         </div>
-                        <p className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200">
+                        <p className="text-xs font-semibold text-text-muted dark:text-text">
                           {dragActive ? t('dashboard.cvs.import.pdfZoneActive') : t('dashboard.cvs.import.pdfDesc')}
                         </p>
                       </label>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4">
+                  <div className="flex items-center justify-between border-t border-subtle pt-4">
                     <button
                       type="button"
                       onClick={() => { setOnboardingMode('select'); setSelectedFile(null); setImportError(null); }}
-                      className="px-4 py-2.5 text-xs font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                      className="px-4 py-2.5 text-xs font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors"
                     >
                       {t('dashboard.cvs.import.cancelCta')}
                     </button>
                     {selectedFile && (
                       <button
                         type="submit"
-                        className="px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5"
+                        className="px-5 py-2.5 text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5"
                       >
                         <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
                         {t('dashboard.cvs.import.submitCta')}
@@ -713,22 +711,22 @@ export default function DashboardClient({
                       value={pastedText}
                       onChange={(e) => setPastedText(e.target.value)}
                       placeholder={t('dashboard.cvs.import.textareaPlaceholder')}
-                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/15 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans leading-relaxed"
+                      className="w-full bg-canvas border border-control dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans leading-relaxed"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4">
+                  <div className="flex items-center justify-between border-t border-subtle pt-4">
                     <button
                       type="button"
                       onClick={() => { setOnboardingMode('select'); setPastedText(''); setImportError(null); }}
-                      className="px-4 py-2.5 text-xs font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                      className="px-4 py-2.5 text-xs font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors"
                     >
                       {t('dashboard.cvs.import.cancelCta')}
                     </button>
                     <button
                       type="submit"
                       disabled={!pastedText.trim()}
-                      className={`px-5 py-2.5 text-xs font-bold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${!pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                      className={`px-5 py-2.5 text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${!pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
                       <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
@@ -740,8 +738,8 @@ export default function DashboardClient({
 
               {onboardingMode === 'select' && (
                 /* 4. Opción secundaria de creación rápida (Crear en Blanco) */
-                <div className="mt-10 border-t border-[#1e1b4b]/10 dark:border-white/5 pt-8 text-center">
-                  <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase tracking-wider block mb-4">
+                <div className="mt-10 border-t border-subtle pt-8 text-center">
+                  <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider block mb-4">
                     {t('dashboard.cvs.import.orBlank')}
                   </span>
                   <form onSubmit={handleCreateQuick} className="flex flex-col sm:flex-row gap-2 justify-center items-stretch sm:items-center max-w-md mx-auto">
@@ -751,13 +749,13 @@ export default function DashboardClient({
                       value={newCvTitle}
                       onChange={(e) => setNewCvTitle(e.target.value)}
                       placeholder={t('dashboard.cvs.import.blankPlaceholder')}
-                      className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-4 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all flex-1"
+                      className="bg-canvas border border-control rounded-[8px] px-4 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all flex-1"
                       disabled={createLoading}
                     />
                     <button
                       type="submit"
                       disabled={createLoading}
-                      className="bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-bold px-5 py-2.5 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
+                      className="bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-bold px-5 py-2.5 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
                     >
                       {createLoading ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -777,9 +775,9 @@ export default function DashboardClient({
           {userCvs.map((cv) => (
             <div
               key={cv.id}
-              className={`bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
-                ? 'border-[#8b5cf6]/30 dark:border-[#8b5cf6]/40 bg-[#8b5cf6]/2 dark:bg-[#8b5cf6]/2'
-                : 'border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10'
+              className={`bg-surface p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
+                ? 'border-ai/30 dark:border-ai/40 bg-ai/2 dark:bg-ai/2'
+                : 'border-subtle hover:border-control dark:hover:border-white/10'
                 }`}
             >
               {/* Decorative glowing accent */}
@@ -793,21 +791,21 @@ export default function DashboardClient({
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
-                        ? 'bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b]/70 dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10'
+                        ? 'bg-text/5 dark:bg-white/5 text-text-muted dark:text-slate-300 border-subtle'
                         : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                         }`}>
                         {cv.isBase ? t('dashboard.cvs.card.base') : t('dashboard.cvs.card.copy')}
                       </span>
 
                       {cv.isPrincipal && (
-                        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#8b5cf6]/15 text-[#8b5cf6] dark:text-violet-400 border border-[#8b5cf6]/20 flex items-center gap-0.5 animate-pulse">
-                          <Star className="w-2.5 h-2.5 fill-[#8b5cf6] stroke-[1.75]" />
+                        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-ai/15 text-ai border border-ai/20 flex items-center gap-0.5 animate-pulse">
+                          <Star className="w-2.5 h-2.5 fill-ai stroke-[1.75]" />
                           {t('dashboard.cvs.card.primary')}
                         </span>
                       )}
                     </div>
 
-                    <h4 className="font-bold text-[#1e1b4b] dark:text-white text-base leading-snug group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors pt-0.5 font-display">
+                    <h4 className="font-bold text-text text-base leading-snug group-hover:text-ai dark:group-hover:text-violet-400 transition-colors pt-0.5 font-display">
                       {cv.title}
                     </h4>
                   </div>
@@ -816,34 +814,34 @@ export default function DashboardClient({
                   <button
                     onClick={() => !cv.isPrincipal && handleMarkAsPrincipal(cv.id)}
                     className={`p-1.5 rounded-lg border transition-all ${cv.isPrincipal
-                      ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20 shadow-sm'
-                      : 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/40 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10 hover:text-[#8b5cf6] dark:hover:text-violet-400 hover:border-[#8b5cf6]/20 opacity-0 group-hover:opacity-100 transition-opacity'
+                      ? 'bg-ai/10 text-ai border-ai/20 shadow-sm'
+                      : 'bg-canvas text-text-muted border-subtle hover:text-ai dark:hover:text-violet-400 hover:border-ai/20 opacity-0 group-hover:opacity-100 transition-opacity'
                       }`}
                     title={cv.isPrincipal ? t('dashboard.cvs.card.primary') : t('dashboard.cvs.card.setPrimary')}
                     disabled={cv.isPrincipal || isPending}
                   >
-                    <Star className={`w-4 h-4 ${cv.isPrincipal ? 'fill-[#8b5cf6] text-[#8b5cf6] stroke-[1.75]' : 'stroke-[1.75]'}`} />
+                    <Star className={`w-4 h-4 ${cv.isPrincipal ? 'fill-ai text-ai stroke-[1.75]' : 'stroke-[1.75]'}`} />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-[#1e1b4b]/60 dark:text-slate-400 mb-6 font-sans">
-                  <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase">{t('dashboard.cvs.card.template')}</span>
-                    <span className="text-[#1e1b4b]/80 dark:text-slate-200 font-medium capitalize">{cv.templateName}</span>
+                <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-text-muted mb-6 font-sans">
+                  <div className="bg-canvas border border-control px-2.5 py-1.5 rounded-[8px]">
+                    <span className="block text-[9px] text-text-muted font-bold uppercase">{t('dashboard.cvs.card.template')}</span>
+                    <span className="text-text-muted dark:text-text font-medium capitalize">{cv.templateName}</span>
                   </div>
-                  <div className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/5 dark:border-white/5 px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-[#1e1b4b]/40 dark:text-slate-500 font-bold uppercase">{t('dashboard.cvs.card.created')}</span>
-                    <span className="text-[#1e1b4b]/80 dark:text-slate-200 font-medium">
+                  <div className="bg-canvas border border-control px-2.5 py-1.5 rounded-[8px]">
+                    <span className="block text-[9px] text-text-muted font-bold uppercase">{t('dashboard.cvs.card.created')}</span>
+                    <span className="text-text-muted dark:text-text font-medium">
                       {new Date(cv.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-4 pl-2">
+              <div className="flex items-center justify-between border-t border-subtle pt-4 pl-2">
                 <Link
                   href={`/editor/${cv.id}`}
-                  className="text-xs font-semibold text-[#8b5cf6] dark:text-violet-400 hover:text-[#8b5cf6]/85 dark:hover:text-violet-300 flex items-center gap-1.5 group/link"
+                  className="text-xs font-semibold text-ai hover:text-ai/85 dark:hover:text-violet-300 flex items-center gap-1.5 group/link"
                 >
                   {t('dashboard.cvs.card.edit')}
                   <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform stroke-[1.75]" />
@@ -851,7 +849,7 @@ export default function DashboardClient({
 
                 <button
                   onClick={() => triggerDelete(cv.id)}
-                  className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-xl transition-all"
+                  className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-xl transition-all"
                   title={t('dashboard.cvs.card.delete')}
                   disabled={isPending}
                 >
@@ -866,25 +864,25 @@ export default function DashboardClient({
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+          <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
-            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
-                  <Sparkles className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                  <Sparkles className="w-5 h-5 text-ai animate-pulse stroke-[1.75]" />
                   {t('dashboard.modal.ai.title')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
-                  {t('dashboard.modal.ai.desc')}<strong className="text-[#8b5cf6] dark:text-violet-400 font-semibold">{principalCv?.title}</strong>.
+                <p className="text-xs text-text-muted mt-1 font-sans">
+                  {t('dashboard.modal.ai.desc')}<strong className="text-ai font-semibold">{principalCv?.title}</strong>.
                 </p>
               </div>
               <button
                 onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all disabled:opacity-50"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all disabled:opacity-50"
                 disabled={aiLoading}
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
@@ -895,13 +893,13 @@ export default function DashboardClient({
               /* Loader Premium en Proceso */
               <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
-                    <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+                  <div className="w-20 h-20 rounded-full border border-ai/20 flex items-center justify-center bg-ai/5 shadow-sm">
+                    <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
                   </div>
-                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
+                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-ai animate-ping opacity-30" />
                 </div>
-                <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">{t('dashboard.modal.ai.building')}</h4>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
+                <h4 className="text-sm font-bold text-text mb-2 font-display">{t('dashboard.modal.ai.building')}</h4>
+                <p className="text-xs text-text-muted font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
                   {aiStep}
                 </p>
               </div>
@@ -927,8 +925,8 @@ export default function DashboardClient({
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('dashboard.modal.ai.jobTitle')}
                       </label>
                       <input
@@ -937,13 +935,13 @@ export default function DashboardClient({
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder={t('dashboard.modal.ai.jobTitlePlaceholder')}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('dashboard.modal.ai.company')}
                       </label>
                       <input
@@ -952,15 +950,15 @@ export default function DashboardClient({
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder={t('dashboard.modal.ai.companyPlaceholder')}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <LinkIcon className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <LinkIcon className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('dashboard.modal.ai.link')}
                       </label>
                       <input
@@ -968,16 +966,16 @@ export default function DashboardClient({
                         value={aiFormData.url}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
                         placeholder="https://..."
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">{t('dashboard.modal.ai.platform')}</label>
+                      <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('dashboard.modal.ai.platform')}</label>
                       <select
                         value={aiFormData.platform}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
                       >
                         <option value="linkedin">LinkedIn</option>
                         <option value="infojobs">InfoJobs</option>
@@ -988,12 +986,12 @@ export default function DashboardClient({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                      <Sparkles className="w-3.5 h-3.5 text-ai animate-pulse stroke-[1.75]" />
                       {t('dashboard.modal.ai.mode')}
                     </label>
                     {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] px-4 py-3 text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+                      <div className="w-full bg-canvas/40 border border-subtle rounded-[8px] px-4 py-3 text-xs text-text-muted font-sans">
                         {t('dashboard.modal.ai.defaultMode')}
                       </div>
                     ) : (
@@ -1014,7 +1012,7 @@ export default function DashboardClient({
                             <div
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-[#8b5cf6] ring-2 ring-[#8b5cf6]/20 shadow-lg ${shadowClass}` : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'}`}
+                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-ai ring-2 ring-ai/20 shadow-lg ${shadowClass}` : 'border-subtle hover:border-control dark:hover:border-white/20'}`}
                             >
                               <div>
                                 {/* Header / Color dot */}
@@ -1030,7 +1028,7 @@ export default function DashboardClient({
                               </div>
 
                               {/* Description / Summary */}
-                              <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
+                              <p className="text-[9.5px] text-text-muted leading-normal font-light font-sans">
                                 {promptInfo.desc}
                               </p>
 
@@ -1048,28 +1046,28 @@ export default function DashboardClient({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 bg-[#fafafa] dark:bg-[#0b0f19]/30 p-4 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/5">
+                  <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
                     <input
                       type="checkbox"
                       id="addToKanban"
                       checked={aiFormData.addToKanban === 'true'}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
-                      className="rounded bg-white dark:bg-[#0b0f19] border-[#1e1b4b]/20 dark:border-white/20 text-[#8b5cf6] focus:ring-[#8b5cf6]/20 w-4 h-4 cursor-pointer accent-[#8b5cf6]"
+                      className="rounded bg-canvas border-control dark:border-white/20 text-ai focus:ring-ai/20 w-4 h-4 cursor-pointer accent-ai"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-[#1e1b4b]/80 dark:text-slate-200 cursor-pointer select-none flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label htmlFor="addToKanban" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('dashboard.modal.ai.kanban')}
                       </label>
-                      <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-light mt-0.5 font-sans">
+                      <span className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
                         {t('dashboard.modal.ai.kanbanDesc')}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                      <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                       {t('dashboard.modal.ai.descLabel')}
                     </label>
                     <textarea
@@ -1078,7 +1076,7 @@ export default function DashboardClient({
                       value={aiFormData.jobDescription}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
                       placeholder={t('dashboard.modal.ai.descPlaceholder')}
-                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
+                      className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
                     />
                   </div>
                 </form>
@@ -1086,11 +1084,11 @@ export default function DashboardClient({
             )}
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 shrink-0 relative z-10 font-display">
+            <div className="flex justify-end gap-3 pt-4 border-t border-subtle shrink-0 relative z-10 font-display">
               <button
                 type="button"
                 onClick={() => setIsAiOpen(false)}
-                className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors disabled:opacity-50"
                 disabled={aiLoading}
               >
                 {t('dashboard.modal.ai.close')}
@@ -1099,7 +1097,7 @@ export default function DashboardClient({
                 <button
                   type="submit"
                   onClick={handleAiOptimize}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm transition-all"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-on-ai-action bg-ai-action hover:bg-ai-hover rounded-[8px] shadow-sm transition-all"
                 >
                   <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
                   {t('dashboard.modal.ai.start')}

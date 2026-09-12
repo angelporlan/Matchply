@@ -74,13 +74,13 @@ export default function IntegrationsTabs({
   return (
     <div className="space-y-6">
       {/* Selector de pestañas */}
-      <div className="flex border-b border-[#1e1b4b]/10 dark:border-white/5 pb-px gap-2">
+      <div className="flex border-b border-subtle pb-px gap-2">
         <button
           onClick={() => setActiveTab('api')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all outline-none ${
             activeTab === 'api'
-              ? 'border-[#8b5cf6] text-[#8b5cf6]'
-              : 'border-transparent text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+              ? 'border-ai text-ai'
+              : 'border-transparent text-text-muted hover:text-text dark:hover:text-white'
           }`}
         >
           <Key className="w-4 h-4 stroke-[1.75]" />
@@ -90,8 +90,8 @@ export default function IntegrationsTabs({
           onClick={() => setActiveTab('linkedin')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all outline-none ${
             activeTab === 'linkedin'
-              ? 'border-[#8b5cf6] text-[#8b5cf6]'
-              : 'border-transparent text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+              ? 'border-ai text-ai'
+              : 'border-transparent text-text-muted hover:text-text dark:hover:text-white'
           }`}
         >
           <Link2 className="w-4 h-4 stroke-[1.75]" />
@@ -101,8 +101,8 @@ export default function IntegrationsTabs({
           onClick={() => setActiveTab('mcp')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all outline-none ${
             activeTab === 'mcp'
-              ? 'border-[#8b5cf6] text-[#8b5cf6]'
-              : 'border-transparent text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+              ? 'border-ai text-ai'
+              : 'border-transparent text-text-muted hover:text-text dark:hover:text-white'
           }`}
         >
           <Settings className="w-4 h-4 stroke-[1.75]" />

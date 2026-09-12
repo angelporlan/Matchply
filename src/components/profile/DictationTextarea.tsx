@@ -182,7 +182,7 @@ export default function DictationTextarea({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor={id} className="block text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+        <label htmlFor={id} className="block text-xs font-bold text-text font-display">
           {label}
         </label>
         <button
@@ -200,8 +200,8 @@ export default function DictationTextarea({
           }
           className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
             listening
-              ? 'bg-[#8B5CF6]/15 text-[#8B5CF6] border-[#8B5CF6]/40 shadow-sm shadow-[#8B5CF6]/20 animate-pulse'
-              : 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#8B5CF6] border-[#8B5CF6]/25 hover:border-[#8B5CF6]/50 hover:bg-[#8B5CF6]/5'
+              ? 'bg-ai/15 text-ai border-ai/40 shadow-sm shadow-ai/20 animate-pulse'
+              : 'bg-canvas text-ai border-ai/25 hover:border-ai/50 hover:bg-ai/5'
           }`}
         >
           {listening ? (
@@ -222,11 +222,11 @@ export default function DictationTextarea({
           onChange(event.target.value);
         }}
         placeholder={placeholder}
-        className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/35 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] transition-all font-sans leading-relaxed resize-y min-h-[140px]"
+        className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans leading-relaxed resize-y min-h-[140px]"
       />
 
       {hint && (
-        <p className="flex items-start gap-1.5 text-[11px] text-[#1e1b4b]/70 dark:text-slate-400 font-sans">
+        <p className="flex items-start gap-1.5 text-[11px] text-text-muted font-sans">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 stroke-[1.75]" />
           <span>{hint}</span>
         </p>

@@ -134,18 +134,18 @@ export default function AiProfileInterviewModal({
   const answeredCount = questions.filter((q) => (answers[q.id] || '').trim()).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0b0f19]/70 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-[#111827] border border-[#8B5CF6]/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        <div className="p-5 border-b border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-[#8B5CF6]/10 to-transparent">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-surface border border-ai/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-subtle flex items-center justify-between bg-gradient-to-r from-ai/10 to-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8B5CF6] to-[#7c3aed] text-white flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-ai to-ai-action text-white flex items-center justify-center shadow-sm">
               <Bot className="w-5 h-5 stroke-[1.75]" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-[#1e1b4b] dark:text-white font-display">
+              <h2 className="text-base font-extrabold text-text font-display">
                 {step === 'review' ? 'Revisa tu documento maestro' : 'Copiloto de perfil'}
               </h2>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+              <p className="text-xs text-text-muted font-sans">
                 {step === 'review'
                   ? 'Edita el texto si hace falta. Esto es lo que usará la IA para puntuar ofertas y adaptar CVs.'
                   : 'Responde solo lo que sepas. El objetivo profesional es opcional.'}
@@ -155,7 +155,7 @@ export default function AiProfileInterviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-surface-muted dark:hover:bg-surface-muted transition-all"
           >
             <X className="w-4 h-4 stroke-[1.75]" />
           </button>
@@ -171,13 +171,13 @@ export default function AiProfileInterviewModal({
 
           {classification && (
             <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-lg border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] font-bold text-[#6D28D9] dark:text-[#C4B5FD]">
+              <span className="inline-flex items-center rounded-lg border border-ai/25 bg-ai/10 px-2.5 py-1 text-[11px] font-bold text-ai-text dark:text-ai">
                 {classification.summary}
               </span>
               {classification.stackHints.slice(0, 5).map((hint) => (
                 <span
                   key={hint}
-                  className="inline-flex items-center rounded-lg border border-[#1e1b4b]/10 dark:border-white/10 px-2.5 py-1 text-[11px] font-bold text-[#1e1b4b] dark:text-slate-300"
+                  className="inline-flex items-center rounded-lg border border-subtle px-2.5 py-1 text-[11px] font-bold text-text"
                 >
                   {hint}
                 </span>
@@ -187,11 +187,11 @@ export default function AiProfileInterviewModal({
 
           {step === 'questions' && loadingQuestions && (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-3">
-              <Loader2 className="w-8 h-8 text-[#8B5CF6] animate-spin stroke-[1.75]" />
-              <p className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+              <Loader2 className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
+              <p className="text-xs font-bold text-text font-display">
                 Leyendo tu experiencia y preparando preguntas…
               </p>
-              <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans">
+              <p className="text-[11px] text-text-muted font-sans">
                 Solo preguntaremos lo que no está claro en lo que has pegado.
               </p>
             </div>
@@ -202,17 +202,17 @@ export default function AiProfileInterviewModal({
               {questions.map((q, index) => (
                 <div
                   key={q.id}
-                  className="bg-slate-50 dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-xl p-4 space-y-3"
+                  className="bg-surface-muted dark:bg-canvas border border-control rounded-xl p-4 space-y-3"
                 >
                   <div className="space-y-1">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8B5CF6]">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-ai">
                       Pregunta {index + 1}
                     </span>
-                    <h4 className="text-xs sm:text-sm font-bold text-[#1e1b4b] dark:text-white font-display leading-snug">
+                    <h4 className="text-xs sm:text-sm font-bold text-text font-display leading-snug">
                       {q.question}
                     </h4>
                     {q.hint && (
-                      <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+                      <p className="text-[11px] text-text-muted font-sans">
                         {q.hint}
                       </p>
                     )}
@@ -242,13 +242,13 @@ export default function AiProfileInterviewModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between bg-slate-50 dark:bg-[#0e1422]">
+        <div className="p-4 border-t border-subtle flex items-center justify-between bg-surface-muted dark:bg-canvas">
           {step === 'questions' ? (
             <button
               type="button"
               onClick={fetchInterview}
               disabled={loadingQuestions || synthesizing}
-              className="text-xs font-bold text-slate-500 hover:text-[#8B5CF6] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="text-xs font-bold text-slate-500 hover:text-ai flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <RefreshCw className="w-3.5 h-3.5 stroke-[1.75]" />
               <span>Otras preguntas</span>
@@ -257,7 +257,7 @@ export default function AiProfileInterviewModal({
             <button
               type="button"
               onClick={() => setStep('questions')}
-              className="text-xs font-bold text-slate-500 hover:text-[#8B5CF6] transition-colors"
+              className="text-xs font-bold text-slate-500 hover:text-ai transition-colors"
             >
               Volver a las preguntas
             </button>
@@ -267,7 +267,7 @@ export default function AiProfileInterviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-subtle dark:hover:bg-surface-muted transition-all cursor-pointer"
             >
               Cancelar
             </button>
@@ -276,7 +276,7 @@ export default function AiProfileInterviewModal({
                 type="button"
                 onClick={handleSynthesize}
                 disabled={synthesizing || loadingQuestions}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#7c3aed] text-white text-xs font-bold shadow-md shadow-[#8B5CF6]/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold shadow-md shadow-ai/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {synthesizing ? (
                   <>
@@ -297,7 +297,7 @@ export default function AiProfileInterviewModal({
                 type="button"
                 onClick={handleConfirm}
                 disabled={!masterDraft.trim()}
-                className="px-5 py-2 rounded-xl bg-[#2ECC71] hover:bg-[#27AE60] text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 cursor-pointer"
               >
                 Usar este documento
               </button>

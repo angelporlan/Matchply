@@ -20,6 +20,7 @@ import {
   parseHardConstraints,
 } from '@/lib/curation-constraints';
 import DictationTextarea from '@/components/profile/DictationTextarea';
+import { Button } from '@/components/ui/Button';
 import ProfileCompletenessBar from '@/components/profile/ProfileCompletenessBar';
 import AiProfileInterviewModal from '@/components/profile/AiProfileInterviewModal';
 import CvImportProfileModal from '@/components/profile/CvImportProfileModal';
@@ -245,13 +246,13 @@ export default function CareerProfileForm({
         onActionClick={scrollToSection}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#111827] border border-[#8B5CF6]/20 p-4 rounded-2xl shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-surface border border-ai/20 p-4 rounded-2xl shadow-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setIsInterviewOpen(true)}
             disabled={!bio.trim()}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#7c3aed] text-white text-xs font-bold shadow-sm shadow-[#8B5CF6]/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold shadow-sm shadow-ai/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
           >
             <Bot className="w-4 h-4 stroke-[1.75]" />
             <span>Crear documento con IA</span>
@@ -259,15 +260,15 @@ export default function CareerProfileForm({
           <button
             type="button"
             onClick={() => setIsImportOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#8B5CF6] text-xs font-bold text-[#1e1b4b] dark:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-canvas border border-control hover:border-ai text-xs font-bold text-text flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <Upload className="w-3.5 h-3.5 text-[#8B5CF6] stroke-[1.75]" />
+            <Upload className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
             <span>Desde un CV</span>
           </button>
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-canvas border border-control text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Cómo te ve la IA</span>
@@ -277,7 +278,7 @@ export default function CareerProfileForm({
           type="button"
           onClick={() => handleSave()}
           disabled={saving}
-          className="px-6 py-2 rounded-xl bg-[#2ECC71] hover:bg-[#27AE60] text-white text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer ml-auto"
+          className="px-6 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer ml-auto"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin stroke-[1.75]" /> : <Save className="w-4 h-4 stroke-[1.75]" />}
           <span>{saving ? 'Guardando…' : 'Guardar'}</span>
@@ -298,16 +299,16 @@ export default function CareerProfileForm({
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
-        <div id="section-dump" className="bg-white dark:bg-[#111827] border border-[#1e1b4b]/10 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#1e1b4b]/10 dark:border-white/10">
-            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center">
+        <div id="section-dump" className="bg-white dark:bg-surface border border-subtle rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
               <Briefcase className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">
+              <h2 className="text-sm font-bold text-text font-display">
                 1. Pega tu experiencia
               </h2>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+              <p className="text-xs text-text-muted font-sans">
                 CV, About de LinkedIn o notas. No hace falta decir a qué rol aspiras.
               </p>
             </div>
@@ -321,7 +322,7 @@ export default function CareerProfileForm({
             placeholder="Pega aquí tu experiencia. Ejemplo: Full Stack con 3 años en TypeScript y Node, o un junior con prácticas en React..."
           />
           <div>
-            <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">
+            <label className="block text-xs font-bold text-text mb-1.5 font-display">
               Hacia dónde quieres ir (opcional)
             </label>
             <input
@@ -329,21 +330,21 @@ export default function CareerProfileForm({
               value={optionalTarget}
               onChange={(e) => setOptionalTarget(e.target.value)}
               placeholder="Ej: AI Engineer, no centrar en Dynamics. Déjalo vacío si no lo tienes claro."
-              className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/35 focus:outline-none focus:border-[#8b5cf6]"
+              className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai"
             />
           </div>
         </div>
 
-        <div id="section-master" className="bg-white dark:bg-[#111827] border border-[#8B5CF6]/25 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#1e1b4b]/10 dark:border-white/10">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#8B5CF6] to-[#7c3aed] text-white flex items-center justify-center">
+        <div id="section-master" className="bg-white dark:bg-surface border border-ai/25 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-ai to-ai-action text-white flex items-center justify-center">
               <Sparkles className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">
+              <h2 className="text-sm font-bold text-text font-display">
                 2. Documento maestro
               </h2>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+              <p className="text-xs text-text-muted font-sans">
                 Lo genera el copiloto a partir de lo que pegaste. Puedes editarlo. Es la fuente de la verdad.
               </p>
             </div>
@@ -358,16 +359,16 @@ export default function CareerProfileForm({
           />
         </div>
 
-        <div id="section-criteria" className="bg-white dark:bg-[#111827] border border-[#8B5CF6]/30 rounded-2xl p-6 shadow-md shadow-[#8B5CF6]/5 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#1e1b4b]/10 dark:border-white/10">
-            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/10 text-[#8B5CF6] flex items-center justify-center">
+        <div id="section-criteria" className="bg-white dark:bg-surface border border-ai/30 rounded-2xl p-6 shadow-md shadow-ai/5 space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
               <Sparkles className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">
+              <h2 className="text-sm font-bold text-text font-display">
                 3. Cómo debe puntuar las ofertas
               </h2>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+              <p className="text-xs text-text-muted font-sans">
                 Idioma, presencial, consultoras… Las reglas de idioma se aplican en código.
               </p>
             </div>
@@ -385,7 +386,7 @@ export default function CareerProfileForm({
               {constraintChips.map((chip) => (
                 <span
                   key={chip}
-                  className="inline-flex items-center rounded-lg border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] font-bold text-[#6D28D9] dark:text-[#C4B5FD]"
+                  className="inline-flex items-center rounded-lg border border-ai/25 bg-ai/10 px-2.5 py-1 text-[11px] font-bold text-ai-text dark:text-ai"
                 >
                   {chip}
                 </span>
@@ -393,7 +394,7 @@ export default function CareerProfileForm({
             </div>
           )}
           <div>
-            <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">
+            <label className="block text-xs font-bold text-text mb-2 font-display">
               Modalidad (opcional)
             </label>
             <div className="flex items-center gap-2 flex-wrap">
@@ -411,7 +412,7 @@ export default function CareerProfileForm({
                     className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
                       active
                         ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25'
-                        : 'bg-[#fafafa] dark:bg-[#0b0f19] text-slate-500 border-[#1e1b4b]/10 dark:border-white/10'
+                        : 'bg-canvas text-slate-500 border-subtle'
                     }`}
                   >
                     {active && <Check className="w-3.5 h-3.5 inline mr-1 stroke-[1.75]" />}
@@ -423,7 +424,7 @@ export default function CareerProfileForm({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] border border-[#1e1b4b]/10 dark:border-white/10 rounded-2xl p-6">
+        <div className="bg-white dark:bg-surface border border-subtle rounded-2xl p-6">
           <button
             type="button"
             onClick={() => setShowAdvanced((open) => !open)}
@@ -435,55 +436,55 @@ export default function CareerProfileForm({
                 <Building className="w-4 h-4 stroke-[1.75]" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-[#1e1b4b] dark:text-white font-display">Ajustes avanzados</h2>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+                <h2 className="text-sm font-bold text-text font-display">Ajustes avanzados</h2>
+                <p className="text-xs text-text-muted font-sans">
                   Roles, años y salario. La IA puede rellenarlos; no hace falta tocarlos.
                 </p>
               </div>
             </div>
-            <ChevronDown className={`w-4 h-4 stroke-[1.75] text-[#1e1b4b]/50 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 stroke-[1.75] text-text-muted transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
           </button>
           {showAdvanced && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 mt-5 border-t border-[#1e1b4b]/10 dark:border-white/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 mt-5 border-t border-subtle">
               <div>
-                <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">Roles objetivo</label>
+                <label className="block text-xs font-bold text-text mb-1.5 font-display">Roles objetivo</label>
                 <input
                   type="text"
                   value={targetRolesText}
                   onChange={(e) => setTargetRolesText(e.target.value)}
                   placeholder="Frontend, Backend…"
-                  className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#8b5cf6]"
+                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">Años de experiencia</label>
+                <label className="block text-xs font-bold text-text mb-1.5 font-display">Años de experiencia</label>
                 <input
                   type="number"
                   min={0}
                   max={40}
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#8b5cf6]"
+                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">Salario mínimo (€)</label>
+                <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario mínimo (€)</label>
                 <input
                   type="number"
                   step={1000}
                   value={salaryMin}
                   onChange={(e) => setSalaryMin(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#8b5cf6]"
+                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white mb-1.5 font-display">Salario objetivo (€)</label>
+                <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario objetivo (€)</label>
                 <input
                   type="number"
                   step={1000}
                   value={salaryTarget}
                   onChange={(e) => setSalaryTarget(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#8b5cf6]"
+                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
                 />
               </div>
             </div>
@@ -491,14 +492,15 @@ export default function CareerProfileForm({
         </div>
 
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
             disabled={saving}
-            className="px-8 py-3 rounded-xl bg-[#2ECC71] hover:bg-[#27AE60] text-white text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-50"
+            loading={saving}
+            className="px-8"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin stroke-[1.75]" /> : <Save className="w-4 h-4 stroke-[1.75]" />}
+            {!saving && <Save className="w-4 h-4 stroke-[1.75]" />}
             <span>{saving ? 'Guardando…' : 'Guardar perfil y criterios'}</span>
-          </button>
+          </Button>
         </div>
       </form>
 

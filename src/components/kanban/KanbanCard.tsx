@@ -44,7 +44,7 @@ export default function KanbanCard({
       case 'indeed':
         return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
       default:
-        return 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/50 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10';
+        return 'bg-canvas text-text-muted border-subtle';
     }
   };
 
@@ -124,12 +124,12 @@ export default function KanbanCard({
           style={{
             ...provided.draggableProps.style,
           }}
-          className={`bg-white dark:bg-[#1f2937] border transition-all relative group overflow-hidden cursor-grab active:cursor-grabbing hover:scale-[1.01] hover:-translate-y-0.5 select-none ${
+          className={`bg-surface border transition-all relative group overflow-hidden cursor-grab active:cursor-grabbing hover:scale-[1.01] hover:-translate-y-0.5 select-none ${
             isCompact ? 'p-3 rounded-[12px]' : 'p-5 rounded-[12px]'
           } ${
             snapshot.isDragging 
-              ? 'opacity-95 border-[#8b5cf6] dark:border-violet-500/80 bg-white/95 dark:bg-[#1f2937]/95 shadow-2xl shadow-[#8b5cf6]/10 scale-[1.02] rotate-[-0.5deg]' 
-              : 'border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10 shadow-sm hover:shadow-md'
+              ? 'opacity-95 border-ai dark:border-violet-500/80 bg-white/95 dark:bg-surface-muted/95 shadow-2xl shadow-ai/10 scale-[1.02] rotate-[-0.5deg]' 
+              : 'border-subtle hover:border-control dark:hover:border-white/10 shadow-sm hover:shadow-md'
           } ${loading ? 'opacity-50 pointer-events-none' : ''}`}
         >          <div className={`flex items-start justify-between gap-3 ${isCompact ? 'mb-2.5' : 'mb-3'}`}>
             <div className="min-w-0 flex-1">
@@ -147,12 +147,12 @@ export default function KanbanCard({
                   </span>
                 )}
               </div>
-              <h4 className={`font-bold text-[#1e1b4b] dark:text-white leading-snug group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors break-words font-display ${
+              <h4 className={`font-bold text-text leading-snug group-hover:text-ai dark:group-hover:text-violet-400 transition-colors break-words font-display ${
                 isCompact ? 'text-[13px] mt-1.5' : 'text-sm mt-2'
               }`}>
                 {offer.title}
               </h4>
-              <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium mt-0.5 truncate font-sans">{offer.company}</p>
+              <p className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans">{offer.company}</p>
             </div>
 
             {offer.url && (
@@ -161,7 +161,7 @@ export default function KanbanCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] transition-colors shrink-0 mt-0.5"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] transition-colors shrink-0 mt-0.5"
                 title={t('kanban.modal.linkCvOfficial')}
                 aria-label={t('kanban.modal.linkCvOfficial')}
               >
@@ -180,13 +180,13 @@ export default function KanbanCard({
                 </span>
               </div>
             ) : (
-              <div className="inline-flex items-center gap-1 text-[10px] font-medium text-[#1e1b4b]/40 dark:text-slate-500 bg-[#fafafa] dark:bg-[#0b0f19]/35 border border-[#1e1b4b]/5 dark:border-white/5 px-2 py-0.5 rounded-[6px] shrink-0">
+              <div className="inline-flex items-center gap-1 text-[10px] font-medium text-text-muted bg-canvas/35 border border-subtle px-2 py-0.5 rounded-[6px] shrink-0">
                 <FileText className="w-3 h-3 opacity-40 stroke-[1.75]" />
                 <span>Sin CV vinculado</span>
               </div>
             )}
 
-            <div className="flex items-center gap-1 text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-sans font-light">
+            <div className="flex items-center gap-1 text-[10px] text-text-muted font-sans font-light">
               <Clock className="w-3 h-3 stroke-[1.75]" />
               <span>{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
             </div>
@@ -195,7 +195,7 @@ export default function KanbanCard({
           {/* Controles de cambio de estado y eliminación (Hover-only) */}
           <div 
             onClick={(e) => e.stopPropagation()}
-            className={`flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+            className={`flex items-center justify-between border-t border-subtle opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
               isCompact ? 'mt-2.5 pt-2' : 'mt-3 pt-3'
             }`}
           >
@@ -205,7 +205,7 @@ export default function KanbanCard({
                   e.stopPropagation();
                   handleArchive();
                 }}
-                className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 p-1.5 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/60 transition-colors shrink-0"
+                className="text-text-muted hover:text-amber-500 dark:hover:text-amber-400 p-1.5 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/60 transition-colors shrink-0"
                 title={t('kanban.card.archiveBtn')}
                 aria-label={t('kanban.card.archiveBtn')}
               >
@@ -216,7 +216,7 @@ export default function KanbanCard({
                   e.stopPropagation();
                   handleDelete();
                 }}
-                className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/60 transition-colors shrink-0"
+                className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/60 transition-colors shrink-0"
                 title={t('kanban.card.deleteBtn')}
                 aria-label={t('kanban.card.deleteBtn')}
               >
@@ -231,7 +231,7 @@ export default function KanbanCard({
                     e.stopPropagation();
                     handleStatusChange(statuses[currentIndex - 1]);
                   }}
-                  className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20 text-[#1e1b4b]/70 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
+                  className="bg-canvas border border-control hover:border-control dark:hover:border-white/20 text-text-muted hover:text-text dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
                   title={getMoveToTooltip(statuses[currentIndex - 1])}
                   aria-label={getMoveToTooltip(statuses[currentIndex - 1])}
                 >
@@ -245,7 +245,7 @@ export default function KanbanCard({
                     e.stopPropagation();
                     handleStatusChange(statuses[currentIndex + 1]);
                   }}
-                  className="bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20 text-[#1e1b4b]/70 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
+                  className="bg-canvas border border-control hover:border-control dark:hover:border-white/20 text-text-muted hover:text-text dark:hover:text-white p-1.5 rounded-[8px] transition-colors"
                   title={getMoveToTooltip(statuses[currentIndex + 1])}
                   aria-label={getMoveToTooltip(statuses[currentIndex + 1])}
                 >

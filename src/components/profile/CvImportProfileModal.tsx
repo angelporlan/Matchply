@@ -111,19 +111,19 @@ export default function CvImportProfileModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0b0f19]/70 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-[#111827] border border-[#1e1b4b]/10 dark:border-white/10 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-surface border border-subtle rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-5 border-b border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="p-5 border-b border-subtle flex items-center justify-between bg-surface-muted/50 dark:bg-surface/50">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <FileCheck2 className="w-5 h-5 stroke-[1.75]" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#1e1b4b] dark:text-white font-display">
+              <h2 className="text-sm sm:text-base font-bold text-text font-display">
                 Auto-Completar Perfil desde CV
               </h2>
-              <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+              <p className="text-xs text-text-muted font-sans">
                 La IA extraerá tu trayectoria, stack y proyectos en segundos.
               </p>
             </div>
@@ -138,13 +138,13 @@ export default function CvImportProfileModal({
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center border-b border-[#1e1b4b]/10 dark:border-white/10 px-5 pt-3 gap-3 bg-white dark:bg-[#111827]">
+        <div className="flex items-center border-b border-subtle px-5 pt-3 gap-3 bg-white dark:bg-surface">
           <button
             type="button"
             onClick={() => { setTab('upload'); setError(null); }}
             className={`pb-3 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
               tab === 'upload'
-                ? 'border-[#8B5CF6] text-[#8B5CF6]'
+                ? 'border-ai text-ai'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -158,7 +158,7 @@ export default function CvImportProfileModal({
               onClick={() => { setTab('select'); setError(null); }}
               className={`pb-3 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
                 tab === 'select'
-                  ? 'border-[#8B5CF6] text-[#8B5CF6]'
+                  ? 'border-ai text-ai'
                   : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
             >
@@ -172,7 +172,7 @@ export default function CvImportProfileModal({
             onClick={() => { setTab('paste'); setError(null); }}
             className={`pb-3 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
               tab === 'paste'
-                ? 'border-[#8B5CF6] text-[#8B5CF6]'
+                ? 'border-ai text-ai'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
@@ -193,7 +193,7 @@ export default function CvImportProfileModal({
           {tab === 'upload' && (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#1e1b4b]/15 dark:border-white/15 hover:border-[#8B5CF6] dark:hover:border-[#8B5CF6] rounded-2xl p-8 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-[#0b0f19]/50 hover:bg-[#8B5CF6]/5"
+              className="border-2 border-dashed border-control dark:border-white/15 hover:border-ai dark:hover:border-ai rounded-2xl p-8 text-center cursor-pointer transition-all bg-surface-muted/50 dark:bg-canvas/50 hover:bg-ai/5"
             >
               <input
                 ref={fileInputRef}
@@ -202,13 +202,13 @@ export default function CvImportProfileModal({
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className="w-12 h-12 rounded-2xl bg-[#8B5CF6]/10 text-[#8B5CF6] mx-auto flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-ai/10 text-ai mx-auto flex items-center justify-center mb-3">
                 <Upload className="w-6 h-6 stroke-[1.75]" />
               </div>
-              <p className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+              <p className="text-xs font-bold text-text font-display">
                 {selectedFile ? selectedFile.name : 'Haz clic para seleccionar tu PDF o arrástralo aquí'}
               </p>
-              <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 font-sans mt-1">
+              <p className="text-[11px] text-text-muted font-sans mt-1">
                 Admite documentos PDF de currículum estándar (máx. 10MB)
               </p>
             </div>
@@ -216,7 +216,7 @@ export default function CvImportProfileModal({
 
           {tab === 'select' && (
             <div className="space-y-2">
-              <p className="text-xs font-bold text-[#1e1b4b] dark:text-white font-display mb-2">
+              <p className="text-xs font-bold text-text font-display mb-2">
                 Selecciona uno de tus currículums existentes:
               </p>
               {userCvs.map((cv) => {
@@ -227,12 +227,12 @@ export default function CvImportProfileModal({
                     onClick={() => setSelectedCvId(cv.id)}
                     className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                       isSelected
-                        ? 'bg-[#8B5CF6]/10 border-[#8B5CF6] text-[#1e1b4b] dark:text-white'
-                        : 'bg-slate-50 dark:bg-[#0b0f19] border-[#1e1b4b]/10 dark:border-white/10 hover:border-slate-300'
+                        ? 'bg-ai/10 border-ai text-text'
+                        : 'bg-surface-muted dark:bg-canvas border-subtle hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <FileText className={`w-4 h-4 ${isSelected ? 'text-[#8B5CF6]' : 'text-slate-400'}`} />
+                      <FileText className={`w-4 h-4 ${isSelected ? 'text-ai' : 'text-slate-400'}`} />
                       <div>
                         <p className="text-xs font-bold font-display">{cv.title}</p>
                         <p className="text-[10px] text-slate-400">
@@ -241,7 +241,7 @@ export default function CvImportProfileModal({
                       </div>
                     </div>
                     {isSelected && (
-                      <Check className="w-4 h-4 text-[#8B5CF6] stroke-[2]" />
+                      <Check className="w-4 h-4 text-ai stroke-[2]" />
                     )}
                   </div>
                 );
@@ -251,7 +251,7 @@ export default function CvImportProfileModal({
 
           {tab === 'paste' && (
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-[#1e1b4b] dark:text-white font-display">
+              <label className="block text-xs font-bold text-text font-display">
                 Pega tu LinkedIn About, notas o resumen:
               </label>
               <textarea
@@ -259,18 +259,18 @@ export default function CvImportProfileModal({
                 onChange={(e) => setPastedText(e.target.value)}
                 rows={7}
                 placeholder="Pega aquí el contenido de tu CV o notas de experiencia..."
-                className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/35 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] transition-all font-sans resize-y"
+                className="w-full rounded-xl bg-surface-muted dark:bg-canvas border border-control px-3.5 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans resize-y"
               />
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-end gap-2 bg-slate-50 dark:bg-[#0e1422]">
+        <div className="p-4 border-t border-subtle flex items-center justify-end gap-2 bg-surface-muted dark:bg-canvas">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-subtle dark:hover:bg-surface-muted transition-all cursor-pointer"
           >
             Cancelar
           </button>
@@ -278,7 +278,7 @@ export default function CvImportProfileModal({
             type="button"
             onClick={handleExtract}
             disabled={loading || (tab === 'upload' && !selectedFile) || (tab === 'select' && !selectedCvId) || (tab === 'paste' && !pastedText.trim())}
-            className="px-5 py-2 rounded-xl bg-[#2ECC71] hover:bg-[#27AE60] text-white text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer active:scale-98"
+            className="px-5 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer active:scale-98"
           >
             {loading ? (
               <>

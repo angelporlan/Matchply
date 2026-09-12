@@ -118,7 +118,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       default:
         return {
           title: originalStatus,
-          style: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+          style: 'text-slate-400 bg-control/10 border-slate-500/20',
           icon: <Archive className="w-3 h-3 stroke-[1.75]" />,
         };
     }
@@ -133,7 +133,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       case 'indeed':
         return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
       default:
-        return 'bg-[#fafafa] dark:bg-[#0b0f19] text-[#1e1b4b]/50 dark:text-slate-400 border-[#1e1b4b]/10 dark:border-white/10';
+        return 'bg-canvas text-text-muted border-subtle';
     }
   };
 
@@ -230,8 +230,8 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
   if (!hasMounted) {
     return (
       <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
-        <RotateCcw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
-        <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-3 font-sans">{t('kanban.archived.loadingText')}</p>
+        <RotateCcw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
+        <p className="text-xs text-text-muted mt-3 font-sans">{t('kanban.archived.loadingText')}</p>
       </div>
     );
   }
@@ -244,16 +244,16 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
         <div>
           <NextLink
             href="/dashboard/kanban"
-            className="inline-flex items-center gap-1.5 text-xs text-[#8b5cf6] dark:text-violet-400 hover:text-[#8b5cf6]/90 dark:hover:text-violet-300 font-bold mb-2 font-display group"
+            className="inline-flex items-center gap-1.5 text-xs text-ai hover:text-ai/90 dark:hover:text-violet-300 font-bold mb-2 font-display group"
           >
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5 stroke-[1.75]" />
             {t('kanban.archived.backBtn')}
           </NextLink>
-          <h2 className="text-2xl font-bold text-[#1e1b4b] dark:text-white tracking-tight flex items-center gap-2 font-display">
+          <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
             <Archive className="w-6 h-6 text-amber-500 stroke-[1.75]" />
             {t('kanban.archived.title')}
           </h2>
-          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm mt-1 font-sans">
+          <p className="text-text-muted text-sm mt-1 font-sans">
             {t('kanban.archived.subtitle')}
           </p>
         </div>
@@ -261,42 +261,42 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
       {/* Tarjetas Informativas Rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-display">
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.archived.totalBadge')}</p>
-          <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{offers.length}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.totalBadge')}</p>
+          <p className="text-xl font-bold text-text mt-1">{offers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.archived.filteredBadge')}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.filteredBadge')}</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{filteredOffers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.archived.cvBadge')}</p>
-          <p className="text-xl font-bold text-[#2ecc71] mt-1">{offers.filter(o => o.cvId).length}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.cvBadge')}</p>
+          <p className="text-xl font-bold text-success-text mt-1">{offers.filter(o => o.cvId).length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.archived.pageBadge')}</p>
-          <p className="text-xl font-bold text-[#8b5cf6] mt-1">{activePage} {t('kanban.archived.paginationOf')} {totalPages}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.pageBadge')}</p>
+          <p className="text-xl font-bold text-ai mt-1">{activePage} {t('kanban.archived.paginationOf')} {totalPages}</p>
         </div>
       </div>
 
       {/* Controles de Búsqueda y Filtros */}
-      <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 rounded-[12px] p-4 md:p-5 shadow-sm space-y-4">
+      <div className="bg-surface border border-subtle rounded-[12px] p-4 md:p-5 shadow-sm space-y-4">
         
         {/* Fila 1: Buscador de texto principal */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('kanban.archived.searchPlaceholder')}
-            className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+            className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-canvas/45 transition-colors"
               aria-label={t('kanban.board.clearSearch')}
             >
               <X className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -309,14 +309,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           
           {/* Filtro Estado Original */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <Sliders className="w-3 h-3 stroke-[1.75]" />
               {t('kanban.archived.statusLabel')}
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2.5 text-xs text-[#1e1b4b] dark:text-slate-300 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+              className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
               <option value="all">{t('kanban.archived.statusAll')}</option>
               {Object.entries(statusLabels).map(([key, label]) => (
@@ -327,14 +327,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
           {/* Filtro CV Enlazado */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <Link2 className="w-3 h-3 stroke-[1.75]" />
               {t('kanban.archived.cvLabel')}
             </label>
             <select
               value={cvFilter}
               onChange={(e) => setCvFilter(e.target.value)}
-              className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2.5 text-xs text-[#1e1b4b] dark:text-slate-300 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+              className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
               <option value="all">{t('kanban.archived.cvAll')}</option>
               <option value="linked">{t('kanban.archived.cvLinked')}</option>
@@ -344,14 +344,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
           {/* Filtro Ordenar Por */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <ArrowUpDown className="w-3 h-3 stroke-[1.75]" />
               {t('kanban.archived.sortLabel')}
             </label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2.5 text-xs text-[#1e1b4b] dark:text-slate-300 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+              className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
               <option value="newest">{t('kanban.archived.sortNewest')}</option>
               <option value="oldest">{t('kanban.archived.sortOldest')}</option>
@@ -362,14 +362,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
           {/* Filtro Elementos por Página */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <SlidersHorizontal className="w-3 h-3 stroke-[1.75]" />
               {t('kanban.archived.perPageLabel')}
             </label>
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2.5 text-xs text-[#1e1b4b] dark:text-slate-300 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+              className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
               <option value={6}>6 {t('kanban.board.offersCount')}</option>
               <option value={9}>9 {t('kanban.board.offersCount')}</option>
@@ -382,7 +382,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
         {/* Indicador de filtros activos y botón de restaurar filtros */}
         {(searchQuery || statusFilter !== 'all' || cvFilter !== 'all' || sortBy !== 'newest') && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#1e1b4b]/10 dark:border-white/5 font-display">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-subtle font-display">
             <span className="text-[11px] text-amber-500 font-semibold">
               {t('kanban.archived.filterActiveMessage', { count: filteredOffers.length })}
             </span>
@@ -400,12 +400,12 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       {/* Grilla de Ofertas Archivadas */}
       {paginatedOffers.length === 0 ? (
         /* Estado vacío */
-        <div className="min-h-[400px] flex flex-col items-center justify-center text-center border-2 border-dashed border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] bg-white dark:bg-[#1f2937]/35 p-8">
-          <Inbox className="w-10 h-10 mb-4 text-[#1e1b4b]/30 dark:text-slate-600 stroke-[1.75]" />
-          <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white font-display">
+        <div className="min-h-[400px] flex flex-col items-center justify-center text-center border-2 border-dashed border-subtle rounded-[12px] bg-surface/35 p-8">
+          <Inbox className="w-10 h-10 mb-4 text-text-muted dark:text-slate-600 stroke-[1.75]" />
+          <h3 className="text-base font-bold text-text font-display">
             {offers.length === 0 ? t('kanban.archived.emptyTitle') : t('kanban.archived.emptyTitleSearch')}
           </h3>
-          <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1.5 max-w-sm font-sans mx-auto leading-relaxed">
+          <p className="text-xs text-text-muted mt-1.5 max-w-sm font-sans mx-auto leading-relaxed">
             {offers.length === 0 
               ? t('kanban.archived.emptyDesc')
               : t('kanban.archived.emptyDescSearch')}
@@ -413,7 +413,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           {offers.length === 0 ? (
             <NextLink
               href="/dashboard/kanban"
-              className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-[8px] bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] font-bold text-xs shadow-sm hover:opacity-90 transition-all font-display"
+              className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-[8px] bg-text dark:bg-white text-canvas font-bold text-xs shadow-sm hover:opacity-90 transition-all font-display"
             >
               {t('kanban.archived.backBtn')}
             </NextLink>
@@ -437,7 +437,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
               <div
                 key={offer.id}
                 onClick={() => handleOpenDetails(offer)}
-                className={`bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#1e1b4b]/20 dark:hover:border-white/10 hover:shadow-md transition-all rounded-[12px] p-5 relative overflow-hidden flex flex-col justify-between group cursor-pointer ${
+                className={`bg-surface border border-subtle hover:border-control dark:hover:border-white/10 hover:shadow-md transition-all rounded-[12px] p-5 relative overflow-hidden flex flex-col justify-between group cursor-pointer ${
                   isOfferLoading ? 'opacity-50 pointer-events-none' : ''
                 }`}
               >
@@ -454,11 +454,11 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-[#1e1b4b] dark:text-white text-sm leading-snug group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors break-words font-display mt-2">
+                    <h4 className="font-bold text-text text-sm leading-snug group-hover:text-ai dark:group-hover:text-violet-400 transition-colors break-words font-display mt-2">
                       {offer.title}
                     </h4>
-                    <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-medium mt-0.5 flex items-center gap-1 font-sans">
-                      <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/30 shrink-0 stroke-[1.75]" />
+                    <p className="text-text-muted text-xs font-medium mt-0.5 flex items-center gap-1 font-sans">
+                      <Building2 className="w-3.5 h-3.5 text-text-muted shrink-0 stroke-[1.75]" />
                       {offer.company}
                     </p>
                   </div>
@@ -467,17 +467,17 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                 {/* Contenido intermedio: CV Vinculado */}
                 <div 
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] flex items-center gap-2 p-2.5 my-3.5"
+                  className="bg-canvas/45 border border-subtle rounded-[8px] flex items-center gap-2 p-2.5 my-3.5"
                 >
-                  <Link2 className="w-3 h-3 text-[#1e1b4b]/40 dark:text-slate-500 shrink-0 stroke-[1.75]" />
+                  <Link2 className="w-3 h-3 text-text-muted shrink-0 stroke-[1.75]" />
                   <select
                     value={offer.cvId || ''}
                     onChange={(e) => handleCvChange(offer.id, e.target.value)}
-                    className="w-full bg-transparent text-[10px] text-[#1e1b4b]/80 dark:text-slate-300 font-medium focus:outline-none cursor-pointer font-sans"
+                    className="w-full bg-transparent text-[10px] text-text-muted dark:text-slate-300 font-medium focus:outline-none cursor-pointer font-sans"
                   >
-                    <option value="" className="bg-white dark:bg-[#0b0f19] text-[#1e1b4b]/45 dark:text-slate-550">{t('kanban.card.placeholderCv')}</option>
+                    <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('kanban.card.placeholderCv')}</option>
                     {userCvs.map((cv) => (
-                      <option key={cv.id} value={cv.id} className="bg-white dark:bg-[#0b0f19] text-[#1e1b4b] dark:text-slate-300">
+                      <option key={cv.id} value={cv.id} className="bg-canvas text-text">
                         {cv.title.length > 25 ? cv.title.substring(0, 25) + '...' : cv.title}
                       </option>
                     ))}
@@ -485,8 +485,8 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                 </div>
 
                 {/* Footer de Tarjeta con Controles */}
-                <div className="flex items-center justify-between border-t border-[#1e1b4b]/10 dark:border-white/5 pt-3">
-                  <span className="text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-light font-sans">
+                <div className="flex items-center justify-between border-t border-subtle pt-3">
+                  <span className="text-[10px] text-text-muted font-light font-sans">
                     {t('kanban.archived.cardArchivedAt', { date: new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US') })}
                   </span>
 
@@ -494,7 +494,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                     <button
                       type="button"
                       onClick={() => handleOpenDetails(offer)}
-                      className="text-[#1e1b4b]/50 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1.5 bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] transition-all hover:shadow-xs"
+                      className="text-text-muted hover:text-text dark:hover:text-white p-1.5 bg-canvas/45 border border-subtle rounded-[8px] transition-all hover:shadow-xs"
                       title={t('kanban.archived.cardDetailsBtn')}
                     >
                       <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -502,7 +502,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                     <button
                       type="button"
                       onClick={() => handleRestore(offer.id)}
-                      className="inline-flex items-center gap-1 text-[#2ecc71] hover:text-[#2ecc71]/90 p-1.5 bg-[#2ecc71]/10 border border-[#2ecc71]/20 rounded-[8px] transition-all text-[11px] font-bold"
+                      className="inline-flex items-center gap-1 text-success-text hover:text-success-text/90 p-1.5 bg-action/10 border border-action/20 rounded-[8px] transition-all text-[11px] font-bold"
                       title={t('kanban.archived.cardRestoreTitle')}
                     >
                       <RotateCcw className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -511,7 +511,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                     <button
                       type="button"
                       onClick={() => handleDeleteClick(offer)}
-                      className="text-[#1e1b4b]/40 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] transition-all"
+                      className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-1.5 bg-canvas/45 border border-subtle rounded-[8px] transition-all"
                       title={t('kanban.archived.cardDeleteBtn')}
                     >
                       <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -527,10 +527,10 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
       {/* Controles de Paginación */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#1e1b4b]/10 dark:border-white/5 pt-5 mt-6 font-display">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-subtle pt-5 mt-6 font-display">
           
           {/* Indicador de registros */}
-          <span className="text-xs text-[#1e1b4b]/60 dark:text-slate-400">
+          <span className="text-xs text-text-muted">
             {t('kanban.archived.paginationShowing', { start: startIndex + 1, end: endIndex, total: totalItems })}
           </span>
 
@@ -541,7 +541,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={activePage === 1}
-              className="p-2 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              className="p-2 border border-subtle rounded-[8px] text-text-muted hover:text-text dark:hover:text-white bg-surface hover:bg-canvas dark:hover:bg-canvas/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               aria-label={t('kanban.archived.paginationPrev')}
             >
               <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
@@ -552,7 +552,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
               // Lógica básica para ocultar páginas en paginación muy larga
               if (totalPages > 5 && Math.abs(page - activePage) > 1 && page !== 1 && page !== totalPages) {
                 if (page === 2 || page === totalPages - 1) {
-                  return <span key={page} className="text-xs text-[#1e1b4b]/40 px-1 select-none">...</span>;
+                  return <span key={page} className="text-xs text-text-muted px-1 select-none">...</span>;
                 }
                 return null;
               }
@@ -563,8 +563,8 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                   onClick={() => setCurrentPage(page)}
                   className={`min-w-[32px] h-8 text-xs font-bold rounded-[8px] border transition-all ${
                     activePage === page
-                      ? 'bg-[#1e1b4b] dark:bg-white border-[#1e1b4b] dark:border-white text-white dark:text-[#0b0f19] shadow-sm'
-                      : 'border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45'
+                      ? 'bg-text dark:bg-white border-text dark:border-white text-canvas shadow-sm'
+                      : 'border-subtle bg-surface text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-canvas/45'
                   }`}
                 >
                   {page}
@@ -576,7 +576,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={activePage === totalPages}
-              className="p-2 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white bg-white dark:bg-[#1f2937] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              className="p-2 border border-subtle rounded-[8px] text-text-muted hover:text-text dark:hover:text-white bg-surface hover:bg-canvas dark:hover:bg-canvas/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
               aria-label={t('kanban.archived.paginationNext')}
             >
               <ChevronRight className="w-4 h-4 stroke-[1.75]" />
@@ -588,7 +588,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
 
       {detailsLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="rounded-xl bg-white dark:bg-[#1f2937] px-4 py-3 text-sm text-[#1e1b4b] dark:text-white shadow-lg">
+          <div className="rounded-xl bg-surface px-4 py-3 text-sm text-text shadow-lg">
             {language === 'es' ? 'Cargando oferta…' : 'Loading offer…'}
           </div>
         </div>

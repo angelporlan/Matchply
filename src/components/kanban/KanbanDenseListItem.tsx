@@ -28,7 +28,7 @@ export default function KanbanDenseListItem({
   const getScoreBadge = () => {
     if (scoreVal === null) {
       return (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 text-slate-400 border border-slate-200 dark:border-white/10 shrink-0 font-sans">
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface-muted dark:bg-white/5 text-slate-400 border border-slate-200 dark:border-white/10 shrink-0 font-sans">
           N/D
         </span>
       );
@@ -84,8 +84,8 @@ export default function KanbanDenseListItem({
           onClick={() => onOpenDetails(offer)}
           className={`group relative px-3 py-2 rounded-xl transition-all duration-150 select-none ${
             snapshot.isDragging
-              ? 'opacity-95 bg-white dark:bg-[#1f2937] border-2 border-[#8b5cf6] shadow-xl scale-[1.02] z-50'
-              : 'bg-white dark:bg-[#1f2937]/90 border border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#8b5cf6]/40 hover:shadow-sm'
+              ? 'opacity-95 bg-surface border-2 border-ai shadow-xl scale-[1.02] z-50'
+              : 'bg-surface/90 border border-subtle hover:border-ai/40 hover:shadow-sm'
           } ${loadingAction ? 'opacity-50 pointer-events-none' : ''}`}
         >
           {/* Fila Principal: Grip, Score, Título completo y Acciones */}
@@ -93,7 +93,7 @@ export default function KanbanDenseListItem({
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div 
                 {...provided.dragHandleProps}
-                className="text-[#1e1b4b]/25 dark:text-white/20 group-hover:text-[#8b5cf6] cursor-grab active:cursor-grabbing p-0.5 -ml-1 transition-colors shrink-0"
+                className="text-text-muted dark:text-white/20 group-hover:text-ai cursor-grab active:cursor-grabbing p-0.5 -ml-1 transition-colors shrink-0"
                 title="Arrastrar para mover"
               >
                 <GripVertical className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -102,7 +102,7 @@ export default function KanbanDenseListItem({
               {getScoreBadge()}
 
               <h4 
-                className="text-[12.5px] font-bold text-[#1e1b4b] dark:text-white group-hover:text-[#8b5cf6] dark:group-hover:text-violet-400 transition-colors truncate font-display flex-1 leading-tight"
+                className="text-[12.5px] font-bold text-text group-hover:text-ai dark:group-hover:text-violet-400 transition-colors truncate font-display flex-1 leading-tight"
                 title={offer.title}
               >
                 {offer.title}
@@ -136,7 +136,7 @@ export default function KanbanDenseListItem({
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   title="Abrir oferta oficial"
-                  className="p-1 rounded-md text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                  className="p-1 rounded-md text-slate-400 hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-white/10 transition-colors"
                 >
                   <ExternalLink className="w-3 h-3 stroke-[2]" />
                 </a>
@@ -146,11 +146,11 @@ export default function KanbanDenseListItem({
 
           {/* Subtítulo: Empresa y Plataforma */}
           <div className="flex items-center justify-between gap-2 mt-0.5 pl-5">
-            <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 font-medium truncate font-sans">
+            <p className="text-[11px] text-text-muted font-medium truncate font-sans">
               {offer.company}
             </p>
             {offer.platform && (
-              <span className="text-[8.5px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">
+              <span className="text-[8.5px] font-semibold text-slate-400 dark:text-text-muted uppercase tracking-wider shrink-0">
                 {offer.platform}
               </span>
             )}

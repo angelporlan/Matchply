@@ -6,6 +6,7 @@ import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
 import PdfViewer from './PdfViewer';
 import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
+import { Button } from '@/components/ui/Button';
 import {
   Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette,
   Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw,
@@ -412,19 +413,19 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0f19] flex flex-col md:flex-row transition-colors duration-300 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans">
+    <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={user} isPremium={isPremium} isGuest={isGuest} />
       <div className="flex-1 h-screen flex flex-col relative z-10 overflow-hidden">
         {/* Background glow effects */}
-      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       {/* Cabecera del Editor */}
-      <header className="bg-white/80 dark:bg-[#0b0f19]/80 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-4 flex items-center justify-between shrink-0 relative z-30 transition-colors duration-300">
+      <header className="bg-white/80 dark:bg-canvas/80 backdrop-blur-md border-b border-subtle px-6 py-4 flex items-center justify-between shrink-0 relative z-30 transition-colors duration-300">
         <div className="flex items-center gap-3">
           <LinkNext
             href={isGuest ? "/try" : "/dashboard"}
-            className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-2 rounded-xl hover:bg-[#1e1b4b]/5 dark:hover:bg-slate-900 transition-colors"
+            className="text-text-muted hover:text-text dark:hover:text-white p-2 rounded-xl hover:bg-surface-muted dark:hover:bg-surface transition-colors"
             title={t('editor.header.backToDashboard')}
           >
             <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
@@ -432,12 +433,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-[#1e1b4b] dark:text-white tracking-wide font-display">{cv.title}</h1>
+              <h1 className="text-sm font-bold text-text tracking-wide font-display">{cv.title}</h1>
               <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>
                 {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
               </span>
             </div>
-            <p className="text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-light mt-0.5 font-sans">
+            <p className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
               {t('editor.header.subtitle')}
             </p>
           </div>
@@ -447,7 +448,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsAiOpen(true)}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-[8px] bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all font-display hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action font-bold text-xs shadow-sm hover:shadow-md transition-all font-display hover:-translate-y-0.5"
           >
             <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
             {t('editor.header.optimizeBtn')}
@@ -456,29 +457,29 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       </header>
 
       {/* Toolbar Flotante de Estilos (Supercompacta) */}
-      <div className="w-full bg-white/90 dark:bg-[#070b19]/90 backdrop-blur-md border-b border-[#1e1b4b]/10 dark:border-white/10 px-6 py-2 flex flex-wrap items-center justify-between gap-4 shrink-0 relative z-20 transition-colors duration-300">
+      <div className="w-full bg-white/90 dark:bg-canvas/90 backdrop-blur-md border-b border-subtle px-6 py-2 flex flex-wrap items-center justify-between gap-4 shrink-0 relative z-20 transition-colors duration-300">
         <div className="flex flex-wrap items-center">
           {/* Selector de Plantilla */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
-              <Layout className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
+              <Layout className="w-3 h-3 text-text-muted stroke-[1.75]" />
               {t('editor.toolbar.design')}
             </span>
-            <div className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 h-7 flex items-center text-xs text-[#1e1b4b] dark:text-slate-300 font-medium shadow-sm">
+            <div className="bg-canvas border border-control rounded-[8px] px-2 h-7 flex items-center text-xs text-text font-medium shadow-sm">
               {t('editor.toolbar.templates.harvard')}
             </div>
           </div>
 
           {/* Selector de Fuente */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
-              <Type className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
+              <Type className="w-3 h-3 text-text-muted stroke-[1.75]" />
               {t('editor.toolbar.font')}
             </span>
             <select
               value={fontFamily}
               onChange={handleFontChange}
-              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-slate-300 font-medium focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer capitalize h-7 shadow-sm"
+              className="bg-canvas border border-control rounded-[8px] px-2 py-1 text-xs text-text font-medium focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer capitalize h-7 shadow-sm"
             >
               <option value="helvetica">{t('editor.toolbar.fonts.helvetica')}</option>
               <option value="times">{t('editor.toolbar.fonts.times')}</option>
@@ -487,9 +488,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           </div>
 
           {/* Selector de Margen */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
-              <Sliders className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
+              <Sliders className="w-3 h-3 text-text-muted stroke-[1.75]" />
               {t('editor.toolbar.margin').replace('{margin}', pageMargin.toString())}
             </span>
             <div className="flex items-center h-7">
@@ -500,15 +501,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 step="6"
                 value={pageMargin}
                 onChange={handleMarginChange}
-                className="w-24 accent-[#8b5cf6] bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] h-1.5 cursor-pointer shadow-sm"
+                className="w-24 accent-ai bg-canvas border border-control rounded-[8px] h-1.5 cursor-pointer shadow-sm"
               />
             </div>
           </div>
 
           {/* Selector de Escala */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-[#1e1b4b]/10 dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
-              <Grid className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
+              <Grid className="w-3 h-3 text-text-muted stroke-[1.75]" />
               {t('editor.toolbar.scale').replace('{scale}', scale.toFixed(1))}
             </span>
             <div className="flex items-center h-7">
@@ -519,7 +520,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 step="0.1"
                 value={scale}
                 onChange={handleScaleChange}
-                className="w-24 accent-[#8b5cf6] bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] h-1.5 cursor-pointer shadow-sm"
+                className="w-24 accent-ai bg-canvas border border-control rounded-[8px] h-1.5 cursor-pointer shadow-sm"
               />
             </div>
           </div>
@@ -527,21 +528,21 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
         {/* Selector de Color de Acento */}
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-bold text-[#1e1b4b]/70 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1 font-display">
-            <Palette className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+          <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
+            <Palette className="w-3 h-3 text-text-muted stroke-[1.75]" />
             {t('editor.toolbar.accent')}
           </span>
-          <div className="flex items-center gap-1.5 bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 px-2 py-0.5 rounded-[8px] h-7 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-canvas border border-control px-2 py-0.5 rounded-[8px] h-7 shadow-sm">
             {colorPresets.map((preset) => (
               <button
                 key={preset.hex}
                 onClick={() => handleAccentChange(preset.hex)}
-                className={`w-4 h-4 rounded-full border border-black/15 transition-transform hover:scale-125 shrink-0 ${accentColor === preset.hex ? 'ring-2 ring-[#8b5cf6] ring-offset-1 ring-offset-white dark:ring-offset-[#0b0f19]' : ''}`}
+                className={`w-4 h-4 rounded-full border border-black/15 transition-transform hover:scale-125 shrink-0 ${accentColor === preset.hex ? 'ring-2 ring-ai ring-offset-1 ring-offset-white dark:ring-offset-[#0b0f19]' : ''}`}
                 style={{ backgroundColor: preset.hex }}
                 title={preset.name}
               />
             ))}
-            <div className="relative w-4 h-4 rounded-full border border-[#1e1b4b]/20 dark:border-white/20 overflow-hidden cursor-pointer hover:scale-125 transition-all shrink-0">
+            <div className="relative w-4 h-4 rounded-full border border-control dark:border-white/20 overflow-hidden cursor-pointer hover:scale-125 transition-all shrink-0">
               <input
                 type="color"
                 value={accentColor}
@@ -555,14 +556,14 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       </div>
 
       {isStreaming && (
-        <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-[#8b5cf6] text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
+        <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-ai text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#8b5cf6] animate-spin" />
+            <Sparkles className="w-4 h-4 text-ai animate-spin" />
             <span className="font-bold uppercase tracking-wider font-display text-[10px]">Asistente de IA Matchply</span>
             <span className="text-slate-400">|</span>
             <span className="font-medium text-slate-700 dark:text-slate-350">{streamingStep}</span>
           </div>
-          <span className="font-mono text-[10px] px-2 py-0.5 bg-[#8b5cf6]/10 rounded border border-[#8b5cf6]/20 font-bold">
+          <span className="font-mono text-[10px] px-2 py-0.5 bg-ai/10 rounded border border-ai/20 font-bold">
             {cvContent.split(/\s+/).filter(Boolean).length} palabras
           </span>
         </div>
@@ -614,10 +615,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           <div
             onMouseDown={handleMouseDown}
             onDoubleClick={handleDoubleClick}
-            className="w-2 hover:bg-[#8b5cf6]/30 bg-[#1e1b4b]/5 dark:bg-white/5 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
+            className="w-2 hover:bg-ai/30 bg-text/5 dark:bg-white/5 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
             title={t('editor.resizerTitle')}
           >
-            <div className="w-[2px] h-6 bg-[#1e1b4b]/20 dark:bg-white/20 group-hover:bg-[#8b5cf6] dark:group-hover:bg-[#8b5cf6] rounded-full transition-colors" />
+            <div className="w-[2px] h-6 bg-text/20 dark:bg-white/20 group-hover:bg-ai-action dark:group-hover:bg-ai-action rounded-full transition-colors" />
           </div>
         ) : fullscreenPanel === 'none' ? (
           <div className="h-6 shrink-0" />
@@ -649,25 +650,25 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+          <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
-            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
-                  <Sparkles className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                  <Sparkles className="w-5 h-5 text-ai animate-pulse stroke-[1.75]" />
                   {t('editor.aiModal.title')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
+                <p className="text-xs text-text-muted mt-1 font-sans">
                   {t('editor.aiModal.subtitle')}
                 </p>
               </div>
               <button
                 onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all disabled:opacity-50"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all disabled:opacity-50"
                 disabled={aiLoading}
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
@@ -678,13 +679,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               /* Loader Premium en Proceso */
               <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-full border border-[#8b5cf6]/20 flex items-center justify-center bg-[#8b5cf6]/5 shadow-sm">
-                    <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
+                  <div className="w-20 h-20 rounded-full border border-ai/20 flex items-center justify-center bg-ai/5 shadow-sm">
+                    <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
                   </div>
-                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-[#8b5cf6] animate-ping opacity-30" />
+                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-ai animate-ping opacity-30" />
                 </div>
-                <h4 className="text-sm font-bold text-[#1e1b4b] dark:text-white mb-2 font-display">{t('editor.aiModal.building')}</h4>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
+                <h4 className="text-sm font-bold text-text mb-2 font-display">{t('editor.aiModal.building')}</h4>
+                <p className="text-xs text-text-muted font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
                   {aiStep}
                 </p>
               </div>
@@ -709,8 +710,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('editor.aiModal.jobTitle')}
                       </label>
                       <input
@@ -719,13 +720,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder={t('editor.aiModal.jobTitlePlaceholder')}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('editor.aiModal.company')}
                       </label>
                       <input
@@ -734,15 +735,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder={t('editor.aiModal.companyPlaceholder')}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                        <Link className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                        <Link className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('editor.aiModal.link')}
                       </label>
                       <input
@@ -750,16 +751,16 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                         value={aiFormData.url}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
                         placeholder="https://..."
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">{t('editor.aiModal.platform')}</label>
+                      <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('editor.aiModal.platform')}</label>
                       <select
                         value={aiFormData.platform}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
                       >
                         <option value="linkedin">LinkedIn</option>
                         <option value="infojobs">InfoJobs</option>
@@ -769,32 +770,32 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 bg-[#fafafa] dark:bg-[#0b0f19]/30 p-4 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/5">
+                  <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
                     <input
                       type="checkbox"
                       id="addToKanban"
                       checked={aiFormData.addToKanban === 'true'}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
-                      className="rounded bg-white dark:bg-[#0b0f19] border-[#1e1b4b]/20 dark:border-white/20 text-[#8b5cf6] focus:ring-[#8b5cf6]/20 w-4 h-4 cursor-pointer accent-[#8b5cf6]"
+                      className="rounded bg-canvas border-control dark:border-white/20 text-ai focus:ring-ai/20 w-4 h-4 cursor-pointer accent-ai"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-[#1e1b4b]/80 dark:text-slate-200 cursor-pointer select-none flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                      <label htmlFor="addToKanban" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
+                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                         {t('editor.aiModal.kanban')}
                       </label>
-                      <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-400 font-light mt-0.5 font-sans">
+                      <span className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
                         {t('editor.aiModal.kanbanDesc')}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-pulse stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                      <Sparkles className="w-3.5 h-3.5 text-ai animate-pulse stroke-[1.75]" />
                       {t('editor.aiModal.mode')}
                     </label>
                     {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-[#fafafa] dark:bg-[#0b0f19]/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] px-4 py-3 text-xs text-[#1e1b4b]/60 dark:text-slate-400 font-sans">
+                      <div className="w-full bg-canvas/40 border border-subtle rounded-[8px] px-4 py-3 text-xs text-text-muted font-sans">
                         {t('editor.aiModal.defaultMode')}
                       </div>
                     ) : (
@@ -807,10 +808,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                             <div
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-[#fafafa] dark:bg-[#0b0f19]/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${
+                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${
                                 isSelected 
                                   ? 'shadow-lg border-transparent' 
-                                  : 'border-[#1e1b4b]/10 dark:border-white/10 hover:border-[#1e1b4b]/20 dark:hover:border-white/20'
+                                  : 'border-subtle hover:border-control dark:hover:border-white/20'
                               }`}
                               style={isSelected ? {
                                 borderColor: config.color,
@@ -837,7 +838,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                                   />
                                 </div>
                               </div>
-                              <p className="text-[9.5px] text-[#1e1b4b]/60 dark:text-slate-400 leading-normal font-light font-sans">
+                              <p className="text-[9.5px] text-text-muted leading-normal font-light font-sans">
                                 {config.desc}
                               </p>
                               {isSelected && (
@@ -854,8 +855,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                      <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                      <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                       {t('editor.aiModal.descLabel')}
                     </label>
                     <textarea
@@ -864,7 +865,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       value={aiFormData.jobDescription}
                       onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
                       placeholder={t('editor.aiModal.descPlaceholder')}
-                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
+                      className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
                     />
                   </div>
                 </form>
@@ -872,24 +873,25 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             )}
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 shrink-0 relative z-10 font-display">
+            <div className="flex justify-end gap-3 pt-4 border-t border-subtle shrink-0 relative z-10 font-display">
               <button
                 type="button"
                 onClick={() => setIsAiOpen(false)}
-                className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors disabled:opacity-50"
                 disabled={aiLoading}
               >
                 {t('editor.aiModal.close')}
               </button>
               {!aiLoading && (
-                <button
+                <Button
                   type="submit"
+                  variant="ai"
                   onClick={handleAiOptimize}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 rounded-[8px] shadow-sm transition-all"
+                  disabled={aiLoading}
                 >
-                  <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
+                  <Sparkles className="w-4 h-4 stroke-[1.75]" />
                   {t('editor.aiModal.start')}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -897,17 +899,17 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       )}
 
       {/* Barra de estado inferior fija */}
-      <footer className="w-full h-9 bg-white/95 dark:bg-[#090d16]/90 border-t border-[#1e1b4b]/10 dark:border-white/10 px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-[#1e1b4b]/70 dark:text-slate-400 font-medium transition-colors">
+      <footer className="w-full h-9 bg-white/95 dark:bg-canvas/90 border-t border-subtle px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-text-muted font-medium transition-colors">
         <div className="flex items-center gap-1.5">
-          <span className="font-bold text-[#1e1b4b]/40 dark:text-slate-500">{t('editor.footer.quickGuide')}</span>
-          <span className="font-semibold text-[#8b5cf6] dark:text-purple-400">{t('editor.footer.title2')}</span>
-          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
-          <span className="font-semibold text-[#8b5cf6] dark:text-purple-400">{t('editor.footer.title3')}</span>
-          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
-          <span className="font-semibold text-[#1e1b4b] dark:text-white">{t('editor.footer.bold')}</span>
-          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
-          <span className="italic text-[#1e1b4b]/80 dark:text-slate-300">{t('editor.footer.italic')}</span>
-          <span className="text-[#1e1b4b]/20 dark:text-slate-700">|</span>
+          <span className="font-bold text-text-muted">{t('editor.footer.quickGuide')}</span>
+          <span className="font-semibold text-ai dark:text-purple-400">{t('editor.footer.title2')}</span>
+          <span className="text-text-muted dark:text-slate-700">|</span>
+          <span className="font-semibold text-ai dark:text-purple-400">{t('editor.footer.title3')}</span>
+          <span className="text-text-muted dark:text-slate-700">|</span>
+          <span className="font-semibold text-text">{t('editor.footer.bold')}</span>
+          <span className="text-text-muted dark:text-slate-700">|</span>
+          <span className="italic text-text-muted dark:text-slate-300">{t('editor.footer.italic')}</span>
+          <span className="text-text-muted dark:text-slate-700">|</span>
           <span className="font-semibold text-sky-600 dark:text-sky-400">{t('editor.footer.lists')}</span>
         </div>
 
@@ -920,8 +922,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </span>
           )}
           {saveStatus === 'saving' && (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#8b5cf6] dark:text-violet-400">
-              <RefreshCw className="w-3.5 h-3.5 text-[#8b5cf6] dark:text-violet-400 animate-spin stroke-[1.75]" />
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-ai">
+              <RefreshCw className="w-3.5 h-3.5 text-ai animate-spin stroke-[1.75]" />
               {t('editor.footer.saving')}
             </span>
           )}

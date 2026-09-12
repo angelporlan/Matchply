@@ -364,7 +364,7 @@ Responde de forma concisa y directa al usuario.
   };
 
   const renderMessageContent = (content: string) => {
-    if (!content) return <span className="inline-block w-1.5 h-3.5 bg-[#8b5cf6] dark:bg-violet-400 animate-pulse ml-0.5" />;
+    if (!content) return <span className="inline-block w-1.5 h-3.5 bg-ai-action dark:bg-ai animate-pulse ml-0.5" />;
 
     const lines = content.split('\n');
     return lines.map((line, lineIdx) => {
@@ -373,16 +373,16 @@ Responde de forma concisa y directa al usuario.
       }
       
       if (line.startsWith('### ')) {
-        return <h4 key={lineIdx} className="text-xs font-bold text-[#1e1b4b] dark:text-white mt-3 mb-1.5 font-display">{line.slice(4)}</h4>;
+        return <h4 key={lineIdx} className="text-xs font-bold text-text mt-3 mb-1.5 font-display">{line.slice(4)}</h4>;
       }
       if (line.startsWith('## ')) {
-        return <h3 key={lineIdx} className="text-sm font-bold text-[#1e1b4b] dark:text-white mt-4 mb-2 border-b border-[#1e1b4b]/10 dark:border-white/5 pb-1 font-display">{line.slice(3)}</h3>;
+        return <h3 key={lineIdx} className="text-sm font-bold text-text mt-4 mb-2 border-b border-subtle pb-1 font-display">{line.slice(3)}</h3>;
       }
       if (line.startsWith('# ')) {
-        return <h2 key={lineIdx} className="text-base font-bold text-[#1e1b4b] dark:text-white mt-4 mb-2 font-display">{line.slice(2)}</h2>;
+        return <h2 key={lineIdx} className="text-base font-bold text-text mt-4 mb-2 font-display">{line.slice(2)}</h2>;
       }
       if (line.startsWith('---') || line.startsWith('===')) {
-        return <hr key={lineIdx} className="my-2 border-[#1e1b4b]/10 dark:border-white/5" />;
+        return <hr key={lineIdx} className="my-2 border-subtle" />;
       }
 
       const listMatch = line.match(/^(\s*)[-\*•]\s+(.*)$/);
@@ -404,7 +404,7 @@ Responde de forma concisa y directa al usuario.
         if (match.index > lastIndex) {
           parts.push(textToProcess.substring(lastIndex, match.index));
         }
-        parts.push(<strong key={match.index} className="font-bold text-[#1e1b4b] dark:text-white">{match[1]}</strong>);
+        parts.push(<strong key={match.index} className="font-bold text-text">{match[1]}</strong>);
         lastIndex = boldRegex.lastIndex;
       }
       
@@ -416,14 +416,14 @@ Responde de forma concisa y directa al usuario.
 
       if (isListItem) {
         return (
-          <li key={lineIdx} className="ml-4 list-disc text-xs text-[#1e1b4b]/80 dark:text-slate-300 font-sans my-0.5 leading-relaxed">
+          <li key={lineIdx} className="ml-4 list-disc text-xs text-text-muted dark:text-slate-300 font-sans my-0.5 leading-relaxed">
             {processedText}
           </li>
         );
       }
 
       return (
-        <p key={lineIdx} className="text-xs text-[#1e1b4b]/80 dark:text-slate-300 font-sans leading-relaxed my-1">
+        <p key={lineIdx} className="text-xs text-text-muted dark:text-slate-300 font-sans leading-relaxed my-1">
           {processedText}
         </p>
       );
@@ -652,8 +652,8 @@ Responde de forma concisa y directa al usuario.
   if (!hasMounted) {
     return (
       <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
-        <RefreshCw className="w-8 h-8 text-[#8b5cf6] animate-spin stroke-[1.75]" />
-        <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-3 font-sans">{t('kanban.board.loading')}</p>
+        <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
+        <p className="text-xs text-text-muted mt-3 font-sans">{t('kanban.board.loading')}</p>
       </div>
     );
   }
@@ -663,11 +663,11 @@ Responde de forma concisa y directa al usuario.
       {/* Cabecera del Tablero */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
-          <h2 className="text-2xl font-bold text-[#1e1b4b] dark:text-white tracking-tight flex items-center gap-2 font-display">
-            <Briefcase className="w-6 h-6 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+          <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
+            <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
             {t('kanban.board.title')}
           </h2>
-          <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-sm mt-1 font-sans">
+          <p className="text-text-muted text-sm mt-1 font-sans">
             {t('kanban.board.subtitle')}
           </p>
         </div>
@@ -675,15 +675,15 @@ Responde de forma concisa y directa al usuario.
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto font-display">
           <button
             onClick={() => setIsCopyModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-[#8b5cf6]/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#8b5cf6] dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-ai/30 text-text-muted dark:text-slate-300 hover:text-ai dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
           >
-            <Clipboard className="w-4 h-4 text-[#8b5cf6] stroke-[1.75]" />
+            <Clipboard className="w-4 h-4 text-ai stroke-[1.75]" />
             {t('kanban.copyDataModal.copyDataBtn')}
           </button>
 
           <NextLink
             href="/dashboard/kanban/archived"
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 hover:border-amber-500/30 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-amber-500/30 text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
           >
             <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
             {t('kanban.board.archivedBtn')}
@@ -694,7 +694,7 @@ Responde de forma concisa y directa al usuario.
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-[#0b0f19] font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
           >
             <Plus className="w-4 h-4 stroke-[1.75]" />
             {t('kanban.board.newApplicationBtn')}
@@ -703,39 +703,39 @@ Responde de forma concisa y directa al usuario.
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 font-display">
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.activeBadge')}</p>
-          <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{boardOffers.length}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.activeBadge')}</p>
+          <p className="text-xl font-bold text-text mt-1">{boardOffers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.archivedBadge')}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.archivedBadge')}</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{archivedOffers.length}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.linkedBadge')}</p>
-          <p className="text-xl font-bold text-[#2ecc71] mt-1">{linkedOffers}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.linkedBadge')}</p>
+          <p className="text-xl font-bold text-success-text mt-1">{linkedOffers}</p>
         </div>
-        <div className="rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 bg-white dark:bg-[#1f2937] px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 font-bold">{t('kanban.board.showingBadge')}</p>
-          <p className="text-xl font-bold text-[#1e1b4b] dark:text-white mt-1">{filteredOffers.length}</p>
+        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.showingBadge')}</p>
+          <p className="text-xl font-bold text-text mt-1">{filteredOffers.length}</p>
         </div>
       </div>
 
       <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between mb-5">
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#1e1b4b]/40 dark:text-slate-500 stroke-[1.75]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t('kanban.board.searchPlaceholder')}
-            className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] pl-10 pr-10 py-3 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+            className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-[#1e1b4b]/40 dark:text-slate-500 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#1f2937] transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-surface-muted transition-colors"
               aria-label={t('kanban.board.clearSearch')}
               title={t('kanban.board.clearSearch')}
             >
@@ -745,8 +745,8 @@ Responde de forma concisa y directa al usuario.
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
-            <SlidersHorizontal className="w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 ml-2 hidden sm:block stroke-[1.75]" />
+          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
+            <SlidersHorizontal className="w-4 h-4 text-text-muted ml-2 hidden sm:block stroke-[1.75]" />
             {[
               { value: 'all', label: t('kanban.board.filterAll') },
               { value: 'linked', label: t('kanban.board.filterLinked') },
@@ -758,8 +758,8 @@ Responde de forma concisa y directa al usuario.
                 onClick={() => setCvFilter(filter.value as 'all' | 'linked' | 'unlinked')}
                 className={`px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                   cvFilter === filter.value
-                    ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
-                    : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                    : 'text-text-muted hover:text-text dark:hover:text-white'
                 }`}
               >
                 {filter.label}
@@ -774,8 +774,8 @@ Responde de forma concisa y directa al usuario.
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] border text-xs font-bold transition-all shadow-sm ${
                 dateFilter !== 'all'
-                  ? 'bg-[#8b5cf6]/10 border-[#8b5cf6]/30 text-[#8b5cf6] dark:text-violet-400'
-                  : 'bg-white dark:bg-[#1f2937] border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                  ? 'bg-ai/10 border-ai/30 text-ai'
+                  : 'bg-surface border-subtle text-text-muted hover:text-text dark:hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -795,8 +795,8 @@ Responde de forma concisa y directa al usuario.
                   className="fixed inset-0 z-10" 
                   onClick={() => setIsDateDropdownOpen(false)} 
                 />
-                <div className="absolute right-0 mt-1.5 w-64 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-3 shadow-xl z-20 space-y-2.5 animate-in fade-in duration-100">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#1e1b4b]/40 dark:text-slate-500 px-1">
+                <div className="absolute right-0 mt-1.5 w-64 rounded-[12px] border border-subtle bg-surface p-3 shadow-xl z-20 space-y-2.5 animate-in fade-in duration-100">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-1">
                     {t('kanban.board.filterBtnLabel')}
                   </div>
                   
@@ -818,8 +818,8 @@ Responde de forma concisa y directa al usuario.
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs font-semibold transition-all ${
                           dateFilter === opt.value
-                            ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19]'
-                            : 'text-[#1e1b4b]/70 dark:text-slate-300 hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45'
+                            ? 'bg-text dark:bg-white text-canvas'
+                            : 'text-text-muted dark:text-slate-300 hover:bg-canvas dark:hover:bg-canvas/45'
                         }`}
                       >
                         {opt.label}
@@ -828,27 +828,27 @@ Responde de forma concisa y directa al usuario.
                   </div>
 
                   {dateFilter === 'custom' && (
-                    <div className="pt-2 border-t border-[#1e1b4b]/10 dark:border-white/5 space-y-2">
+                    <div className="pt-2 border-t border-subtle space-y-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400">
+                        <label className="text-[10px] font-bold text-text-muted">
                           {t('kanban.board.dateStart')}
                         </label>
                         <input
                           type="date"
                           value={startDate}
                           onChange={(e) => setStartDate(e.target.value)}
-                          className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6]"
+                          className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400">
+                        <label className="text-[10px] font-bold text-text-muted">
                           {t('kanban.board.dateEnd')}
                         </label>
                         <input
                           type="date"
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
-                          className="w-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6]"
+                          className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai"
                         />
                       </div>
                     </div>
@@ -858,14 +858,14 @@ Responde de forma concisa y directa al usuario.
             )}
           </div>
 
-          <div className="flex items-center gap-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#1f2937] p-1 shadow-sm font-display">
+          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
             <button
               type="button"
               onClick={() => setViewMode('compact')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                 viewMode === 'compact'
-                  ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
-                  : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                  : 'text-text-muted hover:text-text dark:hover:text-white'
               }`}
             >
               <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -876,8 +876,8 @@ Responde de forma concisa y directa al usuario.
               onClick={() => setViewMode('comfortable')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
                 viewMode === 'comfortable'
-                  ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] shadow-sm'
-                  : 'text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white'
+                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                  : 'text-text-muted hover:text-text dark:hover:text-white'
               }`}
             >
               <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -912,27 +912,27 @@ Responde de forma concisa y directa al usuario.
                 <div
                   key={column.id}
                   aria-label={`Columna ${column.title}`}
-                  className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-white dark:bg-[#1f2937] rounded-[12px] border relative overflow-hidden transition-all duration-300 ${
+                  className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-surface rounded-[12px] border relative overflow-hidden transition-all duration-300 ${
                     draggingOfferId && !columnOffers.some(o => o.id === draggingOfferId)
-                      ? 'shadow-sm border-[#1e1b4b]/10 dark:border-white/5'
+                      ? 'shadow-sm border-subtle'
                       : `${column.borderColor} shadow-sm hover:shadow-md`
                   }`}
                 >
                   {/* Cabecera de la columna */}
-                  <div className="shrink-0 p-3.5 pb-3 border-b border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/45">
+                  <div className="shrink-0 p-3.5 pb-3 border-b border-subtle bg-canvas/45">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 ${column.color}`}>
                           {renderColumnIcon(column.id)}
                           {column.shortTitle}
                         </span>
-                        <p className="text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 mt-2 truncate font-sans">{column.description}</p>
+                        <p className="text-[11px] text-text-muted mt-2 truncate font-sans">{column.description}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 font-display">
-                        <span className="text-sm font-bold text-[#1e1b4b] dark:text-white bg-white dark:bg-[#0b0f19] px-2.5 py-1 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 shadow-sm">
+                        <span className="text-sm font-bold text-text bg-canvas px-2.5 py-1 rounded-[8px] border border-subtle shadow-sm">
                           {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
                         </span>
-                        <span className="text-[10px] font-medium text-[#1e1b4b]/40 dark:text-slate-500">
+                        <span className="text-[10px] font-medium text-text-muted">
                           {t('kanban.board.offersCount')}
                         </span>
                       </div>
@@ -940,14 +940,14 @@ Responde de forma concisa y directa al usuario.
 
                     {/* Botón de Curación Inteligente, Test UI, Ordenación y Archivar Todas exclusivo para la columna Interés */}
                     {isInterested && rawColumnOffers.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center justify-between gap-1.5">
+                      <div className="mt-3 pt-2.5 border-t border-subtle flex items-center justify-between gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             setIsSimulationMode(false);
                             setIsCurateModalOpen(true);
                           }}
-                          className="flex-1 text-[11px] font-bold py-1.5 px-2 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white shadow-xs shadow-[#8b5cf6]/20 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-1.5 font-display min-w-0"
+                          className="flex-1 text-[11px] font-bold py-1.5 px-2 rounded-lg bg-gradient-to-r from-ai to-ai-action text-white shadow-xs shadow-ai/20 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-1.5 font-display min-w-0"
                         >
                           <Sparkles className="w-3 h-3 stroke-[2] text-violet-200 shrink-0" />
                           <span className="truncate">Curar con IA</span>
@@ -976,7 +976,7 @@ Responde de forma concisa y directa al usuario.
                           className={`text-[10.5px] font-bold px-2 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shrink-0 ${
                             interestedSortMode === 'score'
                               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : 'bg-white dark:bg-[#111827] text-slate-500 border-[#1e1b4b]/10 dark:border-white/10'
+                              : 'bg-white dark:bg-surface text-slate-500 border-subtle'
                           }`}
                         >
                           <ArrowUpDown className="w-3 h-3 stroke-[2]" />
@@ -987,7 +987,7 @@ Responde de forma concisa y directa al usuario.
                           type="button"
                           onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
                           title={t('kanban.board.archiveAllTooltip')}
-                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1b4b]/10 dark:border-white/10 bg-white dark:bg-[#111827] hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
+                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-subtle bg-white dark:bg-surface hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
                         >
                           <Archive className="w-3 h-3 stroke-[2]" />
                           <span>{t('kanban.board.archiveAllBtn')}</span>
@@ -997,7 +997,7 @@ Responde de forma concisa y directa al usuario.
 
                     {rawColumnOffers.length > 0 && !isInterested && (
                       <div className="mt-3 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 overflow-hidden">
+                        <div className="flex-1 h-1.5 rounded-full bg-canvas border border-control overflow-hidden">
                           <div
                             className={`h-full rounded-full ${column.color.split(' ')[1]}`}
                             style={{
@@ -1030,20 +1030,20 @@ Responde de forma concisa y directa al usuario.
                             : viewMode === 'compact' ? 'space-y-2.5' : 'space-y-4'
                         } ${
                           snapshot.isDraggingOver
-                            ? 'bg-[#8b5cf6]/5 dark:bg-[#8b5cf6]/8 shadow-inner border border-dashed border-[#8b5cf6]/25 dark:border-violet-500/25 rounded-b-[12px] -m-[1px]'
+                            ? 'bg-ai/5 dark:bg-ai/8 shadow-inner border border-dashed border-ai/25 dark:border-violet-500/25 rounded-b-[12px] -m-[1px]'
                             : ''
                         }`}
                       >
                         {columnOffers.length === 0 ? (
-                          <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 text-center text-[#1e1b4b]/40 dark:text-slate-500">
+                          <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-subtle rounded-[12px] p-6 text-center text-text-muted">
                             {hasActiveFilters ? (
                               <>
-                                <Search className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-70 stroke-[1.75]" />
+                                <Search className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-70 stroke-[1.75]" />
                                 <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.noResults')}</p>
                               </>
                             ) : (
                               <>
-                                <CheckCircle2 className="w-6 h-6 mb-2 text-[#1e1b4b]/30 dark:text-slate-600 opacity-60 stroke-[1.75]" />
+                                <CheckCircle2 className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-60 stroke-[1.75]" />
                                 <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.emptyBoard')}</p>
                               </>
                             )}
@@ -1076,8 +1076,8 @@ Responde de forma concisa y directa al usuario.
                     )}
                   </Droppable>
 
-                  <div className="shrink-0 border-t border-[#1e1b4b]/10 dark:border-white/5 bg-[#fafafa] dark:bg-[#0b0f19]/45 px-3.5 py-2.5">
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-[#1e1b4b]/40 dark:text-slate-500 font-sans">
+                  <div className="shrink-0 border-t border-subtle bg-canvas/45 px-3.5 py-2.5">
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted font-sans">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <ListChecks className="w-3.5 h-3.5 shrink-0 stroke-[1.75]" />
                         <span className="truncate">{columnOffers.length} {t('kanban.board.visibleText')}</span>
@@ -1100,25 +1100,25 @@ Responde de forma concisa y directa al usuario.
       {/* Modal Premium para copiar Candidaturas */}
       {isCopyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden animate-in zoom-in-95 duration-200">
             
             {/* Adornos visuales */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
-                  <Clipboard className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                  <Clipboard className="w-5 h-5 text-ai stroke-[1.75]" />
                   {t('kanban.copyDataModal.title')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
+                <p className="text-xs text-text-muted mt-1 font-sans">
                   {t('kanban.copyDataModal.subtitle')}
                 </p>
               </div>
               <button
                 onClick={() => setIsCopyModalOpen(false)}
-                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all"
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
               </button>
@@ -1127,7 +1127,7 @@ Responde de forma concisa y directa al usuario.
             <div className="space-y-5 relative z-10">
               {/* Selector de Período */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">
+                <label className="text-xs font-semibold text-text-muted dark:text-text font-display">
                   {t('kanban.copyDataModal.filterLabel')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1143,8 +1143,8 @@ Responde de forma concisa y directa al usuario.
                       onClick={() => setCopyDateFilter(opt.value as any)}
                       className={`px-3 py-2.5 rounded-[8px] text-xs font-semibold border text-center transition-all ${
                         copyDateFilter === opt.value
-                          ? 'bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] border-[#1e1b4b] dark:border-white shadow-sm'
-                          : 'bg-white dark:bg-[#1f2937] border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 hover:border-[#8b5cf6]/30 hover:text-[#8b5cf6] dark:hover:text-violet-400'
+                          ? 'bg-text dark:bg-white text-canvas border-text dark:border-white shadow-sm'
+                          : 'bg-surface border-subtle text-text-muted dark:text-slate-300 hover:border-ai/30 hover:text-ai dark:hover:text-violet-400'
                       }`}
                     >
                       {opt.label}
@@ -1155,42 +1155,42 @@ Responde de forma concisa y directa al usuario.
 
               {/* Rango Personalizado */}
               {copyDateFilter === 'custom' && (
-                <div className="grid grid-cols-2 gap-4 p-3.5 bg-[#fafafa] dark:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/5 rounded-[8px] animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-2 gap-4 p-3.5 bg-canvas/30 border border-subtle rounded-[8px] animate-in slide-in-from-top-2 duration-200">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider font-display">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
                       {t('kanban.copyDataModal.startDate')}
                     </label>
                     <input
                       type="date"
                       value={copyStartDate}
                       onChange={(e) => setCopyStartDate(e.target.value)}
-                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                      className="w-full bg-canvas border border-control rounded-[6px] px-3 py-2 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#1e1b4b]/50 dark:text-slate-400 uppercase tracking-wider font-display">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
                       {t('kanban.copyDataModal.endDate')}
                     </label>
                     <input
                       type="date"
                       value={copyEndDate}
                       onChange={(e) => setCopyEndDate(e.target.value)}
-                      className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[6px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                      className="w-full bg-canvas border border-control rounded-[6px] px-3 py-2 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                     />
                   </div>
                 </div>
               )}
 
               {/* Resumen de Exportación */}
-              <div className="p-4 rounded-[8px] bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-display">
+              <div className="p-4 rounded-[8px] bg-surface-muted/40 border border-slate-100 dark:border-slate-800 space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-text-muted font-display">
                   {t('kanban.copyDataModal.summary')}
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                  <div className="text-[#1e1b4b]/70 dark:text-slate-300">
+                  <div className="text-text-muted dark:text-slate-300">
                     {t('kanban.copyDataModal.foundOffers').replace('{count}', getFilteredOffersForCopy().length.toString())}
                   </div>
-                  <div className="text-[#1e1b4b]/70 dark:text-slate-300">
+                  <div className="text-text-muted dark:text-slate-300">
                     {t('kanban.copyDataModal.linkedCvs').replace('{count}', (() => {
                       const offers = getFilteredOffersForCopy();
                       const ids = new Set(offers.filter(o => o.cvId).map(o => o.cvId));
@@ -1201,11 +1201,11 @@ Responde de forma concisa y directa al usuario.
               </div>
 
               {/* Botones de acción */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 font-display">
+              <div className="flex justify-end gap-3 pt-4 border-t border-subtle font-display">
                 <button
                   type="button"
                   onClick={() => setIsCopyModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                  className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors"
                 >
                   {t('common.cancel')}
                 </button>
@@ -1216,7 +1216,7 @@ Responde de forma concisa y directa al usuario.
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-[8px] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     copied
                       ? 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
-                      : 'bg-[#8b5cf6] hover:bg-[#7c3aed] dark:bg-violet-600 dark:hover:bg-violet-700 shadow-md hover:-translate-y-0.5'
+                      : 'bg-ai-action hover:bg-ai-hover dark:bg-ai-action dark:hover:bg-ai-hover shadow-md hover:-translate-y-0.5'
                   }`}
                 >
                   {copied ? (
@@ -1240,25 +1240,25 @@ Responde de forma concisa y directa al usuario.
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
-          <div className="relative w-full max-w-lg bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] p-6 md:p-8 shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden">
             
             {/* Adornos visuales */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-start mb-6 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-[#1e1b4b] dark:text-white flex items-center gap-2 font-display">
-                  <Briefcase className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                  <Briefcase className="w-5 h-5 text-ai stroke-[1.75]" />
                   {t('kanban.modal.addTitle')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 font-sans">
+                <p className="text-xs text-text-muted mt-1 font-sans">
                   {t('kanban.modal.addDesc')}
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-[8px] hover:bg-[#fafafa] dark:hover:bg-[#0b0f19]/45 transition-all"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all"
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
               </button>
@@ -1273,8 +1273,8 @@ Responde de forma concisa y directa al usuario.
             <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <FileText className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                    <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                     {t('kanban.modal.jobField')}
                   </label>
                   <input
@@ -1284,13 +1284,13 @@ Responde de forma concisa y directa al usuario.
                     value={formData.title}
                     onChange={handleInputChange}
                     placeholder={t('kanban.modal.jobPlaceholder')}
-                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <Building2 className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                    <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                     {t('kanban.modal.companyField')}
                   </label>
                   <input
@@ -1300,15 +1300,15 @@ Responde de forma concisa y directa al usuario.
                     value={formData.company}
                     onChange={handleInputChange}
                     placeholder={t('kanban.modal.companyPlaceholder')}
-                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 flex items-center gap-1.5 font-display">
-                    <Link className="w-3.5 h-3.5 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
+                  <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
+                    <Link className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                     {t('kanban.modal.linkField')}
                   </label>
                   <input
@@ -1317,17 +1317,17 @@ Responde de forma concisa y directa al usuario.
                     value={formData.url}
                     onChange={handleInputChange}
                     placeholder="https://..."
-                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all font-sans"
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">{t('kanban.modal.platformField')}</label>
+                  <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('kanban.modal.platformField')}</label>
                   <select
                     name="platform"
                     value={formData.platform}
                     onChange={handleInputChange}
-                    className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer font-sans"
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
                   >
                     <option value="linkedin">LinkedIn</option>
                     <option value="infojobs">InfoJobs</option>
@@ -1338,7 +1338,7 @@ Responde de forma concisa y directa al usuario.
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#1e1b4b]/80 dark:text-slate-200 font-display">
+                <label className="text-xs font-semibold text-text-muted dark:text-text font-display">
                   {t('kanban.modal.descField')}
                 </label>
                 <textarea
@@ -1347,22 +1347,22 @@ Responde de forma concisa y directa al usuario.
                   onChange={handleInputChange}
                   rows={4}
                   placeholder={t('kanban.modal.descPlaceholder')}
-                  className="w-full bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-sm text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all resize-none font-sans"
+                  className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5 font-display">
+              <div className="flex justify-end gap-3 pt-4 border-t border-subtle font-display">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-semibold text-[#1e1b4b]/60 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white transition-colors"
+                  className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 dark:bg-white dark:hover:bg-slate-100 dark:text-[#0b0f19] rounded-[8px] transition-all disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted dark:text-canvas rounded-[8px] transition-all disabled:opacity-50"
                 >
                   {loading ? (
                     <>
@@ -1382,7 +1382,7 @@ Responde de forma concisa y directa al usuario.
       {/* Modal de Confirmación para Archivar Todas las Candidaturas de la Columna */}
       {archiveTarget.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[16px] p-6 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 font-sans text-left">
+          <div className="relative w-full max-w-md bg-surface border border-subtle rounded-[16px] p-6 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 font-sans text-left">
             {/* Adorno visual */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full filter blur-3xl pointer-events-none" />
 
@@ -1391,10 +1391,10 @@ Responde de forma concisa y directa al usuario.
                 <Archive className="w-5 h-5 stroke-[1.75]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-[#1e1b4b] dark:text-white font-display">
+                <h3 className="text-base font-bold text-text font-display">
                   {t('kanban.board.archiveAllConfirmTitle')}
                 </h3>
-                <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1.5 leading-relaxed font-sans">
+                <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-sans">
                   {t('kanban.board.archiveAllConfirmDesc')
                     .replace('{count}', archiveTarget.count.toString())
                     .replace('{column}', archiveTarget.columnTitle)}
@@ -1404,18 +1404,18 @@ Responde de forma concisa y directa al usuario.
                 type="button"
                 onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
                 disabled={isArchivingBulk}
-                className="text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-all shrink-0"
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-lg hover:bg-surface-muted dark:hover:bg-white/10 transition-all shrink-0"
               >
                 <X className="w-4 h-4 stroke-[1.75]" />
               </button>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/10 relative z-10 font-display">
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-subtle relative z-10 font-display">
               <button
                 type="button"
                 onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
                 disabled={isArchivingBulk}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#1e1b4b]/70 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all disabled:opacity-50"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-text-muted dark:text-slate-300 hover:bg-surface-muted dark:hover:bg-white/5 transition-all disabled:opacity-50"
               >
                 {t('common.cancel')}
               </button>
@@ -1444,7 +1444,7 @@ Responde de forma concisa y directa al usuario.
 
       {detailsLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="rounded-xl bg-white dark:bg-[#1f2937] px-4 py-3 text-sm text-[#1e1b4b] dark:text-white shadow-lg">
+          <div className="rounded-xl bg-surface px-4 py-3 text-sm text-text shadow-lg">
             {language === 'es' ? 'Cargando oferta…' : 'Loading offer…'}
           </div>
         </div>
@@ -1490,8 +1490,8 @@ Responde de forma concisa y directa al usuario.
       {/* Toast Flotante tras Curación Exitosa */}
       {curationToast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className="bg-[#1e1b4b] dark:bg-white text-white dark:text-[#0b0f19] px-5 py-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/10 flex items-center gap-3 font-display text-xs font-bold">
-            <div className="w-6 h-6 rounded-full bg-[#2ECC71]/20 text-[#2ECC71] flex items-center justify-center shrink-0">
+          <div className="bg-text dark:bg-white text-canvas px-5 py-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/10 flex items-center gap-3 font-display text-xs font-bold">
+            <div className="w-6 h-6 rounded-full bg-action/20 text-success-text flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
             </div>
             <span>{curationToast.message}</span>
@@ -1508,7 +1508,7 @@ Responde de forma concisa y directa al usuario.
       {/* Botón Redondo Flotante de IA Chatbot */}
       <button
         onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-[#8b5cf6] to-[#a78bfa] text-white flex items-center justify-center shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 border border-[#8b5cf6]/20 transition-all hover:scale-105 active:scale-95 duration-300 group"
+        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-ai to-ai text-white flex items-center justify-center shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 border border-ai/20 transition-all hover:scale-105 active:scale-95 duration-300 group"
         aria-label="Asesor de Carrera IA"
         title="Asesor de Carrera IA"
       >
@@ -1517,11 +1517,11 @@ Responde de forma concisa y directa al usuario.
 
       {/* Panel Flotante de IA Chatbot */}
       {isChatOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[550px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[16px] shadow-2xl z-40 overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 font-sans text-left">
+        <div className="fixed bottom-24 right-6 w-96 h-[550px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] bg-surface border border-subtle rounded-[16px] shadow-2xl z-40 overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 font-sans text-left">
           {/* Cabecera del Chat */}
-          <div className="shrink-0 p-4 bg-[#1e1b4b] dark:bg-[#0b0f19] text-white flex items-center justify-between border-b border-[#1e1b4b]/10 dark:border-white/5">
+          <div className="shrink-0 p-4 bg-[#1e1b4b] dark:bg-canvas text-white flex items-center justify-between border-b border-subtle">
             <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-[#8b5cf6] dark:text-violet-400 stroke-[1.75]" />
+              <Bot className="w-5 h-5 text-ai stroke-[1.75]" />
               <div>
                 <h4 className="text-xs font-bold font-display tracking-wide">Asesor de Carrera IA</h4>
                 <p className="text-[10px] text-slate-400">Matchply Coach</p>
@@ -1536,7 +1536,7 @@ Responde de forma concisa y directa al usuario.
           </div>
 
           {/* Historial de Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-[#0b0f19]/20 scrollbar-custom">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-surface-muted/50 dark:bg-canvas/20 scrollbar-custom">
             {chatMessages.map((msg, idx) => {
               const isAssistant = msg.role === 'assistant';
               return (
@@ -1547,8 +1547,8 @@ Responde de forma concisa y directa al usuario.
                   <div
                     className={`max-w-[85%] rounded-[12px] p-3 text-xs shadow-sm leading-relaxed ${
                       isAssistant
-                        ? 'bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 text-[#1e1b4b] dark:text-slate-200'
-                        : 'bg-[#8b5cf6] text-white'
+                        ? 'bg-surface border border-subtle text-text'
+                        : 'bg-ai-action text-on-ai-action'
                     }`}
                   >
                     <div className="space-y-1">
@@ -1561,7 +1561,7 @@ Responde de forma concisa y directa al usuario.
                         <button
                           onClick={handleStartAiAnalysis}
                           disabled={isChatLoading}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-[11px] font-bold shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action text-[11px] font-bold shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
                         >
                           <Sparkles className="w-3 h-3 stroke-[2]" />
                           {language === 'es' ? 'Analizar mi embudo' : 'Analyze my funnel'}
@@ -1576,10 +1576,10 @@ Responde de forma concisa y directa al usuario.
             {/* Cargador de la IA */}
             {isChatLoading && chatMessages[chatMessages.length - 1]?.role === 'user' && (
               <div className="flex justify-start animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/5 dark:border-white/5 rounded-[12px] p-3 shadow-sm flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-bounce duration-1000" style={{ animationDelay: '300ms' }} />
+                <div className="bg-surface border border-subtle rounded-[12px] p-3 shadow-sm flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             )}
@@ -1587,13 +1587,13 @@ Responde de forma concisa y directa al usuario.
 
           {/* Preguntas sugeridas */}
           {chatMessages.length > 1 && !isChatLoading && (
-            <div className="px-4 py-2 bg-slate-50/50 dark:bg-[#0b0f19]/10 border-t border-[#1e1b4b]/5 dark:border-white/5 flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
+            <div className="px-4 py-2 bg-surface-muted/50 dark:bg-canvas/10 border-t border-subtle flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
               {chatSuggestedQuestions.map((q) => (
                 <button
                   key={q.id}
                   type="button"
                   onClick={() => handleSendChatMessage(q.text)}
-                  className="px-2.5 py-1.5 rounded-full border border-[#8b5cf6]/20 bg-white dark:bg-[#1f2937] hover:border-[#8b5cf6]/50 hover:bg-[#8b5cf6]/5 dark:hover:bg-violet-950/20 text-[#8b5cf6] dark:text-violet-400 text-[10px] font-bold transition-all shadow-sm"
+                  className="px-2.5 py-1.5 rounded-full border border-ai/20 bg-surface hover:border-ai/50 hover:bg-ai/5 dark:hover:bg-violet-950/20 text-ai text-[10px] font-bold transition-all shadow-sm"
                 >
                   {q.text}
                 </button>
@@ -1604,7 +1604,7 @@ Responde de forma concisa y directa al usuario.
           {/* Input de Envío */}
           <form
             onSubmit={handleSendChatMessage}
-            className="shrink-0 p-3 bg-white dark:bg-[#1f2937] border-t border-[#1e1b4b]/10 dark:border-white/10 flex items-center gap-2"
+            className="shrink-0 p-3 bg-surface border-t border-subtle flex items-center gap-2"
           >
             <input
               type="text"
@@ -1612,12 +1612,12 @@ Responde de forma concisa y directa al usuario.
               onChange={(e) => setChatInputValue(e.target.value)}
               disabled={isChatLoading}
               placeholder={language === 'es' ? 'Pregunta algo a tu asesor...' : 'Ask your coach something...'}
-              className="flex-1 bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3 py-2 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/40 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all"
+              className="flex-1 bg-canvas border border-control rounded-[8px] px-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
             />
             <button
               type="submit"
               disabled={!chatInputValue.trim() || isChatLoading}
-              className="p-2 rounded-[8px] bg-[#8b5cf6] hover:bg-[#7c3aed] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="p-2 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
             >
               <SendHorizontal className="w-4 h-4 stroke-[1.75]" />
             </button>

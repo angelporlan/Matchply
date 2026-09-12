@@ -63,7 +63,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
   return (
     <>
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between h-16 px-4 bg-white dark:bg-[#0b0f19] border-b border-[#1e1b4b]/10 dark:border-white/10 w-full sticky top-0 z-40 transition-colors duration-300">
+      <div className="md:hidden flex items-center justify-between h-16 px-4 bg-canvas border-b border-subtle w-full sticky top-0 z-40 transition-colors duration-300">
         <Link href={isGuest ? "/try" : "/dashboard"} className="hover:opacity-90 transition-opacity">
           <Logo iconSize="sm" textSize="sm" />
         </Link>
@@ -71,7 +71,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
           <ThemeToggle />
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-[8px] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300"
+            className="p-2 rounded-[8px] border border-subtle text-text-muted dark:text-slate-300"
             aria-label="Toggle Menu"
           >
             {isOpen ? <X className="w-5 h-5 stroke-[1.75]" /> : <Menu className="w-5 h-5 stroke-[1.75]" />}
@@ -89,7 +89,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
 
       {/* Sidebar Panel */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-[#0b0f19] border-r border-[#1e1b4b]/10 dark:border-white/10 z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-canvas border-r border-subtle z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } flex flex-col justify-between p-6 select-none`}
       >
@@ -114,15 +114,16 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
                   key={item.name}
                   href={item.href}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-all ${
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-colors ${
                     active
-                      ? 'bg-[#1e1b4b] text-white shadow-sm'
-                      : 'text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/50'
+                      ? 'bg-surface-muted text-text shadow-sm'
+                      : 'text-text-muted hover:text-text hover:bg-surface-muted'
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 stroke-[1.75] ${
-                      active ? 'text-white' : 'text-[#1e1b4b]/50 dark:text-slate-400'
+                      active ? 'text-text' : 'text-text-muted'
                     }`}
                   />
                   <span>{item.name}</span>
@@ -133,10 +134,10 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
         </div>
 
         {/* User profile & language settings */}
-        <div className="pt-4 border-t border-[#1e1b4b]/10 dark:border-white/10 space-y-4">
+        <div className="pt-4 border-t border-subtle space-y-4">
           {/* Sleek Language Panel */}
-          <div className="flex items-center justify-between bg-[#fafafa] dark:bg-[#1f2937]/30 border border-[#1e1b4b]/5 dark:border-white/5 px-3 py-2 rounded-[10px] shadow-xs">
-            <span className="text-[11px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 font-display">
+          <div className="flex items-center justify-between bg-surface-muted/30 border border-subtle px-3 py-2 rounded-[10px] shadow-xs">
+            <span className="text-[11px] font-bold text-text-muted font-display">
               {language === 'es' ? 'Idioma' : 'Language'}
             </span>
             <LanguageToggle />
@@ -147,10 +148,10 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
               {/* Guest profile */}
               <div className="flex items-center justify-between px-1">
                 <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate font-display">
+                  <span className="block text-sm font-bold text-text truncate font-display">
                     {language === 'es' ? 'Invitado' : 'Guest'}
                   </span>
-                  <span className="block text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 truncate">
+                  <span className="block text-[11px] text-text-muted truncate">
                     {language === 'es' ? 'Prueba sin registro' : 'Trial without signup'}
                   </span>
                 </div>
@@ -159,14 +160,14 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
               <div className="space-y-2 font-display">
                 <Link
                   href="/register"
-                  className="flex items-center justify-center gap-2 w-full bg-[#2ecc71] hover:bg-[#29b765] text-white font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+                  className="flex items-center justify-center gap-2 w-full bg-action hover:bg-action-hover text-on-action font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
                 >
                   <UserPlus className="w-3.5 h-3.5 stroke-[1.75]" />
                   <span>{language === 'es' ? 'Guardar mi CV' : 'Save my CV'}</span>
                 </Link>
                 <Link
                   href="/login"
-                  className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 text-[#1e1b4b]/70 dark:text-slate-300 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+                  className="flex items-center justify-center gap-2 w-full bg-surface-muted/30 text-text-muted dark:text-slate-300 border border-subtle font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
                 >
                   {language === 'es' ? 'Ya tengo cuenta' : 'I have an account'}
                 </Link>
