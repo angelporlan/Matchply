@@ -9,7 +9,6 @@ export type AccessTier = 'guest' | 'free' | 'pro';
 export type SubscriptionFeature =
   | 'advancedAi'
   | 'kanban'
-  | 'apiKeys'
   | 'linkedinExtension'
   | 'deepResearch';
 
@@ -26,7 +25,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     features: {
       advancedAi: false,
       kanban: false,
-      apiKeys: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -37,7 +35,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     features: {
       advancedAi: false,
       kanban: false,
-      apiKeys: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -48,7 +45,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     features: {
       advancedAi: true,
       kanban: true,
-      apiKeys: true,
       linkedinExtension: true,
       deepResearch: true,
     },

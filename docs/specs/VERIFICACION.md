@@ -2,6 +2,8 @@
 
 [Volver al índice](README.md)
 
+> Nota posterior: las áreas **F19** (claves personales e integraciones API), **F20** (API externa) y **F21** (servidor MCP) se retiraron del código y del índice. El plan para reintroducirlas está en [future-tips.md](../future-tips.md). Las cifras de este documento describen el inventario original.
+
 ## Alcance y método
 
 - Fecha: 12 de septiembre de 2026.

@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       userSubscriptionStatus: user.subscriptionStatus,
       promptId: promptId,
       candidateName: user.name || '',
-      careerProfileContext: formatCareerProfileContext(user.mcpProfile),
+      careerProfileContext: formatCareerProfileContext(user.careerProfile),
     });
 
     const reader = aiStream.getReader();

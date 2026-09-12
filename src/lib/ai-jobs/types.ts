@@ -1,6 +1,4 @@
 export const AI_JOB_KINDS = [
-  'mcp_optimize',
-  'mcp_evaluate',
   'evaluate',
   'optimize_application',
 ] as const;

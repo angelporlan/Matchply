@@ -4,12 +4,10 @@ import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth, unstable_update } from "@/auth";
-import { issueUserApiKey } from "@/lib/api-keys";
 import { sanitizeDisplayName } from "@/lib/user-name";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import {
-  canAccessFeature,
   canCreateCv,
   canUseCvTemplate,
 } from "@/lib/subscription";
@@ -231,90 +229,6 @@ export async function saveCvContent(cvId: string, content: string) {
   }
 }
 
-export async function generateUserApiKey() {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = session.user.id;
-
-    // Fetch user from DB to verify subscription status
-    const [dbUser] = await db
-      .select({ subscriptionStatus: users.subscriptionStatus })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
-      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
-    }
-
-    const issued = issueUserApiKey();
-
-    await db
-      .update(users)
-      .set({
-        apiKey: null,
-        apiKeyHash: issued.hash,
-        apiKeyPrefix: issued.prefix,
-      })
-      .where(eq(users.id, userId));
-
-    // Log de auditoría
-    await createAuditLog("api_key_generate", userId, session.user.email || null, {
-      success: true
-    });
-
-    revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/profile");
-    return { success: true, apiKey: issued.plaintext, prefix: issued.prefix };
-  } catch (error: any) {
-    console.error("Error generating user API Key:", error);
-    return { error: error.message || "Failed to generate API Key" };
-  }
-}
-
-export async function revokeUserApiKey() {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = session.user.id;
-
-    // Fetch user from DB to verify subscription status
-    const [dbUser] = await db
-      .select({ subscriptionStatus: users.subscriptionStatus })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
-      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
-    }
-
-    await db
-      .update(users)
-      .set({ apiKey: null, apiKeyHash: null, apiKeyPrefix: null })
-      .where(eq(users.id, userId));
-
-    // Log de auditoría
-    await createAuditLog("api_key_revoke", userId, session.user.email || null, {
-      success: true
-    });
-
-    revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/profile");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error revoking user API Key:", error);
-    return { error: error.message || "Failed to revoke API Key" };
-  }
-}
-
 export async function createCvPlaceholder(updates: {
   title: string;
   isBase: boolean;
@@ -393,58 +307,6 @@ export async function createCvPlaceholder(updates: {
   }
 }
 
-export async function updateUserMcpSettings(
-  mcpCvId: string | null,
-  mcpProfile: any
-) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = session.user.id;
-
-    // Validate mcpCvId if provided
-    if (mcpCvId) {
-      const [cv] = await db.select().from(cvs).where(eq(cvs.id, mcpCvId)).limit(1);
-      if (!cv || cv.userId !== userId) {
-        throw new Error("Forbidden or CV not found");
-      }
-    }
-
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const currentProfile = (user?.mcpProfile as Record<string, unknown> | null) || {};
-    const incomingProfile = mcpProfile && typeof mcpProfile === 'object' ? mcpProfile : {};
-    const mergedProfile = {
-      ...currentProfile,
-      ...incomingProfile,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await db
-      .update(users)
-      .set({
-        mcpCvId: mcpCvId || null,
-        mcpProfile: mergedProfile,
-      })
-      .where(eq(users.id, userId));
-
-    // Log de auditoría
-    await createAuditLog("mcp_settings_update", userId, session.user.email || null, {
-      hasMcpCv: !!mcpCvId,
-    });
-
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/kanban");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error updating MCP settings:", error);
-    return { error: error.message || "Failed to update MCP settings" };
-  }
-}
-
 export async function saveUserCareerProfileAction(profileData: any) {
   try {
     const session = await auth();
@@ -455,7 +317,7 @@ export async function saveUserCareerProfileAction(profileData: any) {
     const userId = session.user.id;
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const currentProfile = (user?.mcpProfile as any) || {};
+    const currentProfile = (user?.careerProfile as any) || {};
     const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
 
     const updatedProfile = {
@@ -471,7 +333,7 @@ export async function saveUserCareerProfileAction(profileData: any) {
     await db
       .update(users)
       .set({
-        mcpProfile: updatedProfile,
+        careerProfile: updatedProfile,
       })
       .where(eq(users.id, userId));
 

@@ -9,11 +9,11 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Acceso y punto de entrada
 
 **Quién lo usa:** PRO.  
-**Dónde comienza:** Panel de investigación · /api/research/[offerId] · herramientas MCP.
+**Dónde comienza:** Panel de investigación · /api/research/[offerId].
 
 ## Qué hace actualmente
 
-- **ACT-F18-01:** Inicia investigación explícitamente desde dashboard o MCP, consulta estado y ofrece reintento de fallos.
+- **ACT-F18-01:** Inicia investigación explícitamente desde dashboard, consulta estado y ofrece reintento de fallos.
 - **ACT-F18-02:** Reserva cuota en PostgreSQL por usuario, mes UTC y oferta distinta: 10 al mes por defecto, configurable mediante RESEARCH_MONTHLY_QUOTA.
 - **ACT-F18-03:** Una reserva duplicada del mismo mes reutiliza el run; las tareas activas se reutilizan. Los reintentos técnicos no crean otra reserva.
 - **ACT-F18-04:** El worker ejecuta cinco especialistas: ajuste de oferta, empresa, personas, historia/noticias y verificación/riesgos, y sintetiza el informe.

@@ -11,7 +11,7 @@ import { getServerTranslations } from '@/lib/i18n/server';
 import CareerProfileForm from '@/components/profile/CareerProfileForm';
 import SettingsTabs from '@/components/profile/SettingsTabs';
 import AccountSettings from '@/components/profile/AccountSettings';
-import IntegrationsTabs from '@/components/subscription/IntegrationsTabs';
+import IntegrationsPanel from '@/components/subscription/IntegrationsPanel';
 import { Sparkles } from 'lucide-react';
 
 export default async function ProfileSettingsPage() {
@@ -81,18 +81,13 @@ export default async function ProfileSettingsPage() {
             defaultTab="profile"
             profile={
               <CareerProfileForm
-                initialProfile={dbUser?.mcpProfile as any}
+                initialProfile={dbUser?.careerProfile as any}
                 userCvs={userCvs}
               />
             }
             integrations={
-              <IntegrationsTabs
+              <IntegrationsPanel
                 isPremium={isPremium}
-                initialHasKey={Boolean(dbUser?.apiKeyHash || dbUser?.apiKey)}
-                initialApiKeyPrefix={dbUser?.apiKeyPrefix || null}
-                userCvs={userCvs}
-                initialMcpCvId={dbUser?.mcpCvId || null}
-                initialMcpProfile={dbUser?.mcpProfile as any}
                 initialInstallations={initialInstallations}
                 initialQuota={initialQuota}
               />

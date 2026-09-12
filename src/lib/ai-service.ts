@@ -855,13 +855,13 @@ export class AIService {
     jobDescription,
     company,
     userSubscriptionStatus,
-    mcpProfile
+    careerProfile
   }: {
     cvMarkdown: string;
     jobDescription: string;
     company: string;
     userSubscriptionStatus: string;
-    mcpProfile?: any;
+    careerProfile?: any;
   }): Promise<ReadableStream<Uint8Array>> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
     
@@ -920,39 +920,39 @@ Responde exactamente con este formato JSON:
     // Reemplazar la variable {{company}} en el systemPrompt si está presente
     systemPrompt = systemPrompt.replace(/\{\{company\}\}/g, company);
 
-    // Inyectar contexto dinámico del perfil MCP del usuario si existe
-    if (mcpProfile) {
+    // Inyectar contexto dinámico del perfil profesional del usuario si existe
+    if (careerProfile) {
       let profileContext = '\n\nINFORMACIÓN Y PREFERENCIAS DEL CANDIDATO (ÚSALAS PARA CALCULAR LA PUNTUACIÓN DE MATCH, VEREDICTO Y REDFLAGS):';
-      if (mcpProfile.targetRoles && Array.isArray(mcpProfile.targetRoles) && mcpProfile.targetRoles.length > 0) {
-        profileContext += `\n- Roles y tecnologías objetivo: ${mcpProfile.targetRoles.join(', ')}`;
+      if (careerProfile.targetRoles && Array.isArray(careerProfile.targetRoles) && careerProfile.targetRoles.length > 0) {
+        profileContext += `\n- Roles y tecnologías objetivo: ${careerProfile.targetRoles.join(', ')}`;
       }
-      if (mcpProfile.experienceYears !== undefined && mcpProfile.experienceYears !== null) {
-        profileContext += `\n- Años de experiencia real del candidato: ${mcpProfile.experienceYears} años`;
+      if (careerProfile.experienceYears !== undefined && careerProfile.experienceYears !== null) {
+        profileContext += `\n- Años de experiencia real del candidato: ${careerProfile.experienceYears} años`;
       }
-      if (mcpProfile.salaryMin || mcpProfile.salaryTarget) {
-        profileContext += `\n- Rango de salario pretendido: Min: ${mcpProfile.salaryMin || 'No especificado'} EUR/año, Target: ${mcpProfile.salaryTarget || 'No especificado'} EUR/año`;
+      if (careerProfile.salaryMin || careerProfile.salaryTarget) {
+        profileContext += `\n- Rango de salario pretendido: Min: ${careerProfile.salaryMin || 'No especificado'} EUR/año, Target: ${careerProfile.salaryTarget || 'No especificado'} EUR/año`;
       }
-      if (mcpProfile.locations && Array.isArray(mcpProfile.locations) && mcpProfile.locations.length > 0) {
+      if (careerProfile.locations && Array.isArray(careerProfile.locations) && careerProfile.locations.length > 0) {
         profileContext += '\n- Puntuaciones de preferencia geográfica y modalidad (1.0 = rechazo, 5.0 = ideal):';
-        mcpProfile.locations.forEach((loc: any) => {
+        careerProfile.locations.forEach((loc: any) => {
           if (loc.name && loc.score !== undefined) {
             profileContext += `\n  * ${loc.name}: ${loc.score}/5.0`;
           }
         });
       }
-      if (mcpProfile.experienceFitRules) {
+      if (careerProfile.experienceFitRules) {
         profileContext += '\n- Reglas de puntuación para años de experiencia requeridos por la oferta (1.0 = pésimo fit, 5.0 = fit ideal):';
-        Object.entries(mcpProfile.experienceFitRules).forEach(([key, val]) => {
+        Object.entries(careerProfile.experienceFitRules).forEach(([key, val]) => {
           profileContext += `\n  * Requisito de ${key} de experiencia: Puntuación ${val}/5.0`;
         });
       }
-      if (mcpProfile.masterDocument) {
-        profileContext += `\n- Perfil maestro:\n${String(mcpProfile.masterDocument).slice(0, 2500)}`;
-      } else if (mcpProfile.bio) {
-        profileContext += `\n- Trayectoria: ${String(mcpProfile.bio).slice(0, 1200)}`;
+      if (careerProfile.masterDocument) {
+        profileContext += `\n- Perfil maestro:\n${String(careerProfile.masterDocument).slice(0, 2500)}`;
+      } else if (careerProfile.bio) {
+        profileContext += `\n- Trayectoria: ${String(careerProfile.bio).slice(0, 1200)}`;
       }
-      if (mcpProfile.additionalNotes && !mcpProfile.masterDocument) {
-        profileContext += `\n- Notas adicionales de trayectoria y negociación: ${mcpProfile.additionalNotes}`;
+      if (careerProfile.additionalNotes && !careerProfile.masterDocument) {
+        profileContext += `\n- Notas adicionales de trayectoria y negociación: ${careerProfile.additionalNotes}`;
       }
 
       profileContext += `\n\nREGLA CRÍTICA DE EVALUACIÓN: Evalúa cada dimensión y el score global considerando ESTAS preferencias y el CV. Por ejemplo, si la oferta exige más años de experiencia de los que el candidato tiene, o si la ubicación/salario no encajan con sus preferencias, la puntuación de match en esa dimensión debe bajar drásticamente. Justifica cada Red Flag y desajuste según este perfil del usuario.`;

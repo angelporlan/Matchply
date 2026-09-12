@@ -13,14 +13,10 @@ export const users = pgTable('user', {
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
   role: text('role').default('user').notNull(), // 'user' o 'admin'
-  apiKey: text('apiKey').unique(), // Legacy plaintext; cleared after hash migration.
-  apiKeyHash: text('apiKeyHash').unique(),
-  apiKeyPrefix: text('apiKeyPrefix'),
   isGuest: boolean('isGuest').default(false).notNull(),
   guestTokenHash: text('guestTokenHash').unique(),
   guestExpiresAt: timestamp('guestExpiresAt', { mode: 'date' }),
-  mcpProfile: jsonb('mcpProfile'),
-  mcpCvId: uuid('mcpCvId'),
+  careerProfile: jsonb('careerProfile'),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 });
 

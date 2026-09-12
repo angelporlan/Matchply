@@ -1,9 +1,7 @@
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { cvs, jobOffers, users } from '@/db/schema';
+import { jobOffers } from '@/db/schema';
 import { requireUserFeature } from '@/lib/permissions';
-import { enqueueAiJob } from '@/lib/ai-jobs/queue';
-import { settleAiJob } from '@/lib/ai-jobs/settle';
 
 export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
@@ -133,20 +131,6 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
   return { offer: created, created: true };
 }
 
-export async function listExternalApplications(
-  userId: string,
-  filters: { externalSource?: string; updatedSince?: string } = {},
-) {
-  await requireUserFeature(userId, 'kanban');
-  const clauses = [eq(jobOffers.userId, userId)];
-  if (filters.externalSource) clauses.push(eq(jobOffers.externalSource, filters.externalSource));
-  if (filters.updatedSince) {
-    const since = new Date(filters.updatedSince);
-    if (!Number.isNaN(since.valueOf())) clauses.push(gt(jobOffers.updatedAt, since));
-  }
-  return db.select().from(jobOffers).where(and(...clauses)).orderBy(desc(jobOffers.updatedAt));
-}
-
 export async function getOwnedApplication(userId: string, offerId: string) {
   await requireUserFeature(userId, 'kanban');
   const [offer] = await db.select().from(jobOffers).where(and(
@@ -155,93 +139,4 @@ export async function getOwnedApplication(userId: string, offerId: string) {
   )).limit(1);
   if (!offer) throw new ApplicationNotFoundError('Application not found');
   return offer;
-}
-
-export async function updateExternalApplication(
-  userId: string,
-  offerId: string,
-  input: { status?: string; nextFollowupDate?: string | null; expectedUpdatedAt?: string },
-) {
-  const existing = await getOwnedApplication(userId, offerId);
-  if (input.expectedUpdatedAt && existing.updatedAt.toISOString() !== input.expectedUpdatedAt) {
-    throw new ApplicationConflictError('Application changed in Matchply');
-  }
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (input.status !== undefined) {
-    if (!PIPELINE_STATUSES.includes(input.status as PipelineStatus)) throw new Error('Invalid status');
-    values.status = input.status;
-  }
-  if (input.nextFollowupDate !== undefined) {
-    values.nextFollowupDate = input.nextFollowupDate ? new Date(input.nextFollowupDate) : null;
-  }
-  const [updated] = await db.update(jobOffers).set(values).where(eq(jobOffers.id, offerId)).returning();
-  return updated;
-}
-
-async function resolveBaseCv(userId: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (user?.mcpCvId) {
-    const [selected] = await db.select().from(cvs).where(and(
-      eq(cvs.id, user.mcpCvId),
-      eq(cvs.userId, userId),
-    )).limit(1);
-    if (selected) return { user, cv: selected };
-  }
-  const [base] = await db.select().from(cvs).where(and(
-    eq(cvs.userId, userId),
-    eq(cvs.isBase, true),
-  )).orderBy(desc(cvs.isPrincipal)).limit(1);
-  return { user, cv: base || null };
-}
-
-export async function optimizeApplicationCv(userId: string, offerId: string, regenerate = false) {
-  const offer = await getOwnedApplication(userId, offerId);
-  if (offer.cvId && !regenerate) {
-    return { offer, cvId: offer.cvId, created: false };
-  }
-  if (!offer.description) throw new Error('Application has no job description');
-
-  const job = await enqueueAiJob({
-    userId,
-    kind: 'optimize_application',
-    payload: { offerId, regenerate },
-  });
-  const settled = await settleAiJob(job.id);
-  if (settled.status === 'failed') {
-    throw new Error(settled.lastError || 'CV optimization failed');
-  }
-  if (settled.status !== 'completed') {
-    throw new Error(`CV optimization is still ${settled.status}. Job ${settled.id}`);
-  }
-
-  const result = (settled.result || {}) as { cvId?: string; created?: boolean };
-  const updated = await getOwnedApplication(userId, offerId);
-  return { offer: updated, cvId: result.cvId || updated.cvId, created: Boolean(result.created) };
-}
-
-export async function createApplicationCvFromMarkdown(
-  userId: string,
-  offerId: string,
-  content: string,
-  title?: string,
-) {
-  const offer = await getOwnedApplication(userId, offerId);
-  const { cv: baseCv } = await resolveBaseCv(userId);
-  const [newCv] = await db.insert(cvs).values({
-    userId,
-    title: title?.trim() || `[API] - ${offer.title} (${offer.company})`,
-    content: content.trim(),
-    isBase: false,
-    isPrincipal: false,
-    templateName: baseCv?.templateName || 'harvard',
-    accentColor: baseCv?.accentColor || '#1a5f7a',
-    fontFamily: baseCv?.fontFamily || 'helvetica',
-    pageMargin: baseCv?.pageMargin ?? 36,
-    scale: baseCv?.scale ?? 1,
-  }).returning();
-  const [updatedOffer] = await db.update(jobOffers).set({
-    cvId: newCv.id,
-    updatedAt: new Date(),
-  }).where(eq(jobOffers.id, offerId)).returning();
-  return { offer: updatedOffer, cvId: newCv.id, created: true };
 }

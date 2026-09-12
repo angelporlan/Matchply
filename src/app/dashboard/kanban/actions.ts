@@ -665,7 +665,7 @@ export async function curateOffersWithAiAction(targetThreshold: number = 65) {
     }
 
     // 4. Ejecutar evaluación por lotes con IA
-    const userProfile = (user.mcpProfile as any) || {};
+    const userProfile = (user.careerProfile as any) || {};
 
     const { curated } = await AIService.curateOffersBatch({
       baseCvMarkdown,
@@ -734,7 +734,7 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
 
     const { curated } = await AIService.curateOffersBatch({
       baseCvMarkdown: baseCv?.content || "",
-      userCareerProfile: user.mcpProfile,
+      userCareerProfile: user.careerProfile,
       offers: [{
         id: offer.id,
         title: offer.title,

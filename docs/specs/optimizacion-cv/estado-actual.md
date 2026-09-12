@@ -25,7 +25,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Límites, diferencias y capacidades parciales
 
 - La intención visual de revisar antes de aplicar descrita en design.md no coincide todavía con el guardado automático de esta ruta.
-- La ruta streaming y las tareas MCP/API no son el mismo circuito; no asumir idénticas reglas de copia, reintento o límites.
+- La ruta streaming y las tareas en cola no son el mismo circuito; no asumir idénticas reglas de copia, reintento o límites.
 - No se ha medido la calidad real de las optimizaciones ni ejecutado proveedores en esta revisión.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.

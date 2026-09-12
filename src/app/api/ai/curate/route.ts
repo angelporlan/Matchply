@@ -99,7 +99,7 @@ export async function POST(req: Request) {
         });
 
         const allResults: CuratedStreamItem[] = [];
-        const userProfile = (user.mcpProfile as any) || {};
+        const userProfile = (user.careerProfile as any) || {};
 
         await AIService.curateOffersBatch({
           baseCvMarkdown: baseCv?.content || '',

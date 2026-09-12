@@ -15,7 +15,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 - **ACT-F10-01:** Guarda experiencia libre, rol objetivo opcional, documento maestro y criterios de puntuación de ofertas.
 - **ACT-F10-02:** Campos avanzados: años de experiencia, puestos, modalidades, ubicaciones, empresas preferidas, salario mínimo/objetivo, proyectos y habilidades por categorías.
-- **ACT-F10-03:** Los datos se guardan en user.mcpProfile junto con preferencias de integraciones; el guardado mezcla campos y añade fecha de actualización.
+- **ACT-F10-03:** Los datos se guardan en user.careerProfile junto con preferencias de selección; el guardado mezcla campos y añade fecha de actualización.
 - **ACT-F10-04:** Deriva restricciones de idioma desde curationCriteria; el parser no convierte la biografía en reglas duras aunque se le pase bio.
 - **ACT-F10-05:** La fuerza del perfil es una heurística: 35 puntos por experiencia de al menos 80 caracteres, 40 por documento de al menos 120 y 25 por criterios de al menos 20.
 - **ACT-F10-06:** El dictado usa SpeechRecognition del navegador en es-ES, con resultados provisionales y finales, controles de inicio/parada y mensajes de permisos/no compatibilidad.
@@ -25,7 +25,6 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 - El porcentaje mide campos/longitudes, no empleabilidad ni calidad profesional.
 - Dictado depende de navegador y micrófono; su idioma está fijado a español. No hay un archivo de audio guardado por este componente.
-- Perfil profesional y preferencias MCP comparten JSON y presentan campos parcialmente solapados.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.
 

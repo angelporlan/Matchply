@@ -19,13 +19,13 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 - **ACT-F12-04:** Carga el detalle bajo demanda y ofrece tanto modal como página completa. Permite editar datos básicos, vincular/desvincular CV y borrar candidatura.
 - **ACT-F12-05:** El detalle presenta evaluación, resumen, riesgos, informe, fuente, evidencias a destacar y contenido de preparación cuando existen.
 - **ACT-F12-06:** Puede iniciar optimización para la oferta y consultar/iniciar investigación. Estas capacidades se describen en sus fichas.
-- **ACT-F12-07:** Persisten nextFollowupDate y rejectionPatternTags; la fecha se puede mostrar y actualizar por API/MCP.
+- **ACT-F12-07:** Persisten nextFollowupDate y rejectionPatternTags; la fecha se puede mostrar y actualizar desde el detalle.
 
 ## Límites, diferencias y capacidades parciales
 
 - Guardar estado applied solo actualiza el seguimiento: no envía el CV a la empresa.
 - No se encontró envío de recordatorios por la fecha nextFollowupDate ni una agenda/calendario con notificaciones.
-- updateJobOfferStatus recibe una cadena sin validar el catálogo en esa acción; la API externa sí valida estados.
+- updateJobOfferStatus recibe una cadena sin validar el catálogo en esa acción.
 - updateJobOfferCv comprueba propiedad de la oferta, pero no comprueba explícitamente en esa acción la propiedad del CV recibido. No confundir las opciones de UI con una garantía de backend.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.

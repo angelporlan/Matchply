@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   evaluationFields,
-  formatPendingJobMessage,
   parseJsonObject,
 } from '@/lib/ai-jobs/evaluation';
 
@@ -29,10 +28,4 @@ test('evaluationFields maps STAR dimensions into stored report fields', () => {
   assert.equal((fields.scoreBreakdown as Record<string, number>).Tech, 81.2);
   assert.match(fields.rawReport || '', /TypeScript/);
   assert.match(fields.rawReport || '', /Kubernetes/);
-});
-
-test('pending job message includes the id for MCP follow-up', () => {
-  const text = formatPendingJobMessage('abc-123', 'mcp_optimize');
-  assert.match(text, /abc-123/);
-  assert.match(text, /consultar_trabajo_ia/);
 });
