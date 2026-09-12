@@ -368,7 +368,7 @@ Respetar `prefers-reduced-motion` en CSS **y** Framer Motion/canvas. La protecci
 | `IMPLEMENTATION_PLAN.md` | Plan visual por áreas y verificaciones | Sección 11 actualizada |
 | `AGENTS.md`, apartado 8 | Resumen de reglas visuales | Referencia a esta guía |
 
-Se revisaron también README, integraciones/Stripe y especificaciones de `docs/`: no constituyen guías visuales adicionales. Sus requisitos funcionales permanecen en origen. Notas y plan quedan como redirecciones. Como esos archivos están excluidos de Git, sus originales se conservan junto a la guía anterior en el [archivo histórico no normativo](docs/design-history-2026-09-12.zip). No usar ese archivo como guía de implementación.
+Se revisaron también README, integraciones/Stripe y especificaciones de `docs/`: no constituyen guías visuales adicionales. Sus requisitos funcionales permanecen en origen. La documentación técnica y borradores previos quedaron unificados y consolidados en este documento.
 
 ### Código observado el 12/09/2026
 
