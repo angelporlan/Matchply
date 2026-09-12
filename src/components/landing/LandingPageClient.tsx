@@ -9,6 +9,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LandingHeader from '@/components/landing/LandingHeader';
 import AgentFirstEffect from '@/components/landing/AgentFirstEffect';
 import Logo from '@/components/ui/Logo';
+import { ButtonLink } from '@/components/ui/Button';
 
 // ----------------------------------------------------
 // Sub-component: Interactive Particles/Grid Canvas
@@ -329,7 +330,7 @@ export function FeatureCard({ children, className = "" }: { children: React.Reac
       {/* Dynamic border highlighting cursor */}
       {isHovered && !shouldReduceMotion && (
         <div
-          className="absolute pointer-events-none rounded-[12px] border border-[#8b5cf6]/20 transition-opacity duration-300"
+          className="absolute pointer-events-none rounded-[12px] border border-ai/20 transition-opacity duration-300"
           style={{
             inset: 0,
             maskImage: `radial-gradient(150px circle at ${coords.x}px ${coords.y}px, black, transparent)`,
@@ -381,35 +382,35 @@ export function TemplateFlipCard({
       >
 
         {/* Front Face */}
-        <div className="backface-hidden absolute inset-0 bg-white dark:bg-[#1f2937] p-6 rounded-[12px] border border-[#1e1b4b]/10 dark:border-white/5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="backface-hidden absolute inset-0 bg-surface p-6 rounded-[12px] border border-subtle flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300">
           <div>
             <div className={`p-2 py-1 rounded-[8px] border text-[11px] font-bold font-display w-fit mb-4 ${badgeColorClass}`}>
               {badgeText}
             </div>
-            <h4 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white mb-2">{title}</h4>
-            <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs font-light leading-relaxed">
+            <h4 className="text-xl font-bold font-display text-text mb-2">{title}</h4>
+            <p className="text-text-muted text-xs font-light leading-relaxed">
               {desc}
             </p>
           </div>
 
           {/* Decorative mini layout of the CV inside card */}
-          <div className="border-t border-[#1e1b4b]/5 dark:border-white/5 pt-4 flex flex-col gap-2 opacity-50 group-hover:opacity-85 transition-opacity">
-            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-sm" />
-            <div className="h-1.5 w-5/6 bg-slate-200 dark:bg-slate-700 rounded-sm" />
-            <div className="h-1.5 w-4/6 bg-slate-200 dark:bg-slate-700 rounded-sm" />
+          <div className="border-t border-subtle pt-4 flex flex-col gap-2 opacity-50 group-hover:opacity-85 transition-opacity">
+            <div className="h-1.5 w-full bg-subtle dark:bg-slate-700 rounded-sm" />
+            <div className="h-1.5 w-5/6 bg-subtle dark:bg-slate-700 rounded-sm" />
+            <div className="h-1.5 w-4/6 bg-subtle dark:bg-slate-700 rounded-sm" />
             <div className="flex gap-1.5 mt-1 items-center">
-              <div className="h-3 w-3 rounded-full bg-[#8b5cf6]/30" />
-              <div className="h-1.5 w-12 bg-[#2ecc71]/25 rounded-sm" />
+              <div className="h-3 w-3 rounded-full bg-ai/30" />
+              <div className="h-1.5 w-12 bg-action/25 rounded-sm" />
             </div>
           </div>
 
-          <div className="mt-4 text-[#8b5cf6] text-xs font-bold flex items-center gap-1 font-display">
+          <div className="mt-4 text-ai text-xs font-bold flex items-center gap-1 font-display">
             {ctaText} <ChevronRight className="w-3.5 h-3.5 stroke-[1.75] group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
 
         {/* Back Face (CV Visual) */}
-        <div className="backface-hidden rotate-y-180 absolute inset-0 bg-[#1e1b4b] dark:bg-[#0b0f19] rounded-[12px] border border-[#8b5cf6]/40 overflow-hidden shadow-lg shadow-[#8b5cf6]/10">
+        <div className="backface-hidden rotate-y-180 absolute inset-0 bg-[#1e1b4b] dark:bg-canvas rounded-[12px] border border-ai/40 overflow-hidden shadow-lg shadow-ai/10">
           <img
             src={imagePath}
             alt={title}
@@ -418,12 +419,12 @@ export function TemplateFlipCard({
             className="w-full h-full object-cover object-top opacity-90 group-hover:scale-105 transition-transform duration-700"
           />
           {/* Overlay containing "Use This Template" Action */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19]/95 via-[#0b0f19]/35 to-transparent flex flex-col justify-end p-5">
+          <div className="absolute inset-0 bg-gradient-to-t from-canvas/95 via-canvas/35 to-transparent flex flex-col justify-end p-5">
             <h5 className="text-white font-bold font-display text-sm mb-1">{title} Template</h5>
             <p className="text-slate-300 text-[10px] font-light mb-3 leading-tight">{desc.substring(0, 50)}...</p>
             <Link
               href={session ? "/dashboard" : "/try"}
-              className="w-full bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white text-center font-bold py-2.5 rounded-[8px] text-[11px] transition-all shadow-md shadow-[#8b5cf6]/20 font-display flex items-center justify-center gap-1 hover-shimmer-btn"
+              className="w-full bg-ai-action hover:bg-ai-hover text-on-ai-action text-center font-bold py-2.5 rounded-[8px] text-[11px] transition-all shadow-md shadow-ai/20 font-display flex items-center justify-center gap-1"
             >
               {t('landing.hero.primaryCta')} <ArrowRight className="w-3 h-3" />
             </Link>
@@ -495,9 +496,9 @@ export function MiniEditorMockup() {
   }, [activeLineIdx, charIdx]);
 
   return (
-    <div className="w-full bg-white dark:bg-[#0c1020]/95 border border-slate-200 dark:border-white/10 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col h-40 sm:h-56 relative font-mono text-[7px] sm:text-[9px] select-none transition-colors duration-300">
+    <div className="w-full bg-white dark:bg-canvas/95 border border-slate-200 dark:border-white/10 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col h-40 sm:h-56 relative font-mono text-[7px] sm:text-[9px] select-none transition-colors duration-300">
       {/* 1. Header Bar */}
-      <div className="h-7 sm:h-9 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-white/5 flex items-center px-2.5 sm:px-4 justify-between select-none">
+      <div className="h-7 sm:h-9 bg-surface-muted dark:bg-surface/50 border-b border-slate-200 dark:border-white/5 flex items-center px-2.5 sm:px-4 justify-between select-none">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ff5f56] opacity-90" />
           <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ffbd2e] opacity-90" />
@@ -505,12 +506,12 @@ export function MiniEditorMockup() {
         </div>
         
         {/* Document Tab */}
-        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-100 dark:bg-[#0c1020]/80 rounded-t-lg border-t border-x border-slate-200 dark:border-white/5 text-[6.5px] sm:text-[8.5px] font-sans font-bold text-slate-700 dark:text-slate-300 relative top-[3.5px] sm:top-[4.5px]">
-          <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-indigo-500 dark:text-[#8b5cf6]" />
+        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-surface-muted dark:bg-canvas/80 rounded-t-lg border-t border-x border-slate-200 dark:border-white/5 text-[6.5px] sm:text-[8.5px] font-sans font-bold text-slate-700 dark:text-slate-300 relative top-[3.5px] sm:top-[4.5px]">
+          <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-indigo-500 dark:text-ai" />
           <span>fernando_cv.md</span>
         </div>
         
-        <div className="hidden sm:block text-[7.5px] text-slate-400 dark:text-slate-500 font-sans font-semibold uppercase tracking-wider">
+        <div className="hidden sm:block text-[7.5px] text-slate-400 dark:text-text-muted font-sans font-semibold uppercase tracking-wider">
           Markdown
         </div>
       </div>
@@ -518,7 +519,7 @@ export function MiniEditorMockup() {
       {/* 2. Main Workspace */}
       <div className="flex flex-1 h-[calc(100%-64px)] overflow-hidden">
         {/* Left Panel: Markdown Editor */}
-        <div className="w-1/2 bg-slate-50/50 dark:bg-[#0c1020]/50 border-r border-slate-200/80 dark:border-white/5 p-2 sm:p-3 flex gap-1.5 sm:gap-2 text-left relative overflow-y-auto scrollbar-none">
+        <div className="w-1/2 bg-surface-muted/50 dark:bg-canvas/50 border-r border-slate-200/80 dark:border-white/5 p-2 sm:p-3 flex gap-1.5 sm:gap-2 text-left relative overflow-y-auto scrollbar-none">
           {/* Line Numbers */}
           <div className="flex flex-col text-slate-400 dark:text-slate-600 text-right select-none text-[6.5px] sm:text-[8.5px] gap-[3px] sm:gap-[4.5px] pr-1 border-r border-slate-200 dark:border-white/5">
             <div>1</div>
@@ -531,13 +532,13 @@ export function MiniEditorMockup() {
           {/* Lines editor content */}
           <div className="flex flex-col gap-[3px] sm:gap-[4.5px] flex-1 text-[6.5px] sm:text-[8.5px] pl-1">
             {/* Line 1 */}
-            <div className="text-indigo-600 dark:text-[#a78bfa] font-bold min-h-[12px] flex items-center">
+            <div className="text-indigo-600 dark:text-ai font-bold min-h-[12px] flex items-center">
               <span>{typedLines[0]}</span>
               {activeLineIdx === 0 && (
                 <motion.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
-                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                  className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
                 />
               )}
             </div>
@@ -549,7 +550,7 @@ export function MiniEditorMockup() {
                 <motion.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
-                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                  className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
                 />
               )}
             </div>
@@ -567,7 +568,7 @@ export function MiniEditorMockup() {
             </div>
 
             {/* Line 4 */}
-            <div className="text-slate-500 dark:text-slate-400 pl-2 min-h-[12px] flex items-center">
+            <div className="text-slate-500 dark:text-text-muted pl-2 min-h-[12px] flex items-center">
               <span>{typedLines[3]}</span>
               {activeLineIdx === 3 && (
                 <motion.span
@@ -584,7 +585,7 @@ export function MiniEditorMockup() {
                 <motion.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
-                  className="w-1 h-3 bg-indigo-500 dark:bg-[#8b5cf6] ml-0.5"
+                  className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
                 />
               </div>
             )}
@@ -592,7 +593,7 @@ export function MiniEditorMockup() {
         </div>
 
         {/* Right Panel: Simulated PDF (Always Real-Looking White Paper with Premium Shadow) */}
-        <div className="w-1/2 bg-slate-100 dark:bg-[#080b16] p-2 sm:p-3 flex items-center justify-center relative">
+        <div className="w-1/2 bg-surface-muted dark:bg-[#080b16] p-2 sm:p-3 flex items-center justify-center relative">
           <div className="w-[86px] h-[96px] sm:w-[125px] sm:h-[135px] bg-white text-slate-800 rounded-md shadow-md border border-slate-200/60 p-1.5 sm:p-2.5 flex flex-col gap-1 sm:gap-1.5 relative overflow-hidden select-none">
             {/* Header Element */}
             {pdfVisibleCount >= 1 ? (
@@ -672,7 +673,7 @@ export function MiniEditorMockup() {
       </div>
 
       {/* 3. Status Footer Bar */}
-      <div className="h-7 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-200 dark:border-white/5 flex items-center justify-between px-4 py-1 text-[8.5px] font-sans font-medium text-slate-500 dark:text-slate-400 select-none">
+      <div className="h-7 bg-surface-muted dark:bg-surface/40 border-t border-slate-200 dark:border-white/5 flex items-center justify-between px-4 py-1 text-[8.5px] font-sans font-medium text-slate-500 dark:text-text-muted select-none">
         <div className="flex items-center gap-1.5">
           {compiling ? (
             <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
@@ -692,7 +693,7 @@ export function MiniEditorMockup() {
         
         <div className="flex items-center gap-2">
           <span>Pág: 1 / 1</span>
-          <span className="w-px h-2.5 bg-slate-200 dark:bg-white/10" />
+          <span className="w-px h-2.5 bg-subtle dark:bg-white/10" />
           <span>A4 Harvard</span>
         </div>
       </div>
@@ -795,10 +796,10 @@ export default function LandingPageClient({ session }: { session: any }) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#fafafa] dark:bg-[#0b0f19] pt-16 text-[#1e1b4b] dark:text-[#f3f4f6] font-sans transition-colors duration-300">
+    <div className="relative min-h-screen overflow-x-hidden bg-canvas pt-16 text-text font-sans transition-colors duration-300">
       {/* Background radial glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#8b5cf6]/4 dark:bg-[#8b5cf6]/6 blur-[120px] pointer-events-none z-0" />
-      <div className="absolute bottom-[20%] right-[-10%] w-[45%] h-[45%] rounded-full bg-[#2ecc71]/4 dark:bg-[#8b5cf6]/8 blur-[130px] pointer-events-none z-0" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-ai/4 dark:bg-ai/6 blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-[20%] right-[-10%] w-[45%] h-[45%] rounded-full bg-action/4 dark:bg-ai/8 blur-[130px] pointer-events-none z-0" />
 
       {/* Navigation Header */}
       <LandingHeader
@@ -830,14 +831,14 @@ export default function LandingPageClient({ session }: { session: any }) {
 
         {/* 2. Header Container */}
         <div className="max-w-4xl mx-auto mb-8">
-          <h1 className="font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.15] text-[#1E1B4B] dark:text-white min-h-[5.5rem] sm:min-h-[7rem]">
+          <h1 className="font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.15] text-text min-h-[5.5rem] sm:min-h-[7rem]">
             <span>{visiblePart1}</span>
-            <span className="bg-gradient-to-r from-[#8b5cf6] to-[#2ecc71] dark:to-emerald-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-ai to-action dark:to-emerald-400 bg-clip-text text-transparent">
               {visiblePart2}
             </span>
             <span>{visiblePart3}</span>
             {!shouldReduceMotion && (
-              <span className="inline-block w-[3px] h-[0.85em] bg-[#8b5cf6] dark:bg-[#2ecc71] ml-1 rounded-sm align-middle animate-blink" />
+              <span className="inline-block w-[3px] h-[0.85em] bg-ai-action dark:bg-action ml-1 rounded-sm align-middle animate-blink" />
             )}
           </h1>
         </div>
@@ -849,16 +850,17 @@ export default function LandingPageClient({ session }: { session: any }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0, duration: 0.8 }}
         >
-          <Link
+          <ButtonLink
             href={session ? "/dashboard" : "/try"}
-            className="w-full sm:w-auto bg-[#2ecc71] hover:bg-[#2ecc71]/95 text-white font-bold px-8 py-4 rounded-[8px] shadow-md shadow-[#2ecc71]/10 hover:shadow-[#2ecc71]/25 transition-all flex items-center justify-center gap-2 text-base group font-display hover-shimmer-btn"
+            size="hero"
+            className="w-full sm:w-auto group"
           >
             {t('landing.hero.primaryCta')}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform stroke-[1.75]" />
-          </Link>
+          </ButtonLink>
           <a
             href="#templates"
-            className="w-full sm:w-auto bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/5 text-[#1e1b4b]/80 dark:text-slate-200 hover:bg-[#fafafa] dark:hover:bg-[#1f2937]/80 hover:text-[#1e1b4b] dark:hover:text-white px-8 py-4 rounded-[8px] font-semibold transition-all flex items-center justify-center gap-2 text-base font-display shadow-sm"
+            className="w-full sm:w-auto bg-surface border border-subtle text-text-muted dark:text-text hover:bg-canvas dark:hover:bg-surface-muted/80 hover:text-text dark:hover:text-white px-8 py-4 rounded-[8px] font-semibold transition-all flex items-center justify-center gap-2 text-base font-display shadow-sm"
           >
             {t('landing.hero.secondaryCta')}
           </a>
@@ -892,7 +894,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-surface-muted/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-text/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         <MiniEditorMockup />
                       </FeatureCard>
                     </motion.div>
@@ -920,11 +922,11 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-surface-muted/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-text/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         {/* Visual conceptual AI Optimization CV & Keyword link Streams */}
-                        <div className="flex flex-col items-center justify-center relative h-36 sm:h-52 overflow-hidden bg-slate-500/5 dark:bg-slate-900/10 rounded-xl border border-[#1e1b4b]/5 dark:border-white/5 select-none w-full">
+                        <div className="flex flex-col items-center justify-center relative h-36 sm:h-52 overflow-hidden bg-control/5 dark:bg-surface/10 rounded-xl border border-subtle select-none w-full">
                           {/* Glowing background aura */}
-                          <div className="absolute inset-0 bg-[#8b5cf6]/5 rounded-full blur-2xl animate-pulse" />
+                          <div className="absolute inset-0 bg-ai/5 rounded-full blur-2xl animate-pulse" />
 
                           {/* SVG Streams connecting keywords to central CV */}
                           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 340 176" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -964,22 +966,22 @@ export default function LandingPageClient({ session }: { session: any }) {
 
                             <motion.div
                               whileHover={{ scale: 1.05, y: -2 }}
-                              className="w-14 h-18 bg-white dark:bg-slate-950 rounded-lg shadow-xl border border-[#8b5cf6]/25 dark:border-[#8b5cf6]/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
+                              className="w-14 h-18 bg-white dark:bg-canvas rounded-lg shadow-xl border border-ai/25 dark:border-ai/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
                             >
                               <div className="flex gap-1 items-center">
-                                <div className="w-3 h-3 rounded-full bg-[#8b5cf6]/15 flex items-center justify-center">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]/40" />
+                                <div className="w-3 h-3 rounded-full bg-ai/15 flex items-center justify-center">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-ai/40" />
                                 </div>
                                 <div className="flex-1 flex flex-col gap-0.5">
-                                  <div className="h-1 w-6 bg-[#8b5cf6] rounded-full" />
-                                  <div className="h-0.5 w-4 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                  <div className="h-1 w-6 bg-ai-action rounded-full" />
+                                  <div className="h-0.5 w-4 bg-subtle dark:bg-surface-muted rounded-full" />
                                 </div>
                               </div>
 
                               <div className="flex flex-col gap-1 mt-1">
-                                <div className="h-0.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
-                                <div className="h-0.5 w-5/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                                <div className="h-0.5 w-4/6 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                <div className="h-0.5 w-full bg-subtle dark:bg-surface-muted rounded-full" />
+                                <div className="h-0.5 w-5/6 bg-subtle dark:bg-surface-muted rounded-full" />
+                                <div className="h-0.5 w-4/6 bg-subtle dark:bg-surface-muted rounded-full" />
                               </div>
 
                               <div className="h-2 w-full bg-emerald-500/15 rounded border border-emerald-500/25 overflow-hidden relative flex items-center justify-center mt-auto">
@@ -996,7 +998,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                           <motion.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                            className="absolute left-[10%] top-[12%] bg-[#8b5cf6]/8 hover:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 text-[#8b5cf6] dark:text-[#a78bfa] text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                            className="absolute left-[10%] top-[12%] bg-ai/8 hover:bg-ai/15 border border-ai/20 text-ai text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Logros
                           </motion.div>
@@ -1020,7 +1022,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                           <motion.div
                             animate={{ y: [0, 4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut", delay: 1.5 }}
-                            className="absolute right-[4%] top-[45%] bg-[#2ecc71]/8 hover:bg-[#2ecc71]/15 border border-[#2ecc71]/20 text-[#2ecc71] dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
+                            className="absolute right-[4%] top-[45%] bg-action/8 hover:bg-action/15 border border-action/20 text-success-text dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Impacto
                           </motion.div>
@@ -1028,7 +1030,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                           <motion.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 2 }}
-                            className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
+                            className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-ai text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Logros
                           </motion.div>
@@ -1067,12 +1069,12 @@ export default function LandingPageClient({ session }: { session: any }) {
                       viewport={{ once: true, margin: '-100px' }}
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
-                      <FeatureCard className="bg-slate-50 dark:bg-[#1f2937]/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-[#1e1b4b]/8 dark:border-white/5 shadow-md overflow-hidden relative">
+                      <FeatureCard className="bg-surface-muted/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-text/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         {/* Right Column: Mini Kanban UI Preview */}
-                        <div className="w-full bg-slate-50 dark:bg-slate-800/40 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl p-2.5 sm:p-5 shadow-inner flex gap-2 sm:gap-4 h-[150px] sm:h-[220px] overflow-hidden relative">
+                        <div className="w-full bg-surface-muted/40 border border-subtle rounded-xl p-2.5 sm:p-5 shadow-inner flex gap-2 sm:gap-4 h-[150px] sm:h-[220px] overflow-hidden relative">
                           {[
                             { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
-                            { id: 'entrevista', name: 'Entrevista', colorClass: 'text-[#8b5cf6] bg-[#8b5cf6]/10', dotColor: 'bg-[#8b5cf6]' },
+                            { id: 'entrevista', name: 'Entrevista', colorClass: 'text-ai bg-ai/10', dotColor: 'bg-ai-action' },
                             { id: 'oferta', name: 'Oferta', colorClass: 'text-emerald-500 bg-emerald-500/10', dotColor: 'bg-emerald-500' },
                           ].map(col => {
                             const colCards = kanbanCards.filter(c => c.status === col.id);
@@ -1086,7 +1088,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDrop(e, col.id)}
                                 className={`flex-1 flex flex-col gap-2.5 rounded-xl transition-all duration-200 p-1 select-none ${
-                                  isActive ? 'bg-[#8b5cf6]/5 outline-2 outline-dashed outline-[#8b5cf6]/20' : ''
+                                  isActive ? 'bg-ai/5 outline-2 outline-dashed outline-ai/20' : ''
                                 }`}
                               >
                                 <div className={`flex items-center justify-between text-[8px] font-bold px-2.5 py-1 rounded-md border border-transparent ${col.colorClass}`}>
@@ -1102,15 +1104,15 @@ export default function LandingPageClient({ session }: { session: any }) {
                                       draggable
                                       onDragStart={(e: any) => handleDragStart(e, card.id)}
                                       whileDrag={{ scale: 1.05, rotate: 1.5 }}
-                                      className={`bg-white dark:bg-slate-950 p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing transition-all hover:border-[#8b5cf6]/30 ${
+                                      className={`bg-white dark:bg-canvas p-2.5 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing transition-all hover:border-ai/30 ${
                                         card.accepted ? 'border-l-2 border-l-emerald-500 dark:border-l-emerald-500 shadow-md ring-2 ring-emerald-500/10 dark:ring-emerald-500/20' : ''
                                       }`}
                                     >
-                                      <div className="text-[8.5px] font-bold text-slate-700 dark:text-slate-200 leading-tight">{card.title}</div>
+                                      <div className="text-[8.5px] font-bold text-slate-700 dark:text-text leading-tight">{card.title}</div>
                                       <div className="text-[7.5px] text-slate-400 leading-none">{card.company} • {card.template}</div>
                                       {card.info && (
                                         <div className="flex gap-1.5 mt-0.5">
-                                          <span className="bg-[#8b5cf6]/10 text-[#8b5cf6] text-[6.5px] font-bold px-1.5 py-0.5 rounded leading-none">{card.info}</span>
+                                          <span className="bg-ai/10 text-ai text-[6.5px] font-bold px-1.5 py-0.5 rounded leading-none">{card.info}</span>
                                         </div>
                                       )}
                                       {card.accepted && (
@@ -1140,16 +1142,16 @@ export default function LandingPageClient({ session }: { session: any }) {
       </section>
 
       {/* Templates Section */}
-      <section id="templates" className="py-24 bg-[#fafafa] dark:bg-[#0b0f19] scroll-mt-24 relative overflow-hidden transition-colors duration-300">
-        <div className="absolute top-[30%] left-[-15%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
+      <section id="templates" className="py-24 bg-canvas scroll-mt-24 relative overflow-hidden transition-colors duration-300">
+        <div className="absolute top-[30%] left-[-15%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
           <div className="text-center mb-20">
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-[#1e1b4b] dark:text-white mb-4">
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-text mb-4">
               {t('landing.templates.title')}
             </h2>
-            <p className="text-[#1e1b4b]/60 dark:text-slate-400 max-w-2xl mx-auto font-light">
+            <p className="text-text-muted max-w-2xl mx-auto font-light">
               {t('landing.templates.subtitle')}
             </p>
           </div>
@@ -1159,7 +1161,7 @@ export default function LandingPageClient({ session }: { session: any }) {
               <TemplateFlipCard
                 title="Harvard"
                 badgeText="Harvard (Básico)"
-                badgeColorClass="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+                badgeColorClass="bg-surface-muted text-slate-700 dark:bg-surface-muted/80 dark:text-text border-slate-200 dark:border-slate-700"
                 desc={t('landing.templates.harvard.desc')}
                 ctaText={t('landing.templates.harvard.cta')}
                 imagePath="/assets/images/cvs/harvard.jpg"
@@ -1171,12 +1173,12 @@ export default function LandingPageClient({ session }: { session: any }) {
         </div>
       </section>
 
-      <section className="border-t border-[#1e1b4b]/5 bg-white py-20 dark:border-white/5 dark:bg-[#0b0f19] sm:py-24">
+      <section className="border-t border-subtle bg-white py-20 dark:border-white/5 dark:bg-canvas sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.proof.eyebrow')}</p>
-            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.proof.title')}</h2>
-            <p className="mt-4 text-base leading-7 text-[#1e1b4b]/65 dark:text-slate-300">{t('landing.conversion.proof.subtitle')}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ai">{t('landing.conversion.proof.eyebrow')}</p>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-text sm:text-4xl">{t('landing.conversion.proof.title')}</h2>
+            <p className="mt-4 text-base leading-7 text-text-muted dark:text-slate-300">{t('landing.conversion.proof.subtitle')}</p>
           </div>
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
             {[
@@ -1184,91 +1186,91 @@ export default function LandingPageClient({ session }: { session: any }) {
               ['landing.conversion.proof.item2Title', 'landing.conversion.proof.item2Desc'],
               ['landing.conversion.proof.item3Title', 'landing.conversion.proof.item3Desc'],
             ].map(([titleKey, descKey]) => (
-              <article key={titleKey} className="rounded-2xl border border-[#1e1b4b]/9 bg-[#fafafa] p-6 dark:border-white/8 dark:bg-[#151b28]">
-                <CheckCircle className="h-6 w-6 text-[#2ecc71]" strokeWidth={1.75} />
-                <h3 className="mt-5 font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t(titleKey)}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#1e1b4b]/65 dark:text-slate-300">{t(descKey)}</p>
+              <article key={titleKey} className="rounded-2xl border border-text/9 bg-canvas p-6 dark:border-white/8 dark:bg-surface">
+                <CheckCircle className="h-6 w-6 text-success-text" strokeWidth={1.75} />
+                <h3 className="mt-5 font-display text-lg font-extrabold text-text">{t(titleKey)}</h3>
+                <p className="mt-3 text-sm leading-6 text-text-muted dark:text-slate-300">{t(descKey)}</p>
               </article>
             ))}
           </div>
-          <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-5 text-[#1e1b4b]/50 dark:text-slate-500">{t('landing.conversion.proof.disclaimer')}</p>
+          <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-5 text-text-muted">{t('landing.conversion.proof.disclaimer')}</p>
         </div>
       </section>
 
-      <section id="pricing" className="scroll-mt-24 border-y border-[#1e1b4b]/5 bg-[#f7f7fb] py-20 dark:border-white/5 dark:bg-[#101521] sm:py-24" ref={pricingInViewRef}>
+      <section id="pricing" className="scroll-mt-24 border-y border-subtle bg-surface-muted py-20 sm:py-24" ref={pricingInViewRef}>
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.pricing.eyebrow')}</p>
-            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.pricing.title')}</h2>
-            <p className="mt-4 text-base leading-7 text-[#1e1b4b]/65 dark:text-slate-300">{t('landing.conversion.pricing.subtitle')}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ai">{t('landing.conversion.pricing.eyebrow')}</p>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-text sm:text-4xl">{t('landing.conversion.pricing.title')}</h2>
+            <p className="mt-4 text-base leading-7 text-text-muted dark:text-slate-300">{t('landing.conversion.pricing.subtitle')}</p>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <article className="order-2 flex flex-col rounded-2xl border border-[#1e1b4b]/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#151b28] sm:p-8 md:order-1">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.pricing.freeLabel')}</p>
-              <h3 className="mt-3 font-display text-xl font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.freeAudience')}</h3>
-              <div className="mt-6 flex items-end gap-2"><span className="font-display text-5xl font-black text-[#1e1b4b] dark:text-white">0 €</span><span className="pb-1 text-sm text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.freePeriod')}</span></div>
-              <ul className="mt-8 flex-1 space-y-4 text-sm text-[#1e1b4b] dark:text-white">
-                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2ecc71]" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.freeFeature${index}`)}</span></li>)}
+            <article className="order-2 flex flex-col rounded-2xl border border-subtle bg-white p-6 shadow-sm dark:border-white/10 dark:bg-surface sm:p-8 md:order-1">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">{t('landing.conversion.pricing.freeLabel')}</p>
+              <h3 className="mt-3 font-display text-xl font-extrabold text-text">{t('landing.conversion.pricing.freeAudience')}</h3>
+              <div className="mt-6 flex items-end gap-2"><span className="font-display text-5xl font-black text-text">0 €</span><span className="pb-1 text-sm text-text-muted">{t('landing.conversion.pricing.freePeriod')}</span></div>
+              <ul className="mt-8 flex-1 space-y-4 text-sm text-text">
+                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success-text" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.freeFeature${index}`)}</span></li>)}
               </ul>
-              <Link href="/try?source=pricing-free" className="mt-8 inline-flex items-center justify-center rounded-[8px] border border-[#1e1b4b]/12 px-5 py-3.5 font-display text-sm font-extrabold text-[#1e1b4b] transition-colors hover:bg-[#f4f3ff] dark:border-white/10 dark:text-white dark:hover:bg-white/5">{t('landing.conversion.pricing.freeCta')}</Link>
-              <p className="mt-3 text-center text-xs leading-5 text-[#1e1b4b]/48 dark:text-slate-500">{t('landing.conversion.pricing.freeNote')}</p>
+              <ButtonLink href="/try?source=pricing-free" variant="secondary" className="mt-8 w-full">{t('landing.conversion.pricing.freeCta')}</ButtonLink>
+              <p className="mt-3 text-center text-xs leading-5 text-text-muted">{t('landing.conversion.pricing.freeNote')}</p>
             </article>
 
-            <article className="relative order-1 flex flex-col rounded-2xl border border-[#8b5cf6]/40 bg-white p-6 shadow-[0_18px_60px_-28px_rgba(139,92,246,0.55)] dark:bg-[#151b28] sm:p-8 md:order-2">
-              <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-[#8b5cf6] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-md">{t('landing.conversion.pricing.proBadge')}</span>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.pricing.proLabel')}</p>
-              <h3 className="mt-3 font-display text-xl font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.proAudience')}</h3>
-              <div className="mt-6 flex flex-wrap items-end gap-x-2 gap-y-1"><span className="font-display text-5xl font-black text-[#1e1b4b] dark:text-white">10 €</span><span className="pb-1 text-sm text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.proPeriod')}</span><span className="w-full text-xs font-bold text-[#8b5cf6]">{t('landing.conversion.pricing.proDaily')}</span></div>
-              <ul className="mt-8 flex-1 space-y-4 text-sm text-[#1e1b4b] dark:text-white">
-                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2ecc71]" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.proFeature${index}`)}</span></li>)}
+            <article className="relative order-1 flex flex-col rounded-2xl border border-ai/40 bg-white p-6 shadow-[0_18px_60px_-28px_rgba(139,92,246,0.55)] dark:bg-surface sm:p-8 md:order-2">
+              <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-ai-action px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-on-ai-action shadow-md">{t('landing.conversion.pricing.proBadge')}</span>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ai">{t('landing.conversion.pricing.proLabel')}</p>
+              <h3 className="mt-3 font-display text-xl font-extrabold text-text">{t('landing.conversion.pricing.proAudience')}</h3>
+              <div className="mt-6 flex flex-wrap items-end gap-x-2 gap-y-1"><span className="font-display text-5xl font-black text-text">10 €</span><span className="pb-1 text-sm text-text-muted">{t('landing.conversion.pricing.proPeriod')}</span><span className="w-full text-xs font-bold text-ai">{t('landing.conversion.pricing.proDaily')}</span></div>
+              <ul className="mt-8 flex-1 space-y-4 text-sm text-text">
+                {[1, 2, 3, 4].map((index) => <li key={index} className="flex items-start gap-3"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success-text" strokeWidth={1.75} /><span>{t(`landing.conversion.pricing.proFeature${index}`)}</span></li>)}
               </ul>
-              <Link href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="mt-8 inline-flex items-center justify-center rounded-[8px] bg-[#2ecc71] px-5 py-4 font-display text-sm font-extrabold text-white shadow-lg shadow-[#2ecc71]/15 transition-colors hover:bg-[#29b765]">{t('landing.conversion.pricing.proCta')}</Link>
-              <p className="mt-3 text-center text-xs leading-5 text-[#1e1b4b]/48 dark:text-slate-500">{t('landing.conversion.pricing.proNote')}</p>
+              <ButtonLink href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="mt-8 w-full">{t('landing.conversion.pricing.proCta')}</ButtonLink>
+              <p className="mt-3 text-center text-xs leading-5 text-text-muted">{t('landing.conversion.pricing.proNote')}</p>
             </article>
           </div>
 
-          <div className="mt-10 overflow-hidden rounded-2xl border border-[#1e1b4b]/10 bg-white dark:border-white/10 dark:bg-[#151b28]">
-            <div className="border-b border-[#1e1b4b]/8 px-5 py-4 dark:border-white/8"><h3 className="font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.compareTitle')}</h3></div>
+          <div className="mt-10 overflow-hidden rounded-2xl border border-subtle bg-white dark:border-white/10 dark:bg-surface">
+            <div className="border-b border-text/8 px-5 py-4 dark:border-white/8"><h3 className="font-display text-lg font-extrabold text-text">{t('landing.conversion.pricing.compareTitle')}</h3></div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse text-left text-sm">
-                <thead><tr className="bg-[#f7f8fb] dark:bg-[#0b0f19]"><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.compareCapability')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#1e1b4b]/50 dark:text-slate-400">{t('landing.conversion.pricing.compareFree')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#8b5cf6]">{t('landing.conversion.pricing.comparePro')}</th></tr></thead>
+                <thead><tr className="bg-surface-muted dark:bg-canvas"><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-text-muted">{t('landing.conversion.pricing.compareCapability')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-text-muted">{t('landing.conversion.pricing.compareFree')}</th><th className="px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-ai">{t('landing.conversion.pricing.comparePro')}</th></tr></thead>
                 <tbody>
-                  {[1, 2, 3, 4, 5, 6].map((index) => { const [capability, freeValue, proValue] = t(`landing.conversion.pricing.row${index}`).split('|'); return <tr key={capability} className="border-t border-[#1e1b4b]/7 dark:border-white/7"><th scope="row" className="px-5 py-3.5 font-semibold text-[#1e1b4b] dark:text-white">{capability}</th><td className="px-5 py-3.5 text-[#1e1b4b]/60 dark:text-slate-300">{freeValue}</td><td className="px-5 py-3.5 font-semibold text-[#1e1b4b] dark:text-white">{proValue}</td></tr>; })}
+                  {[1, 2, 3, 4, 5, 6].map((index) => { const [capability, freeValue, proValue] = t(`landing.conversion.pricing.row${index}`).split('|'); return <tr key={capability} className="border-t border-text/7 dark:border-white/7"><th scope="row" className="px-5 py-3.5 font-semibold text-text">{capability}</th><td className="px-5 py-3.5 text-text-muted dark:text-slate-300">{freeValue}</td><td className="px-5 py-3.5 font-semibold text-text">{proValue}</td></tr>; })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-[#1e1b4b]/10 bg-white p-5 dark:border-white/10 dark:bg-[#151b28] sm:p-6">
-            <h3 className="font-display text-lg font-extrabold text-[#1e1b4b] dark:text-white">{t('landing.conversion.pricing.calculatorTitle')}</h3>
-            <label htmlFor="application-volume" className="mt-4 flex items-center justify-between gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><span>{t('landing.conversion.pricing.calculatorLabel')}</span><span className="rounded-md bg-[#8b5cf6]/10 px-2.5 py-1 font-extrabold text-[#7c3aed] dark:text-[#c4b5fd]">{applications}</span></label>
-            <input id="application-volume" type="range" min="2" max="30" value={applications} onChange={(event) => setApplications(Number(event.target.value))} className="mt-3 w-full accent-[#8b5cf6]" />
+          <div className="mt-6 rounded-2xl border border-subtle bg-white p-5 dark:border-white/10 dark:bg-surface sm:p-6">
+            <h3 className="font-display text-lg font-extrabold text-text">{t('landing.conversion.pricing.calculatorTitle')}</h3>
+            <label htmlFor="application-volume" className="mt-4 flex items-center justify-between gap-3 text-sm font-semibold text-text-muted dark:text-slate-300"><span>{t('landing.conversion.pricing.calculatorLabel')}</span><span className="rounded-md bg-ai/10 px-2.5 py-1 font-extrabold text-ai-text dark:text-ai">{applications}</span></label>
+            <input id="application-volume" type="range" min="2" max="30" value={applications} onChange={(event) => setApplications(Number(event.target.value))} className="mt-3 w-full accent-ai" />
             <div className="mt-5 rounded-xl bg-[#1e1b4b] p-4 text-white"><p className="text-xs text-white/65">{t('landing.conversion.pricing.calculatorPrefix')}</p><p className="mt-1 font-display text-2xl font-black">{(10 / applications).toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</p><p className="mt-1 text-xs text-white/65">{t('landing.conversion.pricing.calculatorSuffix')}</p></div>
           </div>
         </div>
       </section>
 
-      <section className="bg-white py-20 dark:bg-[#0b0f19] sm:py-24">
+      <section className="bg-white py-20 dark:bg-canvas sm:py-24">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
-          <div className="text-center"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#8b5cf6]">{t('landing.conversion.faq.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-extrabold text-[#1e1b4b] dark:text-white sm:text-4xl">{t('landing.conversion.faq.title')}</h2></div>
-          <div className="mt-10 divide-y divide-[#1e1b4b]/8 rounded-2xl border border-[#1e1b4b]/10 bg-[#fafafa] px-5 dark:divide-white/8 dark:border-white/10 dark:bg-[#151b28] sm:px-7">
-            {[1, 2, 3, 4, 5].map((index) => <details key={index} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-extrabold text-[#1e1b4b] dark:text-white">{t(`landing.conversion.faq.q${index}`)}<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1e1b4b]/5 text-[#1e1b4b]/60 transition-transform duration-300 ease-out group-open:rotate-45 dark:bg-white/8 dark:text-slate-300">+</span></summary><p className="faq-answer max-w-2xl pb-1 pr-10 pt-3 text-sm leading-6 text-[#1e1b4b]/64 dark:text-slate-300">{t(`landing.conversion.faq.a${index}`)}</p></details>)}
+          <div className="text-center"><p className="text-xs font-black uppercase tracking-[0.16em] text-ai">{t('landing.conversion.faq.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-extrabold text-text sm:text-4xl">{t('landing.conversion.faq.title')}</h2></div>
+          <div className="mt-10 divide-y divide-subtle rounded-2xl border border-subtle bg-canvas px-5 dark:divide-white/8 dark:border-white/10 dark:bg-surface sm:px-7">
+            {[1, 2, 3, 4, 5].map((index) => <details key={index} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-extrabold text-text">{t(`landing.conversion.faq.q${index}`)}<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-text/5 text-text-muted transition-transform duration-300 ease-out group-open:rotate-45 dark:bg-white/8 dark:text-slate-300">+</span></summary><p className="faq-answer max-w-2xl pb-1 pr-10 pt-3 text-sm leading-6 text-text-muted dark:text-slate-300">{t(`landing.conversion.faq.a${index}`)}</p></details>)}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#1e1b4b] py-16 text-center text-white dark:bg-[#151b28] sm:py-20">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#a78bfa]">{t('landing.conversion.final.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-black sm:text-4xl">{t('landing.conversion.final.title')}</h2><p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/70">{t('landing.conversion.final.subtitle')}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/try?source=final-cta" className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#2ecc71] px-6 py-4 font-display font-extrabold text-white hover:bg-[#29b765]">{t('landing.conversion.final.primary')}<ArrowRight className="h-5 w-5" strokeWidth={1.75} /></Link><Link href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="inline-flex items-center justify-center rounded-[8px] border border-white/20 bg-white/10 px-6 py-4 font-display font-extrabold text-white hover:bg-white/15">{t('landing.conversion.final.secondary')}</Link></div></div>
+      <section className="bg-[#1e1b4b] py-16 text-center text-white dark:bg-surface sm:py-20">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6"><p className="text-xs font-black uppercase tracking-[0.16em] text-ai">{t('landing.conversion.final.eyebrow')}</p><h2 className="mt-4 font-display text-3xl font-black sm:text-4xl">{t('landing.conversion.final.title')}</h2><p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/70">{t('landing.conversion.final.subtitle')}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/try?source=final-cta" className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-action px-6 py-4 font-display font-extrabold text-on-action hover:bg-action-hover">{t('landing.conversion.final.primary')}<ArrowRight className="h-5 w-5" strokeWidth={1.75} /></Link><Link href={session ? '/api/stripe/checkout?source=landing-pricing' : '/register?plan=pro&source=landing-pricing&next=%2Fapi%2Fstripe%2Fcheckout%3Fsource%3Dlanding-pricing'} className="inline-flex items-center justify-center rounded-[8px] border border-white/20 bg-white/10 px-6 py-4 font-display font-extrabold text-white hover:bg-white/15">{t('landing.conversion.final.secondary')}</Link></div></div>
       </section>
 
-      <footer className="border-t border-[#1e1b4b]/10 bg-[#fafafa] py-12 dark:border-white/10 dark:bg-[#0b0f19]">
+      <footer className="border-t border-subtle bg-canvas py-12 dark:border-white/10 dark:bg-canvas">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:grid-cols-[1.3fr_0.7fr_0.7fr] sm:px-6 lg:px-8">
-          <div><Logo iconSize="sm" textSize="md" /><p className="mt-4 max-w-sm text-sm leading-6 text-[#1e1b4b]/58 dark:text-slate-400">{t('landing.conversion.footer.tagline')}</p><p className="mt-4 text-xs font-semibold text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.payments')}</p></div>
-          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.product')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><a href="#features">{t('landing.conversion.footer.how')}</a><a href="#templates">{t('landing.conversion.footer.templates')}</a><a href="#pricing">{t('landing.conversion.footer.pricing')}</a></nav></div>
-          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-[#1e1b4b]/45 dark:text-slate-500">{t('landing.conversion.footer.trust')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-[#1e1b4b]/65 dark:text-slate-300"><Link href="/privacy">{t('landing.conversion.footer.privacy')}</Link><Link href="/terms">{t('landing.conversion.footer.terms')}</Link><Link href="/cookies">{t('landing.conversion.footer.cookies')}</Link><a href="mailto:soporte@matchply.com">{t('landing.conversion.footer.support')}</a></nav></div>
+          <div><Logo iconSize="sm" textSize="md" /><p className="mt-4 max-w-sm text-sm leading-6 text-text-muted">{t('landing.conversion.footer.tagline')}</p><p className="mt-4 text-xs font-semibold text-text-muted">{t('landing.conversion.footer.payments')}</p></div>
+          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-text-muted">{t('landing.conversion.footer.product')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-text-muted dark:text-slate-300"><a href="#features">{t('landing.conversion.footer.how')}</a><a href="#templates">{t('landing.conversion.footer.templates')}</a><a href="#pricing">{t('landing.conversion.footer.pricing')}</a></nav></div>
+          <div><h2 className="text-xs font-black uppercase tracking-[0.14em] text-text-muted">{t('landing.conversion.footer.trust')}</h2><nav className="mt-4 flex flex-col gap-3 text-sm font-semibold text-text-muted dark:text-slate-300"><Link href="/privacy">{t('landing.conversion.footer.privacy')}</Link><Link href="/terms">{t('landing.conversion.footer.terms')}</Link><Link href="/cookies">{t('landing.conversion.footer.cookies')}</Link><a href="mailto:soporte@matchply.com">{t('landing.conversion.footer.support')}</a></nav></div>
         </div>
-        <div className="mx-auto mt-10 max-w-7xl border-t border-[#1e1b4b]/8 px-4 pt-6 text-xs text-[#1e1b4b]/42 dark:border-white/8 dark:text-slate-500">© {new Date().getFullYear()} Matchply. {t('landing.footer.tagline')}</div>
+        <div className="mx-auto mt-10 max-w-7xl border-t border-text/8 px-4 pt-6 text-xs text-text-muted dark:border-white/8 dark:text-text-muted">© {new Date().getFullYear()} Matchply. {t('landing.footer.tagline')}</div>
       </footer>
     </div>
   );

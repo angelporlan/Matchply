@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
+import { Button } from '@/components/ui/Button';
 import { buildClaimPath, getAuthIntent } from '@/lib/auth-intent';
 
 export default function LoginPage() {
@@ -75,18 +76,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#FAFAFA] dark:bg-[#0B0F19] flex items-center justify-center p-4 transition-colors duration-300">
+    <div className="relative min-h-screen bg-canvas flex items-center justify-center p-4 transition-colors duration-300">
       {/* Radial glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#8B5CF6]/3 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#8B5CF6]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-ai/5 blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-white dark:bg-[#1F2937] p-8 rounded-xl shadow-[0_4px_20px_-4px_rgba(30,27,75,0.05)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] border border-[#1E1B4B]/5 dark:border-[#F3F4F6]/5 relative z-10 transition-all duration-300">
+      <div className="w-full max-w-md bg-surface p-8 rounded-xl shadow-[0_4px_20px_-4px_rgba(30,27,75,0.05)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] border border-subtle relative z-10 transition-all duration-300">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4 hover:opacity-90 transition-opacity">
             <Logo />
           </Link>
-          <h2 className="text-2xl font-bold text-[#1E1B4B] dark:text-[#F3F4F6] tracking-tight font-display">{t('auth.login.welcomeBack')}</h2>
-          <p className="text-[#1E1B4B]/60 dark:text-[#F3F4F6]/60 text-xs mt-1.5 font-light font-sans">
+          <h2 className="text-2xl font-bold text-text tracking-tight font-display">{t('auth.login.welcomeBack')}</h2>
+          <p className="text-text-muted dark:text-text/60 text-xs mt-1.5 font-light font-sans">
             {t('auth.login.subtitle')}
           </p>
         </div>
@@ -100,60 +101,57 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[#1E1B4B] dark:text-[#F3F4F6]/80 text-sm font-medium mb-1.5 font-sans">
+            <label className="block text-text/80 text-sm font-medium mb-1.5 font-sans">
               {t('auth.login.emailLabel')}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40" strokeWidth={1.75} />
+              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-text-muted dark:text-text/40" strokeWidth={1.75} />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('auth.login.emailPlaceholder')}
-                className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] dark:text-[#F3F4F6] placeholder-[#1E1B4B]/30 dark:placeholder-[#F3F4F6]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
+                className="w-full bg-canvas border border-control rounded-lg py-3 pl-10 pr-4 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai focus:ring-1 focus:ring-ai transition-all font-sans"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[#1E1B4B] dark:text-[#F3F4F6]/80 text-sm font-medium font-sans">
+              <label className="block text-text/80 text-sm font-medium font-sans">
                 {t('auth.login.passwordLabel')}
               </label>
             </div>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40" strokeWidth={1.75} />
+              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-text-muted dark:text-text/40" strokeWidth={1.75} />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('auth.login.passwordPlaceholder')}
-                className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 rounded-lg py-3 pl-10 pr-4 text-sm text-[#1E1B4B] dark:text-[#F3F4F6] placeholder-[#1E1B4B]/30 dark:placeholder-[#F3F4F6]/30 focus:outline-none focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] transition-all font-sans"
+                className="w-full bg-canvas border border-control rounded-lg py-3 pl-10 pr-4 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai focus:ring-1 focus:ring-ai transition-all font-sans"
               />
             </div>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full bg-[#2ECC71] hover:bg-[#27ae60] text-white font-semibold py-3.5 rounded-lg text-sm transition-all shadow-sm shadow-[#2ECC71]/10 hover:shadow-[#2ECC71]/20 flex items-center justify-center gap-2 font-display"
+            loading={loading}
+            className="w-full"
           >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              t('auth.login.submitButton')
-            )}
-          </button>
+            {t('auth.login.submitButton')}
+          </Button>
         </form>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10" />
+            <span className="w-full border-t border-subtle " />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white dark:bg-[#1F2937] px-3 text-[#1E1B4B]/40 dark:text-[#F3F4F6]/40 font-medium font-sans">{t('auth.login.orContinueWith')}</span>
+            <span className="bg-surface px-3 text-text-muted dark:text-text/40 font-medium font-sans">{t('auth.login.orContinueWith')}</span>
           </div>
         </div>
 
@@ -161,7 +159,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading || googleLoading}
-          className="w-full bg-white dark:bg-[#0B0F19] border border-[#1E1B4B]/10 dark:border-[#F3F4F6]/10 hover:border-[#1E1B4B]/20 dark:hover:border-[#F3F4F6]/20 text-[#1E1B4B]/80 dark:text-[#F3F4F6]/80 hover:text-[#1E1B4B] dark:hover:text-[#F3F4F6] font-semibold py-3.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2.5 font-display"
+          className="w-full bg-canvas border border-control hover:border-control dark:hover:border-control text-text-muted hover:text-text dark:hover:text-text font-semibold py-3.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2.5 font-display"
         >
           {googleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -178,9 +176,9 @@ export default function LoginPage() {
           )}
         </button>
 
-        <p className="text-center text-xs text-[#1E1B4B]/60 dark:text-[#F3F4F6]/60 mt-8 font-light font-sans">
+        <p className="text-center text-xs text-text-muted dark:text-text/60 mt-8 font-light font-sans">
           {t('auth.login.noAccountYet')}{' '}
-          <Link href="/register" className="text-[#8B5CF6] font-semibold hover:underline">
+          <Link href="/register" className="text-ai font-semibold hover:underline">
             {t('auth.login.signUpHere')}
           </Link>
         </p>

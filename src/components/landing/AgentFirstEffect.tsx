@@ -208,7 +208,7 @@ export default function AgentFirstEffect() {
   return (
     <section
       ref={ref}
-      className="w-full py-20 overflow-hidden bg-slate-50/20 dark:bg-[#0b0f19]/30 border-y border-[#1e1b4b]/5 dark:border-white/5 relative z-10 transition-colors duration-300"
+      className="w-full py-20 overflow-hidden bg-surface-muted/20 dark:bg-canvas/30 border-y border-subtle relative z-10 transition-colors duration-300"
     >
       {/* 3D Wave Icon Marquee */}
       <div className="w-full overflow-hidden relative select-none pb-16 pt-24 mask-fade-edges">
@@ -227,7 +227,7 @@ export default function AgentFirstEffect() {
                 }}
               >
                 <div
-                  className="bouncer relative group flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-white dark:bg-slate-800/90 border border-slate-200/50 dark:border-slate-700/50 shadow-sm transition-all duration-300 hover:scale-110 hover:border-[#8b5cf6]/40 dark:hover:border-emerald-400/40"
+                  className="bouncer relative group flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-white dark:bg-surface-muted/90 border border-slate-200/50 dark:border-slate-700/50 shadow-sm transition-all duration-300 hover:scale-110 hover:border-ai/40 dark:hover:border-emerald-400/40"
                   style={{
                     animationDelay: `${idx * 0.15}s`,
                   }}
@@ -250,10 +250,10 @@ export default function AgentFirstEffect() {
       {/* Typing Text Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-6">
         <div className="flex justify-center items-center">
-          <div className="inline-block relative max-w-4xl text-lg sm:text-2xl font-display font-medium text-slate-800 dark:text-slate-200 tracking-tight leading-relaxed min-h-[4rem] px-6 py-4 bg-white/70 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-800/40 shadow-xl shadow-slate-100/50 dark:shadow-none">
+          <div className="inline-block relative max-w-4xl text-lg sm:text-2xl font-display font-medium text-slate-800 dark:text-text tracking-tight leading-relaxed min-h-[4rem] px-6 py-4 bg-white/70 dark:bg-surface/40 backdrop-blur-md rounded-2xl border border-slate-200/40 dark:border-slate-800/40 shadow-xl shadow-slate-100/50 dark:shadow-none">
             <span>{displayedText}</span>
             <span
-              className="inline-block w-2.5 h-6 bg-[#8b5cf6] dark:bg-emerald-400 ml-1 rounded-sm align-middle animate-blink"
+              className="inline-block w-2.5 h-6 bg-ai-action dark:bg-emerald-400 ml-1 rounded-sm align-middle animate-blink"
               style={{
                 boxShadow: '0 0 10px rgba(139, 92, 246, 0.5)',
               }}
