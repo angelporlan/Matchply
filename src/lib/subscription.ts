@@ -8,7 +8,7 @@ export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE] as const;
 export type AccessTier = 'guest' | 'free' | 'pro';
 export type SubscriptionFeature =
   | 'advancedAi'
-  | 'kanban'
+  | 'applications'
   | 'linkedinExtension'
   | 'deepResearch';
 
@@ -24,7 +24,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      kanban: false,
+      applications: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -34,7 +34,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      kanban: false,
+      applications: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -44,7 +44,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: ALL_CV_TEMPLATES,
     features: {
       advancedAi: true,
-      kanban: true,
+      applications: true,
       linkedinExtension: true,
       deepResearch: true,
     },

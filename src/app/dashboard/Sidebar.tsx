@@ -45,8 +45,8 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       icon: FileText,
     },
     {
-      name: t('sidebar.menu.kanban'),
-      href: '/dashboard/kanban',
+      name: t('sidebar.menu.applications'),
+      href: '/dashboard/applications',
       icon: Kanban,
     },
   ];

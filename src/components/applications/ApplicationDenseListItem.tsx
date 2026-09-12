@@ -2,22 +2,22 @@
 
 import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { KanbanOfferSummary } from '@/lib/job-offer-queries';
+import { ApplicationSummary } from '@/lib/job-offer-queries';
 import { Sparkles, ExternalLink, Send, Archive, GripVertical } from 'lucide-react';
-import { updateJobOfferStatus, archiveJobOffer } from '@/app/dashboard/kanban/actions';
+import { updateJobOfferStatus, archiveJobOffer } from '@/app/dashboard/applications/actions';
 
-interface KanbanDenseListItemProps {
-  offer: KanbanOfferSummary;
+interface ApplicationDenseListItemProps {
+  offer: ApplicationSummary;
   index: number;
-  onOpenDetails: (offer: KanbanOfferSummary) => void;
+  onOpenDetails: (offer: ApplicationSummary) => void;
   onDelete?: (offerId: string) => void;
 }
 
-export default function KanbanDenseListItem({
+export default function ApplicationDenseListItem({
   offer,
   index,
   onOpenDetails,
-}: KanbanDenseListItemProps) {
+}: ApplicationDenseListItemProps) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   const rawScore = offer.scoreOverall;

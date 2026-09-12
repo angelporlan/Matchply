@@ -131,7 +131,7 @@ export default function DashboardClient({
     platform: 'linkedin',
     jobDescription: '',
     promptId: availablePrompts.find(p => p.isActive)?.id || '',
-    addToKanban: 'true',
+    addToApplications: 'true',
   });
 
   // Estado para creación rápida de CV
@@ -428,7 +428,7 @@ export default function DashboardClient({
         platform: aiFormData.platform,
         jobDescription: aiFormData.jobDescription,
         promptId: aiFormData.promptId,
-        addToKanban: aiFormData.addToKanban === 'true',
+        addToApplications: aiFormData.addToApplications === 'true',
         targetCvId: placeholderRes.cvId
       }));
 
@@ -1049,18 +1049,18 @@ export default function DashboardClient({
                   <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
                     <input
                       type="checkbox"
-                      id="addToKanban"
-                      checked={aiFormData.addToKanban === 'true'}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
+                      id="addToApplications"
+                      checked={aiFormData.addToApplications === 'true'}
+                      onChange={(e) => setAiFormData(prev => ({ ...prev, addToApplications: e.target.checked ? 'true' : 'false' }))}
                       className="rounded bg-canvas border-control dark:border-white/20 text-ai focus:ring-ai/20 w-4 h-4 cursor-pointer accent-ai"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
+                      <label htmlFor="addToApplications" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
                         <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('dashboard.modal.ai.kanban')}
+                        {t('dashboard.modal.ai.applications')}
                       </label>
                       <span className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
-                        {t('dashboard.modal.ai.kanbanDesc')}
+                        {t('dashboard.modal.ai.applicationsDesc')}
                       </span>
                     </div>
                   </div>

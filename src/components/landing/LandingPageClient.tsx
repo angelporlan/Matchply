@@ -701,7 +701,7 @@ export function MiniEditorMockup() {
   );
 }
 
-interface KanbanCardType {
+interface LandingApplicationCard {
   id: string;
   title: string;
   company: string;
@@ -753,8 +753,8 @@ export default function LandingPageClient({ session }: { session: any }) {
 
   const [pricingInViewRef, pricingInView] = useInView({ triggerOnce: true, threshold: 0.1 });
 
-  // Mini Kanban state on landing page
-  const [kanbanCards, setKanbanCards] = useState<KanbanCardType[]>([
+  // Mini applications board state on landing page
+  const [applicationCards, setApplicationCards] = useState<LandingApplicationCard[]>([
     { id: '1', title: 'Software Engineer', company: 'Google', template: 'Harvard CV', status: 'postulado' },
     { id: '2', title: 'Data Analyst', company: 'Netflix', template: 'Harvard CV', status: 'postulado' },
     { id: '3', title: 'Fullstack Dev', company: 'Stripe', template: 'Harvard CV', status: 'entrevista', info: 'Mañana 10:00' },
@@ -783,7 +783,7 @@ export default function LandingPageClient({ session }: { session: any }) {
   const handleDrop = (e: React.DragEvent, status: string) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/plain');
-    setKanbanCards(prev => prev.map(card => {
+    setApplicationCards(prev => prev.map(card => {
       if (card.id === id) {
         if (status === 'oferta') {
           return { ...card, status, accepted: true };
@@ -1050,14 +1050,14 @@ export default function LandingPageClient({ session }: { session: any }) {
               </div>
             </div>
 
-            {/* Feature Item 3: Kanban Applications Pipeline */}
+            {/* Feature Item 3: Applications Pipeline */}
             <div className="feature-item">
               <div className="grid-row">
                 <div className="grid-col col-xs-4 col-md-4">
                   <div className="feature-copy">
-                    <span className="heading-4 feature-title">{t('landing.features.kanban.title')}</span>
-                    <p className="body feature-description" aria-label={t('landing.features.kanban.desc')}>
-                      <FeatureDescription text={t('landing.features.kanban.desc')} />
+                    <span className="heading-4 feature-title">{t('landing.features.applications.title')}</span>
+                    <p className="body feature-description" aria-label={t('landing.features.applications.desc')}>
+                      <FeatureDescription text={t('landing.features.applications.desc')} />
                     </p>
                   </div>
                 </div>
@@ -1070,14 +1070,14 @@ export default function LandingPageClient({ session }: { session: any }) {
                       transition={{ duration: 0.6, delay: 0.15 }}
                     >
                       <FeatureCard className="bg-surface-muted/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-text/8 dark:border-white/5 shadow-md overflow-hidden relative">
-                        {/* Right Column: Mini Kanban UI Preview */}
+                        {/* Right Column: Mini Applications UI Preview */}
                         <div className="w-full bg-surface-muted/40 border border-subtle rounded-xl p-2.5 sm:p-5 shadow-inner flex gap-2 sm:gap-4 h-[150px] sm:h-[220px] overflow-hidden relative">
                           {[
                             { id: 'postulado', name: 'Postulado', colorClass: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10', dotColor: 'bg-yellow-500' },
                             { id: 'entrevista', name: 'Entrevista', colorClass: 'text-ai bg-ai/10', dotColor: 'bg-ai-action' },
                             { id: 'oferta', name: 'Oferta', colorClass: 'text-emerald-500 bg-emerald-500/10', dotColor: 'bg-emerald-500' },
                           ].map(col => {
-                            const colCards = kanbanCards.filter(c => c.status === col.id);
+                            const colCards = applicationCards.filter(c => c.status === col.id);
                             const isActive = activeColumn === col.id;
                             
                             return (

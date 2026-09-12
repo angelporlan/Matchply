@@ -2,31 +2,31 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
-import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer, archiveJobOffer } from '@/app/dashboard/kanban/actions';
+import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
+import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer, archiveJobOffer } from '@/app/dashboard/applications/actions';
 import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Archive, Sparkles, Clock, FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AlertModal from '../ui/AlertModal';
 import { Draggable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
-interface KanbanCardProps {
-  offer: KanbanOfferSummary;
+interface ApplicationCardProps {
+  offer: ApplicationSummary;
   userCvs: CvListItem[];
-  onOpenDetails: (offer: KanbanOfferSummary) => void;
+  onOpenDetails: (offer: ApplicationSummary) => void;
   density?: 'compact' | 'comfortable';
   index: number;
   onDelete?: (offerId: string) => void;
 }
 
-export default function KanbanCard({
+export default function ApplicationCard({
   offer,
   userCvs,
   onOpenDetails,
   density = 'compact',
   index,
   onDelete,
-}: KanbanCardProps) {
+}: ApplicationCardProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
@@ -100,17 +100,17 @@ export default function KanbanCard({
   // Estados ordenados del pipeline para controles de dirección
   const statuses = ['interested', 'applied', 'interview', 'offer', 'rejected'];
   const statusLabels: Record<string, string> = {
-    interested: t('kanban.columns.interested.title'),
-    applied: t('kanban.columns.applied.title'),
-    interview: t('kanban.columns.interview.title'),
-    offer: t('kanban.columns.offer.title'),
-    rejected: t('kanban.columns.rejected.title'),
+    interested: t('applications.columns.interested.title'),
+    applied: t('applications.columns.applied.title'),
+    interview: t('applications.columns.interview.title'),
+    offer: t('applications.columns.offer.title'),
+    rejected: t('applications.columns.rejected.title'),
   };
   const currentIndex = statuses.indexOf(offer.status);
 
   // Dynamic translated tooltip title
   const getMoveToTooltip = (statusKey: string) => {
-    return t('kanban.card.moveTo', { status: statusLabels[statusKey] });
+    return t('applications.card.moveTo', { status: statusLabels[statusKey] });
   };
 
   return (
@@ -120,7 +120,7 @@ export default function KanbanCard({
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          onClick={() => router.push(`/dashboard/kanban/offer/${offer.id}`)}
+          onClick={() => router.push(`/dashboard/applications/offer/${offer.id}`)}
           style={{
             ...provided.draggableProps.style,
           }}
@@ -162,8 +162,8 @@ export default function KanbanCard({
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] transition-colors shrink-0 mt-0.5"
-                title={t('kanban.modal.linkCvOfficial')}
-                aria-label={t('kanban.modal.linkCvOfficial')}
+                title={t('applications.modal.linkCvOfficial')}
+                aria-label={t('applications.modal.linkCvOfficial')}
               >
                 <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
               </a>
@@ -206,8 +206,8 @@ export default function KanbanCard({
                   handleArchive();
                 }}
                 className="text-text-muted hover:text-amber-500 dark:hover:text-amber-400 p-1.5 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/60 transition-colors shrink-0"
-                title={t('kanban.card.archiveBtn')}
-                aria-label={t('kanban.card.archiveBtn')}
+                title={t('applications.card.archiveBtn')}
+                aria-label={t('applications.card.archiveBtn')}
               >
                 <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
               </button>
@@ -217,8 +217,8 @@ export default function KanbanCard({
                   handleDelete();
                 }}
                 className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/60 transition-colors shrink-0"
-                title={t('kanban.card.deleteBtn')}
-                aria-label={t('kanban.card.deleteBtn')}
+                title={t('applications.card.deleteBtn')}
+                aria-label={t('applications.card.deleteBtn')}
               >
                 <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
               </button>
@@ -258,10 +258,10 @@ export default function KanbanCard({
           <AlertModal
             isOpen={isDeleteModalOpen}
             onClose={() => setIsDeleteModalOpen(false)}
-            title={t('kanban.card.deleteTitle')}
-            message={t('kanban.card.deleteMessage', { title: offer.title, company: offer.company })}
+            title={t('applications.card.deleteTitle')}
+            message={t('applications.card.deleteMessage', { title: offer.title, company: offer.company })}
             type="danger"
-            confirmLabel={t('kanban.card.deleteConfirm')}
+            confirmLabel={t('applications.card.deleteConfirm')}
             cancelLabel={t('common.cancel')}
             onConfirm={confirmDelete}
             isPending={loading}

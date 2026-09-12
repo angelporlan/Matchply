@@ -9,7 +9,7 @@ import {
   updateJobOfferCv, 
   updateJobOfferStatus,
   evaluateSingleOfferMatchAction,
-} from '@/app/dashboard/kanban/actions';
+} from '@/app/dashboard/applications/actions';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
@@ -163,7 +163,7 @@ export default function JobOfferDetailsPage({
   const getStatusConfig = (status: string) => {
     if (status.startsWith('archived:')) {
       return {
-        title: t('kanban.board.archivedBadge'),
+        title: t('applications.board.archivedBadge'),
         style: 'text-amber-600 dark:text-amber-300 bg-amber-500/10 border-amber-500/20',
         icon: <Archive className="w-3.5 h-3.5 stroke-[1.75]" />,
       };
@@ -172,31 +172,31 @@ export default function JobOfferDetailsPage({
     switch (status) {
       case 'interested':
         return {
-          title: t('kanban.columns.interested.title'),
+          title: t('applications.columns.interested.title'),
           style: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
           icon: <Bookmark className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'applied':
         return {
-          title: t('kanban.columns.applied.title'),
+          title: t('applications.columns.applied.title'),
           style: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
           icon: <Send className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'interview':
         return {
-          title: t('kanban.columns.interview.title'),
+          title: t('applications.columns.interview.title'),
           style: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
           icon: <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'offer':
         return {
-          title: t('kanban.columns.offer.title'),
+          title: t('applications.columns.offer.title'),
           style: 'text-success-text bg-action/10 border-emerald-500/20',
           icon: <PartyPopper className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'rejected':
         return {
-          title: t('kanban.columns.rejected.title'),
+          title: t('applications.columns.rejected.title'),
           style: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
           icon: <Ban className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
@@ -261,7 +261,7 @@ export default function JobOfferDetailsPage({
       setOffer(prev => ({ ...prev, cvId: cvId === '' ? null : cvId }));
       router.refresh();
     } else {
-      setError(result.error || t('kanban.modal.cvUpdateError'));
+      setError(result.error || t('applications.modal.cvUpdateError'));
     }
     setLoading(false);
   };
@@ -285,7 +285,7 @@ export default function JobOfferDetailsPage({
     e.preventDefault();
     setError(null);
     if (!formData.title || !formData.company) {
-      setError(t('kanban.modal.requiredError'));
+      setError(t('applications.modal.requiredError'));
       return;
     }
 
@@ -374,7 +374,7 @@ export default function JobOfferDetailsPage({
       {/* Botón Volver y cabecera móvil */}
       <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
         <button
-          onClick={() => router.push('/dashboard/kanban')}
+          onClick={() => router.push('/dashboard/applications')}
           className="inline-flex items-center gap-2 text-xs font-bold text-text-muted hover:text-text dark:hover:text-white transition-colors bg-surface border border-subtle px-3 py-2 rounded-[8px] shadow-2xs font-display"
         >
           <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
@@ -391,11 +391,11 @@ export default function JobOfferDetailsPage({
               disabled={loading}
               className="bg-transparent font-bold text-text focus:outline-none cursor-pointer pr-1"
             >
-              <option value="interested">{t('kanban.columns.interested.title')}</option>
-              <option value="applied">{t('kanban.columns.applied.title')}</option>
-              <option value="interview">{t('kanban.columns.interview.title')}</option>
-              <option value="offer">{t('kanban.columns.offer.title')}</option>
-              <option value="rejected">{t('kanban.columns.rejected.title')}</option>
+              <option value="interested">{t('applications.columns.interested.title')}</option>
+              <option value="applied">{t('applications.columns.applied.title')}</option>
+              <option value="interview">{t('applications.columns.interview.title')}</option>
+              <option value="offer">{t('applications.columns.offer.title')}</option>
+              <option value="rejected">{t('applications.columns.rejected.title')}</option>
               {offer.status.startsWith('archived:') && (
                 <option value={offer.status}>Archivado</option>
               )}
@@ -557,7 +557,7 @@ export default function JobOfferDetailsPage({
                   disabled={loading}
                   className="w-full bg-transparent text-[11px] text-text font-bold focus:outline-none cursor-pointer pr-4 font-sans"
                 >
-                  <option value="">{t('kanban.modal.noCvLinked')}</option>
+                  <option value="">{t('applications.modal.noCvLinked')}</option>
                   {userCvs.map((cv) => (
                     <option key={cv.id} value={cv.id}>
                       {cv.title.length > 30 ? cv.title.substring(0, 30) + '...' : cv.title}
@@ -986,7 +986,7 @@ export default function JobOfferDetailsPage({
                             {copiedField === 'outreach' ? (
                               <>
                                 <Check className="w-3 h-3 text-emerald-500" />
-                                <span className="text-emerald-500">{t('kanban.modal.outreachCopied')}</span>
+                                <span className="text-emerald-500">{t('applications.modal.outreachCopied')}</span>
                               </>
                             ) : (
                               <>
@@ -1020,7 +1020,7 @@ export default function JobOfferDetailsPage({
                             {copiedField === 'cover_letter' ? (
                               <>
                                 <Check className="w-3 h-3 text-emerald-500" />
-                                <span className="text-emerald-500">{t('kanban.modal.outreachCopied')}</span>
+                                <span className="text-emerald-500">{t('applications.modal.outreachCopied')}</span>
                               </>
                             ) : (
                               <>

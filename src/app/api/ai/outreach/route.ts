@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    if (!canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest })) {
-      return new NextResponse('A PRO subscription is required to access Kanban', { status: 403 });
+    if (!canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest })) {
+      return new NextResponse('A PRO subscription is required to access the applications board', { status: 403 });
     }
 
     // 3. Find candidate CV (prefer linked cvId, then principal cv, then any cv)

@@ -650,7 +650,7 @@ export default function AdminClient({
 
               <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between group hover:border-ai/30 dark:hover:border-ai/40 hover:shadow-md transition-all duration-300">
                 <div>
-                  <span className="text-text-muted text-xs font-medium font-sans">Candidaturas Kanban</span>
+                  <span className="text-text-muted text-xs font-medium font-sans">Postulaciones</span>
                   <h3 className="text-3xl font-bold font-display text-text mt-1.5 tracking-tight group-hover:text-ai dark:group-hover:text-violet-400 transition-colors">
                     {stats.totalOffers}
                   </h3>
@@ -1383,10 +1383,10 @@ export default function AdminClient({
                   <option value="cv_create_manual">CV creados a mano</option>
                   <option value="cv_optimize_ai">CV optimizados con IA</option>
                   <option value="cv_delete">CV eliminados</option>
-                  <option value="job_offer_create">Kanban candidatura creada</option>
-                  <option value="job_offer_status_change">Kanban cambio de estado</option>
-                  <option value="job_offer_update">Kanban candidatura editada</option>
-                  <option value="job_offer_delete">Kanban candidatura borrada</option>
+                  <option value="job_offer_create">Postulación creada</option>
+                  <option value="job_offer_status_change">Cambio de estado de postulación</option>
+                  <option value="job_offer_update">Postulación editada</option>
+                  <option value="job_offer_delete">Postulación borrada</option>
                   <option value="cv_download_pdf">Descargas de PDF</option>
                 </select>
 
@@ -1720,11 +1720,11 @@ export default function AdminClient({
                     )}
                   </div>
 
-                  {/* Kanban Offers list */}
+                  {/* Lista de postulaciones */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-bold text-text flex items-center gap-1.5 border-b border-subtle pb-2 font-display">
                       <Kanban className="w-4 h-4 text-ai stroke-[1.75]" />
-                      Postulaciones Kanban ({userDetails?.offers.length || 0})
+                      Postulaciones ({userDetails?.offers.length || 0})
                     </h4>
 
                     {userDetails?.offers.length === 0 ? (

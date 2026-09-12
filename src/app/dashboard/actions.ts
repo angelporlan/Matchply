@@ -344,7 +344,7 @@ export async function saveUserCareerProfileAction(profileData: any) {
     });
 
     revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
 
     return { success: true };
   } catch (error: any) {

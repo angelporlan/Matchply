@@ -87,7 +87,7 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
 }
 
 export async function upsertExternalApplication(userId: string, input: ExternalApplicationInput) {
-  await requireUserFeature(userId, 'kanban');
+  await requireUserFeature(userId, 'applications');
   const existing = await findExisting(userId, input);
   const score = input.scoreOverall === null || input.scoreOverall === undefined
     ? null
@@ -132,7 +132,7 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
 }
 
 export async function getOwnedApplication(userId: string, offerId: string) {
-  await requireUserFeature(userId, 'kanban');
+  await requireUserFeature(userId, 'applications');
   const [offer] = await db.select().from(jobOffers).where(and(
     eq(jobOffers.id, offerId),
     eq(jobOffers.userId, userId),

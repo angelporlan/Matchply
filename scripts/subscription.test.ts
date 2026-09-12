@@ -15,9 +15,9 @@ test('guests and free users stay off Pro features', () => {
   assert.equal(getAccessTier('active'), 'pro');
   assert.equal(getAccessTier('trialing'), 'pro');
 
-  assert.equal(canAccessFeature('none', 'kanban'), false);
-  assert.equal(canAccessFeature('none', 'kanban', { isGuest: true }), false);
-  assert.equal(canAccessFeature('active', 'kanban'), true);
+  assert.equal(canAccessFeature('none', 'applications'), false);
+  assert.equal(canAccessFeature('none', 'applications', { isGuest: true }), false);
+  assert.equal(canAccessFeature('active', 'applications'), true);
   assert.equal(canAccessFeature('active', 'advancedAi'), true);
 });
 

@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const userId = session.user.id;
 
   try {
-    await requireUserFeature(userId, 'kanban');
+    await requireUserFeature(userId, 'applications');
   } catch {
     return new NextResponse('Forbidden', { status: 403 });
   }
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
           streamed: true,
         });
 
-        revalidatePath('/dashboard/kanban');
+        revalidatePath('/dashboard/applications');
 
         send({
           type: 'done',

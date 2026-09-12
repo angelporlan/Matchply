@@ -4,19 +4,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { JobOffer } from '@/db/schema';
-import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
-import KanbanCard from './KanbanCard';
-import KanbanDenseListItem from './KanbanDenseListItem';
+import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
+import ApplicationCard from './ApplicationCard';
+import ApplicationDenseListItem from './ApplicationDenseListItem';
 import CurateWithAiModal from './CurateWithAiModal';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/kanban/actions';
+import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { formatDate } from '@/lib/utils';
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
-interface KanbanBoardProps {
-  offers: KanbanOfferSummary[];
+interface ApplicationsBoardProps {
+  offers: ApplicationSummary[];
   userCvs: CvListItem[];
 }
 
@@ -36,7 +36,7 @@ function isArchivedStatus(status: string) {
   return status.startsWith(ARCHIVED_STATUS_PREFIX);
 }
 
-export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
+export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoardProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,7 +147,7 @@ export default function KanbanBoard({ offers, userCvs }: KanbanBoardProps) {
     return result.text || '';
   };
 
-  const handleOpenDetails = async (offer: KanbanOfferSummary) => {
+  const handleOpenDetails = async (offer: ApplicationSummary) => {
     setDetailsLoading(true);
     setSelectedOfferForDetails(null);
     try {
@@ -446,7 +446,7 @@ Responde de forma concisa y directa al usuario.
   }, [offers]);
 
   // Bulk Archive Handlers
-  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: KanbanOfferSummary[]) => {
+  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: ApplicationSummary[]) => {
     if (offersToArchive.length === 0) return;
     setArchiveTarget({
       isOpen: true,
@@ -476,8 +476,8 @@ Responde de forma concisa y directa al usuario.
       const result = await archiveMultipleJobOffers(archiveTarget.offerIds);
       if (result.success) {
         setCurationToast({
-          message: t('kanban.board.archiveAllSuccess')
-            ? t('kanban.board.archiveAllSuccess').replace('{count}', count.toString())
+          message: t('applications.board.archiveAllSuccess')
+            ? t('applications.board.archiveAllSuccess').replace('{count}', count.toString())
             : `📦 Se han archivado ${count} candidaturas correctamente`,
           type: 'success',
         });
@@ -547,11 +547,11 @@ Responde de forma concisa y directa al usuario.
   });
 
   const columns: Column[] = [
-    { id: 'interested', title: t('kanban.columns.interested.title'), shortTitle: t('kanban.columns.interested.shortTitle'), description: t('kanban.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
-    { id: 'applied', title: t('kanban.columns.applied.title'), shortTitle: t('kanban.columns.applied.shortTitle'), description: t('kanban.columns.applied.desc'), color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
-    { id: 'interview', title: t('kanban.columns.interview.title'), shortTitle: t('kanban.columns.interview.shortTitle'), description: t('kanban.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
-    { id: 'offer', title: t('kanban.columns.offer.title'), shortTitle: t('kanban.columns.offer.shortTitle'), description: t('kanban.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
-    { id: 'rejected', title: t('kanban.columns.rejected.title'), shortTitle: t('kanban.columns.rejected.shortTitle'), description: t('kanban.columns.rejected.desc'), color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
+    { id: 'interested', title: t('applications.columns.interested.title'), shortTitle: t('applications.columns.interested.shortTitle'), description: t('applications.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
+    { id: 'applied', title: t('applications.columns.applied.title'), shortTitle: t('applications.columns.applied.shortTitle'), description: t('applications.columns.applied.desc'), color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
+    { id: 'interview', title: t('applications.columns.interview.title'), shortTitle: t('applications.columns.interview.shortTitle'), description: t('applications.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
+    { id: 'offer', title: t('applications.columns.offer.title'), shortTitle: t('applications.columns.offer.shortTitle'), description: t('applications.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
+    { id: 'rejected', title: t('applications.columns.rejected.title'), shortTitle: t('applications.columns.rejected.shortTitle'), description: t('applications.columns.rejected.desc'), color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
   ];
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -626,7 +626,7 @@ Responde de forma concisa y directa al usuario.
     e.preventDefault();
     setError(null);
     if (!formData.title || !formData.company) {
-      setError(t('kanban.modal.requiredError'));
+      setError(t('applications.modal.requiredError'));
       return;
     }
 
@@ -653,7 +653,7 @@ Responde de forma concisa y directa al usuario.
     return (
       <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
         <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
-        <p className="text-xs text-text-muted mt-3 font-sans">{t('kanban.board.loading')}</p>
+        <p className="text-xs text-text-muted mt-3 font-sans">{t('applications.board.loading')}</p>
       </div>
     );
   }
@@ -665,10 +665,10 @@ Responde de forma concisa y directa al usuario.
         <div>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
             <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
-            {t('kanban.board.title')}
+            {t('applications.board.title')}
           </h2>
           <p className="text-text-muted text-sm mt-1 font-sans">
-            {t('kanban.board.subtitle')}
+            {t('applications.board.subtitle')}
           </p>
         </div>
 
@@ -678,15 +678,15 @@ Responde de forma concisa y directa al usuario.
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-ai/30 text-text-muted dark:text-slate-300 hover:text-ai dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
           >
             <Clipboard className="w-4 h-4 text-ai stroke-[1.75]" />
-            {t('kanban.copyDataModal.copyDataBtn')}
+            {t('applications.copyDataModal.copyDataBtn')}
           </button>
 
           <NextLink
-            href="/dashboard/kanban/archived"
+            href="/dashboard/applications/archived"
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-amber-500/30 text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
           >
             <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
-            {t('kanban.board.archivedBtn')}
+            {t('applications.board.archivedBtn')}
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-200 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
               {archivedOffers.length}
             </span>
@@ -697,26 +697,26 @@ Responde de forma concisa y directa al usuario.
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
           >
             <Plus className="w-4 h-4 stroke-[1.75]" />
-            {t('kanban.board.newApplicationBtn')}
+            {t('applications.board.newApplicationBtn')}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 font-display">
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.activeBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.activeBadge')}</p>
           <p className="text-xl font-bold text-text mt-1">{boardOffers.length}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.archivedBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.archivedBadge')}</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{archivedOffers.length}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.linkedBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.linkedBadge')}</p>
           <p className="text-xl font-bold text-success-text mt-1">{linkedOffers}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.board.showingBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.showingBadge')}</p>
           <p className="text-xl font-bold text-text mt-1">{filteredOffers.length}</p>
         </div>
       </div>
@@ -728,7 +728,7 @@ Responde de forma concisa y directa al usuario.
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t('kanban.board.searchPlaceholder')}
+            placeholder={t('applications.board.searchPlaceholder')}
             className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
           />
           {searchQuery && (
@@ -736,8 +736,8 @@ Responde de forma concisa y directa al usuario.
               type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-surface-muted transition-colors"
-              aria-label={t('kanban.board.clearSearch')}
-              title={t('kanban.board.clearSearch')}
+              aria-label={t('applications.board.clearSearch')}
+              title={t('applications.board.clearSearch')}
             >
               <X className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
@@ -748,9 +748,9 @@ Responde de forma concisa y directa al usuario.
           <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
             <SlidersHorizontal className="w-4 h-4 text-text-muted ml-2 hidden sm:block stroke-[1.75]" />
             {[
-              { value: 'all', label: t('kanban.board.filterAll') },
-              { value: 'linked', label: t('kanban.board.filterLinked') },
-              { value: 'unlinked', label: t('kanban.board.filterUnlinked') },
+              { value: 'all', label: t('applications.board.filterAll') },
+              { value: 'linked', label: t('applications.board.filterLinked') },
+              { value: 'unlinked', label: t('applications.board.filterUnlinked') },
             ].map((filter) => (
               <button
                 key={filter.value}
@@ -779,13 +779,13 @@ Responde de forma concisa y directa al usuario.
               }`}
             >
               <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />
-              {dateFilter === 'all' && t('kanban.board.dateFilterAll')}
-              {dateFilter === 'today' && t('kanban.board.dateFilterToday')}
-              {dateFilter === '7days' && t('kanban.board.dateFilter7Days')}
+              {dateFilter === 'all' && t('applications.board.dateFilterAll')}
+              {dateFilter === 'today' && t('applications.board.dateFilterToday')}
+              {dateFilter === '7days' && t('applications.board.dateFilter7Days')}
               {dateFilter === 'custom' && (
                 startDate || endDate 
                   ? `${startDate ? formatDate(new Date(startDate + 'T00:00:00')) : ''} - ${endDate ? formatDate(new Date(endDate + 'T00:00:00')) : ''}` 
-                  : t('kanban.board.dateFilterCustom')
+                  : t('applications.board.dateFilterCustom')
               )}
             </button>
 
@@ -797,15 +797,15 @@ Responde de forma concisa y directa al usuario.
                 />
                 <div className="absolute right-0 mt-1.5 w-64 rounded-[12px] border border-subtle bg-surface p-3 shadow-xl z-20 space-y-2.5 animate-in fade-in duration-100">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-1">
-                    {t('kanban.board.filterBtnLabel')}
+                    {t('applications.board.filterBtnLabel')}
                   </div>
                   
                   <div className="flex flex-col gap-1">
                     {[
-                      { value: 'all', label: t('kanban.board.dateFilterAll') },
-                      { value: 'today', label: t('kanban.board.dateFilterToday') },
-                      { value: '7days', label: t('kanban.board.dateFilter7Days') },
-                      { value: 'custom', label: t('kanban.board.dateFilterCustom') },
+                      { value: 'all', label: t('applications.board.dateFilterAll') },
+                      { value: 'today', label: t('applications.board.dateFilterToday') },
+                      { value: '7days', label: t('applications.board.dateFilter7Days') },
+                      { value: 'custom', label: t('applications.board.dateFilterCustom') },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -831,7 +831,7 @@ Responde de forma concisa y directa al usuario.
                     <div className="pt-2 border-t border-subtle space-y-2">
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-text-muted">
-                          {t('kanban.board.dateStart')}
+                          {t('applications.board.dateStart')}
                         </label>
                         <input
                           type="date"
@@ -842,7 +842,7 @@ Responde de forma concisa y directa al usuario.
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-text-muted">
-                          {t('kanban.board.dateEnd')}
+                          {t('applications.board.dateEnd')}
                         </label>
                         <input
                           type="date"
@@ -869,7 +869,7 @@ Responde de forma concisa y directa al usuario.
               }`}
             >
               <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('kanban.board.viewCompact')}
+              {t('applications.board.viewCompact')}
             </button>
             <button
               type="button"
@@ -881,13 +881,13 @@ Responde de forma concisa y directa al usuario.
               }`}
             >
               <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('kanban.board.viewComfortable')}
+              {t('applications.board.viewComfortable')}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Grid de Columnas (Kanban Asimétrico) */}
+      {/* Grid de Columnas (Tablero asimétrico de postulaciones) */}
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="-mx-4 px-4 overflow-x-auto pb-4 scrollbar-custom">
           <div className="grid min-w-[1240px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 items-start">
@@ -933,7 +933,7 @@ Responde de forma concisa y directa al usuario.
                           {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
                         </span>
                         <span className="text-[10px] font-medium text-text-muted">
-                          {t('kanban.board.offersCount')}
+                          {t('applications.board.offersCount')}
                         </span>
                       </div>
                     </div>
@@ -986,11 +986,11 @@ Responde de forma concisa y directa al usuario.
                         <button
                           type="button"
                           onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
-                          title={t('kanban.board.archiveAllTooltip')}
+                          title={t('applications.board.archiveAllTooltip')}
                           className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-subtle bg-white dark:bg-surface hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
                         >
                           <Archive className="w-3 h-3 stroke-[2]" />
-                          <span>{t('kanban.board.archiveAllBtn')}</span>
+                          <span>{t('applications.board.archiveAllBtn')}</span>
                         </button>
                       </div>
                     )}
@@ -1009,7 +1009,7 @@ Responde de forma concisa y directa al usuario.
                         <button
                           type="button"
                           onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
-                          title={t('kanban.board.archiveAllTooltip')}
+                          title={t('applications.board.archiveAllTooltip')}
                           className="text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors shrink-0"
                         >
                           <Archive className="w-3 h-3 stroke-[2]" />
@@ -1039,18 +1039,18 @@ Responde de forma concisa y directa al usuario.
                             {hasActiveFilters ? (
                               <>
                                 <Search className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-70 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.noResults')}</p>
+                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('applications.board.noResults')}</p>
                               </>
                             ) : (
                               <>
                                 <CheckCircle2 className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-60 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('kanban.board.emptyBoard')}</p>
+                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('applications.board.emptyBoard')}</p>
                               </>
                             )}
                           </div>
                         ) : isInterested ? (
                           columnOffers.map((offer, index) => (
-                            <KanbanDenseListItem
+                            <ApplicationDenseListItem
                               key={offer.id}
                               offer={offer}
                               index={index}
@@ -1060,7 +1060,7 @@ Responde de forma concisa y directa al usuario.
                           ))
                         ) : (
                           columnOffers.map((offer, index) => (
-                            <KanbanCard
+                            <ApplicationCard
                               key={offer.id}
                               offer={offer}
                               userCvs={userCvs}
@@ -1080,7 +1080,7 @@ Responde de forma concisa y directa al usuario.
                     <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted font-sans">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <ListChecks className="w-3.5 h-3.5 shrink-0 stroke-[1.75]" />
-                        <span className="truncate">{columnOffers.length} {t('kanban.board.visibleText')}</span>
+                        <span className="truncate">{columnOffers.length} {t('applications.board.visibleText')}</span>
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         <Link2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -1110,10 +1110,10 @@ Responde de forma concisa y directa al usuario.
               <div>
                 <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
                   <Clipboard className="w-5 h-5 text-ai stroke-[1.75]" />
-                  {t('kanban.copyDataModal.title')}
+                  {t('applications.copyDataModal.title')}
                 </h3>
                 <p className="text-xs text-text-muted mt-1 font-sans">
-                  {t('kanban.copyDataModal.subtitle')}
+                  {t('applications.copyDataModal.subtitle')}
                 </p>
               </div>
               <button
@@ -1128,14 +1128,14 @@ Responde de forma concisa y directa al usuario.
               {/* Selector de Período */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-text-muted dark:text-text font-display">
-                  {t('kanban.copyDataModal.filterLabel')}
+                  {t('applications.copyDataModal.filterLabel')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: 'all', label: t('kanban.copyDataModal.all') },
-                    { value: 'today', label: t('kanban.copyDataModal.today') },
-                    { value: '7days', label: t('kanban.copyDataModal.week') },
-                    { value: 'custom', label: t('kanban.copyDataModal.custom') },
+                    { value: 'all', label: t('applications.copyDataModal.all') },
+                    { value: 'today', label: t('applications.copyDataModal.today') },
+                    { value: '7days', label: t('applications.copyDataModal.week') },
+                    { value: 'custom', label: t('applications.copyDataModal.custom') },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -1158,7 +1158,7 @@ Responde de forma concisa y directa al usuario.
                 <div className="grid grid-cols-2 gap-4 p-3.5 bg-canvas/30 border border-subtle rounded-[8px] animate-in slide-in-from-top-2 duration-200">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
-                      {t('kanban.copyDataModal.startDate')}
+                      {t('applications.copyDataModal.startDate')}
                     </label>
                     <input
                       type="date"
@@ -1169,7 +1169,7 @@ Responde de forma concisa y directa al usuario.
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
-                      {t('kanban.copyDataModal.endDate')}
+                      {t('applications.copyDataModal.endDate')}
                     </label>
                     <input
                       type="date"
@@ -1184,14 +1184,14 @@ Responde de forma concisa y directa al usuario.
               {/* Resumen de Exportación */}
               <div className="p-4 rounded-[8px] bg-surface-muted/40 border border-slate-100 dark:border-slate-800 space-y-2">
                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-text-muted font-display">
-                  {t('kanban.copyDataModal.summary')}
+                  {t('applications.copyDataModal.summary')}
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
                   <div className="text-text-muted dark:text-slate-300">
-                    {t('kanban.copyDataModal.foundOffers').replace('{count}', getFilteredOffersForCopy().length.toString())}
+                    {t('applications.copyDataModal.foundOffers').replace('{count}', getFilteredOffersForCopy().length.toString())}
                   </div>
                   <div className="text-text-muted dark:text-slate-300">
-                    {t('kanban.copyDataModal.linkedCvs').replace('{count}', (() => {
+                    {t('applications.copyDataModal.linkedCvs').replace('{count}', (() => {
                       const offers = getFilteredOffersForCopy();
                       const ids = new Set(offers.filter(o => o.cvId).map(o => o.cvId));
                       return ids.size.toString();
@@ -1222,12 +1222,12 @@ Responde de forma concisa y directa al usuario.
                   {copied ? (
                     <>
                       <Check className="w-4 h-4 stroke-[2]" />
-                      {t('kanban.copyDataModal.successToast')}
+                      {t('applications.copyDataModal.successToast')}
                     </>
                   ) : (
                     <>
                       <Clipboard className="w-4 h-4 stroke-[1.75]" />
-                      {t('kanban.copyDataModal.copyBtn')}
+                      {t('applications.copyDataModal.copyBtn')}
                     </>
                   )}
                 </button>
@@ -1250,10 +1250,10 @@ Responde de forma concisa y directa al usuario.
               <div>
                 <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
                   <Briefcase className="w-5 h-5 text-ai stroke-[1.75]" />
-                  {t('kanban.modal.addTitle')}
+                  {t('applications.modal.addTitle')}
                 </h3>
                 <p className="text-xs text-text-muted mt-1 font-sans">
-                  {t('kanban.modal.addDesc')}
+                  {t('applications.modal.addDesc')}
                 </p>
               </div>
               <button
@@ -1275,7 +1275,7 @@ Responde de forma concisa y directa al usuario.
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
                     <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.jobField')}
+                    {t('applications.modal.jobField')}
                   </label>
                   <input
                     type="text"
@@ -1283,7 +1283,7 @@ Responde de forma concisa y directa al usuario.
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    placeholder={t('kanban.modal.jobPlaceholder')}
+                    placeholder={t('applications.modal.jobPlaceholder')}
                     className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                   />
                 </div>
@@ -1291,7 +1291,7 @@ Responde de forma concisa y directa al usuario.
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
                     <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.companyField')}
+                    {t('applications.modal.companyField')}
                   </label>
                   <input
                     type="text"
@@ -1299,7 +1299,7 @@ Responde de forma concisa y directa al usuario.
                     required
                     value={formData.company}
                     onChange={handleInputChange}
-                    placeholder={t('kanban.modal.companyPlaceholder')}
+                    placeholder={t('applications.modal.companyPlaceholder')}
                     className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
                   />
                 </div>
@@ -1309,7 +1309,7 @@ Responde de forma concisa y directa al usuario.
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
                     <Link className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.linkField')}
+                    {t('applications.modal.linkField')}
                   </label>
                   <input
                     type="url"
@@ -1322,7 +1322,7 @@ Responde de forma concisa y directa al usuario.
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('kanban.modal.platformField')}</label>
+                  <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('applications.modal.platformField')}</label>
                   <select
                     name="platform"
                     value={formData.platform}
@@ -1332,21 +1332,21 @@ Responde de forma concisa y directa al usuario.
                     <option value="linkedin">LinkedIn</option>
                     <option value="infojobs">InfoJobs</option>
                     <option value="indeed">Indeed</option>
-                    <option value="other">{t('kanban.modal.platformOther')}</option>
+                    <option value="other">{t('applications.modal.platformOther')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-text-muted dark:text-text font-display">
-                  {t('kanban.modal.descField')}
+                  {t('applications.modal.descField')}
                 </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={4}
-                  placeholder={t('kanban.modal.descPlaceholder')}
+                  placeholder={t('applications.modal.descPlaceholder')}
                   className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
                 />
               </div>
@@ -1367,10 +1367,10 @@ Responde de forma concisa y directa al usuario.
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      {t('kanban.modal.savingBtn')}
+                      {t('applications.modal.savingBtn')}
                     </>
                   ) : (
-                    t('kanban.modal.saveBtn')
+                    t('applications.modal.saveBtn')
                   )}
                 </button>
               </div>
@@ -1392,10 +1392,10 @@ Responde de forma concisa y directa al usuario.
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-text font-display">
-                  {t('kanban.board.archiveAllConfirmTitle')}
+                  {t('applications.board.archiveAllConfirmTitle')}
                 </h3>
                 <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-sans">
-                  {t('kanban.board.archiveAllConfirmDesc')
+                  {t('applications.board.archiveAllConfirmDesc')
                     .replace('{count}', archiveTarget.count.toString())
                     .replace('{column}', archiveTarget.columnTitle)}
                 </p>
@@ -1433,7 +1433,7 @@ Responde de forma concisa y directa al usuario.
                 ) : (
                   <>
                     <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
-                    <span>{t('kanban.board.archiveAllConfirmBtn')}</span>
+                    <span>{t('applications.board.archiveAllConfirmBtn')}</span>
                   </>
                 )}
               </button>

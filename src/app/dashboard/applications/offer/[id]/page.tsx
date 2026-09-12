@@ -1,57 +1,79 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, jobOffers } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import KanbanBoard from '@/components/kanban/KanbanBoard';
+import { jobOffers, cvs, users } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
-import { cvListColumns, kanbanOfferColumns } from '@/lib/job-offer-queries';
+import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
+import { getResearchRunForUser } from '@/lib/research/queue';
+import { cvListColumns } from '@/lib/job-offer-queries';
 
-export default async function KanbanPage() {
+interface OfferPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default async function OfferDetailsPage({ params }: OfferPageProps) {
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect('/login');
   }
 
   const userId = session.user.id;
+  const offerId = params.id;
 
-  // 1. Obtener información actualizada del usuario de la base de datos
+  // 1. Fetch updated user status
   const [dbUser] = await db
     .select()
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
+  if (!dbUser) {
+    redirect('/dashboard');
+  }
+
+  const subscriptionStatus = dbUser.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
   if (!isPremium) {
     redirect('/dashboard/subscription');
   }
 
-  // 2. Obtener lista de currículums del usuario
+  // 2. Fetch job offer
+  const [offer] = await db
+    .select()
+    .from(jobOffers)
+    .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
+    .limit(1);
+
+  if (!offer) {
+    redirect('/dashboard/applications');
+  }
+
+  // 3. Fetch user CVs
   const userCvs = await db
     .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));
 
-  const offers = await db
-    .select(kanbanOfferColumns)
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .orderBy(desc(jobOffers.updatedAt));
+  const initialResearch = await getResearchRunForUser(userId, offerId);
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
-      {/* Background blur */}
+      {/* Background blurs */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {/* Tablero Kanban */}
-        <KanbanBoard offers={offers} userCvs={userCvs} />
+        <JobOfferDetailsPage
+          initialOffer={offer}
+          userCvs={userCvs}
+          isPremium={isPremium}
+          initialResearch={initialResearch}
+        />
       </main>
     </div>
   );

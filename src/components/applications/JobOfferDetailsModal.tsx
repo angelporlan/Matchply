@@ -8,7 +8,7 @@ import { CvListItem } from '@/lib/job-offer-queries';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv
-} from '@/app/dashboard/kanban/actions';
+} from '@/app/dashboard/applications/actions';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
@@ -186,7 +186,7 @@ export default function JobOfferDetailsModal({
   const getStatusConfig = (status: string) => {
     if (status.startsWith('archived:')) {
       return {
-        title: t('kanban.board.archivedBadge'),
+        title: t('applications.board.archivedBadge'),
         style: 'text-amber-600 dark:text-amber-300 bg-amber-500/10 border-amber-500/20',
         icon: <Archive className="w-3.5 h-3.5 stroke-[1.75]" />,
       };
@@ -195,31 +195,31 @@ export default function JobOfferDetailsModal({
     switch (status) {
       case 'interested':
         return {
-          title: t('kanban.columns.interested.title'),
+          title: t('applications.columns.interested.title'),
           style: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
           icon: <Bookmark className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'applied':
         return {
-          title: t('kanban.columns.applied.title'),
+          title: t('applications.columns.applied.title'),
           style: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
           icon: <Send className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'interview':
         return {
-          title: t('kanban.columns.interview.title'),
+          title: t('applications.columns.interview.title'),
           style: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
           icon: <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'offer':
         return {
-          title: t('kanban.columns.offer.title'),
+          title: t('applications.columns.offer.title'),
           style: 'text-success-text bg-action/10 border-emerald-500/20',
           icon: <PartyPopper className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'rejected':
         return {
-          title: t('kanban.columns.rejected.title'),
+          title: t('applications.columns.rejected.title'),
           style: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
           icon: <Ban className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
@@ -284,7 +284,7 @@ export default function JobOfferDetailsModal({
     if (result.success) {
       router.refresh();
     } else {
-      setError(result.error || t('kanban.modal.cvUpdateError'));
+      setError(result.error || t('applications.modal.cvUpdateError'));
     }
     setLoading(false);
   };
@@ -294,7 +294,7 @@ export default function JobOfferDetailsModal({
     e.preventDefault();
     setError(null);
     if (!formData.title || !formData.company) {
-      setError(t('kanban.modal.requiredError'));
+      setError(t('applications.modal.requiredError'));
       return;
     }
 
@@ -406,15 +406,15 @@ export default function JobOfferDetailsModal({
                         <div className="space-y-2 font-display">
                           <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 stroke-[1.75]" />
-                            {t('kanban.modal.datesTitle')}
+                            {t('applications.modal.datesTitle')}
                           </span>
                           <div className="space-y-1 text-xs text-text-muted dark:text-text font-sans">
                             <p className="flex justify-between sm:justify-start sm:gap-4">
-                              <span className="text-text-muted font-medium">{t('kanban.modal.dateRegistered')}</span> 
+                              <span className="text-text-muted font-medium">{t('applications.modal.dateRegistered')}</span> 
                               <span className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
                             </p>
                             <p className="flex justify-between sm:justify-start sm:gap-4">
-                              <span className="text-text-muted font-medium">{t('kanban.modal.dateUpdated')}</span> 
+                              <span className="text-text-muted font-medium">{t('applications.modal.dateUpdated')}</span> 
                               <span className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
                             </p>
                           </div>
@@ -424,7 +424,7 @@ export default function JobOfferDetailsModal({
                         <div className="space-y-2 font-display">
                           <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                             <Link2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                            {t('kanban.modal.linkField')}
+                            {t('applications.modal.linkField')}
                           </span>
                           <div>
                             {offer.url ? (
@@ -434,11 +434,11 @@ export default function JobOfferDetailsModal({
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 text-xs text-ai hover:text-ai/90 dark:hover:text-violet-300 font-semibold bg-ai/10 border border-ai/20 px-3 py-1.5 rounded-[8px] hover:bg-ai/15 transition-all"
                               >
-                                {t('kanban.modal.linkCvOfficial')}
+                                {t('applications.modal.linkCvOfficial')}
                                 <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
                               </a>
                             ) : (
-                              <span className="text-xs text-text-muted dark:text-slate-550 font-light italic font-sans">{t('kanban.modal.noLinkProvided')}</span>
+                              <span className="text-xs text-text-muted dark:text-slate-550 font-light italic font-sans">{t('applications.modal.noLinkProvided')}</span>
                             )}
                           </div>
                         </div>
@@ -450,10 +450,10 @@ export default function JobOfferDetailsModal({
                           <div className="space-y-1">
                             <h4 className="text-xs font-bold text-text uppercase tracking-wider flex items-center gap-1.5">
                               <FileText className="w-4 h-4 text-ai stroke-[1.75]" />
-                              {t('kanban.modal.cvLinkedTitle')}
+                              {t('applications.modal.cvLinkedTitle')}
                             </h4>
                             <p className="text-[11px] text-text-muted font-sans">
-                              {t('kanban.modal.cvLinkedDesc')}
+                              {t('applications.modal.cvLinkedDesc')}
                             </p>
                           </div>
 
@@ -466,7 +466,7 @@ export default function JobOfferDetailsModal({
                               disabled={loading}
                               className="bg-transparent text-[11px] text-text font-medium focus:outline-none cursor-pointer pr-4 font-sans"
                             >
-                              <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('kanban.modal.noCvLinked')}</option>
+                              <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('applications.modal.noCvLinked')}</option>
                               {userCvs.map((cv) => (
                                 <option key={cv.id} value={cv.id} className="bg-canvas text-text">
                                   {cv.title.length > 25 ? cv.title.substring(0, 25) + '...' : cv.title}
@@ -484,7 +484,7 @@ export default function JobOfferDetailsModal({
                               className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover px-4 py-2 rounded-[8px] shadow-sm transition-all flex items-center gap-1.5"
                             >
                               <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                              {t('kanban.modal.viewCvBtn')}
+                              {t('applications.modal.viewCvBtn')}
                             </a>
                           </div>
                         )}
@@ -494,7 +494,7 @@ export default function JobOfferDetailsModal({
                       <div className="space-y-2 font-display">
                         <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                           <FileText className="w-3.5 h-3.5 text-text-muted dark:text-slate-550 stroke-[1.75]" />
-                          {t('kanban.modal.descFieldRequired')}
+                          {t('applications.modal.descFieldRequired')}
                         </h4>
                         {offer.description ? (
                           <div className="bg-canvas/45 border border-subtle p-4 rounded-[12px] max-h-[300px] overflow-y-auto scrollbar-custom text-text-muted dark:text-text text-sm whitespace-pre-wrap leading-relaxed font-sans font-light">
@@ -502,7 +502,7 @@ export default function JobOfferDetailsModal({
                           </div>
                         ) : (
                           <div className="bg-canvas/25 border border-dashed border-subtle p-6 rounded-[12px] text-center text-text-muted italic text-xs font-sans">
-                            {t('kanban.modal.noDescText')}
+                            {t('applications.modal.noDescText')}
                           </div>
                         )}
                       </div>
@@ -524,7 +524,7 @@ export default function JobOfferDetailsModal({
                             : 'border-transparent text-text-muted hover:text-text-muted dark:hover:text-slate-200'
                         }`}
                       >
-                        📋 {t('kanban.modal.tabDetails')}
+                        📋 {t('applications.modal.tabDetails')}
                       </button>
                       <button
                         type="button"
@@ -535,7 +535,7 @@ export default function JobOfferDetailsModal({
                             : 'border-transparent text-text-muted hover:text-text-muted dark:hover:text-slate-200'
                         }`}
                       >
-                        ⚡ {t('kanban.modal.tabAiEval')}
+                        ⚡ {t('applications.modal.tabAiEval')}
                       </button>
                       <button
                         type="button"
@@ -546,7 +546,7 @@ export default function JobOfferDetailsModal({
                             : 'border-transparent text-text-muted hover:text-text-muted dark:hover:text-slate-200'
                         }`}
                       >
-                        ✉️ {t('kanban.modal.tabOutreach')}
+                        ✉️ {t('applications.modal.tabOutreach')}
                       </button>
                     </div>
 
@@ -562,15 +562,15 @@ export default function JobOfferDetailsModal({
                             <div className="space-y-2 font-display">
                               <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5 stroke-[1.75]" />
-                                {t('kanban.modal.datesTitle')}
+                                {t('applications.modal.datesTitle')}
                               </span>
                               <div className="space-y-1 text-xs text-text-muted dark:text-text font-sans">
                                 <p className="flex justify-between sm:justify-start sm:gap-4">
-                                  <span className="text-text-muted font-medium">{t('kanban.modal.dateRegistered')}</span> 
+                                  <span className="text-text-muted font-medium">{t('applications.modal.dateRegistered')}</span> 
                                   <span className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
                                 </p>
                                 <p className="flex justify-between sm:justify-start sm:gap-4">
-                                  <span className="text-text-muted font-medium">{t('kanban.modal.dateUpdated')}</span> 
+                                  <span className="text-text-muted font-medium">{t('applications.modal.dateUpdated')}</span> 
                                   <span className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
                                 </p>
                                 {offer.nextFollowupDate && (
@@ -586,7 +586,7 @@ export default function JobOfferDetailsModal({
                             <div className="space-y-2 font-display">
                               <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                                 <Link2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                                {t('kanban.modal.linkField')}
+                                {t('applications.modal.linkField')}
                               </span>
                               <div>
                                 {offer.url ? (
@@ -596,11 +596,11 @@ export default function JobOfferDetailsModal({
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1.5 text-xs text-ai hover:text-ai/90 dark:hover:text-violet-300 font-semibold bg-ai/10 border border-ai/20 px-3 py-1.5 rounded-[8px] hover:bg-ai/15 transition-all"
                                   >
-                                    {t('kanban.modal.linkCvOfficial')}
+                                    {t('applications.modal.linkCvOfficial')}
                                     <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
                                   </a>
                                 ) : (
-                                  <span className="text-xs text-text-muted dark:text-slate-550 font-light italic font-sans">{t('kanban.modal.noLinkProvided')}</span>
+                                  <span className="text-xs text-text-muted dark:text-slate-550 font-light italic font-sans">{t('applications.modal.noLinkProvided')}</span>
                                 )}
                               </div>
                             </div>
@@ -612,10 +612,10 @@ export default function JobOfferDetailsModal({
                               <div className="space-y-1">
                                 <h4 className="text-xs font-bold text-text uppercase tracking-wider flex items-center gap-1.5">
                                   <FileText className="w-4 h-4 text-ai stroke-[1.75]" />
-                                  {t('kanban.modal.cvLinkedTitle')}
+                                  {t('applications.modal.cvLinkedTitle')}
                                 </h4>
                                 <p className="text-[11px] text-text-muted font-sans">
-                                  {t('kanban.modal.cvLinkedDesc')}
+                                  {t('applications.modal.cvLinkedDesc')}
                                 </p>
                               </div>
 
@@ -628,7 +628,7 @@ export default function JobOfferDetailsModal({
                                   disabled={loading}
                                   className="bg-transparent text-[11px] text-text font-medium focus:outline-none cursor-pointer pr-4 font-sans"
                                 >
-                                  <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('kanban.modal.noCvLinked')}</option>
+                                  <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('applications.modal.noCvLinked')}</option>
                                   {userCvs.map((cv) => (
                                     <option key={cv.id} value={cv.id} className="bg-canvas text-text">
                                       {cv.title.length > 25 ? cv.title.substring(0, 25) + '...' : cv.title}
@@ -646,7 +646,7 @@ export default function JobOfferDetailsModal({
                                     className="text-xs font-bold text-text bg-surface border border-control dark:border-white/15 hover:bg-surface-muted dark:hover:bg-surface-muted px-3.5 py-2 rounded-[8px] transition-all flex items-center gap-1.5"
                                   >
                                     <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
-                                    {t('kanban.modal.viewCvBtn')}
+                                    {t('applications.modal.viewCvBtn')}
                                   </a>
                                   <button
                                     type="button"
@@ -676,7 +676,7 @@ export default function JobOfferDetailsModal({
                           <div className="space-y-2 font-display">
                             <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-text-muted dark:text-slate-550 stroke-[1.75]" />
-                              {t('kanban.modal.descFieldRequired')}
+                              {t('applications.modal.descFieldRequired')}
                             </h4>
                             {offer.description ? (
                               <div className="bg-canvas/45 border border-subtle p-4 rounded-[12px] max-h-[220px] overflow-y-auto scrollbar-custom text-text-muted dark:text-text text-sm whitespace-pre-wrap leading-relaxed font-sans font-light">
@@ -684,7 +684,7 @@ export default function JobOfferDetailsModal({
                               </div>
                             ) : (
                               <div className="bg-canvas/25 border border-dashed border-subtle p-6 rounded-[12px] text-center text-text-muted italic text-xs font-sans">
-                                {t('kanban.modal.noDescText')}
+                                {t('applications.modal.noDescText')}
                               </div>
                             )}
                           </div>
@@ -699,7 +699,7 @@ export default function JobOfferDetailsModal({
                             {/* Compatibility Score Radial Indicator */}
                             <div className="flex flex-col items-center justify-center shrink-0 w-full sm:w-32 text-center my-auto">
                               <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-2">
-                                {t('kanban.modal.aiScoreTitle')}
+                                {t('applications.modal.aiScoreTitle')}
                               </span>
                               <div className="relative flex items-center justify-center">
                                 <svg className="w-20 h-20 transform -rotate-90">
@@ -739,7 +739,7 @@ export default function JobOfferDetailsModal({
                                 </div>
                               </div>
                               <p className="text-[9px] text-text-muted leading-tight mt-2.5 font-sans max-w-[110px] italic">
-                                {t('kanban.modal.aiScoreHelp')}
+                                {t('applications.modal.aiScoreHelp')}
                               </p>
                             </div>
 
@@ -747,7 +747,7 @@ export default function JobOfferDetailsModal({
                             <div className="flex-1 space-y-3">
                               <h4 className="text-[10px] font-bold text-text uppercase tracking-wider flex items-center gap-1.5 border-b border-subtle pb-1">
                                 <TrendingUp className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
-                                {t('kanban.modal.aiBreakdownTitle')}
+                                {t('applications.modal.aiBreakdownTitle')}
                               </h4>
 
                               {(() => {
@@ -800,7 +800,7 @@ export default function JobOfferDetailsModal({
                               {offer.legitimacyTier && (
                                 <div className="pt-2 border-t border-subtle flex items-center justify-between text-[11px] font-sans">
                                   <span className="font-semibold text-text-muted">
-                                    {t('kanban.modal.aiLegitimacyTitle')}
+                                    {t('applications.modal.aiLegitimacyTitle')}
                                   </span>
                                   <span className="px-2 py-0.5 rounded bg-ai/10 text-ai border border-ai/20 font-bold text-[9px] uppercase">
                                     🛡️ {offer.legitimacyTier}
@@ -815,7 +815,7 @@ export default function JobOfferDetailsModal({
                             <div className="space-y-1.5">
                               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                                 <Sparkles className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
-                                {t('kanban.modal.aiTldrTitle')}
+                                {t('applications.modal.aiTldrTitle')}
                               </span>
                               <div className="relative bg-ai/5 dark:bg-ai/10 border border-ai/20 rounded-xl p-3.5 pl-6">
                                 <div className="absolute top-1 left-2 text-ai/25 font-serif text-3xl leading-none">“</div>
@@ -830,7 +830,7 @@ export default function JobOfferDetailsModal({
                           <div className="space-y-1.5">
                             <h5 className="text-[10px] font-bold text-rose-500 uppercase tracking-wider flex items-center gap-1.5">
                               <AlertTriangle className="w-3.5 h-3.5 stroke-[1.75]" />
-                              {t('kanban.modal.aiRedFlagsTitle')}
+                              {t('applications.modal.aiRedFlagsTitle')}
                             </h5>
                             {(() => {
                               const flags = getParsedJson(offer.redFlags);
@@ -840,7 +840,7 @@ export default function JobOfferDetailsModal({
                                 return (
                                   <div className="flex items-center gap-2 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl text-xs font-medium text-emerald-600 dark:text-emerald-400 font-sans">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 stroke-[1.75]" />
-                                    <span className="text-[11px]">{t('kanban.modal.starNoRedFlags')}</span>
+                                    <span className="text-[11px]">{t('applications.modal.starNoRedFlags')}</span>
                                   </div>
                                 );
                               }
@@ -875,7 +875,7 @@ export default function JobOfferDetailsModal({
                             <div className="space-y-1.5">
                               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                                 <Bookmark className="w-3.5 h-3.5 text-violet-500 stroke-[1.75]" />
-                                {t('kanban.modal.aiProofPointsTitle')}
+                                {t('applications.modal.aiProofPointsTitle')}
                               </span>
                               <div className="bg-canvas/35 border border-subtle p-3 rounded-xl font-sans">
                                 <ul className="space-y-2">
@@ -913,7 +913,7 @@ export default function JobOfferDetailsModal({
                             <div className="space-y-1.5">
                               <span className="text-[10px] font-bold text-text-muted dark:text-slate-550 uppercase tracking-wider flex items-center gap-1.5">
                                 <FileText className="w-3.5 h-3.5 stroke-[1.75]" />
-                                {t('kanban.modal.aiReportTitle')}
+                                {t('applications.modal.aiReportTitle')}
                               </span>
                               <div 
                                 className="bg-canvas/45 border border-subtle p-4.5 rounded-xl max-h-[300px] overflow-y-auto scrollbar-custom font-sans font-light text-left leading-relaxed space-y-2.5"
@@ -934,7 +934,7 @@ export default function JobOfferDetailsModal({
                               <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                                   <Send className="w-3.5 h-3.5 text-emerald-500 stroke-[1.75]" />
-                                  {t('kanban.modal.outreachMessageTitle')}
+                                  {t('applications.modal.outreachMessageTitle')}
                                 </span>
                                 
                                 <button
@@ -945,12 +945,12 @@ export default function JobOfferDetailsModal({
                                   {copiedField === 'outreach' ? (
                                     <>
                                       <Check className="w-3 h-3 text-emerald-500" />
-                                      <span className="text-emerald-500">{t('kanban.modal.outreachCopied')}</span>
+                                      <span className="text-emerald-500">{t('applications.modal.outreachCopied')}</span>
                                     </>
                                   ) : (
                                     <>
                                       <Copy className="w-3 h-3 text-text-muted" />
-                                      <span>{t('kanban.modal.outreachCopyBtn')}</span>
+                                      <span>{t('applications.modal.outreachCopyBtn')}</span>
                                     </>
                                   )}
                                 </button>
@@ -968,7 +968,7 @@ export default function JobOfferDetailsModal({
                               <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-muted dark:text-slate-550 uppercase tracking-wider flex items-center gap-1.5">
                                   <FileText className="w-3.5 h-3.5 text-emerald-500 stroke-[1.75]" />
-                                  {t('kanban.modal.outreachCoverLetterTitle')}
+                                  {t('applications.modal.outreachCoverLetterTitle')}
                                 </span>
                                 
                                 <button
@@ -979,12 +979,12 @@ export default function JobOfferDetailsModal({
                                   {copiedField === 'cover_letter' ? (
                                     <>
                                       <Check className="w-3 h-3 text-emerald-500" />
-                                      <span className="text-emerald-500">{t('kanban.modal.outreachCopied')}</span>
+                                      <span className="text-emerald-500">{t('applications.modal.outreachCopied')}</span>
                                     </>
                                   ) : (
                                     <>
                                       <Copy className="w-3 h-3 text-text-muted" />
-                                      <span>{t('kanban.modal.outreachCopyBtn')}</span>
+                                      <span>{t('applications.modal.outreachCopyBtn')}</span>
                                     </>
                                   )}
                                 </button>
@@ -1020,7 +1020,7 @@ export default function JobOfferDetailsModal({
                         className="flex items-center gap-1.5 px-4.5 py-2 rounded-[8px] bg-canvas border border-control hover:border-control dark:hover:border-white/20 text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-bold text-xs transition-all shadow-sm"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
-                        {t('kanban.modal.editBtn')}
+                        {t('applications.modal.editBtn')}
                       </button>
                     </div>
                   </div>
@@ -1033,10 +1033,10 @@ export default function JobOfferDetailsModal({
               <div className="space-y-1 pr-12 md:pr-16">
                 <h3 className="text-lg font-bold text-text flex items-center gap-2">
                   <Edit3 className="w-4.5 h-4.5 text-ai stroke-[1.75]" />
-                  {t('kanban.modal.editTitle')}
+                  {t('applications.modal.editTitle')}
                 </h3>
                 <p className="text-xs text-text-muted font-sans">
-                  {t('kanban.modal.editDesc')}
+                  {t('applications.modal.editDesc')}
                 </p>
               </div>
 
@@ -1044,7 +1044,7 @@ export default function JobOfferDetailsModal({
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.jobField')}
+                    {t('applications.modal.jobField')}
                   </label>
                   <input
                     type="text"
@@ -1052,7 +1052,7 @@ export default function JobOfferDetailsModal({
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    placeholder={t('kanban.modal.jobPlaceholder')}
+                    placeholder={t('applications.modal.jobPlaceholder')}
                     className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai focus:ring-1 focus:ring-ai transition-all font-sans"
                   />
                 </div>
@@ -1060,7 +1060,7 @@ export default function JobOfferDetailsModal({
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.companyField')}
+                    {t('applications.modal.companyField')}
                   </label>
                   <input
                     type="text"
@@ -1068,7 +1068,7 @@ export default function JobOfferDetailsModal({
                     required
                     value={formData.company}
                     onChange={handleInputChange}
-                    placeholder={t('kanban.modal.companyPlaceholder')}
+                    placeholder={t('applications.modal.companyPlaceholder')}
                     className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai focus:ring-1 focus:ring-ai transition-all font-sans"
                   />
                 </div>
@@ -1078,7 +1078,7 @@ export default function JobOfferDetailsModal({
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5">
                     <Link2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                    {t('kanban.modal.linkField')}
+                    {t('applications.modal.linkField')}
                   </label>
                   <input
                     type="url"
@@ -1091,7 +1091,7 @@ export default function JobOfferDetailsModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-muted dark:text-text">{t('kanban.modal.platformField')}</label>
+                  <label className="text-xs font-semibold text-text-muted dark:text-text">{t('applications.modal.platformField')}</label>
                   <select
                     name="platform"
                     value={formData.platform}
@@ -1101,21 +1101,21 @@ export default function JobOfferDetailsModal({
                     <option value="linkedin">LinkedIn</option>
                     <option value="infojobs">InfoJobs</option>
                     <option value="indeed">Indeed</option>
-                    <option value="other">{t('kanban.modal.platformOther')}</option>
+                    <option value="other">{t('applications.modal.platformOther')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-text-muted dark:text-text">
-                  {t('kanban.modal.descFieldRequired')}
+                  {t('applications.modal.descFieldRequired')}
                 </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={8}
-                  placeholder={t('kanban.modal.descPlaceholder')}
+                  placeholder={t('applications.modal.descPlaceholder')}
                   className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai focus:ring-1 focus:ring-ai transition-all resize-y font-sans font-light"
                 />
               </div>
@@ -1137,12 +1137,12 @@ export default function JobOfferDetailsModal({
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('kanban.modal.savingBtn')}
+                      {t('applications.modal.savingBtn')}
                     </>
                   ) : (
                     <>
                       <Save className="w-4 h-4 stroke-[1.75]" />
-                      {t('kanban.modal.saveChangesBtn')}
+                      {t('applications.modal.saveChangesBtn')}
                     </>
                   )}
                 </button>

@@ -51,7 +51,7 @@ export async function getOwnedJobOffer(offerId: string) {
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -82,7 +82,7 @@ export async function exportJobOffersReport(options: {
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const language = options.language === 'en' ? 'en' : 'es';
     const isEs = language === 'es';
@@ -244,7 +244,7 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -273,7 +273,7 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
       newStatus
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating offer status:", error);
@@ -287,7 +287,7 @@ export async function archiveJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -313,7 +313,7 @@ export async function archiveJobOffer(offerId: string) {
       })
       .where(eq(jobOffers.id, offerId));
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -328,7 +328,7 @@ export async function restoreArchivedJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -350,7 +350,7 @@ export async function restoreArchivedJobOffer(offerId: string) {
       })
       .where(eq(jobOffers.id, offerId));
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -365,7 +365,7 @@ export async function archiveMultipleJobOffers(offerIds: string[]) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
     const userId = session.user.id;
 
     if (!offerIds || offerIds.length === 0) {
@@ -404,7 +404,7 @@ export async function archiveMultipleJobOffers(offerIds: string[]) {
       archivedCount: offersToArchive.length,
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
 
     return { success: true, count: offersToArchive.length };
@@ -420,7 +420,7 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -440,7 +440,7 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
       })
       .where(eq(jobOffers.id, offerId));
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating offer CV:", error);
@@ -454,7 +454,7 @@ export async function deleteJobOffer(offerId: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -468,14 +468,14 @@ export async function deleteJobOffer(offerId: string) {
 
     await db.delete(jobOffers).where(eq(jobOffers.id, offerId));
 
-    // Log de auditoría para eliminación de candidatura en Kanban
+    // Log de auditoría para eliminación de candidatura en el tablero
     await createAuditLog("job_offer_delete", session.user.id, session.user.email || null, {
       offerId: offer.id,
       title: offer.title,
       company: offer.company
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -496,7 +496,7 @@ export async function createJobOffer(offerData: {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [newOffer] = (await db
       .insert(jobOffers)
@@ -519,7 +519,7 @@ export async function createJobOffer(offerData: {
       platform: newOffer.platform
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -543,7 +543,7 @@ export async function updateJobOfferDetails(
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
       .select()
@@ -575,7 +575,7 @@ export async function updateJobOfferDetails(
       updatedData: offerData
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -590,7 +590,7 @@ export async function analyzeFailuresAction(targetOffersText: string) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
 
     const userId = session.user.id;
 
@@ -629,7 +629,7 @@ export async function curateOffersWithAiAction(targetThreshold: number = 65) {
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
     const userId = session.user.id;
 
     // 1. Obtener usuario para suscripción
@@ -702,7 +702,7 @@ export async function curateOffersWithAiAction(targetThreshold: number = 65) {
       archivedCount: curated.filter(c => c.decision === 'archive').length,
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
 
     return { 
       results: curated,
@@ -755,8 +755,8 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         .set({ scoreOverall: evaluated.score, updatedAt: new Date() })
         .where(and(eq(jobOffers.id, offer.id), eq(jobOffers.userId, userId)));
       
-      revalidatePath(`/dashboard/kanban/offer/${offerId}`);
-      revalidatePath("/dashboard/kanban");
+      revalidatePath(`/dashboard/applications/offer/${offerId}`);
+      revalidatePath("/dashboard/applications");
 
       return {
         success: true,
@@ -785,7 +785,7 @@ export async function applyCuratedOffersAction({
     if (!session || !session.user || !session.user.id) {
       throw new Error("Unauthorized");
     }
-    await requireUserFeature(session.user.id, "kanban");
+    await requireUserFeature(session.user.id, "applications");
     const userId = session.user.id;
 
     const [user] = await db
@@ -822,7 +822,7 @@ export async function applyCuratedOffersAction({
       movedCount: moveOfferIds?.length || 0,
     });
 
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
     revalidatePath("/dashboard");
 
     return {

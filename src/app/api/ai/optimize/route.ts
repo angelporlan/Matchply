@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       platform,
       jobDescription,
       promptId,
-      addToKanban = true,
+      addToApplications = true,
       targetCvId: requestedTargetCvId,
     } = body;
 
@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
       baseCv.templateName,
       { isGuest: user.isGuest },
     );
-    const shouldAddToKanban = Boolean(addToKanban)
-      && canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest });
+    const shouldAddToApplications = Boolean(addToApplications)
+      && canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest });
     const shouldSavePartialResult = Boolean(targetCvId) && targetCvId !== baseCv.id;
 
     // 3. Obtener el stream de IA
@@ -190,11 +190,11 @@ export async function POST(req: NextRequest) {
             jobTitle,
             company,
             platform,
-            addToKanban: shouldAddToKanban,
+            addToApplications: shouldAddToApplications,
           });
 
-          // 5. Guardar Candidatura en Kanban
-          if (shouldAddToKanban) {
+          // 5. Guardar candidatura en postulaciones
+          if (shouldAddToApplications) {
             const [existingOffer] = await db
               .select()
               .from(jobOffers)

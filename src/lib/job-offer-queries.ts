@@ -1,6 +1,6 @@
 import { cvs, jobOffers } from '@/db/schema';
 
-export const kanbanOfferColumns = {
+export const applicationSummaryColumns = {
   id: jobOffers.id,
   userId: jobOffers.userId,
   cvId: jobOffers.cvId,
@@ -39,7 +39,7 @@ export const curateOfferColumns = {
   sourceMetadata: jobOffers.sourceMetadata,
 };
 
-export type KanbanOfferSummary = {
+export type ApplicationSummary = {
   id: string;
   userId: string;
   cvId: string | null;

@@ -18,7 +18,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: 'Matchply | Generador e Inteligencia de Currículums Híbrido',
   description: 'Optimiza tus currículums al instante utilizando IA. Plantilla Harvard con generación PDF en tiempo real.',
-  keywords: ['cv', 'curriculum', 'ia', 'deepseek', 'gemini', 'openrouter', 'pdfkit', 'stripe', 'kanban'],
+  keywords: ['cv', 'curriculum', 'ia', 'deepseek', 'gemini', 'openrouter', 'pdfkit', 'stripe', 'postulaciones'],
   authors: [{ name: 'Matchply Team' }],
 };
 

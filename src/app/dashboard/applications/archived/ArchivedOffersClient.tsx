@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { JobOffer } from '@/db/schema';
-import { CvListItem, KanbanOfferSummary } from '@/lib/job-offer-queries';
-import { restoreArchivedJobOffer, deleteJobOffer, updateJobOfferCv, getOwnedJobOffer } from '@/app/dashboard/kanban/actions';
-import JobOfferDetailsModal from '@/components/kanban/JobOfferDetailsModal';
+import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
+import { restoreArchivedJobOffer, deleteJobOffer, updateJobOfferCv, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import JobOfferDetailsModal from '@/components/applications/JobOfferDetailsModal';
 import AlertModal from '@/components/ui/AlertModal';
 import { formatDate } from '@/lib/utils';
 import { 
@@ -18,7 +18,7 @@ import {
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface ArchivedOffersClientProps {
-  offers: KanbanOfferSummary[];
+  offers: ApplicationSummary[];
   userCvs: CvListItem[];
   isPremium: boolean;
 }
@@ -38,7 +38,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const handleOpenDetails = async (offer: KanbanOfferSummary) => {
+  const handleOpenDetails = async (offer: ApplicationSummary) => {
     setDetailsLoading(true);
     setSelectedOfferForDetails(null);
     try {
@@ -50,7 +50,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       setDetailsLoading(false);
     }
   };
-  const [offerToDelete, setOfferToDelete] = useState<KanbanOfferSummary | null>(null);
+  const [offerToDelete, setOfferToDelete] = useState<ApplicationSummary | null>(null);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,11 +75,11 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
   };
 
   const statusLabels: Record<string, string> = {
-    interested: t('kanban.columns.interested.title'),
-    applied: t('kanban.columns.applied.title'),
-    interview: t('kanban.columns.interview.title'),
-    offer: t('kanban.columns.offer.title'),
-    rejected: t('kanban.columns.rejected.title'),
+    interested: t('applications.columns.interested.title'),
+    applied: t('applications.columns.applied.title'),
+    interview: t('applications.columns.interview.title'),
+    offer: t('applications.columns.offer.title'),
+    rejected: t('applications.columns.rejected.title'),
   };
 
   const getStatusConfig = (status: string) => {
@@ -87,31 +87,31 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
     switch (originalStatus) {
       case 'interested':
         return {
-          title: t('kanban.columns.interested.title'),
+          title: t('applications.columns.interested.title'),
           style: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
           icon: <Bookmark className="w-3 h-3 stroke-[1.75]" />,
         };
       case 'applied':
         return {
-          title: t('kanban.columns.applied.title'),
+          title: t('applications.columns.applied.title'),
           style: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
           icon: <Send className="w-3 h-3 stroke-[1.75]" />,
         };
       case 'interview':
         return {
-          title: t('kanban.columns.interview.title'),
+          title: t('applications.columns.interview.title'),
           style: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
           icon: <Calendar className="w-3 h-3 stroke-[1.75]" />,
         };
       case 'offer':
         return {
-          title: t('kanban.columns.offer.title'),
+          title: t('applications.columns.offer.title'),
           style: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
           icon: <PartyPopper className="w-3 h-3 stroke-[1.75]" />,
         };
       case 'rejected':
         return {
-          title: t('kanban.columns.rejected.title'),
+          title: t('applications.columns.rejected.title'),
           style: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
           icon: <Ban className="w-3 h-3 stroke-[1.75]" />,
         };
@@ -147,7 +147,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
     setLoading(null);
   };
 
-  const handleDeleteClick = (offer: KanbanOfferSummary) => {
+  const handleDeleteClick = (offer: ApplicationSummary) => {
     setOfferToDelete(offer);
     setIsDeleteModalOpen(true);
   };
@@ -231,7 +231,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
     return (
       <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
         <RotateCcw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
-        <p className="text-xs text-text-muted mt-3 font-sans">{t('kanban.archived.loadingText')}</p>
+        <p className="text-xs text-text-muted mt-3 font-sans">{t('applications.archived.loadingText')}</p>
       </div>
     );
   }
@@ -243,18 +243,18 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
         <div>
           <NextLink
-            href="/dashboard/kanban"
+            href="/dashboard/applications"
             className="inline-flex items-center gap-1.5 text-xs text-ai hover:text-ai/90 dark:hover:text-violet-300 font-bold mb-2 font-display group"
           >
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5 stroke-[1.75]" />
-            {t('kanban.archived.backBtn')}
+            {t('applications.archived.backBtn')}
           </NextLink>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
             <Archive className="w-6 h-6 text-amber-500 stroke-[1.75]" />
-            {t('kanban.archived.title')}
+            {t('applications.archived.title')}
           </h2>
           <p className="text-text-muted text-sm mt-1 font-sans">
-            {t('kanban.archived.subtitle')}
+            {t('applications.archived.subtitle')}
           </p>
         </div>
       </div>
@@ -262,20 +262,20 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       {/* Tarjetas Informativas Rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-display">
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.totalBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.archived.totalBadge')}</p>
           <p className="text-xl font-bold text-text mt-1">{offers.length}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.filteredBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.archived.filteredBadge')}</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{filteredOffers.length}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.cvBadge')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.archived.cvBadge')}</p>
           <p className="text-xl font-bold text-success-text mt-1">{offers.filter(o => o.cvId).length}</p>
         </div>
         <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('kanban.archived.pageBadge')}</p>
-          <p className="text-xl font-bold text-ai mt-1">{activePage} {t('kanban.archived.paginationOf')} {totalPages}</p>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.archived.pageBadge')}</p>
+          <p className="text-xl font-bold text-ai mt-1">{activePage} {t('applications.archived.paginationOf')} {totalPages}</p>
         </div>
       </div>
 
@@ -289,7 +289,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('kanban.archived.searchPlaceholder')}
+            placeholder={t('applications.archived.searchPlaceholder')}
             className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
           />
           {searchQuery && (
@@ -297,7 +297,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
               type="button"
               onClick={() => setSearchQuery('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-canvas/45 transition-colors"
-              aria-label={t('kanban.board.clearSearch')}
+              aria-label={t('applications.board.clearSearch')}
             >
               <X className="w-3.5 h-3.5 stroke-[1.75]" />
             </button>
@@ -311,14 +311,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <Sliders className="w-3 h-3 stroke-[1.75]" />
-              {t('kanban.archived.statusLabel')}
+              {t('applications.archived.statusLabel')}
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
-              <option value="all">{t('kanban.archived.statusAll')}</option>
+              <option value="all">{t('applications.archived.statusAll')}</option>
               {Object.entries(statusLabels).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
@@ -329,16 +329,16 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <Link2 className="w-3 h-3 stroke-[1.75]" />
-              {t('kanban.archived.cvLabel')}
+              {t('applications.archived.cvLabel')}
             </label>
             <select
               value={cvFilter}
               onChange={(e) => setCvFilter(e.target.value)}
               className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
-              <option value="all">{t('kanban.archived.cvAll')}</option>
-              <option value="linked">{t('kanban.archived.cvLinked')}</option>
-              <option value="unlinked">{t('kanban.archived.cvUnlinked')}</option>
+              <option value="all">{t('applications.archived.cvAll')}</option>
+              <option value="linked">{t('applications.archived.cvLinked')}</option>
+              <option value="unlinked">{t('applications.archived.cvUnlinked')}</option>
             </select>
           </div>
 
@@ -346,17 +346,17 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <ArrowUpDown className="w-3 h-3 stroke-[1.75]" />
-              {t('kanban.archived.sortLabel')}
+              {t('applications.archived.sortLabel')}
             </label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
-              <option value="newest">{t('kanban.archived.sortNewest')}</option>
-              <option value="oldest">{t('kanban.archived.sortOldest')}</option>
-              <option value="title_asc">{t('kanban.archived.sortTitleAsc')}</option>
-              <option value="company_asc">{t('kanban.archived.sortCompanyAsc')}</option>
+              <option value="newest">{t('applications.archived.sortNewest')}</option>
+              <option value="oldest">{t('applications.archived.sortOldest')}</option>
+              <option value="title_asc">{t('applications.archived.sortTitleAsc')}</option>
+              <option value="company_asc">{t('applications.archived.sortCompanyAsc')}</option>
             </select>
           </div>
 
@@ -364,17 +364,17 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
               <SlidersHorizontal className="w-3 h-3 stroke-[1.75]" />
-              {t('kanban.archived.perPageLabel')}
+              {t('applications.archived.perPageLabel')}
             </label>
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
               className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2.5 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
             >
-              <option value={6}>6 {t('kanban.board.offersCount')}</option>
-              <option value={9}>9 {t('kanban.board.offersCount')}</option>
-              <option value={12}>12 {t('kanban.board.offersCount')}</option>
-              <option value={24}>24 {t('kanban.board.offersCount')}</option>
+              <option value={6}>6 {t('applications.board.offersCount')}</option>
+              <option value={9}>9 {t('applications.board.offersCount')}</option>
+              <option value={12}>12 {t('applications.board.offersCount')}</option>
+              <option value={24}>24 {t('applications.board.offersCount')}</option>
             </select>
           </div>
 
@@ -384,14 +384,14 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
         {(searchQuery || statusFilter !== 'all' || cvFilter !== 'all' || sortBy !== 'newest') && (
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-subtle font-display">
             <span className="text-[11px] text-amber-500 font-semibold">
-              {t('kanban.archived.filterActiveMessage', { count: filteredOffers.length })}
+              {t('applications.archived.filterActiveMessage', { count: filteredOffers.length })}
             </span>
             <button
               onClick={clearAllFilters}
               className="text-[11px] font-bold text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-[8px] transition-all"
             >
               <X className="w-3 h-3 stroke-[1.75]" />
-              {t('kanban.archived.clearFiltersBtn')}
+              {t('applications.archived.clearFiltersBtn')}
             </button>
           </div>
         )}
@@ -403,26 +403,26 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
         <div className="min-h-[400px] flex flex-col items-center justify-center text-center border-2 border-dashed border-subtle rounded-[12px] bg-surface/35 p-8">
           <Inbox className="w-10 h-10 mb-4 text-text-muted dark:text-slate-600 stroke-[1.75]" />
           <h3 className="text-base font-bold text-text font-display">
-            {offers.length === 0 ? t('kanban.archived.emptyTitle') : t('kanban.archived.emptyTitleSearch')}
+            {offers.length === 0 ? t('applications.archived.emptyTitle') : t('applications.archived.emptyTitleSearch')}
           </h3>
           <p className="text-xs text-text-muted mt-1.5 max-w-sm font-sans mx-auto leading-relaxed">
             {offers.length === 0 
-              ? t('kanban.archived.emptyDesc')
-              : t('kanban.archived.emptyDescSearch')}
+              ? t('applications.archived.emptyDesc')
+              : t('applications.archived.emptyDescSearch')}
           </p>
           {offers.length === 0 ? (
             <NextLink
-              href="/dashboard/kanban"
+              href="/dashboard/applications"
               className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-[8px] bg-text dark:bg-white text-canvas font-bold text-xs shadow-sm hover:opacity-90 transition-all font-display"
             >
-              {t('kanban.archived.backBtn')}
+              {t('applications.archived.backBtn')}
             </NextLink>
           ) : (
             <button
               onClick={clearAllFilters}
               className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-[8px] bg-amber-500 dark:bg-amber-500 text-white font-bold text-xs shadow-sm hover:bg-amber-600 transition-all font-display"
             >
-              {t('kanban.archived.emptyRestoreFiltersBtn')}
+              {t('applications.archived.emptyRestoreFiltersBtn')}
             </button>
           )}
         </div>
@@ -449,7 +449,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                     </span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${statusConfig.style}`}>
                       {statusConfig.icon}
-                      {t('kanban.archived.cardBeforeStatus', { status: statusConfig.title })}
+                      {t('applications.archived.cardBeforeStatus', { status: statusConfig.title })}
                     </span>
                   </div>
 
@@ -475,7 +475,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                     onChange={(e) => handleCvChange(offer.id, e.target.value)}
                     className="w-full bg-transparent text-[10px] text-text-muted dark:text-slate-300 font-medium focus:outline-none cursor-pointer font-sans"
                   >
-                    <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('kanban.card.placeholderCv')}</option>
+                    <option value="" className="bg-canvas text-text-muted dark:text-slate-550">{t('applications.card.placeholderCv')}</option>
                     {userCvs.map((cv) => (
                       <option key={cv.id} value={cv.id} className="bg-canvas text-text">
                         {cv.title.length > 25 ? cv.title.substring(0, 25) + '...' : cv.title}
@@ -487,7 +487,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                 {/* Footer de Tarjeta con Controles */}
                 <div className="flex items-center justify-between border-t border-subtle pt-3">
                   <span className="text-[10px] text-text-muted font-light font-sans">
-                    {t('kanban.archived.cardArchivedAt', { date: new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US') })}
+                    {t('applications.archived.cardArchivedAt', { date: new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US') })}
                   </span>
 
                   <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -495,7 +495,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                       type="button"
                       onClick={() => handleOpenDetails(offer)}
                       className="text-text-muted hover:text-text dark:hover:text-white p-1.5 bg-canvas/45 border border-subtle rounded-[8px] transition-all hover:shadow-xs"
-                      title={t('kanban.archived.cardDetailsBtn')}
+                      title={t('applications.archived.cardDetailsBtn')}
                     >
                       <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
                     </button>
@@ -503,16 +503,16 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
                       type="button"
                       onClick={() => handleRestore(offer.id)}
                       className="inline-flex items-center gap-1 text-success-text hover:text-success-text/90 p-1.5 bg-action/10 border border-action/20 rounded-[8px] transition-all text-[11px] font-bold"
-                      title={t('kanban.archived.cardRestoreTitle')}
+                      title={t('applications.archived.cardRestoreTitle')}
                     >
                       <RotateCcw className="w-3.5 h-3.5 stroke-[1.75]" />
-                      <span>{t('kanban.archived.cardRestoreBtn')}</span>
+                      <span>{t('applications.archived.cardRestoreBtn')}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteClick(offer)}
                       className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-1.5 bg-canvas/45 border border-subtle rounded-[8px] transition-all"
-                      title={t('kanban.archived.cardDeleteBtn')}
+                      title={t('applications.archived.cardDeleteBtn')}
                     >
                       <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
                     </button>
@@ -531,7 +531,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
           
           {/* Indicador de registros */}
           <span className="text-xs text-text-muted">
-            {t('kanban.archived.paginationShowing', { start: startIndex + 1, end: endIndex, total: totalItems })}
+            {t('applications.archived.paginationShowing', { start: startIndex + 1, end: endIndex, total: totalItems })}
           </span>
 
           {/* Botones de página */}
@@ -542,7 +542,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={activePage === 1}
               className="p-2 border border-subtle rounded-[8px] text-text-muted hover:text-text dark:hover:text-white bg-surface hover:bg-canvas dark:hover:bg-canvas/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              aria-label={t('kanban.archived.paginationPrev')}
+              aria-label={t('applications.archived.paginationPrev')}
             >
               <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
             </button>
@@ -577,7 +577,7 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={activePage === totalPages}
               className="p-2 border border-subtle rounded-[8px] text-text-muted hover:text-text dark:hover:text-white bg-surface hover:bg-canvas dark:hover:bg-canvas/45 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              aria-label={t('kanban.archived.paginationNext')}
+              aria-label={t('applications.archived.paginationNext')}
             >
               <ChevronRight className="w-4 h-4 stroke-[1.75]" />
             </button>
@@ -606,10 +606,10 @@ export default function ArchivedOffersClient({ offers, userCvs, isPremium }: Arc
       <AlertModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title={t('kanban.archived.deleteTitle')}
-        message={t('kanban.archived.deleteMessage', { title: offerToDelete?.title || '', company: offerToDelete?.company || '' })}
+        title={t('applications.archived.deleteTitle')}
+        message={t('applications.archived.deleteMessage', { title: offerToDelete?.title || '', company: offerToDelete?.company || '' })}
         type="danger"
-        confirmLabel={t('kanban.archived.cardDeleteBtn')}
+        confirmLabel={t('applications.archived.cardDeleteBtn')}
         cancelLabel={t('common.cancel')}
         onConfirm={confirmDelete}
         isPending={!!(offerToDelete && loading === offerToDelete.id)}

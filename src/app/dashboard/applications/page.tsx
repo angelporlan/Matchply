@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, jobOffers } from '@/db/schema';
-import { eq, desc, and, like } from 'drizzle-orm';
-import ArchivedOffersClient from './ArchivedOffersClient';
+import { eq, desc } from 'drizzle-orm';
+import ApplicationsBoard from '@/components/applications/ApplicationsBoard';
 import { isProSubscription } from '@/lib/subscription';
-import { cvListColumns, kanbanOfferColumns } from '@/lib/job-offer-queries';
+import { cvListColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
 
-export default async function ArchivedOffersPage() {
+export default async function ApplicationsPage() {
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect('/login');
@@ -15,7 +16,7 @@ export default async function ArchivedOffersPage() {
 
   const userId = session.user.id;
 
-  // 1. Obtener información del usuario para verificar Premium
+  // 1. Obtener información actualizada del usuario de la base de datos
   const [dbUser] = await db
     .select()
     .from(users)
@@ -29,7 +30,7 @@ export default async function ArchivedOffersPage() {
     redirect('/dashboard/subscription');
   }
 
-  // 2. Obtener currículums del usuario
+  // 2. Obtener lista de currículums del usuario
   const userCvs = await db
     .select(cvListColumns)
     .from(cvs)
@@ -37,24 +38,20 @@ export default async function ArchivedOffersPage() {
     .orderBy(desc(cvs.createdAt));
 
   const offers = await db
-    .select(kanbanOfferColumns)
+    .select(applicationSummaryColumns)
     .from(jobOffers)
-    .where(
-      and(
-        eq(jobOffers.userId, userId),
-        like(jobOffers.status, 'archived:%')
-      )
-    )
+    .where(eq(jobOffers.userId, userId))
     .orderBy(desc(jobOffers.updatedAt));
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
-      {/* Background blurs */}
+      {/* Background blur */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        <ArchivedOffersClient offers={offers} userCvs={userCvs} isPremium={isPremium} />
+        {/* Tablero de postulaciones */}
+        <ApplicationsBoard offers={offers} userCvs={userCvs} />
       </main>
     </div>
   );
