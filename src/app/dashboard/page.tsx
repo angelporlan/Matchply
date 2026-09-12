@@ -104,7 +104,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
               <div>
                 <h2 className="text-xl font-bold font-display text-[#1e1b4b] dark:text-white flex items-center gap-2">
-                  {t('dashboard.banner.title', { name: session.user.name || t('sidebar.profile.candidate') })}
+                  {t('dashboard.banner.title', { name: dbUser?.name || session.user.name || t('sidebar.profile.candidate') })}
                 </h2>
                 <p className="text-[#1e1b4b]/60 dark:text-slate-400 text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
                   {t('dashboard.banner.desc')}

@@ -3,17 +3,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, CreditCard, Crown, LogOut, Shield, FileText, Menu, X, Terminal, UserPlus, SlidersHorizontal } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
+import UserMenu from '@/components/account/UserMenu';
 
 interface SidebarProps {
   user: {
     name?: string | null;
     email?: string | null;
+    image?: string | null;
     role?: string | null;
   };
   isPremium: boolean;
@@ -24,8 +25,6 @@ type SidebarMenuItem = {
   name: string;
   href: string;
   icon: any;
-  isAi?: boolean;
-  premiumIcon?: boolean;
 };
 
 export default function Sidebar({ user, isPremium, isGuest = false }: SidebarProps) {
@@ -50,32 +49,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       href: '/dashboard/kanban',
       icon: Kanban,
     },
-    {
-      name: language === 'es' ? 'Mi Perfil & Criterios' : 'Career Profile',
-      href: '/dashboard/profile',
-      icon: SlidersHorizontal,
-      isAi: true,
-    },
-    {
-      name: t('sidebar.menu.integrations') || 'Integraciones',
-      href: '/dashboard/integrations',
-      icon: Terminal,
-    },
-    {
-      name: t('sidebar.menu.subscription'),
-      href: '/dashboard/subscription',
-      icon: isPremium ? Crown : CreditCard,
-      premiumIcon: isPremium,
-    },
   ];
-
-  if (!isGuest && user.role === 'admin') {
-    menuItems.push({
-      name: t('sidebar.menu.adminPanel'),
-      href: '/admin',
-      icon: Shield,
-    });
-  }
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -84,16 +58,6 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       return pathname === '/dashboard';
     }
     return pathname.startsWith(href);
-  };
-
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      await signOut({ callbackUrl: '/' });
-    } catch (err) {
-      console.error('Error logging out:', err);
-    }
   };
 
   return (
@@ -125,7 +89,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
 
       {/* Sidebar Panel */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-[#0b0f19] border-r border-[#1e1b4b]/10 dark:border-white/10 z-50 md:z-0 transition-all duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-[#0b0f19] border-r border-[#1e1b4b]/10 dark:border-white/10 z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } flex flex-col justify-between p-6 select-none`}
       >
@@ -158,13 +122,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
                 >
                   <Icon
                     className={`w-4 h-4 stroke-[1.75] ${
-                      active
-                        ? 'text-white'
-                        : item.isAi
-                        ? 'text-[#8b5cf6] dark:text-violet-400'
-                        : item.premiumIcon
-                        ? 'text-amber-500'
-                        : 'text-[#1e1b4b]/50 dark:text-slate-400'
+                      active ? 'text-white' : 'text-[#1e1b4b]/50 dark:text-slate-400'
                     }`}
                   />
                   <span>{item.name}</span>
@@ -176,7 +134,6 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
 
         {/* User profile & language settings */}
         <div className="pt-4 border-t border-[#1e1b4b]/10 dark:border-white/10 space-y-4">
-          
           {/* Sleek Language Panel */}
           <div className="flex items-center justify-between bg-[#fafafa] dark:bg-[#1f2937]/30 border border-[#1e1b4b]/5 dark:border-white/5 px-3 py-2 rounded-[10px] shadow-xs">
             <span className="text-[11px] font-bold text-[#1e1b4b]/60 dark:text-slate-400 font-display">
@@ -185,71 +142,38 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
             <LanguageToggle />
           </div>
 
-          {/* User Profile */}
-          <div className="flex items-center justify-between px-1">
-            <div className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate font-display">
-                {isGuest ? (language === 'es' ? 'Invitado' : 'Guest') : (user.name || t('sidebar.profile.candidate'))}
-              </span>
-              <span className="block text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 truncate">
-                {isGuest ? (language === 'es' ? 'Prueba sin registro' : 'Trial without signup') : user.email}
-              </span>
-            </div>
-            {isPremium && (
-              <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-[8px] shadow-sm ml-2 shrink-0">
-                PRO
-              </span>
-            )}
-          </div>
-
           {isGuest ? (
-            <div className="space-y-2 font-display">
-              <Link
-                href="/register"
-                className="flex items-center justify-center gap-2 w-full bg-[#2ecc71] hover:bg-[#29b765] text-white font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
-              >
-                <UserPlus className="w-3.5 h-3.5 stroke-[1.75]" />
-                <span>{language === 'es' ? 'Guardar mi CV' : 'Save my CV'}</span>
-              </Link>
-              <Link
-                href="/login"
-                className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 text-[#1e1b4b]/70 dark:text-slate-300 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
-              >
-                {language === 'es' ? 'Ya tengo cuenta' : 'I have an account'}
-              </Link>
-            </div>
-          ) : (
-          <div className="relative">
-            {showConfirm && (
-              <div className="absolute bottom-full left-0 right-0 mb-3 p-4 bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[12px] shadow-xl z-50 animate-fadeIn backdrop-blur-md text-center">
-                <p className="text-[11px] font-bold text-[#1e1b4b] dark:text-white mb-2.5 font-display">
-                  {t('sidebar.logout.confirm')}
-                </p>
-                <div className="flex items-center gap-2 font-display">
-                  <button
-                    onClick={handleLogout}
-                    className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-1.5 px-3 rounded-[8px] text-[10px] transition-all flex items-center justify-center gap-1 shadow-sm"
-                  >
-                    {t('sidebar.logout.yes')}
-                  </button>
-                  <button
-                    onClick={() => setShowConfirm(false)}
-                    className="flex-1 bg-[#fafafa] dark:bg-[#0b0f19] hover:bg-[#fafafa]/80 text-[#1e1b4b]/60 dark:text-slate-400 border border-[#1e1b4b]/10 dark:border-white/10 font-bold py-1.5 px-3 rounded-[8px] text-[10px] transition-all flex items-center justify-center"
-                  >
-                    {t('common.cancel')}
-                  </button>
+            <>
+              {/* Guest profile */}
+              <div className="flex items-center justify-between px-1">
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-[#1e1b4b] dark:text-white truncate font-display">
+                    {language === 'es' ? 'Invitado' : 'Guest'}
+                  </span>
+                  <span className="block text-[11px] text-[#1e1b4b]/50 dark:text-slate-400 truncate">
+                    {language === 'es' ? 'Prueba sin registro' : 'Trial without signup'}
+                  </span>
                 </div>
               </div>
-            )}
 
-            <button
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-[#1e1b4b]/60 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-450 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
-            >
-              <LogOut className="w-3.5 h-3.5 stroke-[1.75]" />
-              <span>{t('sidebar.logout.button')}</span>
-            </button>
-          </div>
+              <div className="space-y-2 font-display">
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 w-full bg-[#2ecc71] hover:bg-[#29b765] text-white font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+                >
+                  <UserPlus className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <span>{language === 'es' ? 'Guardar mi CV' : 'Save my CV'}</span>
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex items-center justify-center gap-2 w-full bg-[#fafafa] dark:bg-[#1f2937]/30 text-[#1e1b4b]/70 dark:text-slate-300 border border-[#1e1b4b]/10 dark:border-white/5 font-bold py-2.5 px-4 rounded-[8px] text-xs transition-all shadow-sm"
+                >
+                  {language === 'es' ? 'Ya tengo cuenta' : 'I have an account'}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <UserMenu user={user} isPremium={isPremium} />
           )}
         </div>
       </aside>

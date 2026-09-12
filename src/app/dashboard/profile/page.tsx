@@ -1,24 +1,36 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { users, cvs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { isProSubscription } from '@/lib/subscription';
+import { getResearchQuota } from '@/lib/research/queue';
+import { listExtensionInstallations } from '@/lib/extension-auth';
+import { getServerTranslations } from '@/lib/i18n/server';
 import CareerProfileForm from '@/components/profile/CareerProfileForm';
+import SettingsTabs from '@/components/profile/SettingsTabs';
+import AccountSettings from '@/components/profile/AccountSettings';
+import IntegrationsTabs from '@/components/subscription/IntegrationsTabs';
 import { Sparkles } from 'lucide-react';
 
-export default async function ProfilePreferencesPage() {
+export default async function ProfileSettingsPage() {
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect('/login');
   }
 
   const userId = session.user.id;
+  const { t } = getServerTranslations();
 
   const [dbUser] = await db
     .select()
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+
+  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
+  const isPremium = isProSubscription(subscriptionStatus);
 
   const userCvs = await db
     .select({
@@ -32,6 +44,10 @@ export default async function ProfilePreferencesPage() {
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.createdAt));
 
+  const [initialInstallations, initialQuota] = isPremium
+    ? await Promise.all([listExtensionInstallations(userId), getResearchQuota(userId)])
+    : [[], { used: 0, limit: 10, periodStart: new Date() }];
+
   return (
     <div className="relative overflow-x-hidden min-h-screen">
       {/* Background ambient glow */}
@@ -44,22 +60,56 @@ export default async function ProfilePreferencesPage() {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-bold font-sans">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Fuente de la Verdad para la IA</span>
+              <span>{t('settings.badge')}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1e1b4b] dark:text-white font-display">
-              Mi Perfil & Criterios de Búsqueda
+              {t('settings.title')}
             </h1>
             <p className="text-xs sm:text-sm text-[#1e1b4b]/60 dark:text-slate-400 font-sans max-w-2xl">
-              Pega tu experiencia (CV, LinkedIn o notas). La IA infiere tu perfil de software y redacta un documento maestro. Decir a qué rol aspiras es opcional.
+              {t('settings.subtitle')}
             </p>
           </div>
         </div>
 
-        {/* Formulario de Perfil */}
-        <CareerProfileForm
-          initialProfile={dbUser?.mcpProfile as any}
-          userCvs={userCvs}
-        />
+        {/* Pestañas unificadas: Perfil & Criterios · Integraciones · Cuenta */}
+        <Suspense
+          fallback={
+            <div className="h-24 rounded-[12px] border border-dashed border-[#1e1b4b]/10 dark:border-white/10" />
+          }
+        >
+          <SettingsTabs
+            defaultTab="profile"
+            profile={
+              <CareerProfileForm
+                initialProfile={dbUser?.mcpProfile as any}
+                userCvs={userCvs}
+              />
+            }
+            integrations={
+              <IntegrationsTabs
+                isPremium={isPremium}
+                initialHasKey={Boolean(dbUser?.apiKeyHash || dbUser?.apiKey)}
+                initialApiKeyPrefix={dbUser?.apiKeyPrefix || null}
+                userCvs={userCvs}
+                initialMcpCvId={dbUser?.mcpCvId || null}
+                initialMcpProfile={dbUser?.mcpProfile as any}
+                initialInstallations={initialInstallations}
+                initialQuota={initialQuota}
+              />
+            }
+            account={
+              <AccountSettings
+                user={{
+                  name: dbUser?.name || session.user.name || '',
+                  email: dbUser?.email || session.user.email || '',
+                  image: dbUser?.image || session.user.image,
+                }}
+                isPremium={isPremium}
+                memberSince={dbUser?.createdAt ? dbUser.createdAt.toISOString() : null}
+              />
+            }
+          />
+        </Suspense>
       </main>
     </div>
   );

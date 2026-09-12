@@ -1,5 +1,5 @@
 const VALID_PLANS = new Set(['free', 'pro']);
-const VALID_TEMPLATES = new Set(['harvard', 'modern', 'minimal', 'creative', 'swiss']);
+const VALID_TEMPLATES = new Set(['harvard']);
 
 function readParam(value: string | null, maxLength = 120) {
   if (!value || value.length > maxLength || /[\\\u0000-\u001f]/.test(value)) return null;

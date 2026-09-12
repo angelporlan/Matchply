@@ -3,8 +3,9 @@
 import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { auth } from "@/auth";
+import { auth, unstable_update } from "@/auth";
 import { issueUserApiKey } from "@/lib/api-keys";
+import { sanitizeDisplayName } from "@/lib/user-name";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -189,7 +190,7 @@ export async function updateCvStyling(
       updates.templateName
       && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest" })
     ) {
-      throw new Error("Las plantillas Modern, Minimal, Creative y Swiss requieren una suscripción PRO.");
+      throw new Error("La única plantilla disponible es Harvard.");
     }
 
     await db
@@ -267,7 +268,7 @@ export async function generateUserApiKey() {
     });
 
     revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/integrations");
+    revalidatePath("/dashboard/profile");
     return { success: true, apiKey: issued.plaintext, prefix: issued.prefix };
   } catch (error: any) {
     console.error("Error generating user API Key:", error);
@@ -306,7 +307,7 @@ export async function revokeUserApiKey() {
     });
 
     revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/integrations");
+    revalidatePath("/dashboard/profile");
     return { success: true };
   } catch (error: any) {
     console.error("Error revoking user API Key:", error);
@@ -434,7 +435,7 @@ export async function updateUserMcpSettings(
       hasMcpCv: !!mcpCvId,
     });
 
-    revalidatePath("/dashboard/integrations");
+    revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/kanban");
     return { success: true };
@@ -482,12 +483,64 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
     revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/kanban");
-    revalidatePath("/dashboard/integrations");
 
     return { success: true };
   } catch (error: any) {
     console.error("Error saving career profile:", error);
     return { error: error.message || "Failed to save career profile" };
+  }
+}
+
+export async function updateUserNameAction(name: string) {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      return { error: "Unauthorized" };
+    }
+
+    const sanitized = sanitizeDisplayName(name);
+    if (!sanitized) {
+      return { error: "INVALID_NAME" };
+    }
+
+    const [currentUser] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1);
+
+    if (!currentUser) {
+      return { error: "User not found" };
+    }
+
+    if (currentUser.name === sanitized) {
+      return { success: true, name: sanitized };
+    }
+
+    await db
+      .update(users)
+      .set({ name: sanitized })
+      .where(eq(users.id, session.user.id));
+
+    await createAuditLog("user_name_update", session.user.id, session.user.email || null, {
+      previousName: currentUser.name,
+      newName: sanitized,
+    });
+
+    try {
+      await unstable_update({ user: { name: sanitized } });
+    } catch (sessionError) {
+      console.error("Error refreshing session after name update:", sessionError);
+    }
+
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/admin", "layout");
+    revalidatePath("/dashboard/profile");
+
+    return { success: true, name: sanitized };
+  } catch (error: any) {
+    console.error("Error updating user name:", error);
+    return { error: error.message || "Failed to update name" };
   }
 }
 

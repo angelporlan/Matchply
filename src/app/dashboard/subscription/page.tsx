@@ -96,7 +96,7 @@ export default async function SubscriptionPage() {
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2ecc71] shrink-0 mt-0.5 stroke-[1.75]" />
-                    <span>{t('subscription.freeCard.feature2').split(' Harvard')[0]} <strong>Harvard</strong></span>
+                    <span>{t('subscription.freeCard.feature2')}</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2ecc71] shrink-0 mt-0.5 stroke-[1.75]" />
@@ -153,7 +153,7 @@ export default async function SubscriptionPage() {
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2ecc71] shrink-0 mt-0.5 stroke-[1.75]" />
-                    <span>{t('subscription.proCard.feature2').split('Premium')[0]}<strong>{t('subscription.proCard.feature2').includes('Plantillas') ? '5 Plantillas Premium' : '5 Premium Templates'}</strong>{t('subscription.proCard.feature2').split('Premium')[1] || t('subscription.proCard.feature2').split('Templates')[1]}</span>
+                    <span>{t('subscription.proCard.feature2')}</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#2ecc71] shrink-0 mt-0.5 stroke-[1.75]" />

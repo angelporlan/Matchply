@@ -9,7 +9,7 @@ import { createAuditLog } from "@/lib/audit";
 import { consumeRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,

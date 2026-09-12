@@ -74,27 +74,11 @@ export const translations = {
         },
       },
       templates: {
-        title: '5 Plantillas de Nivel Profesional y Ultra-Optimizadas',
-        subtitle: 'Diseñadas para respetar la regla dorada de 1 página. El texto respira y encaja a la perfección según tus necesidades.',
+        title: 'La Plantilla Harvard Profesional',
+        subtitle: 'Diseñada para respetar la regla dorada de 1 página. El texto respira y encaja a la perfección según tus necesidades.',
         harvard: {
           desc: 'El estándar de oro. Diseño clásico centrado, jerarquía rigurosa y máxima aceptación por reclutadores en banca, consultoría y Big Tech.',
           cta: 'Elegir clásico',
-        },
-        modern: {
-          desc: 'Asimetría de vanguardia con barra lateral azul petróleo. Ideal para roles de ingeniería de software, analistas y gerencia intermedia.',
-          cta: 'Elegir moderno',
-        },
-        minimal: {
-          desc: 'Elegancia pura. Texto sobrio y márgenes extra-amplios que aseguran un balance perfecto para perfiles ejecutivos o creativos senior.',
-          cta: 'Elegir minimal',
-        },
-        creative: {
-          desc: 'Inspiración disruptiva con degradados magenta/púrpura y un panel visual lateral que destaca en agencias, startups y diseño.',
-          cta: 'Elegir creativo',
-        },
-        swiss: {
-          desc: 'Inspirada en el diseño internacional suizo. Geometría perfecta, bordes finos de separación y un acento rojo neón icónico.',
-          cta: 'Elegir suizo',
         },
       },
       pricing: {
@@ -116,7 +100,7 @@ export const translations = {
           name: 'PRO',
           period: '/ al mes',
           feature1: 'Currículums ilimitados',
-          feature2: 'Acceso a las 5 Plantillas Premium',
+          feature2: 'Descargas e impresión PDF ilimitadas',
           feature3: 'Optimización IA avanzada · logros cuantificables',
           feature4: 'Tablero Kanban de candidaturas',
           feature5: 'Alineación avanzada de palabras clave',
@@ -160,7 +144,7 @@ export const translations = {
           proDaily: '≈ 0,33 € al día',
           proFeature1: 'CVs adaptados sin límite',
           proFeature2: 'IA avanzada, keywords y logros cuantificables',
-          proFeature3: '5 plantillas en total',
+          proFeature3: 'Descargas PDF ilimitadas',
           proFeature4: 'Kanban con el CV enviado en cada oferta',
           proCta: 'Elegir PRO · 10 €/mes',
           proNote: 'Suscripción mensual · cancela desde tu cuenta · pago seguro con Stripe.',
@@ -170,7 +154,7 @@ export const translations = {
           comparePro: 'PRO',
           row1: 'CV base|1|Ilimitados',
           row2: 'Optimización|IA básica|IA avanzada + logros',
-          row3: 'Plantillas|Harvard|5 en total',
+          row3: 'Descargas PDF|Incluidas|Ilimitadas',
           row4: 'PDF y editor|Incluido|Incluido',
           row5: 'Seguimiento|—|Kanban completo',
           row6: 'CV específico por oferta|Limitado|Ilimitado',
@@ -229,8 +213,6 @@ export const translations = {
       menu: {
         cvs: 'Mis CVs',
         kanban: 'Kanban',
-        subscription: 'Suscripción',
-        integrations: 'Integraciones',
         adminPanel: 'Panel Admin',
       },
       logout: {
@@ -241,11 +223,49 @@ export const translations = {
       profile: {
         candidate: 'Candidato',
       },
+      userMenu: {
+        account: 'Mi cuenta',
+        save: 'Guardar',
+        saved: 'Nombre actualizado',
+        nameError: 'El nombre debe tener entre 2 y 60 caracteres.',
+        saveError: 'No se pudo actualizar el nombre.',
+        namePlaceholder: 'Tu nombre',
+        profile: 'Perfil y criterios',
+        integrations: 'Integraciones',
+        subscription: 'Suscripción',
+        planPro: 'Plan PRO',
+        planFree: 'Plan Gratuito',
+      },
+    },
+    settings: {
+      badge: 'Fuente de la Verdad para la IA',
+      title: 'Ajustes',
+      subtitle: 'Gestiona tu perfil y criterios de búsqueda, tus integraciones y los datos de tu cuenta en un solo lugar.',
+      tabs: {
+        profile: 'Perfil y Criterios',
+        integrations: 'Integraciones',
+        account: 'Cuenta',
+      },
+      account: {
+        personalTitle: 'Información personal',
+        nameLabel: 'Nombre visible',
+        emailLabel: 'Correo electrónico',
+        emailHint: 'El correo se gestiona con tu proveedor de acceso y no se puede cambiar aquí.',
+        planTitle: 'Plan y facturación',
+        planFree: 'Plan Gratuito',
+        planPro: 'PRO',
+        planActive: 'Activo',
+        planFreeDesc: 'Optimización IA básica con la plantilla Harvard. Mejora a PRO para desbloquear integraciones y CVs ilimitados.',
+        planProDesc: 'Acceso completo a optimización IA avanzada, integraciones, Kanban y descargas ilimitadas.',
+        manageBilling: 'Gestionar facturación',
+        upgrade: 'Mejorar a PRO',
+        memberSince: 'Miembro desde {date}',
+      },
     },
     dashboard: {
       banner: {
         title: 'Hola, {name}',
-        desc: 'Estás en el Plan Gratuito. Desbloquea plantillas profesionales e integraciones de IA avanzadas actualizando tu cuenta.',
+        desc: 'Estás en el Plan Gratuito. Desbloquea integraciones de IA avanzadas y funciones profesionales actualizando tu cuenta.',
         upgrade: 'Actualizar a PRO (10 €/mes)',
       },
       stats: {
@@ -563,10 +583,10 @@ export const translations = {
         price: '10 €',
         period: '/ mes (IVA inc.)',
         feature1: 'Optimización IA avanzada · logros cuantificables y alineación de palabras clave',
-        feature2: '5 Plantillas Premium: Harvard, Modern, Minimal, Creative y Swiss',
+        feature2: 'CVs adaptados ilimitados por oferta',
         feature3: 'Velocidad de generación prioritaria en segundos',
         feature4: 'Vinculación ilimitada de CVs dentro del tablero Kanban',
-        feature5: 'Soporte prioritario y acceso a mejoras de plantillas',
+        feature5: 'Soporte prioritario y acceso anticipado a nuevas funciones',
         btn: 'Actualizar a PRO (10 €/mes)',
       },
       proActive: {
@@ -580,7 +600,7 @@ export const translations = {
         manageBillingBtn: 'Gestionar Método de Pago & Facturas',
         benefitsTitle: 'Tus Beneficios Activos',
         benefit1: 'Optimización IA avanzada',
-        benefit2: '5 Plantillas Premium de CV',
+        benefit2: 'CVs adaptados ilimitados por oferta',
         benefit3: 'Vinculación ilimitada en Kanban',
         benefit4: 'Descargas e impresión PDF sin límites',
       },
@@ -629,10 +649,6 @@ export const translations = {
         customColor: 'Color personalizado',
         templates: {
           harvard: 'Harvard (Básico)',
-          modern: 'Modern (PRO)',
-          minimal: 'Minimal (PRO)',
-          creative: 'Creative (PRO)',
-          swiss: 'Swiss (PRO)',
         },
         fonts: {
           helvetica: 'Helvetica (Sans)',
@@ -700,11 +716,6 @@ export const translations = {
         saved: 'Guardado en la nube',
         saving: 'Guardando cambios...',
         error: 'Error de conexión',
-      },
-      upgradeModal: {
-        title: 'Plantilla Premium',
-        message: 'Las plantillas Modern, Minimal, Creative y Swiss son exclusivas para socios PRO.\n\n¡Suscríbete ahora para utilizarlas y potenciar tu impacto profesional!',
-        confirm: 'Suscribirse',
       },
       aiModal: {
         title: 'Optimización Inteligente por IA',
@@ -811,27 +822,11 @@ export const translations = {
         },
       },
       templates: {
-        title: '5 Professional, Ultra-Optimized Templates',
+        title: 'The Professional Harvard Template',
         subtitle: 'Designed around the golden 1-page rule. Your content has room to breathe while fitting perfectly to your needs.',
         harvard: {
           desc: 'The gold standard. A classic centered layout, rigorous hierarchy, and strong recruiter acceptance in banking, consulting, and Big Tech.',
           cta: 'Choose classic',
-        },
-        modern: {
-          desc: 'A sharp asymmetric layout with a petrol-blue sidebar. Ideal for software engineering, analyst, and mid-management roles.',
-          cta: 'Choose modern',
-        },
-        minimal: {
-          desc: 'Pure elegance. Restrained text and extra-wide margins that create perfect balance for executive or senior creative profiles.',
-          cta: 'Choose minimal',
-        },
-        creative: {
-          desc: 'Disruptive inspiration with magenta/purple gradients and a visual side panel that stands out in agencies, startups, and design.',
-          cta: 'Choose creative',
-        },
-        swiss: {
-          desc: 'Inspired by international Swiss design. Perfect geometry, fine divider lines, and an iconic neon-red accent.',
-          cta: 'Choose Swiss',
         },
       },
       pricing: {
@@ -853,7 +848,7 @@ export const translations = {
           name: 'PRO',
           period: '/ month',
           feature1: 'Unlimited CVs',
-          feature2: 'Access to all 5 Premium Templates',
+          feature2: 'Unlimited PDF downloads and printing',
           feature3: 'Advanced AI optimization · quantifiable achievements',
           feature4: 'Application Kanban board',
           feature5: 'Advanced keyword alignment',
@@ -877,9 +872,9 @@ export const translations = {
         pricing: {
           eyebrow: 'Two plans, one clear difference', title: 'Start with one application. Scale when your search gets active.', subtitle: 'No decoy plans, fake countdowns, or annual commitment.',
           freeLabel: 'Free', freeAudience: 'For preparing your first application', freePeriod: 'forever', freeFeature1: '1 editable base resume', freeFeature2: 'Basic AI optimization', freeFeature3: 'Harvard template', freeFeature4: 'Editor and PDF', freeCta: 'Try free without signing up', freeNote: 'Create an account only to save and download.',
-          proLabel: 'PRO', proBadge: 'For an active job search', proAudience: 'For tailoring every application', proPeriod: 'per month', proDaily: '≈ €0.33 per day', proFeature1: 'Unlimited tailored resumes', proFeature2: 'Advanced AI, keywords, and quantifiable achievements', proFeature3: '5 templates in total', proFeature4: 'Kanban with the resume sent for every job', proCta: 'Choose PRO · €10/month', proNote: 'Monthly subscription · cancel from your account · secure Stripe payment.',
+          proLabel: 'PRO', proBadge: 'For an active job search', proAudience: 'For tailoring every application', proPeriod: 'per month', proDaily: '≈ €0.33 per day', proFeature1: 'Unlimited tailored resumes', proFeature2: 'Advanced AI, keywords, and quantifiable achievements', proFeature3: 'Unlimited PDF downloads', proFeature4: 'Kanban with the resume sent for every job', proCta: 'Choose PRO · €10/month', proNote: 'Monthly subscription · cancel from your account · secure Stripe payment.',
           compareTitle: 'Full comparison', compareCapability: 'Capability', compareFree: 'Free', comparePro: 'PRO',
-          row1: 'Base resumes|1|Unlimited', row2: 'Optimization|Basic AI|Advanced AI + achievements', row3: 'Templates|Harvard|5 total', row4: 'PDF and editor|Included|Included', row5: 'Application tracking|—|Full Kanban', row6: 'Role-specific resumes|Limited|Unlimited',
+          row1: 'Base resumes|1|Unlimited', row2: 'Optimization|Basic AI|Advanced AI + achievements', row3: 'PDF downloads|Included|Unlimited', row4: 'PDF and editor|Included|Included', row5: 'Application tracking|—|Full Kanban', row6: 'Role-specific resumes|Limited|Unlimited',
           calculatorTitle: 'What does it cost per application?', calculatorLabel: 'Tailored applications per month', calculatorPrefix: 'With PRO that is approximately', calculatorSuffix: 'per tailored resume.',
         },
         faq: {
@@ -918,8 +913,6 @@ export const translations = {
       menu: {
         cvs: 'My CVs',
         kanban: 'Kanban',
-        subscription: 'Subscription',
-        integrations: 'Integrations',
         adminPanel: 'Admin Panel',
       },
       logout: {
@@ -930,11 +923,49 @@ export const translations = {
       profile: {
         candidate: 'Candidate',
       },
+      userMenu: {
+        account: 'My account',
+        save: 'Save',
+        saved: 'Name updated',
+        nameError: 'Name must be between 2 and 60 characters.',
+        saveError: 'Could not update the name.',
+        namePlaceholder: 'Your name',
+        profile: 'Profile & criteria',
+        integrations: 'Integrations',
+        subscription: 'Subscription',
+        planPro: 'PRO Plan',
+        planFree: 'Free Plan',
+      },
+    },
+    settings: {
+      badge: 'AI Source of Truth',
+      title: 'Settings',
+      subtitle: 'Manage your profile, search criteria, integrations, and account details in one place.',
+      tabs: {
+        profile: 'Profile & Criteria',
+        integrations: 'Integrations',
+        account: 'Account',
+      },
+      account: {
+        personalTitle: 'Personal information',
+        nameLabel: 'Display name',
+        emailLabel: 'Email address',
+        emailHint: 'Your email is managed by your sign-in provider and cannot be changed here.',
+        planTitle: 'Plan & billing',
+        planFree: 'Free Plan',
+        planPro: 'PRO',
+        planActive: 'Active',
+        planFreeDesc: 'Basic AI optimization with the Harvard template. Upgrade to PRO to unlock integrations and unlimited resumes.',
+        planProDesc: 'Full access to advanced AI optimization, integrations, Kanban, and unlimited downloads.',
+        manageBilling: 'Manage billing',
+        upgrade: 'Upgrade to PRO',
+        memberSince: 'Member since {date}',
+      },
     },
     dashboard: {
       banner: {
         title: 'Hello, {name}',
-        desc: 'You are on the Free Plan. Unlock professional templates and advanced AI integrations by upgrading your account.',
+        desc: 'You are on the Free Plan. Unlock advanced AI integrations and professional features by upgrading your account.',
         upgrade: 'Upgrade to PRO (€10/mo)',
       },
       stats: {
@@ -1252,10 +1283,10 @@ export const translations = {
         price: '10 €',
         period: '/ month (VAT inc.)',
         feature1: 'Advanced AI optimization · quantifiable achievements and keyword alignment',
-        feature2: '5 Premium Templates: Harvard, Modern, Minimal, Creative and Swiss',
+        feature2: 'Unlimited tailored resumes per application',
         feature3: 'Priority generation speed in seconds',
         feature4: 'Unlimited resume linking within the Kanban board',
-        feature5: 'Priority support and access to template improvements',
+        feature5: 'Priority support and early access to new features',
         btn: 'Upgrade to PRO (€10/month)',
       },
       proActive: {
@@ -1269,7 +1300,7 @@ export const translations = {
         manageBillingBtn: 'Manage Payment Method & Invoices',
         benefitsTitle: 'Your Active Benefits',
         benefit1: 'Advanced AI Optimization',
-        benefit2: '5 Premium CV Templates',
+        benefit2: 'Unlimited tailored resumes per application',
         benefit3: 'Unlimited Kanban linking',
         benefit4: 'Unlimited PDF downloads and printing',
       },
@@ -1318,10 +1349,6 @@ export const translations = {
         customColor: 'Custom color',
         templates: {
           harvard: 'Harvard (Basic)',
-          modern: 'Modern (PRO)',
-          minimal: 'Minimal (PRO)',
-          creative: 'Creative (PRO)',
-          swiss: 'Swiss (PRO)',
         },
         fonts: {
           helvetica: 'Helvetica (Sans)',
@@ -1389,11 +1416,6 @@ export const translations = {
         saved: 'Saved to cloud',
         saving: 'Saving changes...',
         error: 'Connection error',
-      },
-      upgradeModal: {
-        title: 'Premium Template',
-        message: 'Modern, Minimal, Creative, and Swiss templates are exclusive to PRO members.\n\nSubscribe now to use them and boost your professional impact!',
-        confirm: 'Subscribe',
       },
       aiModal: {
         title: 'Smart AI Optimization',
