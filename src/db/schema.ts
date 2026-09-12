@@ -116,6 +116,20 @@ export const extensionInstallations = pgTable('extension_installation', {
   statusIdx: index('extension_installation_status_idx').on(table.status, table.expiresAt),
 }));
 
+// Vistas guardadas de la tabla de postulaciones (columnas, filtros y orden).
+export const applicationViews = pgTable('application_view', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  isDefault: boolean('isDefault').default(false).notNull(),
+  config: jsonb('config').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index('application_view_user_idx').on(table.userId),
+  userNameIdx: uniqueIndex('application_view_user_name_idx').on(table.userId, table.name),
+}));
+
 // Fuente de verdad de la cola de investigación PostgreSQL.
 export const jobResearchRuns = pgTable('job_research_run', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -258,6 +272,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   auditLogs: many(auditLogs),
   extensionPairingCodes: many(extensionPairingCodes),
   extensionInstallations: many(extensionInstallations),
+  applicationViews: many(applicationViews),
   jobResearchRuns: many(jobResearchRuns),
   researchQuotaPeriods: many(researchQuotaPeriods),
   aiJobs: many(aiJobs),
@@ -279,6 +294,10 @@ export const extensionPairingCodesRelations = relations(extensionPairingCodes, (
 
 export const extensionInstallationsRelations = relations(extensionInstallations, ({ one }) => ({
   user: one(users, { fields: [extensionInstallations.userId], references: [users.id] }),
+}));
+
+export const applicationViewsRelations = relations(applicationViews, ({ one }) => ({
+  user: one(users, { fields: [applicationViews.userId], references: [users.id] }),
 }));
 
 export const jobResearchRunsRelations = relations(jobResearchRuns, ({ one, many }) => ({
@@ -315,6 +334,7 @@ export type CV = typeof cvs.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
 export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;
 export type ExtensionInstallation = typeof extensionInstallations.$inferSelect;
+export type ApplicationView = typeof applicationViews.$inferSelect;
 export type JobResearchRun = typeof jobResearchRuns.$inferSelect;
 export type JobResearchAgentRun = typeof jobResearchAgentRuns.$inferSelect;
 export type JobResearchSource = typeof jobResearchSources.$inferSelect;

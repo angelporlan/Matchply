@@ -14,6 +14,7 @@ export const applicationSummaryColumns = {
   legitimacyTier: jobOffers.legitimacyTier,
   livenessStatus: jobOffers.livenessStatus,
   nextFollowupDate: jobOffers.nextFollowupDate,
+  source: jobOffers.source,
   createdAt: jobOffers.createdAt,
   updatedAt: jobOffers.updatedAt,
 };
@@ -70,6 +71,7 @@ export type ApplicationSummary = {
   legitimacyTier: string | null;
   livenessStatus: string | null;
   nextFollowupDate: Date | null;
+  source: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

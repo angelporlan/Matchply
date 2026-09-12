@@ -320,6 +320,8 @@ Son etiquetas de presentación: no cambiar valores persistidos por una decisión
 
 Arrastre con elevación moderada y destino delimitado. Rotación opcional hasta 1 grado; sin animación con movimiento reducido. Acción «Mover a…» como alternativa a arrastrar. En móvil, selector de estado/lista o scroll interno del tablero, sin desbordar toda la página.
 
+**Tabla CRM (vista por defecto).** Cabecera con fondo `surface-muted`, filas de 44–48 px y separadores `subtle`. Orden por columna con indicador textual y `aria-sort`; el estado se cambia con un desplegable que mantiene color semántico y texto, nunca solo color. Selección múltiple con barra de acciones (archivar, cambiar estado); borrar queda como acción destructiva de fila con confirmación. Fechas absolutas con `title` para la hora completa. En móvil (<768 px) la tabla se apila como tarjetas con los mismos datos. Columnas configurables y **vistas guardables** (columnas, filtros, orden y tamaño de página): presets del sistema de solo lectura y vistas personales; los cambios sin guardar se marcan y se pueden revertir, con vista predeterminada por usuario.
+
 ### Ajustes, suscripción, integraciones y administración
 
 Formularios y tablas con la misma semántica. Facturación y Pro neutros, precio y límites legibles; sin tercer sistema de gradientes dorados. Púrpura en prestaciones IA concretas, no por pagar.

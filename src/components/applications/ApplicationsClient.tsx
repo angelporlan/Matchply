@@ -1,34 +1,46 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState, useEffect } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import NextLink from 'next/link';
+import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
 import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
-import ApplicationCard from './ApplicationCard';
-import ApplicationDenseListItem from './ApplicationDenseListItem';
 import CurateWithAiModal from './CurateWithAiModal';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
-import { createJobOffer, updateJobOfferStatus, analyzeFailuresAction, archiveMultipleJobOffers, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import ApplicationsTable from './ApplicationsTable';
+import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
+import ApplicationColumnsMenu from './ApplicationColumnsMenu';
+import AlertModal from '@/components/ui/AlertModal';
+import { createJobOffer, updateJobOfferStatus, archiveJobOffer, archiveMultipleJobOffers, deleteJobOffer, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
+import {
+  APPLICATION_COLUMN_IDS,
+  DEFAULT_VIEW_CONFIG,
+  SYSTEM_VIEWS,
+  filterApplications,
+  normalizeViewConfig,
+  paginate,
+  sortApplications,
+  type ApplicationColumnId,
+  type ApplicationSortKey,
+  type ApplicationSortState,
+  type ApplicationViewConfig,
+  type ApplicationViewFilters,
+} from '@/lib/application-views';
 import { formatDate } from '@/lib/utils';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Bookmark, Send, Calendar, PartyPopper, Ban, Search, SlidersHorizontal, Minimize2, Maximize2, Link2, ListChecks, Archive, Eye, Inbox, Clipboard, Check, Bot, Sparkles, SendHorizontal, MessageSquare, ArrowUpDown } from 'lucide-react';
-import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, SlidersHorizontal, Minimize2, Maximize2, Archive, Clipboard, Check, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Calendar } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
-interface ApplicationsBoardProps {
-  offers: ApplicationSummary[];
-  userCvs: CvListItem[];
+const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
+
+interface SavedApplicationView {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  config: ApplicationViewConfig;
 }
 
-interface Column {
-  id: 'interested' | 'applied' | 'interview' | 'offer' | 'rejected';
-  title: string;
-  shortTitle: string;
-  description: string;
-  color: string;
-  borderColor: string;
-  glowColor: string;
-}
 
 const ARCHIVED_STATUS_PREFIX = 'archived:';
 
@@ -36,20 +48,60 @@ function isArchivedStatus(status: string) {
   return status.startsWith(ARCHIVED_STATUS_PREFIX);
 }
 
-export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoardProps) {
+type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejected';
+
+interface ApplicationsClientProps {
+  offers: ApplicationSummary[];
+  userCvs: CvListItem[];
+  savedViews: SavedApplicationView[];
+  initialLayout: 'table' | 'board';
+  initialViewId: string;
+}
+
+export default function ApplicationsClient({
+  offers,
+  userCvs,
+  savedViews: initialSavedViews,
+  initialLayout,
+  initialViewId,
+}: ApplicationsClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t, language } = useLanguage();
+
+  const initialConfig = (() => {
+    const saved = initialSavedViews.find((view) => view.id === initialViewId);
+    if (saved) return saved.config;
+    const system = SYSTEM_VIEWS.find((view) => view.id === initialViewId);
+    return system ? system.config : DEFAULT_VIEW_CONFIG;
+  })();
+
+  const [savedViews, setSavedViews] = useState<SavedApplicationView[]>(initialSavedViews);
+  const [layout, setLayout] = useState<'table' | 'board'>(initialLayout);
+  const [activeViewId, setActiveViewId] = useState(initialViewId);
+  const [columns, setColumns] = useState<ApplicationColumnId[]>(initialConfig.columns);
+  const [sort, setSort] = useState<ApplicationSortState>(initialConfig.sort);
+  const [pageSize, setPageSize] = useState(initialConfig.pageSize);
+  const [statusFilter, setStatusFilter] = useState<string>(initialConfig.filters.status || 'all');
+  const [followupFilter, setFollowupFilter] = useState<'all' | 'withDate' | 'overdue'>(initialConfig.filters.followup || 'all');
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
+  const [isSavingView, setIsSavingView] = useState(false);
+  const [offerToDelete, setOfferToDelete] = useState<ApplicationSummary | null>(null);
+  const [isDeletingOffer, setIsDeletingOffer] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [searchQuery, setSearchQuery] = useState(initialConfig.filters.search || '');
+  const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>(initialConfig.filters.cv || 'all');
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>(initialConfig.filters.date || 'all');
+  const [startDate, setStartDate] = useState(initialConfig.filters.startDate || '');
+  const [endDate, setEndDate] = useState(initialConfig.filters.endDate || '');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
 
   // AI Curation Modal State & Sort
@@ -61,12 +113,14 @@ export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoard
   // Bulk Archive State
   const [archiveTarget, setArchiveTarget] = useState<{
     isOpen: boolean;
+    kind: 'column' | 'bulk';
     columnId: string;
     columnTitle: string;
     offerIds: string[];
     count: number;
   }>({
     isOpen: false,
+    kind: 'column',
     columnId: '',
     columnTitle: '',
     offerIds: [],
@@ -90,6 +144,279 @@ export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoard
       setCopied(false);
     }
   }, [isCopyModalOpen, dateFilter, startDate, endDate]);
+
+  // Vistas guardadas, columnas y orden de la tabla
+  const viewOptions = useMemo<ApplicationViewOption[]>(() => [
+    ...SYSTEM_VIEWS.map((view) => ({ id: view.id, name: t(view.nameKey), isDefault: false, isSystem: true })),
+    ...savedViews.map((view) => ({ id: view.id, name: view.name, isDefault: view.isDefault, isSystem: false })),
+  ], [savedViews, t]);
+
+  const activeViewConfig = useMemo<ApplicationViewConfig>(() => {
+    const system = SYSTEM_VIEWS.find((view) => view.id === activeViewId);
+    if (system) return system.config;
+    return savedViews.find((view) => view.id === activeViewId)?.config || DEFAULT_VIEW_CONFIG;
+  }, [activeViewId, savedViews]);
+
+  const activeViewOption = viewOptions.find((view) => view.id === activeViewId);
+
+  const viewFilters = useMemo<ApplicationViewFilters>(() => ({
+    search: searchQuery,
+    status: statusFilter,
+    cv: cvFilter,
+    date: dateFilter,
+    startDate,
+    endDate,
+    followup: followupFilter,
+  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter]);
+
+  const currentConfig = useMemo<ApplicationViewConfig>(() => normalizeViewConfig({
+    columns,
+    filters: viewFilters,
+    sort,
+    pageSize,
+  }), [columns, viewFilters, sort, pageSize]);
+
+  const isDirty = useMemo(
+    () => JSON.stringify(currentConfig) !== JSON.stringify(normalizeViewConfig(activeViewConfig)),
+    [currentConfig, activeViewConfig],
+  );
+
+  const resetPageAndSelection = () => {
+    setPage(1);
+    setSelectedIds(new Set());
+  };
+
+  const applyViewConfig = (viewConfig: ApplicationViewConfig) => {
+    const normalized = normalizeViewConfig(viewConfig);
+    setColumns(normalized.columns);
+    setSort(normalized.sort);
+    setPageSize(normalized.pageSize);
+    setStatusFilter(normalized.filters.status || 'all');
+    setFollowupFilter(normalized.filters.followup || 'all');
+    setSearchQuery(normalized.filters.search || '');
+    setCvFilter(normalized.filters.cv || 'all');
+    setDateFilter(normalized.filters.date || 'all');
+    setStartDate(normalized.filters.startDate || '');
+    setEndDate(normalized.filters.endDate || '');
+    resetPageAndSelection();
+  };
+
+  const syncUrl = (patch: { layout?: 'table' | 'board'; view?: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (patch.layout) params.set('layout', patch.layout);
+    if (patch.view) params.set('view', patch.view);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  const handleLayoutChange = (next: 'table' | 'board') => {
+    setLayout(next);
+    try {
+      window.localStorage.setItem('applications.layout', next);
+    } catch {}
+    syncUrl({ layout: next });
+  };
+
+  const handleSelectView = (id: string, sync = true) => {
+    const system = SYSTEM_VIEWS.find((view) => view.id === id);
+    const saved = savedViews.find((view) => view.id === id);
+    const viewConfig = system?.config || saved?.config;
+    if (!viewConfig) return;
+    applyViewConfig(viewConfig);
+    setActiveViewId(id);
+    if (sync) syncUrl({ view: id });
+  };
+
+  useEffect(() => {
+    const urlLayout = searchParams.get('layout');
+    if ((urlLayout === 'table' || urlLayout === 'board') && urlLayout !== layout) {
+      setLayout(urlLayout);
+    }
+    const urlView = searchParams.get('view');
+    if (urlView && urlView !== activeViewId) {
+      handleSelectView(urlView, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (searchParams.get('layout')) return;
+    try {
+      const stored = window.localStorage.getItem('applications.layout');
+      if (stored === 'board') setLayout('board');
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setCurationToast({ message, type });
+    setTimeout(() => setCurationToast(null), 5000);
+  };
+
+  const handleSaveView = async () => {
+    if (activeViewOption?.isSystem) return;
+    setIsSavingView(true);
+    const result = await updateApplicationView(activeViewId, { config: currentConfig });
+    setIsSavingView(false);
+    if (result.error || !result.view) {
+      showToast(t('applications.views.toasts.error'), 'info');
+      return;
+    }
+    setSavedViews((prev) => prev.map((view) => view.id === result.view!.id
+      ? { ...view, name: result.view!.name, config: normalizeViewConfig(result.view!.config) }
+      : view));
+    showToast(t('applications.views.toasts.saved'));
+    router.refresh();
+  };
+
+  const handleSaveViewAs = async (name: string) => {
+    setIsSavingView(true);
+    const result = await createApplicationView(name, currentConfig);
+    setIsSavingView(false);
+    if (result.error === 'DUPLICATE_NAME') {
+      showToast(t('applications.views.toasts.duplicate'), 'info');
+      return;
+    }
+    if (result.error || !result.view) {
+      showToast(t('applications.views.toasts.error'), 'info');
+      return;
+    }
+    const created: SavedApplicationView = {
+      id: result.view.id,
+      name: result.view.name,
+      isDefault: result.view.isDefault,
+      config: normalizeViewConfig(result.view.config),
+    };
+    setSavedViews((prev) => [...prev, created]);
+    setActiveViewId(created.id);
+    syncUrl({ view: created.id });
+    showToast(t('applications.views.toasts.saved'));
+    router.refresh();
+  };
+
+  const handleSetDefaultView = async () => {
+    const result = await setDefaultApplicationView(activeViewId);
+    if (result.error) {
+      showToast(t('applications.views.toasts.error'), 'info');
+      return;
+    }
+    setSavedViews((prev) => prev.map((view) => ({ ...view, isDefault: view.id === activeViewId })));
+    showToast(t('applications.views.toasts.defaultUpdated'));
+    router.refresh();
+  };
+
+  const handleDeleteView = async () => {
+    if (!window.confirm(t('applications.views.deleteConfirm'))) return;
+    const result = await deleteApplicationView(activeViewId);
+    if (result.error) {
+      showToast(t('applications.views.toasts.error'), 'info');
+      return;
+    }
+    setSavedViews((prev) => prev.filter((view) => view.id !== activeViewId));
+    handleSelectView('active');
+    showToast(t('applications.views.toasts.deleted'));
+    router.refresh();
+  };
+
+  const handleRevertView = () => {
+    applyViewConfig(activeViewConfig);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCvFilter('all');
+    setDateFilter('all');
+    setStartDate('');
+    setEndDate('');
+    setStatusFilter('all');
+    setFollowupFilter('all');
+    resetPageAndSelection();
+  };
+
+  const handleSortChange = (key: ApplicationSortKey) => {
+    setSort((prev) => prev.key === key
+      ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+      : { key, direction: key === 'title' || key === 'company' || key === 'followup' ? 'asc' : 'desc' });
+    setPage(1);
+  };
+
+  const handleToggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleAll = (ids: string[], checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
+
+  const handleRowStatusChange = async (offer: ApplicationSummary, status: string) => {
+    const previous = localOffers;
+    setPendingStatusId(offer.id);
+    setLocalOffers((prev) => prev.map((item) => item.id === offer.id ? { ...item, status, updatedAt: new Date() } : item));
+    const result = await updateJobOfferStatus(offer.id, status);
+    setPendingStatusId(null);
+    if (result.error) {
+      setLocalOffers(previous);
+      showToast(t('applications.table.statusError'), 'info');
+      return;
+    }
+    showToast(t('applications.table.statusUpdated'));
+    router.refresh();
+  };
+
+  const handleTableArchive = async (offer: ApplicationSummary) => {
+    const previous = localOffers;
+    setLocalOffers((prev) => prev.filter((item) => item.id !== offer.id));
+    const result = await archiveJobOffer(offer.id);
+    if (result.error) {
+      setLocalOffers(previous);
+      showToast(t('applications.table.archiveError'), 'info');
+      return;
+    }
+    showToast(t('applications.table.archived'));
+    router.refresh();
+  };
+
+  const handleConfirmDeleteOffer = async () => {
+    if (!offerToDelete) return;
+    setIsDeletingOffer(true);
+    const result = await deleteJobOffer(offerToDelete.id);
+    setIsDeletingOffer(false);
+    if (result.error) {
+      showToast(t('applications.table.deleteError'), 'info');
+      return;
+    }
+    setLocalOffers((prev) => prev.filter((item) => item.id !== offerToDelete.id));
+    setOfferToDelete(null);
+    showToast(t('applications.table.deleted'));
+    router.refresh();
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || !status) return;
+    const previous = localOffers;
+    setLocalOffers((prev) => prev.map((item) => selectedIds.has(item.id) ? { ...item, status, updatedAt: new Date() } : item));
+    const results = await Promise.all(ids.map((id) => updateJobOfferStatus(id, status)));
+    if (results.some((result) => result.error)) {
+      setLocalOffers(previous);
+      showToast(t('applications.table.statusError'), 'info');
+    } else {
+      showToast(t('applications.table.bulkStatusUpdated').replace('{count}', String(ids.length)));
+    }
+    setSelectedIds(new Set());
+    router.refresh();
+  };
 
   const getFilteredOffersForCopy = () => {
     return localOffers.filter((offer) => {
@@ -131,13 +458,11 @@ export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoard
     filterType: 'all' | 'today' | '7days' | 'custom',
     startVal: string,
     endVal: string,
-    limitForAi = false,
   ) => {
     const result = await exportJobOffersReport({
       dateFilter: filterType,
       startDate: startVal,
       endDate: endVal,
-      limitForAi,
       language,
     });
     if (result.error) {
@@ -176,260 +501,6 @@ export default function ApplicationsBoard({ offers, userCvs }: ApplicationsBoard
     }
   };
 
-  // AI Chatbot States
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
-  const [chatInputValue, setChatInputValue] = useState('');
-  const [isChatLoading, setIsChatLoading] = useState(false);
-
-  // Suggested quick questions
-  const chatSuggestedQuestions = language === 'es' 
-    ? [
-        { id: 'common_failures', text: '¿Cuáles son mis fallos más comunes?' },
-        { id: 'improve_cv', text: '¿Cómo puedo adaptar mejor mis CVs?' },
-        { id: 'general_advice', text: 'Dame un consejo general para mi embudo' }
-      ]
-    : [
-        { id: 'common_failures', text: 'What are my most common failures?' },
-        { id: 'improve_cv', text: 'How can I adapt my CVs better?' },
-        { id: 'general_advice', text: 'Give me a general tip for my funnel' }
-      ];
-
-  // Initialize chat with greeting
-  useEffect(() => {
-    if (isChatOpen && chatMessages.length === 0) {
-      const isEs = language === 'es';
-      setChatMessages([
-        {
-          role: 'assistant',
-          content: isEs
-            ? "¡Hola! Bienvenido a tu Asesor de Carrera IA en Matchply. Analizaré tu embudo de candidaturas activas y currículums para ayudarte a identificar qué puede estar fallando en tus procesos y cómo solucionarlo.\n\n¿Quieres que analice tus postulaciones actuales?"
-            : "Hello! Welcome to your AI Career Coach at Matchply. I will analyze your active application funnel and resumes to help you identify what might be failing and how to fix it.\n\nWould you like me to analyze your current applications?"
-        }
-      ]);
-    }
-  }, [isChatOpen, chatMessages, language]);
-
-  // Observer/Interval typing simulation
-  const startTypingSimulation = (fullText: string, onUpdate: (text: string) => void, onComplete: () => void) => {
-    let currentLength = 0;
-    const speed = 12; // Speed in ms
-    const interval = setInterval(() => {
-      currentLength += 4; // Add 4 chars at a time
-      if (currentLength >= fullText.length) {
-        onUpdate(fullText);
-        clearInterval(interval);
-        onComplete();
-      } else {
-        onUpdate(fullText.substring(0, currentLength));
-      }
-    }, speed);
-    return () => clearInterval(interval);
-  };
-
-  const handleStartAiAnalysis = async () => {
-    if (isChatLoading) return;
-    setIsChatLoading(true);
-    const isEs = language === 'es';
-    
-    // Add user message to trigger analysis
-    const userMsg = isEs ? "Analiza mi embudo de postulaciones, por favor." : "Analyze my applications funnel, please.";
-    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-
-    // Format target offers using active board date filters
-    const reportText = await loadOffersReportText(dateFilter, startDate, endDate, true);
-
-    if (!reportText) {
-      setIsChatLoading(false);
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: isEs
-          ? "No he encontrado candidaturas activas en tu tablero según el filtro de fechas seleccionado. Por favor, crea candidaturas antes de realizar el análisis."
-          : "I couldn't find any active applications on your board matching the selected date filters. Please create some applications before analyzing."
-      }]);
-      return;
-    }
-
-    try {
-      const result = await analyzeFailuresAction(reportText);
-      if (result.error) {
-        setIsChatLoading(false);
-        setChatMessages(prev => [...prev, {
-          role: 'assistant',
-          content: isEs
-            ? `Lo siento, ha ocurrido un error al procesar el análisis: ${result.error}`
-            : `Sorry, an error occurred while processing the analysis: ${result.error}`
-        }]);
-      } else if (result.analysis) {
-        // Add an empty assistant message to fill with typing simulation
-        setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-        
-        startTypingSimulation(
-          result.analysis,
-          (partialText) => {
-            setChatMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'assistant', content: partialText };
-              return updated;
-            });
-          },
-          () => {
-            setIsChatLoading(false);
-          }
-        );
-      }
-    } catch (err) {
-      setIsChatLoading(false);
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: isEs
-          ? "Lo siento, ocurrió un error inesperado de red al conectar con el motor de IA."
-          : "Sorry, an unexpected network error occurred while connecting to the AI engine."
-      }]);
-    }
-  };
-
-  const handleSendChatMessage = async (e: React.FormEvent | string) => {
-    if (typeof e !== 'string') {
-      e.preventDefault();
-    }
-    const messageText = typeof e === 'string' ? e : chatInputValue;
-    if (!messageText.trim() || isChatLoading) return;
-
-    if (typeof e !== 'string') {
-      setChatInputValue('');
-    }
-    
-    setIsChatLoading(true);
-    setChatMessages(prev => [...prev, { role: 'user', content: messageText }]);
-
-    const isEs = language === 'es';
-    const reportText = await loadOffersReportText(dateFilter, startDate, endDate, true);
-    
-    const updatedHistory = [...chatMessages, { role: 'user', content: messageText }];
-    const conversationHistoryText = updatedHistory
-      .slice(-6) // Include last 6 messages for context
-      .map(msg => `${msg.role === 'user' ? 'Usuario' : 'Asistente de IA'}: ${msg.content}`)
-      .join('\n\n');
-
-    const promptContext = `
-[DATOS DE POSTULACIONES DEL USUARIO]
-${reportText}
-
-[HISTORIAL RECIENTE DEL CHAT]
-${conversationHistoryText}
-
-[NUEVA CONSULTA DEL USUARIO]
-${messageText}
-
-Responde de forma concisa y directa al usuario.
-`;
-
-    try {
-      const result = await analyzeFailuresAction(promptContext);
-      if (result.error) {
-        setIsChatLoading(false);
-        setChatMessages(prev => [...prev, {
-          role: 'assistant',
-          content: isEs
-            ? `Lo siento, ha ocurrido un error al responder: ${result.error}`
-            : `Sorry, an error occurred while generating a response: ${result.error}`
-        }]);
-      } else if (result.analysis) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-        
-        startTypingSimulation(
-          result.analysis,
-          (partialText) => {
-            setChatMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'assistant', content: partialText };
-              return updated;
-            });
-          },
-          () => {
-            setIsChatLoading(false);
-          }
-        );
-      }
-    } catch (err) {
-      setIsChatLoading(false);
-      setChatMessages(prev => [...prev, {
-        role: 'assistant',
-        content: isEs
-          ? "Lo siento, ha ocurrido un error al conectar con la IA."
-          : "Sorry, an error occurred while communicating with the AI."
-      }]);
-    }
-  };
-
-  const renderMessageContent = (content: string) => {
-    if (!content) return <span className="inline-block w-1.5 h-3.5 bg-ai-action dark:bg-ai animate-pulse ml-0.5" />;
-
-    const lines = content.split('\n');
-    return lines.map((line, lineIdx) => {
-      if (!line.trim()) {
-        return <div key={lineIdx} className="h-2" />;
-      }
-      
-      if (line.startsWith('### ')) {
-        return <h4 key={lineIdx} className="text-xs font-bold text-text mt-3 mb-1.5 font-display">{line.slice(4)}</h4>;
-      }
-      if (line.startsWith('## ')) {
-        return <h3 key={lineIdx} className="text-sm font-bold text-text mt-4 mb-2 border-b border-subtle pb-1 font-display">{line.slice(3)}</h3>;
-      }
-      if (line.startsWith('# ')) {
-        return <h2 key={lineIdx} className="text-base font-bold text-text mt-4 mb-2 font-display">{line.slice(2)}</h2>;
-      }
-      if (line.startsWith('---') || line.startsWith('===')) {
-        return <hr key={lineIdx} className="my-2 border-subtle" />;
-      }
-
-      const listMatch = line.match(/^(\s*)[-\*•]\s+(.*)$/);
-      let processedText: React.ReactNode = line;
-      let isListItem = false;
-      let textToProcess = line;
-
-      if (listMatch) {
-        isListItem = true;
-        textToProcess = listMatch[2];
-      }
-
-      const boldRegex = /\*\*(.*?)\*\*/g;
-      const parts = [];
-      let lastIndex = 0;
-      let match;
-      
-      while ((match = boldRegex.exec(textToProcess)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push(textToProcess.substring(lastIndex, match.index));
-        }
-        parts.push(<strong key={match.index} className="font-bold text-text">{match[1]}</strong>);
-        lastIndex = boldRegex.lastIndex;
-      }
-      
-      if (lastIndex < textToProcess.length) {
-        parts.push(textToProcess.substring(lastIndex));
-      }
-      
-      processedText = parts.length > 0 ? parts : textToProcess;
-
-      if (isListItem) {
-        return (
-          <li key={lineIdx} className="ml-4 list-disc text-xs text-text-muted dark:text-slate-300 font-sans my-0.5 leading-relaxed">
-            {processedText}
-          </li>
-        );
-      }
-
-      return (
-        <p key={lineIdx} className="text-xs text-text-muted dark:text-slate-300 font-sans leading-relaxed my-1">
-          {processedText}
-        </p>
-      );
-    });
-  };
-
   // Hydration state
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -450,10 +521,24 @@ Responde de forma concisa y directa al usuario.
     if (offersToArchive.length === 0) return;
     setArchiveTarget({
       isOpen: true,
+      kind: 'column',
       columnId,
       columnTitle,
       offerIds: offersToArchive.map(o => o.id),
       count: offersToArchive.length,
+    });
+  };
+
+  const handleOpenBulkArchive = () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setArchiveTarget({
+      isOpen: true,
+      kind: 'bulk',
+      columnId: '',
+      columnTitle: '',
+      offerIds: ids,
+      count: ids.length,
     });
   };
 
@@ -462,15 +547,21 @@ Responde de forma concisa y directa al usuario.
     setIsArchivingBulk(true);
 
     const idsSet = new Set(archiveTarget.offerIds);
-    const targetStatus = `archived:${archiveTarget.columnId}`;
     const count = archiveTarget.count;
 
     // Optimistic UI update
     setLocalOffers(prev =>
-      prev.map(o => idsSet.has(o.id) ? { ...o, status: targetStatus, updatedAt: new Date() } : o)
+      prev.map(o => {
+        if (!idsSet.has(o.id)) return o;
+        const archivedStatus = o.status.startsWith(ARCHIVED_STATUS_PREFIX)
+          ? o.status
+          : `${ARCHIVED_STATUS_PREFIX}${o.status}`;
+        return { ...o, status: archivedStatus, updatedAt: new Date() };
+      })
     );
 
     setArchiveTarget(prev => ({ ...prev, isOpen: false }));
+    setSelectedIds(new Set());
 
     try {
       const result = await archiveMultipleJobOffers(archiveTarget.offerIds);
@@ -514,7 +605,7 @@ Responde de forma concisa y directa al usuario.
       return;
     }
 
-    const targetColumnId = destination.droppableId as Column['id'];
+    const targetColumnId = destination.droppableId as BoardColumnId;
     const offerId = draggableId;
 
     const offer = localOffers.find(o => o.id === offerId);
@@ -546,76 +637,17 @@ Responde de forma concisa y directa al usuario.
     description: '',
   });
 
-  const columns: Column[] = [
-    { id: 'interested', title: t('applications.columns.interested.title'), shortTitle: t('applications.columns.interested.shortTitle'), description: t('applications.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20', glowColor: 'rgba(99,102,241,0.15)' },
-    { id: 'applied', title: t('applications.columns.applied.title'), shortTitle: t('applications.columns.applied.shortTitle'), description: t('applications.columns.applied.desc'), color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20', glowColor: 'rgba(59,130,246,0.15)' },
-    { id: 'interview', title: t('applications.columns.interview.title'), shortTitle: t('applications.columns.interview.shortTitle'), description: t('applications.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20', glowColor: 'rgba(245,158,11,0.15)' },
-    { id: 'offer', title: t('applications.columns.offer.title'), shortTitle: t('applications.columns.offer.shortTitle'), description: t('applications.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20', glowColor: 'rgba(16,185,129,0.15)' },
-    { id: 'rejected', title: t('applications.columns.rejected.title'), shortTitle: t('applications.columns.rejected.shortTitle'), description: t('applications.columns.rejected.desc'), color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20', glowColor: 'rgba(244,63,94,0.15)' },
-  ];
-
-  const normalizedSearch = searchQuery.trim().toLowerCase();
   const boardOffers = localOffers.filter((offer) => !isArchivedStatus(offer.status));
   const archivedOffers = localOffers.filter((offer) => isArchivedStatus(offer.status));
   const linkedOffers = boardOffers.filter((offer) => Boolean(offer.cvId)).length;
-  const filteredOffers = boardOffers.filter((offer) => {
-    const matchesSearch = !normalizedSearch || [offer.title, offer.company, offer.platform]
-      .some((value) => value?.toLowerCase().includes(normalizedSearch));
-    const matchesCvFilter =
-      cvFilter === 'all' ||
-      (cvFilter === 'linked' && Boolean(offer.cvId)) ||
-      (cvFilter === 'unlinked' && !offer.cvId);
-
-    // Date filter logic
-    let matchesDateFilter = true;
-    if (dateFilter !== 'all') {
-      const offerDate = new Date(offer.createdAt);
-      offerDate.setHours(0, 0, 0, 0);
-      const offerTime = offerDate.getTime();
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayTime = today.getTime();
-
-      if (dateFilter === 'today') {
-        matchesDateFilter = offerTime === todayTime;
-      } else if (dateFilter === '7days') {
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
-        const sevenDaysAgoTime = sevenDaysAgo.getTime();
-        matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
-      } else if (dateFilter === 'custom') {
-        if (startDate) {
-          const start = new Date(startDate + 'T00:00:00');
-          matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
-        }
-        if (endDate) {
-          const end = new Date(endDate + 'T00:00:00');
-          matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
-        }
-      }
-    }
-
-    return matchesSearch && matchesCvFilter && matchesDateFilter;
-  });
-  const hasActiveFilters = Boolean(normalizedSearch) || cvFilter !== 'all' || dateFilter !== 'all';
-
-  const renderColumnIcon = (columnId: Column['id']) => {
-    switch (columnId) {
-      case 'interested':
-        return <Bookmark className="w-3.5 h-3.5" />;
-      case 'applied':
-        return <Send className="w-3.5 h-3.5" />;
-      case 'interview':
-        return <Calendar className="w-3.5 h-3.5" />;
-      case 'offer':
-        return <PartyPopper className="w-3.5 h-3.5" />;
-      case 'rejected':
-        return <Ban className="w-3.5 h-3.5" />;
-      default:
-        return null;
-    }
-  };
+  const filteredOffers = useMemo(
+    () => filterApplications(boardOffers, viewFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [localOffers, viewFilters],
+  );
+  const sortedOffers = useMemo(() => sortApplications(filteredOffers, sort), [filteredOffers, sort]);
+  const pagination = useMemo(() => paginate(sortedOffers, page, pageSize), [sortedOffers, page, pageSize]);
+  const hasActiveFilters = Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -665,14 +697,41 @@ Responde de forma concisa y directa al usuario.
         <div>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
             <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
-            {t('applications.board.title')}
+            {t('applications.title')}
           </h2>
           <p className="text-text-muted text-sm mt-1 font-sans">
-            {t('applications.board.subtitle')}
+            {t('applications.subtitle')}
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto font-display">
+          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => handleLayoutChange('table')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
+                layout === 'table'
+                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                  : 'text-text-muted hover:text-text dark:hover:text-white'
+              }`}
+            >
+              <Table2 className="w-3.5 h-3.5 stroke-[1.75]" />
+              {t('applications.layout.table')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLayoutChange('board')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
+                layout === 'board'
+                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                  : 'text-text-muted hover:text-text dark:hover:text-white'
+              }`}
+            >
+              <SquareKanban className="w-3.5 h-3.5 stroke-[1.75]" />
+              {t('applications.layout.board')}
+            </button>
+          </div>
+
           <button
             onClick={() => setIsCopyModalOpen(true)}
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-ai/30 text-text-muted dark:text-slate-300 hover:text-ai dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
@@ -858,244 +917,230 @@ Responde de forma concisa y directa al usuario.
             )}
           </div>
 
-          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
-            <button
-              type="button"
-              onClick={() => setViewMode('compact')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                viewMode === 'compact'
-                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                  : 'text-text-muted hover:text-text dark:hover:text-white'
+          <div className="relative font-display">
+            <label className="sr-only" htmlFor="status-filter">{t('applications.filters.status')}</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
+                resetPageAndSelection();
+              }}
+              className={`w-full sm:w-auto bg-surface border rounded-[8px] px-3 py-2 text-xs font-bold focus:outline-none focus:border-ai transition-all cursor-pointer shadow-sm ${
+                statusFilter !== 'all' ? 'border-ai/30 text-ai' : 'border-subtle text-text-muted'
               }`}
             >
-              <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('applications.board.viewCompact')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('comfortable')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                viewMode === 'comfortable'
-                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                  : 'text-text-muted hover:text-text dark:hover:text-white'
-              }`}
-            >
-              <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('applications.board.viewComfortable')}
-            </button>
+              <option value="all">{t('applications.filters.allStatuses')}</option>
+              <option value="interested">{t('applications.columns.interested.title')}</option>
+              <option value="applied">{t('applications.columns.applied.title')}</option>
+              <option value="interview">{t('applications.columns.interview.title')}</option>
+              <option value="offer">{t('applications.columns.offer.title')}</option>
+              <option value="rejected">{t('applications.columns.rejected.title')}</option>
+            </select>
           </div>
+
+          {followupFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => {
+                setFollowupFilter('all');
+                resetPageAndSelection();
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+            >
+              <CalendarClock className="w-3.5 h-3.5 stroke-[1.75]" />
+              {t(`applications.filters.followup.${followupFilter}`)}
+              <X className="w-3 h-3 stroke-[2]" />
+            </button>
+          )}
+
+          {layout === 'table' && (
+            <>
+              <ApplicationViewsMenu
+                views={viewOptions}
+                activeViewId={activeViewId}
+                isDirty={isDirty}
+                saving={isSavingView}
+                onSelect={handleSelectView}
+                onSave={handleSaveView}
+                onSaveAs={handleSaveViewAs}
+                onSetDefault={handleSetDefaultView}
+                onDelete={handleDeleteView}
+                onRevert={handleRevertView}
+              />
+              <ApplicationColumnsMenu
+                visibleColumns={columns}
+                onChange={(nextColumns) => {
+                  setColumns(nextColumns);
+                  setPage(1);
+                }}
+              />
+            </>
+          )}
+
+          {layout === 'board' && (
+            <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
+              <button
+                type="button"
+                onClick={() => setViewMode('compact')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
+                  viewMode === 'compact'
+                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                    : 'text-text-muted hover:text-text dark:hover:text-white'
+                }`}
+              >
+                <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                {t('applications.board.viewCompact')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('comfortable')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
+                  viewMode === 'comfortable'
+                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
+                    : 'text-text-muted hover:text-text dark:hover:text-white'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                {t('applications.board.viewComfortable')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Grid de Columnas (Tablero asimétrico de postulaciones) */}
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="-mx-4 px-4 overflow-x-auto pb-4 scrollbar-custom">
-          <div className="grid min-w-[1240px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 items-start">
-            {columns.map((column) => {
-              const rawColumnOffers = boardOffers.filter((offer) => offer.status === column.id);
-              let columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
-
-              if (column.id === 'interested') {
-                columnOffers = [...columnOffers].sort((a, b) => {
-                  if (interestedSortMode === 'score') {
-                    const scoreA = (a as any).scoreOverall ?? -1;
-                    const scoreB = (b as any).scoreOverall ?? -1;
-                    if (scoreA !== scoreB) return scoreB - scoreA;
-                  }
-                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                });
-              }
-
-              const isInterested = column.id === 'interested';
-
-              return (
-                <div
-                  key={column.id}
-                  aria-label={`Columna ${column.title}`}
-                  className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-surface rounded-[12px] border relative overflow-hidden transition-all duration-300 ${
-                    draggingOfferId && !columnOffers.some(o => o.id === draggingOfferId)
-                      ? 'shadow-sm border-subtle'
-                      : `${column.borderColor} shadow-sm hover:shadow-md`
-                  }`}
+      {layout === 'board' ? (
+        <ApplicationsBoardView
+          offers={boardOffers}
+          filteredOffers={filteredOffers}
+          hasActiveFilters={hasActiveFilters}
+          userCvs={userCvs}
+          viewMode={viewMode}
+          interestedSortMode={interestedSortMode}
+          draggingOfferId={draggingOfferId}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onToggleInterestedSort={() => setInterestedSortMode((prev) => (prev === 'score' ? 'date' : 'score'))}
+          onOpenCurate={(simulation) => {
+            setIsSimulationMode(simulation);
+            setIsCurateModalOpen(true);
+          }}
+          onArchiveAll={handleOpenArchiveAllModal}
+          onOpenDetails={handleOpenDetails}
+          onDelete={handleDeleteOffer}
+        />
+      ) : (
+        <div className="space-y-3">
+          {selectedIds.size > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
+              <span className="text-xs font-bold text-text font-display">
+                {t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="sr-only" htmlFor="bulk-status">{t('applications.table.bulk.changeStatus')}</label>
+                <select
+                  id="bulk-status"
+                  value=""
+                  onChange={(event) => {
+                    if (event.target.value) void handleBulkStatusChange(event.target.value);
+                  }}
+                  className="bg-surface border border-subtle rounded-[8px] px-3 py-2 text-xs font-semibold text-text focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
                 >
-                  {/* Cabecera de la columna */}
-                  <div className="shrink-0 p-3.5 pb-3 border-b border-subtle bg-canvas/45">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 ${column.color}`}>
-                          {renderColumnIcon(column.id)}
-                          {column.shortTitle}
-                        </span>
-                        <p className="text-[11px] text-text-muted mt-2 truncate font-sans">{column.description}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 font-display">
-                        <span className="text-sm font-bold text-text bg-canvas px-2.5 py-1 rounded-[8px] border border-subtle shadow-sm">
-                          {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
-                        </span>
-                        <span className="text-[10px] font-medium text-text-muted">
-                          {t('applications.board.offersCount')}
-                        </span>
-                      </div>
-                    </div>
+                  <option value="">{t('applications.table.bulk.changeStatus')}</option>
+                  <option value="interested">{t('applications.columns.interested.title')}</option>
+                  <option value="applied">{t('applications.columns.applied.title')}</option>
+                  <option value="interview">{t('applications.columns.interview.title')}</option>
+                  <option value="offer">{t('applications.columns.offer.title')}</option>
+                  <option value="rejected">{t('applications.columns.rejected.title')}</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleOpenBulkArchive}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                >
+                  <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
+                  {t('applications.table.bulk.archive')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:text-text transition-colors"
+                >
+                  <X className="w-3.5 h-3.5 stroke-[1.75]" />
+                  {t('applications.table.bulk.clear')}
+                </button>
+              </div>
+            </div>
+          )}
 
-                    {/* Botón de Curación Inteligente, Test UI, Ordenación y Archivar Todas exclusivo para la columna Interés */}
-                    {isInterested && rawColumnOffers.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-subtle flex items-center justify-between gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSimulationMode(false);
-                            setIsCurateModalOpen(true);
-                          }}
-                          className="flex-1 text-[11px] font-bold py-1.5 px-2 rounded-lg bg-gradient-to-r from-ai to-ai-action text-white shadow-xs shadow-ai/20 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-1.5 font-display min-w-0"
-                        >
-                          <Sparkles className="w-3 h-3 stroke-[2] text-violet-200 shrink-0" />
-                          <span className="truncate">Curar con IA</span>
-                          <span className="bg-white/20 px-1.5 py-0.2 rounded text-[10px] shrink-0">
-                            {rawColumnOffers.length}
-                          </span>
-                        </button>
+          <ApplicationsTable
+            offers={pagination.items}
+            userCvs={userCvs}
+            columns={columns}
+            sort={sort}
+            onSortChange={handleSortChange}
+            selectedIds={selectedIds}
+            onToggleRow={handleToggleRow}
+            onToggleAll={handleToggleAll}
+            onOpenDetails={handleOpenDetails}
+            onArchive={handleTableArchive}
+            onDelete={setOfferToDelete}
+            onStatusChange={handleRowStatusChange}
+            pendingStatusId={pendingStatusId}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            onNewApplication={() => setIsModalOpen(true)}
+          />
 
-                        {/* Botón temporal para probar animación de streaming sin gastar tokens */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSimulationMode(true);
-                            setIsCurateModalOpen(true);
-                          }}
-                          title="Probar animación de streaming en vivo sin consumir tokens"
-                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/25 transition-all flex items-center gap-1 shrink-0"
-                        >
-                          <span>🧪 Test UI</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setInterestedSortMode(prev => prev === 'score' ? 'date' : 'score')}
-                          title={interestedSortMode === 'score' ? "Ordenado por Score IA (Click para ordenar por fecha)" : "Ordenado por Fecha (Click para ordenar por Score IA)"}
-                          className={`text-[10.5px] font-bold px-2 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shrink-0 ${
-                            interestedSortMode === 'score'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : 'bg-white dark:bg-surface text-slate-500 border-subtle'
-                          }`}
-                        >
-                          <ArrowUpDown className="w-3 h-3 stroke-[2]" />
-                          <span>{interestedSortMode === 'score' ? 'Score' : 'Fecha'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
-                          title={t('applications.board.archiveAllTooltip')}
-                          className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-subtle bg-white dark:bg-surface hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
-                        >
-                          <Archive className="w-3 h-3 stroke-[2]" />
-                          <span>{t('applications.board.archiveAllBtn')}</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {rawColumnOffers.length > 0 && !isInterested && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-canvas border border-control overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${column.color.split(' ')[1]}`}
-                            style={{
-                              width: `${Math.max(8, Math.round((columnOffers.length / rawColumnOffers.length) * 100))}%`,
-                              opacity: hasActiveFilters ? 0.8 : 1,
-                            }}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenArchiveAllModal(column.id, column.shortTitle, columnOffers)}
-                          title={t('applications.board.archiveAllTooltip')}
-                          className="text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors shrink-0"
-                        >
-                          <Archive className="w-3 h-3 stroke-[2]" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Lista de elementos (Lista densa en Interés, Tarjetas en las demás) */}
-                  <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`flex-1 overflow-y-auto scrollbar-custom p-3 pr-2 transition-all duration-200 ${
-                          isInterested 
-                            ? 'space-y-1.5' 
-                            : viewMode === 'compact' ? 'space-y-2.5' : 'space-y-4'
-                        } ${
-                          snapshot.isDraggingOver
-                            ? 'bg-ai/5 dark:bg-ai/8 shadow-inner border border-dashed border-ai/25 dark:border-violet-500/25 rounded-b-[12px] -m-[1px]'
-                            : ''
-                        }`}
-                      >
-                        {columnOffers.length === 0 ? (
-                          <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-subtle rounded-[12px] p-6 text-center text-text-muted">
-                            {hasActiveFilters ? (
-                              <>
-                                <Search className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-70 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('applications.board.noResults')}</p>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-6 h-6 mb-2 text-text-muted dark:text-slate-600 opacity-60 stroke-[1.75]" />
-                                <p className="text-[11px] font-bold uppercase tracking-wider font-display">{t('applications.board.emptyBoard')}</p>
-                              </>
-                            )}
-                          </div>
-                        ) : isInterested ? (
-                          columnOffers.map((offer, index) => (
-                            <ApplicationDenseListItem
-                              key={offer.id}
-                              offer={offer}
-                              index={index}
-                              onOpenDetails={handleOpenDetails}
-                              onDelete={handleDeleteOffer}
-                            />
-                          ))
-                        ) : (
-                          columnOffers.map((offer, index) => (
-                            <ApplicationCard
-                              key={offer.id}
-                              offer={offer}
-                              userCvs={userCvs}
-                              onOpenDetails={handleOpenDetails}
-                              density={viewMode}
-                              index={index}
-                              onDelete={handleDeleteOffer}
-                            />
-                          ))
-                        )}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-
-                  <div className="shrink-0 border-t border-subtle bg-canvas/45 px-3.5 py-2.5">
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted font-sans">
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <ListChecks className="w-3.5 h-3.5 shrink-0 stroke-[1.75]" />
-                        <span className="truncate">{columnOffers.length} {t('applications.board.visibleText')}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5 shrink-0">
-                        <Link2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                        {columnOffers.filter((offer) => offer.cvId).length}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {filteredOffers.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 font-display">
+              <p className="text-xs text-text-muted">
+                {t('applications.table.pagination.showing')
+                  .replace('{start}', String(pagination.total === 0 ? 0 : pagination.start + 1))
+                  .replace('{end}', String(pagination.end))
+                  .replace('{total}', String(pagination.total))}
+              </p>
+              <div className="flex items-center gap-2">
+                <label htmlFor="page-size" className="sr-only">{t('applications.table.pagination.perPage')}</label>
+                <select
+                  id="page-size"
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-surface border border-subtle rounded-[8px] px-2.5 py-2 text-xs font-semibold text-text-muted focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
+                >
+                  {[10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>{size} {t('applications.table.pagination.perPageSuffix')}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={pagination.page <= 1}
+                  aria-label={t('applications.table.pagination.previous')}
+                  className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
+                </button>
+                <span className="text-xs font-semibold text-text-muted">
+                  {t('applications.table.pagination.page').replace('{page}', String(pagination.page)).replace('{total}', String(pagination.totalPages))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                  disabled={pagination.page >= pagination.totalPages}
+                  aria-label={t('applications.table.pagination.next')}
+                  className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 stroke-[1.75]" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </DragDropContext>
-
-
+      )}
 
       {/* Modal Premium para copiar Candidaturas */}
       {isCopyModalOpen && (
@@ -1392,12 +1437,16 @@ Responde de forma concisa y directa al usuario.
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold text-text font-display">
-                  {t('applications.board.archiveAllConfirmTitle')}
+                  {archiveTarget.kind === 'bulk'
+                    ? t('applications.table.bulk.archiveConfirmTitle')
+                    : t('applications.board.archiveAllConfirmTitle')}
                 </h3>
                 <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-sans">
-                  {t('applications.board.archiveAllConfirmDesc')
-                    .replace('{count}', archiveTarget.count.toString())
-                    .replace('{column}', archiveTarget.columnTitle)}
+                  {archiveTarget.kind === 'bulk'
+                    ? t('applications.table.bulk.archiveConfirmDesc').replace('{count}', archiveTarget.count.toString())
+                    : t('applications.board.archiveAllConfirmDesc')
+                      .replace('{count}', archiveTarget.count.toString())
+                      .replace('{column}', archiveTarget.columnTitle)}
                 </p>
               </div>
               <button
@@ -1459,6 +1508,21 @@ Responde de forma concisa y directa al usuario.
         />
       )}
 
+      <AlertModal
+        isOpen={Boolean(offerToDelete)}
+        onClose={() => setOfferToDelete(null)}
+        title={t('applications.table.deleteTitle')}
+        message={offerToDelete
+          ? t('applications.table.deleteMessage')
+            .replace('{title}', offerToDelete.title)
+            .replace('{company}', offerToDelete.company)
+          : ''}
+        type="danger"
+        confirmLabel={t('applications.table.deleteConfirm')}
+        onConfirm={handleConfirmDeleteOffer}
+        isPending={isDeletingOffer}
+      />
+
       {/* Modal de Curación Inteligente de Candidaturas con IA (Efecto Mazo de Cartas) */}
       <CurateWithAiModal
         isOpen={isCurateModalOpen}
@@ -1505,125 +1569,6 @@ Responde de forma concisa y directa al usuario.
         </div>
       )}
 
-      {/* Botón Redondo Flotante de IA Chatbot */}
-      <button
-        onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-gradient-to-tr from-ai to-ai text-white flex items-center justify-center shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 border border-ai/20 transition-all hover:scale-105 active:scale-95 duration-300 group"
-        aria-label="Asesor de Carrera IA"
-        title="Asesor de Carrera IA"
-      >
-        <Sparkles className="w-6 h-6 animate-pulse group-hover:rotate-12 transition-transform duration-300" />
-      </button>
-
-      {/* Panel Flotante de IA Chatbot */}
-      {isChatOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[550px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-8rem)] bg-surface border border-subtle rounded-[16px] shadow-2xl z-40 overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 font-sans text-left">
-          {/* Cabecera del Chat */}
-          <div className="shrink-0 p-4 bg-[#1e1b4b] dark:bg-canvas text-white flex items-center justify-between border-b border-subtle">
-            <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-ai stroke-[1.75]" />
-              <div>
-                <h4 className="text-xs font-bold font-display tracking-wide">Asesor de Carrera IA</h4>
-                <p className="text-[10px] text-slate-400">Matchply Coach</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsChatOpen(false)}
-              className="text-slate-400 hover:text-white p-1 rounded-[8px] hover:bg-white/10 transition-all"
-            >
-              <X className="w-4 h-4 stroke-[1.75]" />
-            </button>
-          </div>
-
-          {/* Historial de Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-surface-muted/50 dark:bg-canvas/20 scrollbar-custom">
-            {chatMessages.map((msg, idx) => {
-              const isAssistant = msg.role === 'assistant';
-              return (
-                <div
-                  key={idx}
-                  className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-1 duration-200`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-[12px] p-3 text-xs shadow-sm leading-relaxed ${
-                      isAssistant
-                        ? 'bg-surface border border-subtle text-text'
-                        : 'bg-ai-action text-on-ai-action'
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      {isAssistant ? renderMessageContent(msg.content) : msg.content}
-                    </div>
-
-                    {/* Botón de acción inicial en el primer mensaje de la IA */}
-                    {isAssistant && idx === 0 && chatMessages.length === 1 && (
-                      <div className="mt-3 flex justify-start">
-                        <button
-                          onClick={handleStartAiAnalysis}
-                          disabled={isChatLoading}
-                          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action text-[11px] font-bold shadow-md hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                        >
-                          <Sparkles className="w-3 h-3 stroke-[2]" />
-                          {language === 'es' ? 'Analizar mi embudo' : 'Analyze my funnel'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Cargador de la IA */}
-            {isChatLoading && chatMessages[chatMessages.length - 1]?.role === 'user' && (
-              <div className="flex justify-start animate-in fade-in duration-200">
-                <div className="bg-surface border border-subtle rounded-[12px] p-3 shadow-sm flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-ai-action animate-bounce duration-1000" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Preguntas sugeridas */}
-          {chatMessages.length > 1 && !isChatLoading && (
-            <div className="px-4 py-2 bg-surface-muted/50 dark:bg-canvas/10 border-t border-subtle flex gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
-              {chatSuggestedQuestions.map((q) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => handleSendChatMessage(q.text)}
-                  className="px-2.5 py-1.5 rounded-full border border-ai/20 bg-surface hover:border-ai/50 hover:bg-ai/5 dark:hover:bg-violet-950/20 text-ai text-[10px] font-bold transition-all shadow-sm"
-                >
-                  {q.text}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input de Envío */}
-          <form
-            onSubmit={handleSendChatMessage}
-            className="shrink-0 p-3 bg-surface border-t border-subtle flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={chatInputValue}
-              onChange={(e) => setChatInputValue(e.target.value)}
-              disabled={isChatLoading}
-              placeholder={language === 'es' ? 'Pregunta algo a tu asesor...' : 'Ask your coach something...'}
-              className="flex-1 bg-canvas border border-control rounded-[8px] px-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-            />
-            <button
-              type="submit"
-              disabled={!chatInputValue.trim() || isChatLoading}
-              className="p-2 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-            >
-              <SendHorizontal className="w-4 h-4 stroke-[1.75]" />
-            </button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

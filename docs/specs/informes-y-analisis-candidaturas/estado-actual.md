@@ -15,23 +15,18 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 - **ACT-F15-01:** Construye un informe textual de candidaturas no archivadas, filtrado por fecha, con datos de oferta y CVs vinculados propios.
 - **ACT-F15-02:** La interfaz permite copiar el informe al portapapeles en español o inglés.
-- **ACT-F15-03:** Para análisis IA puede limitar a las 8 ofertas más recientes del conjunto elegido.
-- **ACT-F15-04:** analyzeFailuresAction envía el texto al servicio IA, devuelve un análisis y registra auditoría.
-- **ACT-F15-05:** El tablero de postulaciones mantiene un panel de resultados/conversación local y vuelve a solicitar análisis a partir del contexto textual al continuar.
+- **ACT-F15-03:** El análisis conversacional con IA y su acción asociada se retiraron; el informe se copia al portapapeles sin pasar por el modelo.
 
 ## Límites, diferencias y capacidades parciales
 
-- La acción analiza el texto recibido; no exige que todas las candidaturas estén en rejected.
-- No es una exportación CSV/XLSX ni un informe PDF; es texto preparado para copia/análisis.
-- No se encontró almacenamiento persistente de la conversación de análisis ni recordatorios derivados del diagnóstico.
+- No es una exportación CSV/XLSX ni un informe PDF; es texto preparado para copia.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.
 
 ## Fuentes de implementación
 
 - [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
-- [src/components/applications/ApplicationsBoard.tsx](<../../../src/components/applications/ApplicationsBoard.tsx>)
-- [src/lib/ai-service.ts](<../../../src/lib/ai-service.ts>)
+- [src/components/applications/ApplicationsClient.tsx](<../../../src/components/applications/ApplicationsClient.tsx>)
 
 ## Comprobación disponible
 

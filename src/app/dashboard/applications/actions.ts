@@ -76,7 +76,6 @@ export async function exportJobOffersReport(options: {
   dateFilter: 'all' | 'today' | '7days' | 'custom';
   startDate?: string;
   endDate?: string;
-  limitForAi?: boolean;
   language?: 'es' | 'en';
 }) {
   try {
@@ -135,10 +134,6 @@ export async function exportJobOffersReport(options: {
       return true;
     });
 
-    if (options.limitForAi && targetOffers.length > 8) {
-      targetOffers = targetOffers.slice(0, 8);
-    }
-
     if (targetOffers.length === 0) {
       return { success: true as const, text: '' };
     }
@@ -184,10 +179,7 @@ ${applicationsSectionTitle} (${targetOffers.length})
       const statusText = COLUMN_TITLES[language][offer.status] || offer.status;
       const cvObj = offer.cvId ? cvById.get(offer.cvId) : null;
       const cvTitle = cvObj ? cvObj.title : (isEs ? 'Ninguno' : 'None');
-      let descriptionText = offer.description || (isEs ? 'Sin descripción' : 'No description');
-      if (options.limitForAi && descriptionText.length > 600) {
-        descriptionText = `${descriptionText.substring(0, 600)}... [Descripción truncada para optimización de tokens]`;
-      }
+      const descriptionText = offer.description || (isEs ? 'Sin descripción' : 'No description');
 
       textStr += `
 --------------------------------------------------
@@ -216,10 +208,7 @@ ${cvsSectionTitle} (${linkedCvs.length})
         const offersList = offersUsingThisCv
           .map((offer) => `  - ${offer.title} en ${offer.company} (${COLUMN_TITLES[language][offer.status] || offer.status})`)
           .join('\n');
-        let cvContentText = cv.content;
-        if (options.limitForAi && cvContentText.length > 3000) {
-          cvContentText = `${cvContentText.substring(0, 3000)}\n... [Contenido del CV truncado para optimización de tokens]`;
-        }
+        const cvContentText = cv.content;
         textStr += `
 --------------------------------------------------
 CV: ${cv.title}
@@ -583,45 +572,6 @@ export async function updateJobOfferDetails(
   } catch (error: any) {
     console.error("Error updating offer details:", error);
     return { error: error.message || "Failed to update offer details" };
-  }
-}
-
-export async function analyzeFailuresAction(targetOffersText: string) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-
-    const userId = session.user.id;
-
-    // 1. Obtener usuario para comprobar suscripción
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // 2. Ejecutar análisis de la IA
-    const analysis = await AIService.analyzeFailures({
-      targetOffersText,
-      userSubscriptionStatus: user.subscriptionStatus
-    });
-
-    // 3. Crear log de auditoría
-    await createAuditLog("cv_analyze_failures_ai", userId, user.email || null, {
-      textLength: targetOffersText.length
-    });
-
-    return { analysis };
-  } catch (error: any) {
-    console.error("Error analyzing failures:", error);
-    return { error: error.message || "Failed to analyze failures" };
   }
 }
 

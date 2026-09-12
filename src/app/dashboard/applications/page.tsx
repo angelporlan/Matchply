@@ -1,14 +1,18 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, jobOffers } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import ApplicationsBoard from '@/components/applications/ApplicationsBoard';
+import { applicationViews, cvs, jobOffers, users } from '@/db/schema';
+import { eq, desc, asc } from 'drizzle-orm';
+import ApplicationsClient from '@/components/applications/ApplicationsClient';
 import { isProSubscription } from '@/lib/subscription';
 import { cvListColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
+import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
 
-export default async function ApplicationsPage() {
+interface ApplicationsPageProps {
+  searchParams?: { layout?: string; view?: string };
+}
+
+export default async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     redirect('/login');
@@ -30,18 +34,44 @@ export default async function ApplicationsPage() {
     redirect('/dashboard/subscription');
   }
 
-  // 2. Obtener lista de currículums del usuario
-  const userCvs = await db
-    .select(cvListColumns)
-    .from(cvs)
-    .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.createdAt));
+  // 2. Cargar currículums, postulaciones y vistas guardadas
+  const [userCvs, offers, viewRows] = await Promise.all([
+    db
+      .select(cvListColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.createdAt)),
+    db
+      .select(applicationSummaryColumns)
+      .from(jobOffers)
+      .where(eq(jobOffers.userId, userId))
+      .orderBy(desc(jobOffers.updatedAt)),
+    db
+      .select({
+        id: applicationViews.id,
+        name: applicationViews.name,
+        isDefault: applicationViews.isDefault,
+        config: applicationViews.config,
+      })
+      .from(applicationViews)
+      .where(eq(applicationViews.userId, userId))
+      .orderBy(desc(applicationViews.isDefault), asc(applicationViews.name)),
+  ]);
 
-  const offers = await db
-    .select(applicationSummaryColumns)
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .orderBy(desc(jobOffers.updatedAt));
+  const savedViews = viewRows.map((view) => ({
+    id: view.id,
+    name: view.name,
+    isDefault: view.isDefault,
+    config: normalizeViewConfig(view.config),
+  }));
+
+  const defaultViewId = savedViews.find((view) => view.isDefault)?.id || SYSTEM_VIEWS[0].id;
+  const requestedViewId = searchParams?.view;
+  const initialViewId = requestedViewId
+    && (savedViews.some((view) => view.id === requestedViewId) || SYSTEM_VIEWS.some((view) => view.id === requestedViewId))
+    ? requestedViewId
+    : defaultViewId;
+  const initialLayout = searchParams?.layout === 'board' ? 'board' : 'table';
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -50,8 +80,13 @@ export default async function ApplicationsPage() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {/* Tablero de postulaciones */}
-        <ApplicationsBoard offers={offers} userCvs={userCvs} />
+        <ApplicationsClient
+          offers={offers}
+          userCvs={userCvs}
+          savedViews={savedViews}
+          initialLayout={initialLayout}
+          initialViewId={initialViewId}
+        />
       </main>
     </div>
   );

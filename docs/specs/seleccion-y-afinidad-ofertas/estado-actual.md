@@ -39,7 +39,7 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 - [src/components/applications/CurateWithAiModal.tsx](<../../../src/components/applications/CurateWithAiModal.tsx>)
 - [src/lib/ai-service.ts](<../../../src/lib/ai-service.ts>)
 - [src/lib/curation-constraints.ts](<../../../src/lib/curation-constraints.ts>)
-- [src/components/applications/ApplicationsBoard.tsx](<../../../src/components/applications/ApplicationsBoard.tsx>)
+- [src/components/applications/ApplicationsClient.tsx](<../../../src/components/applications/ApplicationsClient.tsx>)
 
 ## Comprobación disponible
 
