@@ -40,7 +40,7 @@ export default function Logo({
 
       {!iconOnly && (
         <span className={`font-display font-semibold tracking-tight ${textClassMap[textSize]} flex items-baseline leading-none`}>
-          <span className="font-extrabold text-[#1E1B4B] dark:text-white transition-colors duration-300">
+          <span className="font-extrabold text-text transition-colors duration-300">
             match
           </span>
           <span className="font-light text-[#8F84F8] dark:text-[#B4A9FB] ml-[1px] transition-colors duration-300">

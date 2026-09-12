@@ -31,11 +31,11 @@ export default function LanguageToggle() {
 
   return (
     <div
-      className="group relative flex h-10 w-[116px] items-center overflow-hidden rounded-[8px] border border-[#1e1b4b]/10 bg-white p-1 shadow-sm transition-all duration-300 hover:border-[#8b5cf6]/30 hover:shadow-md dark:border-white/10 dark:bg-[#1f2937]"
+      className="group relative flex h-10 w-[116px] items-center overflow-hidden rounded-[8px] border border-subtle bg-white p-1 shadow-sm transition-all duration-300 hover:border-ai/30 hover:shadow-md dark:border-white/10 dark:bg-surface"
       title={isSpanish ? 'Cambiar a Inglés' : 'Switch to Spanish'}
     >
       <div
-        className={`absolute bottom-1 top-1 w-[52px] rounded-[6px] bg-gradient-to-tr from-[#8b5cf6] to-[#1e1b4b] shadow-sm transition-all duration-300 ease-out dark:to-violet-800 ${
+        className={`absolute bottom-1 top-1 w-[52px] rounded-[6px] bg-gradient-to-tr from-ai to-ai-action shadow-sm transition-all duration-300 ease-out dark:to-violet-800 ${
           isSpanish ? 'left-1' : 'left-[60px]'
         }`}
       />
@@ -45,7 +45,7 @@ export default function LanguageToggle() {
         className={`relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 rounded-[6px] font-display text-[10px] font-bold transition-all duration-300 ${
           isSpanish
             ? 'text-white'
-            : 'text-[#1e1b4b]/60 hover:text-[#1e1b4b] dark:text-slate-400 dark:hover:text-white'
+            : 'text-text-muted hover:text-text-muted dark:hover:text-white'
         }`}
         aria-label="Español"
         aria-pressed={isSpanish}
@@ -59,7 +59,7 @@ export default function LanguageToggle() {
         className={`relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 rounded-[6px] font-display text-[10px] font-bold transition-all duration-300 ${
           !isSpanish
             ? 'text-white'
-            : 'text-[#1e1b4b]/60 hover:text-[#1e1b4b] dark:text-slate-400 dark:hover:text-white'
+            : 'text-text-muted hover:text-text-muted dark:hover:text-white'
         }`}
         aria-label="English"
         aria-pressed={!isSpanish}

@@ -2,6 +2,272 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Matchply design tokens (design.md §3)
+   :root = tema claro · .dark = tema oscuro
+   ============================================================ */
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --canvas: #fafafa;
+    --surface: #ffffff;
+    --surface-muted: #f1f3f5;
+    --text: #1e1b4b;
+    --text-muted: #596174;
+    --border-subtle: #e2e5eb;
+    --border-control: #64748b;
+    --focus: #1e1b4b;
+
+    --action: #2ecc71;
+    --on-action: #1e1b4b;
+    --action-hover: #27ae60;
+
+    --ai-accent: #8b5cf6;
+    --ai-action: #7c3aed;
+    --on-ai-action: #ffffff;
+    --ai-hover: #6d28d9;
+    --ai-text: #6d28d9;
+    --ai-surface: #f5f3ff;
+
+    --success-text: #15803d;
+    --success-surface: #f0fdf4;
+    --warning-text: #92400e;
+    --warning-surface: #fffbeb;
+    --danger-text: #b91c1c;
+    --danger-surface: #fef2f2;
+    --info-text: #1d4ed8;
+    --info-surface: #eff6ff;
+
+    --radius: 12px;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --canvas: #0b0f19;
+    --surface: #151b28;
+    --surface-muted: #1f2937;
+    --text: #f3f4f6;
+    --text-muted: #94a3b8;
+    --border-subtle: #334155;
+    --border-control: #94a3b8;
+    --focus: #f3f4f6;
+
+    --action: #2ecc71;
+    --on-action: #1e1b4b;
+    --action-hover: #27ae60;
+
+    --ai-accent: #a78bfa;
+    --ai-action: #a78bfa;
+    --on-ai-action: #0b0f19;
+    --ai-hover: #c4b5fd;
+    --ai-text: #c4b5fd;
+    --ai-surface: #241b3d;
+
+    --success-text: #86efac;
+    --success-surface: #142b20;
+    --warning-text: #fcd34d;
+    --warning-surface: #302414;
+    --danger-text: #fca5a5;
+    --danger-surface: #341d24;
+    --info-text: #93c5fd;
+    --info-surface: #18283e;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas text-text antialiased font-sans overflow-x-hidden;
+  }
+
+  body ::selection {
+    background-color: rgba(139, 92, 246, 0.22);
+    color: #1e1b4b;
+  }
+
+  .dark body ::selection {
+    color: #f3f4f6;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* ============================================================
+   Botones con relieve (design.md §5)
+   ============================================================ */
+.btn-raised {
+  --btn-bg: var(--action);
+  --btn-hover: var(--action-hover);
+  --btn-fg: var(--on-action);
+  --btn-edge: #1e1b4b;
+  --btn-focus: var(--focus);
+  --depth: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 2px solid var(--btn-edge);
+  border-radius: 8px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: var(--depth) var(--depth) 0 var(--btn-edge);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 140ms ease, transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.btn-raised--hero {
+  --depth: 4px;
+  min-height: 52px;
+  padding-left: 28px;
+  padding-right: 28px;
+  font-size: 1rem;
+}
+
+.btn-raised--sm {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+}
+
+.btn-raised--ai {
+  --btn-bg: var(--ai-action);
+  --btn-hover: var(--ai-hover);
+  --btn-fg: var(--on-ai-action);
+  --btn-edge: #4c1d95;
+}
+
+.btn-raised--strong {
+  --btn-bg: var(--text);
+  --btn-hover: var(--text);
+  --btn-fg: var(--canvas);
+  --btn-edge: var(--text);
+}
+
+.btn-raised--secondary {
+  --btn-bg: var(--surface);
+  --btn-hover: var(--surface-muted);
+  --btn-fg: var(--text);
+  --btn-edge: var(--border-control);
+  box-shadow: none;
+  border-width: 1px;
+}
+
+.btn-raised--ghost {
+  --btn-bg: transparent;
+  --btn-hover: var(--surface-muted);
+  --btn-fg: var(--text);
+  --btn-edge: transparent;
+  box-shadow: none;
+  border-width: 0;
+}
+
+.btn-raised--danger {
+  --btn-bg: #b91c1c;
+  --btn-hover: #991b1b;
+  --btn-fg: #ffffff;
+  --btn-edge: #7f1d1d;
+}
+
+.dark .btn-raised {
+  --btn-edge: #0b0f19;
+}
+
+.dark .btn-raised--ai {
+  --btn-edge: #0b0f19;
+}
+
+.dark .btn-raised--secondary {
+  --btn-edge: var(--border-control);
+}
+
+.dark .btn-raised--danger {
+  --btn-bg: #fca5a5;
+  --btn-hover: #fecaca;
+  --btn-fg: #0b0f19;
+  --btn-edge: #0b0f19;
+}
+
+@media (hover: hover) {
+  .btn-raised:not(:disabled):not([aria-disabled='true']):hover {
+    background: var(--btn-hover);
+    transform: translate(1px, 1px);
+    box-shadow: calc(var(--depth) - 1px) calc(var(--depth) - 1px) 0
+      var(--btn-edge);
+  }
+
+  .btn-raised--secondary:hover,
+  .btn-raised--ghost:hover {
+    box-shadow: none;
+  }
+}
+
+.btn-raised:not(:disabled):not([aria-disabled='true']):active {
+  transform: translate(var(--depth), var(--depth));
+  box-shadow: none;
+}
+
+.btn-raised:disabled,
+.btn-raised[aria-disabled='true'] {
+  background: #e2e5eb;
+  color: #596174;
+  border-color: #64748b;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.dark .btn-raised:disabled,
+.dark .btn-raised[aria-disabled='true'] {
+  background: #1f2937;
+  color: #94a3b8;
+  border-color: #64748b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-raised {
+    transition: none;
+  }
+
+  .btn-raised:not(:disabled):not([aria-disabled='true']):is(:hover, :active) {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Animaciones y utilidades
+   ============================================================ */
 @keyframes faq-answer-in {
   from {
     opacity: 0;
@@ -27,188 +293,53 @@ details[open] .faq-answer {
   }
 }
 
-@layer base {
-  :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
-
-    --card: 224 71% 4.5%;
-    --card-foreground: 213 31% 91%;
-
-    --border: 222 47% 11.2%;
-    --input: 222 47% 11.2%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 222 47% 11.2%;
-    --secondary-foreground: 210 40% 98%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --ring: 216 12.2% 83.9%;
-
-    --radius: 0.75rem;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    @apply bg-background text-foreground antialiased font-sans selection:bg-slate-800 selection:text-white overflow-x-hidden;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
-  }
-}
-
-.glass-card {
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.glass-nav {
-  background: rgba(10, 15, 30, 0.7);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.glass-nav-ios {
-  background: rgba(2, 6, 23, 0.28);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 12px 40px rgba(2, 6, 23, 0.18);
-}
-
-.glow-primary {
-  box-shadow: 0 0 40px -5px rgba(56, 189, 248, 0.15);
-}
-
-.glow-accent {
-  box-shadow: 0 0 40px -5px rgba(192, 132, 252, 0.15);
-}
-
-.editor-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.editor-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.editor-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(30, 27, 75, 0.15);
-  border-radius: 9999px;
-}
-
-.editor-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(30, 27, 75, 0.3);
-}
-
-.editor-scrollbar {
+/* Scrollbars discretas que respetan el sistema */
+.editor-scrollbar,
+.scrollbar-custom {
   scrollbar-width: thin;
-  scrollbar-color: rgba(30, 27, 75, 0.15) transparent;
+  scrollbar-color: rgba(30, 27, 75, 0.2) transparent;
 }
 
-.dark .editor-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.dark .editor-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.dark .editor-scrollbar {
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-
-/* Custom, sleek scrollbar for modals, drawers and dashboards */
+.editor-scrollbar::-webkit-scrollbar,
 .scrollbar-custom::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
+.editor-scrollbar::-webkit-scrollbar-track,
 .scrollbar-custom::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Light mode styling (default) */
+.editor-scrollbar::-webkit-scrollbar-thumb,
 .scrollbar-custom::-webkit-scrollbar-thumb {
-  background: rgba(30, 27, 75, 0.15); /* Midnight purple at 15% opacity */
+  background: rgba(30, 27, 75, 0.2);
   border-radius: 9999px;
-  border: 1px solid transparent;
 }
 
+.editor-scrollbar::-webkit-scrollbar-thumb:hover,
 .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-  background: rgba(30, 27, 75, 0.3);
+  background: rgba(30, 27, 75, 0.35);
 }
 
-.scrollbar-custom {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(30, 27, 75, 0.15) transparent;
-}
-
-/* Dark mode styling */
-.dark .scrollbar-custom::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
-  border: 1px solid transparent;
-}
-
-.dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
+.dark .editor-scrollbar,
 .dark .scrollbar-custom {
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
-/* Custom Matchply Animations & Keyframes */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px) rotate(0.5deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(-0.5deg);
-  }
+.dark .editor-scrollbar::-webkit-scrollbar-thumb,
+.dark .scrollbar-custom::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+.dark .editor-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -222,58 +353,7 @@ details[open] .faq-answer {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
 
-/* Shimmer/Shine Effect on Button Hover */
-@keyframes shimmer-shine {
-  0% {
-    left: -150%;
-  }
-  50% {
-    left: 100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-@keyframes curate-scan-shimmer {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(120%);
-  }
-}
-
-.curate-scan-shimmer {
-  animation: curate-scan-shimmer 1.6s ease-in-out infinite;
-}
-
-.hover-shimmer-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-.hover-shimmer-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -150%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: skewX(-25deg);
-}
-
-.hover-shimmer-btn:hover::after {
-  animation: shimmer-shine 1s ease-in-out infinite;
-}
-
-/* 3D Card Flip styles */
+/* Flip card de demo (landing) */
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -291,34 +371,6 @@ details[open] .faq-answer {
   transform: rotateY(180deg);
 }
 
-/* 3D Carousel Custom Styles */
-.carousel-container {
-  perspective: 1200px;
-  transform-style: preserve-3d;
-}
-
-:root {
-  --carousel-radius: 350px;
-}
-
-@media (max-width: 1024px) {
-  :root {
-    --carousel-radius: 260px;
-  }
-}
-
-@media (max-width: 768px) {
-  :root {
-    --carousel-radius: 190px;
-  }
-}
-
-@media (max-width: 480px) {
-  :root {
-    --carousel-radius: 130px;
-  }
-}
-
 /* --- Agent First / Wavy Icon Marquee Effect --- */
 @keyframes wave-marquee {
   0% {
@@ -333,9 +385,27 @@ details[open] .faq-answer {
   animation: wave-marquee 40s linear infinite;
 }
 
+@keyframes curate-scan-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.curate-scan-shimmer {
+  animation: curate-scan-shimmer 1.6s ease-in-out infinite;
+}
+
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .animate-blink {
@@ -343,7 +413,8 @@ details[open] .faq-answer {
 }
 
 @keyframes bounce-slow {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -370,9 +441,9 @@ details[open] .faq-answer {
   }
 }
 
-/* --- Feature Explorer Section (Antigravity Style) --- */
+/* --- Feature Explorer Section --- */
 .feature-explorer-section {
-  @apply py-20 md:py-32 border-b border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#0b0f19] relative scroll-mt-24 transition-colors duration-300;
+  @apply py-20 md:py-32 border-b border-subtle bg-canvas relative scroll-mt-24 transition-colors duration-300;
 }
 
 .grid-container {
@@ -416,11 +487,11 @@ details[open] .faq-answer {
 }
 
 .feature-title {
-  @apply font-display font-black text-2xl sm:text-3xl text-[#1e1b4b] dark:text-white mb-6 leading-tight tracking-tight;
+  @apply font-display font-black text-2xl sm:text-3xl text-text mb-6 leading-tight tracking-tight;
 }
 
 .feature-description {
-  @apply text-[#1e1b4b]/70 dark:text-slate-400 text-base sm:text-lg font-light leading-relaxed font-sans;
+  @apply text-text-muted text-base sm:text-lg font-light leading-relaxed font-sans;
 }
 
 .feature-media {
@@ -428,5 +499,5 @@ details[open] .faq-answer {
 }
 
 .feature-image {
-  @apply w-full h-auto rounded-2xl shadow-lg border border-[#1e1b4b]/5 dark:border-white/5;
+  @apply w-full h-auto rounded-2xl shadow-lg border border-subtle;
 }

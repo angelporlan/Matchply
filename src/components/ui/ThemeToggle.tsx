@@ -40,7 +40,7 @@ export default function ThemeToggle() {
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-transparent flex items-center justify-center shadow-sm select-none pointer-events-none"
+        className="p-2 rounded-[8px] bg-surface border border-subtle text-transparent flex items-center justify-center shadow-sm select-none pointer-events-none"
         aria-hidden="true"
       >
         <span className="w-4 h-4 block" />
@@ -51,7 +51,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-[8px] bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 text-[#1e1b4b]/70 dark:text-slate-300 hover:text-[#1e1b4b] dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+      className="p-2 rounded-[8px] bg-surface border border-subtle text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
       aria-label={toggleLabel}
       title={toggleLabel}
     >

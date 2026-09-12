@@ -14,44 +14,61 @@ const config: Config = {
         display: ['var(--font-display)', 'Outfit', 'sans-serif'],
       },
       colors: {
-        border: 'hsl(var(--border) / <alpha-value>)',
-        input: 'hsl(var(--input) / <alpha-value>)',
-        ring: 'hsl(var(--ring) / <alpha-value>)',
-        background: 'hsl(var(--background) / <alpha-value>)',
-        foreground: 'hsl(var(--foreground) / <alpha-value>)',
-        primary: {
-          DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
-          foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',
+        canvas: 'var(--canvas)',
+        surface: {
+          DEFAULT: 'var(--surface)',
+          muted: 'var(--surface-muted)',
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary) / <alpha-value>)',
-          foreground: 'hsl(var(--secondary-foreground) / <alpha-value>)',
+        text: {
+          DEFAULT: 'var(--text)',
+          muted: 'var(--text-muted)',
         },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
-          foreground: 'hsl(var(--destructive-foreground) / <alpha-value>)',
+        subtle: 'var(--border-subtle)',
+        control: 'var(--border-control)',
+        focus: 'var(--focus)',
+        border: 'var(--border-subtle)',
+        input: 'var(--border-control)',
+        ring: 'var(--focus)',
+        background: 'var(--canvas)',
+        foreground: 'var(--text)',
+        action: {
+          DEFAULT: 'var(--action)',
+          hover: 'var(--action-hover)',
         },
-        muted: {
-          DEFAULT: 'hsl(var(--muted) / <alpha-value>)',
-          foreground: 'hsl(var(--muted-foreground) / <alpha-value>)',
+        'on-action': 'var(--on-action)',
+        ai: {
+          DEFAULT: 'var(--ai-accent)',
+          action: 'var(--ai-action)',
+          hover: 'var(--ai-hover)',
+          text: 'var(--ai-text)',
+          surface: 'var(--ai-surface)',
         },
-        accent: {
-          DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
-          foreground: 'hsl(var(--accent-foreground) / <alpha-value>)',
+        'on-ai-action': 'var(--on-ai-action)',
+        success: {
+          text: 'var(--success-text)',
+          surface: 'var(--success-surface)',
         },
-        popover: {
-          DEFAULT: 'hsl(var(--popover) / <alpha-value>)',
-          foreground: 'hsl(var(--popover-foreground) / <alpha-value>)',
+        warning: {
+          text: 'var(--warning-text)',
+          surface: 'var(--warning-surface)',
         },
-        card: {
-          DEFAULT: 'hsl(var(--card) / <alpha-value>)',
-          foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
+        danger: {
+          text: 'var(--danger-text)',
+          surface: 'var(--danger-surface)',
+        },
+        info: {
+          text: 'var(--info-text)',
+          surface: 'var(--info-surface)',
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: '12px',
+        md: '8px',
+        sm: '6px',
+      },
+      boxShadow: {
+        card: '0 2px 8px rgba(30, 27, 75, 0.04)',
+        dialog: '0 16px 48px rgba(11, 15, 25, 0.18)',
       },
       keyframes: {
         'accordion-down': {

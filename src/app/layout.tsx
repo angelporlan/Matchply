@@ -49,7 +49,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-[#030712] text-slate-100 min-h-screen">
+      <body className="bg-canvas text-text min-h-screen">
         <LanguageProvider initialLanguage={initialLanguage}>
           {children}
         </LanguageProvider>
