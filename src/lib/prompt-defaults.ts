@@ -12,7 +12,6 @@ export type BuiltInPromptKey =
   | 'optimize_cv'
   | 'import_cv'
   | 'star_analyze'
-  | 'star_optimize'
   | 'analyze_failures';
 
 export interface BuiltInPrompt {
@@ -86,26 +85,6 @@ Responde exactamente con este JSON:
   }
 }`,
     isStrict: false,
-  },
-
-  star_optimize: {
-    systemPrompt: `Eres un redactor experto en CVs estilo Harvard. Optimiza el currículum para la oferta de "{{jobTitle}}" en "{{company}}".
-
-Devuelve únicamente Markdown válido y limpio. No inventes experiencias, empresas, fechas ni métricas. Evita patrones repetitivos y conserva un tono profesional y humano.`,
-    userPrompt: `CV actual:
-{{cv}}
-
-Descripción de la oferta:
-{{job}}
-
-Palabras clave esenciales que faltan:
-{{keywords}}
-
-Red flags a mitigar:
-{{redflags}}
-
-Reescribe la experiencia usando logros verificables y la fórmula XYZ cuando el CV aporte datos suficientes.`,
-    isStrict: true,
   },
 
   analyze_failures: {

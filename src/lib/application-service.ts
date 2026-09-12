@@ -33,7 +33,6 @@ export type ExternalApplicationInput = {
   targetProofPoints?: unknown;
   coverLetter?: string;
   outreachMessage?: string;
-  interviewStories?: unknown;
   interviewQuestions?: unknown;
   nextFollowupDate?: string | null;
   rejectionPatternTags?: unknown;
@@ -116,7 +115,6 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
     targetProofPoints: input.targetProofPoints ?? null,
     coverLetter: input.coverLetter || null,
     outreachMessage: input.outreachMessage || null,
-    interviewStories: input.interviewStories ?? null,
     interviewQuestions: input.interviewQuestions ?? null,
     cvId: input.cvId !== undefined ? input.cvId : existing?.cvId || null,
     nextFollowupDate: input.nextFollowupDate !== undefined

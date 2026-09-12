@@ -205,8 +205,8 @@ export class AIService {
       const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
 
       const defaultSystem = provider === 'gemini'
-        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
-        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
+        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
+        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
       const finalUserPrompt = userPromptTemplate
@@ -284,8 +284,8 @@ export class AIService {
       const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
 
       const defaultSystem = provider === 'gemini'
-        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza el método STAR para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
-        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
+        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
+        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
       const finalUserPrompt = (userPromptTemplate
@@ -991,102 +991,6 @@ Ejemplo de cómo debe ser esta sección en tu JSON:
     }
   }
 
-  static async optimizeSTARStream({
-    cvMarkdown,
-    jobDescription,
-    company,
-    jobTitle,
-    missingKeywords,
-    redFlags,
-    userSubscriptionStatus,
-    candidateName,
-    promptId
-  }: {
-    cvMarkdown: string;
-    jobDescription: string;
-    company: string;
-    jobTitle: string;
-    missingKeywords: string[];
-    redFlags: { title: string; description: string }[];
-    userSubscriptionStatus: string;
-    candidateName?: string;
-    promptId?: string;
-  }): Promise<ReadableStream<Uint8Array>> {
-    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
-
-    const resolvedName = this.extractCandidateName(cvMarkdown) || candidateName || "Candidato";
-    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
-
-    // El prompt integrado se usa siempre como fallback; la DB solo puede
-    // aportar una sobrescritura completa y válida.
-    const dbPrompt = await this.resolvePrompt('star_optimize', promptId);
-
-    const defaultSystem = `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
-Debes reescribir la sección de experiencia laboral del candidato de acuerdo con las instrucciones provistas por el usuario.
-Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
-
-CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
-- Evita el exceso de números y porcentajes: No inventes ni metas métricas numéricas o porcentajes en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto para que destaquen de verdad. Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
-- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "más de X usuarios"), tiempo ahorrado o impacto cualitativo relevante.
-- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
-- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`;
-
-    const defaultUser = `Aquí tienes mi CV actual:
-{{cv}}
-
-Aquí tienes la descripción de la oferta:
-{{job}}
-
-Estas son las palabras clave esenciales que me faltan:
-{{keywords}}
-
-Estas son las Red Flags identificadas que debo eliminar o mitigar:
-{{redflags}}
-
-Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`;
-
-    let systemPrompt = dbPrompt?.systemPrompt || defaultSystem;
-    systemPrompt = systemPrompt
-      .replace(/\{\{company\}\}/g, company)
-      .replace(/\{\{jobTitle\}\}/g, jobTitle);
-
-    if (dbPrompt) {
-      if (dbPrompt.isStrict) {
-        systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
-      } else {
-        systemPrompt += "\n\n" + nameDirective;
-      }
-    } else {
-      systemPrompt += "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + nameDirective;
-    }
-
-    const keywordsList = missingKeywords.join(', ');
-    const redFlagsList = redFlags.map(rf => `- ${rf.title}: ${rf.description}`).join('\n');
-
-    let userPromptTemplate = dbPrompt?.userPrompt || defaultUser;
-    const userPrompt = userPromptTemplate
-      .replace(/\{\{cv\}\}/g, cvMarkdown)
-      .replace(/\{\{job\}\}/g, jobDescription)
-      .replace(/\{\{keywords\}\}/g, keywordsList)
-      .replace(/\{\{redflags\}\}/g, redFlagsList);
-
-    if (provider === 'gemini') {
-      return await this.streamGeminiOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    } else if (provider === 'deepseek') {
-      return await this.streamDeepSeekOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    } else {
-      return await this.streamOpenRouter(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    }
-  }
-
   private static getMockCvResponse(cv: string, job: string, providerName: string): string {
     // Generador de CV optimizado simulado de alta calidad
     const lines = cv.split('\n');
@@ -1123,7 +1027,7 @@ Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y
 ${contactLines.join('\n')}
 
 ## Perfil Profesional
-Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el puesto requerido. Match semántico incrementado, enfoque basado en logros cuantificables y método STAR para resaltar impacto empresarial.
+Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el puesto requerido. Match semántico incrementado, enfoque basado en logros cuantificables y fórmula XYZ para resaltar impacto empresarial.
 
 ## Experiencia Profesional
 ### Desarrollador de Software Senior (Optimizado para Oferta)
@@ -1283,7 +1187,7 @@ ${rejectedOffers > 0
 
 ### 3. Plan de Acción Recomendado
 1. **Audita tus palabras clave:** Entra en la tarjeta de las ofertas, pulsa "Vincular CV" y genera una optimización semántica (Modo Adaptado u Honesto) para inyectar los términos ausentes.
-2. **Prepara Historias STAR:** Para las candidaturas en fase de *Entrevista*, accede a sus detalles y revisa las preguntas y respuestas STAR generadas por la IA para preparar tus entrevistas técnicas y de comportamiento.
+2. **Prepara tus entrevistas:** Para las candidaturas en fase de *Entrevista*, accede a sus detalles y revisa las preguntas y consejos generados por la IA para preparar tus entrevistas técnicas y de comportamiento.
 3. **Optimiza la descripción del puesto:** Asegúrate de que las descripciones que pegas de las ofertas en Matchply incluyan el stack técnico completo para que nuestro analizador ATS sea 100% preciso.`;
 
     return analysis;
@@ -2124,7 +2028,7 @@ Tu tarea es reescribir y pulir el texto de la sección "${sectionType}" proporci
 DIRECTRICES:
 - Si es "bio": Hazla concisa, orientada a impacto y resultados, destacando stack y valor técnico sin caer en clichés corporativos vacíos.
 - Si es "curationCriteria": Conviértelo en reglas claras e inequívocas para que un sistema de scoring de ofertas sepa exactamente qué priorizar, qué penalizar y qué descartar.
-- Si es "project": Enfatiza arquitectura técnica, problemas resueltos y métricas de impacto (método STAR).
+- Si es "project": Enfatiza arquitectura técnica, problemas resueltos y métricas de impacto (fórmula XYZ).
 - Conserva al 100% la verdad de los datos; NO inventes tecnologías que no aparezcan en el texto original.
 - Devuelve DIRECTAMENTE el texto pulido en Markdown simple (sin preámbulos ni bloques envolventes de código).`;
 

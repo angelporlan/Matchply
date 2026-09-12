@@ -13,8 +13,8 @@ Los prompts operativos se versionan en
 sobrescritura completa para experimentación administrativa, pero una fila
 ausente, incompleta o una consulta fallida siempre usa el prompt integrado.
 
-Se cubren los contratos `optimize_cv`, `import_cv`, `star_analyze`,
-`star_optimize` y `analyze_failures`.
+Se cubren los contratos `optimize_cv`, `import_cv`, `star_analyze` y
+`analyze_failures`.
 
 ## Invariantes
 

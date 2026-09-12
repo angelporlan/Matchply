@@ -80,14 +80,6 @@ El endpoint acepta un objeto altamente detallado que combina el registro de la c
   "targetProofPoints": ["Mejora de rendimiento en un 35%", "Liderazgo de equipo ágil"],
   "coverLetter": "Estimado equipo de Stripe...",
   "outreachMessage": "Hola [Reclutador], vi tu vacante...",
-  "interviewStories": [
-    {
-      "situation": "Migración crítica de base de datos",
-      "task": "Migrar PostgreSQL sin caída de servicio",
-      "action": "Diseñé un pipeline en Docker con replicación",
-      "result": "Migración exitosa con 0 minutos de downtime"
-    }
-  ],
   
   // Seguimiento
   "nextFollowupDate": "2026-06-15T09:00:00.000Z",
@@ -165,7 +157,7 @@ Un candidato navega por LinkedIn, InfoJobs o Indeed. Al hacer clic en un botón 
 
 ### Caso 2: Plataforma o Agente de Búsqueda Automatizada (Sincronización Externa)
 Un agente automatizado o crawler corporativo de terceros descubre ofertas alineadas al perfil del candidato:
-1. El backend del agente procesa la oferta de empleo y realiza un pre-análisis de IA (calcula un match de compatibilidad, extrae TL;DRs, red flags y genera STAR stories para la entrevista).
+1. El backend del agente procesa la oferta de empleo y realiza un pre-análisis de IA (calcula un match de compatibilidad, extrae TL;DRs y red flags).
 2. Llama al endpoint utilizando la **Clave Global** (o Clave Personal) indicando el correo electrónico del candidato.
 3. El candidato amanece cada mañana con su tablero Kanban pre-poblado de ofertas ya evaluadas y con cartas de presentación personalizadas listas para enviar, ahorrando horas diarias de búsqueda manual.
 

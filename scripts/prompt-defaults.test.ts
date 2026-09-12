@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { BUILT_IN_PROMPTS, getBuiltInPrompt } from '@/lib/prompt-defaults';
 
 test('all operational prompts are available without database seed data', () => {
-  for (const key of ['optimize_cv', 'import_cv', 'star_analyze', 'star_optimize', 'analyze_failures'] as const) {
+  for (const key of ['optimize_cv', 'import_cv', 'star_analyze', 'analyze_failures'] as const) {
     const prompt = getBuiltInPrompt(key);
 
     assert.ok(prompt.systemPrompt.trim(), `${key} must have a system prompt`);
@@ -15,7 +15,6 @@ test('all operational prompts are available without database seed data', () => {
     'import_cv',
     'optimize_cv',
     'star_analyze',
-    'star_optimize',
   ]);
 });
 

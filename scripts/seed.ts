@@ -61,10 +61,6 @@ async function seed() {
 
     await db
       .delete(prompts)
-      .where(eq(prompts.key, 'star_optimize'));
-
-    await db
-      .delete(prompts)
       .where(eq(prompts.key, 'analyze_failures'));
 
     const promptsToSeed = [
@@ -115,124 +111,6 @@ Responde exactamente con este formato JSON:
         isActive: true,
         isArchived: false,
         isStrict: false,
-      },
-      {
-        name: 'Modo Honesto',
-        nameEn: 'Honest Mode',
-        key: 'star_optimize',
-        description: 'Reescribe la sección de experiencia usando logros STAR y la fórmula XYZ, pero ciñéndose estrictamente a las tecnologías y datos reales de tu CV.',
-        descriptionEn: 'Rewrites the experience section using STAR achievements and the XYZ formula, sticking strictly to the real technologies and data in your CV.',
-        color: '#3b82f6', // Azul
-        systemPrompt: `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
-Tu única fuente de verdad es el CV que te proporciona el usuario.
-
-REGLAS ESTRICTAS:
-- No añadas tecnologías, herramientas, métricas ni experiencias que NO aparezcan en el CV.
-- No infieras ni supongas habilidades. Si no está escrito, no existe.
-- Debes reescribir la sección de experiencia añadiendo únicamente las palabras clave indicadas si son equivalentes o transferibles lógicamente a lo que el candidato ya realiza.
-- Usa verbos de acción y lenguaje profesional.
-- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
-
-CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
-- Evita el exceso de números y porcentajes: No repitas métricas o porcentajes en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto (y solo si ya existían en el CV original). Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
-- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "más de X usuarios"), tiempo ahorrado o impacto cualitativo relevante.
-- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
-- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
-        userPrompt: `Aquí tienes mi CV actual:
-{{cv}}
-
-Aquí tienes la descripción de la oferta:
-{{job}}
-
-Estas son las palabras clave esenciales que me faltan:
-{{keywords}}
-
-Estas son las Red Flags identificadas que debo eliminar o mitigar:
-{{redflags}}
-
-Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`,
-        isActive: true,
-        isArchived: false,
-        isStrict: true,
-      },
-      {
-        name: 'Modo Adaptado',
-        nameEn: 'Adapted Mode',
-        key: 'star_optimize',
-        description: 'Reformula logros con el método STAR e inyecta palabras clave equivalentes de forma realista sin inventar roles ni empresas.',
-        descriptionEn: 'Reformulates achievements with the STAR method and injects equivalent keywords realistically without inventing roles or companies.',
-        color: '#f97316', // Naranja
-        systemPrompt: `Eres un redactor experto en CVs estilo Harvard. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
-Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (método STAR) basados en la experiencia real.
-
-REGLAS:
-- No inventes experiencias, empresas, proyectos ni métricas concretas (porcentajes, fechas, cifras) que no estén en el CV.
-- Sí puedes reformular logros usando la fórmula XYZ y la terminología de la oferta cuando sean equivalentes.
-- Sí puedes destacar habilidades transferibles o adyacentes que el candidato claramente tiene.
-- Sí puedes añadir 1-2 habilidades si son razonablemente deducibles del stack que ya usa.
-- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
-
-CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
-- Evita el exceso de números y porcentajes: No metas métricas numéricas o porcentajes inventados en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto (usando solo datos reales del CV o inferencias de impacto muy lógicas y realistas). Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
-- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "procesos diarios", "X integraciones"), tiempo ahorrado ("de días a minutos") o impacto cualitativo relevante.
-- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
-- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
-        userPrompt: `Aquí tienes mi CV actual:
-{{cv}}
-
-Aquí tienes la descripción de la oferta:
-{{job}}
-
-Estas son las palabras clave esenciales que me faltan:
-{{keywords}}
-
-Estas son las Red Flags identificadas que debo eliminar o mitigar:
-{{redflags}}
-
-Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`,
-        isActive: false,
-        isArchived: false,
-        isStrict: true,
-      },
-      {
-        name: 'Modo Agresivo',
-        nameEn: 'Aggressive Mode',
-        key: 'star_optimize',
-        description: 'Reescribe la sección de experiencia maximizando el match ATS, estimando métricas XYZ e inyectando cualquier tecnología crítica ausente.',
-        descriptionEn: 'Rewrites the experience section maximizing ATS match, estimating XYZ metrics, and injecting any missing critical technology.',
-        color: '#ef4444', // Rojo
-        systemPrompt: `Eres un redactor experto en CVs estilo Harvard y optimización de alto impacto. Tu objetivo es optimizar el currículum del candidato para la oferta de empleo de "{{jobTitle}}" en la empresa "{{company}}".
-Reescribe y potencia el currículum usando la fórmula XYZ de Google, inyectando las palabras clave faltantes y mitigando cualquier Red Flag.
-
-REGLAS:
-- Prioriza el alineamiento con la oferta por encima de la literalidad del CV original para conseguir el máximo match ATS.
-- Puedes estimar métricas de impacto y resultados (porcentajes, cifras) de forma verosímil para aportar credibilidad.
-- Puedes añadir tecnologías o herramientas clave del puesto de forma lógica en la experiencia laboral.
-- Debes devolver la salida únicamente en formato Markdown (.MD) válido y limpio. No incluyas explicaciones, no agregues preámbulos ni comentarios finales, y no envuelvas la respuesta en bloques de código triple acento grave (\`\`\` o \`\`\`markdown). Tu respuesta completa debe ser directamente el currículum parseable.
-
-⚠️ AVISO: Este modo incluye inferencias y adiciones estimadas. El candidato debe validar los datos antes de enviarlos.
-
-CRÍTICO: EVITA DELATORES DE IA (PATRONES REPETITIVOS)
-- Evita el exceso de números y porcentajes: Aunque puedas estimar logros, NO inventes métricas o porcentajes en cada viñeta. Deja como máximo 1 o 2 métricas numéricas potentes por cada puesto para que destaquen de verdad. Las demás viñetas deben describir impacto, tecnologías o responsabilidades de forma natural y cualitativa.
-- Varía el tipo de métrica: Alterna entre porcentajes, volumen bruto (ej. "más de X clientes", "X transacciones diarias"), tiempo ahorrado o impacto cualitativo relevante.
-- Cambia la estructura: No pongas siempre la métrica al final de la frase (evita finalizar todo con "...mejorando un X%"). Intégrala de forma fluida y natural.
-- El resultado debe sonar profesional, humano y escrito por un profesional maduro, no una lista geométrica y matemática de IA.`,
-        userPrompt: `Aquí tienes mi CV actual:
-{{cv}}
-
-Aquí tienes la descripción de la oferta:
-{{job}}
-
-Estas son las palabras clave esenciales que me faltan:
-{{keywords}}
-
-Estas son las Red Flags identificadas que debo eliminar o mitigar:
-{{redflags}}
-
-Por favor, reescribe mi sección de experiencia añadiendo esas palabras clave y eliminando o mitigando esas redflags. Usa la fórmula XYZ de Google: 'Logré X medido por Y haciendo Z'. Actúa como filtro ATS y como un responsable de selección que lee 200 cv de golpe. Escanea mi nuevo cv y dime qué secciones saltaría y reescribelas para que paren el scroll.`,
-        isActive: false,
-        isArchived: false,
-        isStrict: true,
       },
       {
         name: 'Modo Honesto',

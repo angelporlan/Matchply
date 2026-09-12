@@ -76,7 +76,6 @@ export const jobOffers = pgTable('job_offer', {
   coverLetter: text('coverLetter'), // Carta de presentación
   outreachMessage: text('outreachMessage'), // Mensaje de contacto
   interviewQuestions: jsonb('interviewQuestions'), // Preguntas probables de entrevista
-  interviewStories: jsonb('interviewStories'), // Historias STAR recomendadas
   
   // Seguimiento y Analíticas
   nextFollowupDate: timestamp('nextFollowupDate', { mode: 'date' }), // Cuándo contactar
