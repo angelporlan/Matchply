@@ -857,7 +857,7 @@ export default function DashboardClient({
           <p className="text-sm text-text-muted font-sans">{t('dashboard.cvs.noResults')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredCvs.map((cv) => (
             <CvCard
               key={cv.id}
