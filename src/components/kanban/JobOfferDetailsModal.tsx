@@ -82,8 +82,7 @@ export default function JobOfferDetailsModal({
   const [isEditing, setIsEditing] = useState(false);
   
   // States para integración con API externa
-  const [activeTab, setActiveTab] = useState<'details' | 'ai_eval' | 'outreach' | 'star_stories'>('details');
-  const [expandedStory, setExpandedStory] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'ai_eval' | 'outreach'>('details');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = (text: string, fieldId: string) => {
@@ -118,7 +117,6 @@ export default function JobOfferDetailsModal({
       setIsEditing(false);
       setError(null);
       setActiveTab('details');
-      setExpandedStory(null);
       setCopiedField(null);
       setFormData({
         title: offer.title,
@@ -397,8 +395,7 @@ export default function JobOfferDetailsModal({
                   offer.tldr !== null || 
                   offer.rawReport !== null || 
                   offer.coverLetter !== null || 
-                  offer.outreachMessage !== null || 
-                  offer.interviewStories !== null;
+                  offer.outreachMessage !== null;
 
                 if (!isAiEnriched) {
                   return (
@@ -550,17 +547,6 @@ export default function JobOfferDetailsModal({
                         }`}
                       >
                         ✉️ {t('kanban.modal.tabOutreach')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('star_stories')}
-                        className={`pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 font-display flex items-center gap-1 ${
-                          activeTab === 'star_stories'
-                            ? 'border-[#8b5cf6] text-[#8b5cf6] dark:text-violet-400'
-                            : 'border-transparent text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b]/70 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        🎯 {t('kanban.modal.tabStories')}
                       </button>
                     </div>
 
@@ -1018,124 +1004,7 @@ export default function JobOfferDetailsModal({
                         </div>
                       )}
 
-                      {/* PESTAÑA: HISTORIAS STAR */}
-                      {activeTab === 'star_stories' && (
-                        <div className="space-y-4 animate-fadeIn font-display max-h-[50vh] overflow-y-auto pr-1 scrollbar-custom">
-                          <div>
-                            <h4 className="text-[11px] font-bold text-[#1e1b4b] dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                              <PartyPopper className="w-3.5 h-3.5 text-[#8b5cf6] stroke-[1.75]" />
-                              {t('kanban.modal.starStoriesTitle')}
-                            </h4>
-                            <p className="text-[10px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans mt-0.5 leading-snug">
-                              {t('kanban.modal.starStoriesDesc')}
-                            </p>
-                          </div>
 
-                          <div className="space-y-2">
-                            {(() => {
-                              const stories = getParsedJson(offer.interviewStories);
-                              const hasStories = Array.isArray(stories) && stories.length > 0;
-
-                              if (!hasStories) {
-                                return (
-                                  <div className="bg-[#fafafa] dark:bg-[#0b0f19]/25 border border-dashed border-[#1e1b4b]/10 dark:border-white/10 p-6 rounded-xl text-center text-[#1e1b4b]/40 dark:text-slate-500 italic text-xs font-sans">
-                                    {t('kanban.modal.starNoStories')}
-                                  </div>
-                                );
-                              }
-
-                              return stories.map((story: any, idx: number) => {
-                                const isExpanded = expandedStory === idx;
-                                return (
-                                  <div
-                                    key={idx}
-                                    className="bg-[#fafafa] dark:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl overflow-hidden transition-all duration-350"
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedStory(isExpanded ? null : idx)}
-                                      className="w-full flex items-center justify-between p-3.5 text-left font-sans select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/10 transition-colors"
-                                    >
-                                      <div className="flex items-center gap-2 pr-4">
-                                        <span className="flex items-center justify-center w-4.5 h-4.5 bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 rounded-full text-[9px] font-bold">
-                                          {idx + 1}
-                                        </span>
-                                        <span className="text-[11px] font-semibold text-[#1e1b4b] dark:text-slate-200 leading-tight">
-                                          {story.title || `Historia #${idx + 1}`}
-                                        </span>
-                                      </div>
-                                      {isExpanded ? (
-                                        <ChevronUp className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-500 shrink-0 stroke-[1.75]" />
-                                      ) : (
-                                        <ChevronDown className="w-3.5 h-3.5 text-[#1e1b4b]/40 dark:text-slate-500 shrink-0 stroke-[1.75]" />
-                                      )}
-                                    </button>
-
-                                    {isExpanded && (
-                                      <div className="p-3.5 border-t border-[#1e1b4b]/5 dark:border-white/5 bg-white/40 dark:bg-black/10 space-y-2.5 text-[10px] font-sans">
-                                        {story.situation && (
-                                          <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-indigo-600 dark:text-indigo-400">
-                                              📍 {t('kanban.modal.starStoryAccordionSituation')}
-                                            </strong>
-                                            <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                              {story.situation}
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {story.task && (
-                                          <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-[#8b5cf6] dark:text-violet-400">
-                                              🎯 {t('kanban.modal.starStoryAccordionTask')}
-                                            </strong>
-                                            <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                              {story.task}
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {story.action && (
-                                          <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-amber-600 dark:text-amber-400">
-                                              ⚡ {t('kanban.modal.starStoryAccordionAction')}
-                                            </strong>
-                                            <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                              {story.action}
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {story.result && (
-                                          <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400">
-                                              🏆 {t('kanban.modal.starStoryAccordionResult')}
-                                            </strong>
-                                            <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                              {story.result}
-                                            </p>
-                                          </div>
-                                        )}
-
-                                        {story.relevance && (
-                                          <div className="space-y-0.5 leading-relaxed">
-                                            <strong className="text-[9px] uppercase font-bold text-pink-600 dark:text-pink-400">
-                                              💫 {t('kanban.modal.starStoryAccordionRelevance')}
-                                            </strong>
-                                            <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-2.5 border-l border-[#1e1b4b]/10 dark:border-white/10 italic">
-                                              {story.relevance}
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              });
-                            })()}
-                          </div>
-                        </div>
-                      )}
 
                     </div>
 

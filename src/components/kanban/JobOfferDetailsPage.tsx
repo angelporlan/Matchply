@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { parseSections, parseMarkdownTable, extractSTARStories, ParsedSTARStory, ParsedReport } from '@/lib/ai-parser';
+import { parseSections, parseMarkdownTable, ParsedReport } from '@/lib/ai-parser';
 import ResearchPanel from './ResearchPanel';
 
 // Markdown-to-HTML parser function locally
@@ -86,11 +86,10 @@ export default function JobOfferDetailsPage({
   
   const [isEditing, setIsEditing] = useState(false);
   const [evaluatingMatch, setEvaluatingMatch] = useState(false);
-  const [activeTab, setActiveTab] = useState<'research' | 'ai_eval' | 'star_stories' | 'outreach' | 'details'>(
+  const [activeTab, setActiveTab] = useState<'research' | 'ai_eval' | 'outreach' | 'details'>(
     initialResearch ? 'research' : initialOffer.scoreOverall !== null ? 'ai_eval' : 'details'
   );
   
-  const [expandedStory, setExpandedStory] = useState<number | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -358,13 +357,6 @@ export default function JobOfferDetailsPage({
 
   // Parsed data
   const parsedReport = parseSections(offer.rawReport || '');
-  const rawReportStories = parsedReport.F ? extractSTARStories(parsedReport.F) : [];
-  
-  // Db structured stories or parsed stories
-  const dbStories = getParsedJson(offer.interviewStories);
-  const storiesList: ParsedSTARStory[] = (Array.isArray(dbStories) && dbStories.length > 0)
-    ? dbStories
-    : rawReportStories;
 
   // Db structured questions or parsed from G
   const dbQuestions = getParsedJson(offer.interviewQuestions);
@@ -745,17 +737,6 @@ export default function JobOfferDetailsPage({
             )}
             <button
               type="button"
-              onClick={() => setActiveTab('star_stories')}
-              className={`pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-1.5 ${
-                activeTab === 'star_stories'
-                  ? 'border-[#8b5cf6] text-[#8b5cf6] dark:text-violet-400'
-                  : 'border-transparent text-[#1e1b4b]/40 dark:text-slate-400 hover:text-[#1e1b4b]/70 dark:hover:text-slate-200'
-              }`}
-            >
-              🎯 Historias STAR
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab('outreach')}
               className={`pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-1.5 ${
                 activeTab === 'outreach'
@@ -936,117 +917,6 @@ export default function JobOfferDetailsPage({
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
-
-            {/* PESTAÑA: HISTORIAS STAR */}
-            {activeTab === 'star_stories' && (
-              <div className="space-y-4 animate-fadeIn font-display">
-                <div>
-                  <h3 className="text-sm font-bold text-[#1e1b4b] dark:text-white uppercase tracking-wider border-b border-[#1e1b4b]/5 pb-2">
-                    Historias STAR de la Candidatura
-                  </h3>
-                  <p className="text-xs text-[#1e1b4b]/50 dark:text-slate-400 mt-1 font-sans">
-                    Utiliza estas historias basadas en tu experiencia para responder preguntas clave en la entrevista.
-                  </p>
-                </div>
-
-                <div className="space-y-3 font-sans">
-                  {storiesList.length === 0 ? (
-                    <div className="bg-[#fafafa] dark:bg-[#0b0f19]/25 border border-dashed border-[#1e1b4b]/10 dark:border-white/10 p-6 rounded-xl text-center text-[#1e1b4b]/40 dark:text-slate-500 italic text-xs">
-                      No se encontraron historias STAR. Sincroniza la oferta con la API para extraerlas del reporte automáticamente.
-                    </div>
-                  ) : (
-                    storiesList.map((story, idx) => {
-                      const isExpanded = expandedStory === idx;
-                      return (
-                        <div
-                          key={idx}
-                          className="bg-[#fafafa] dark:bg-[#0b0f19]/30 border border-[#1e1b4b]/10 dark:border-white/5 rounded-xl overflow-hidden transition-all duration-300"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setExpandedStory(isExpanded ? null : idx)}
-                            className="w-full flex items-center justify-between p-4 text-left select-none hover:bg-slate-100/50 dark:hover:bg-slate-800/10 transition-colors font-display"
-                          >
-                            <div className="flex items-center gap-3 pr-4">
-                              <span className="flex items-center justify-center w-5 h-5 bg-[#8b5cf6]/10 text-[#8b5cf6] dark:text-violet-400 rounded-full text-[10px] font-black">
-                                {idx + 1}
-                              </span>
-                              <span className="text-xs font-bold text-[#1e1b4b] dark:text-slate-200 leading-tight">
-                                {story.title || `Historia #${idx + 1}`}
-                              </span>
-                            </div>
-                            {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 shrink-0 stroke-[1.75]" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 text-[#1e1b4b]/40 dark:text-slate-500 shrink-0 stroke-[1.75]" />
-                            )}
-                          </button>
-
-                          {isExpanded && (
-                            <div className="p-4 border-t border-[#1e1b4b]/5 dark:border-white/5 bg-white dark:bg-[#1f2937] space-y-3 text-xs">
-                              {story.situation && (
-                                <div className="space-y-0.5 leading-relaxed">
-                                  <strong className="text-[10px] uppercase font-black text-indigo-600 dark:text-indigo-400">
-                                    📍 SITUACIÓN
-                                  </strong>
-                                  <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-3 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                    {story.situation}
-                                  </p>
-                                </div>
-                              )}
-
-                              {story.task && (
-                                <div className="space-y-0.5 leading-relaxed">
-                                  <strong className="text-[10px] uppercase font-black text-[#8b5cf6] dark:text-violet-400">
-                                    🎯 TAREA
-                                  </strong>
-                                  <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-3 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                    {story.task}
-                                  </p>
-                                </div>
-                              )}
-
-                              {story.action && (
-                                <div className="space-y-0.5 leading-relaxed">
-                                  <strong className="text-[10px] uppercase font-black text-amber-600 dark:text-amber-400">
-                                    ⚡ ACCIÓN
-                                  </strong>
-                                  <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-3 border-l border-[#1e1b4b]/10 dark:border-white/10 text-justify">
-                                    {story.action}
-                                  </p>
-                                </div>
-                              )}
-
-                              {story.result && (
-                                <div className="space-y-0.5 leading-relaxed">
-                                  <strong className="text-[10px] uppercase font-black text-emerald-600 dark:text-emerald-400">
-                                    🏆 RESULTADO
-                                  </strong>
-                                  <p className="text-[#1e1b4b]/80 dark:text-slate-350 font-light pl-3 border-l border-[#1e1b4b]/10 dark:border-white/10">
-                                    {story.result}
-                                  </p>
-                                </div>
-                              )}
-
-                              {story.reflection && (
-                                <div className="pt-2 border-t border-[#1e1b4b]/5 dark:border-white/5">
-                                  <div className="bg-[#fafafa] dark:bg-[#0b0f19]/35 border border-[#1e1b4b]/10 dark:border-white/5 p-3 rounded-lg flex gap-2 text-xs">
-                                    <Sparkles className="w-4 h-4 text-[#8b5cf6] shrink-0 stroke-[1.75] mt-0.5" />
-                                    <p className="text-[#1e1b4b]/70 dark:text-slate-400 italic font-light">
-                                      <strong className="font-semibold text-[#1e1b4b] dark:text-slate-300 not-italic">Reflexión:</strong> {story.reflection}
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
                 </div>
               </div>
             )}

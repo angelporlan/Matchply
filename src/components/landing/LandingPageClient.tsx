@@ -493,7 +493,7 @@ export function MiniEditorMockup() {
     "# Fernando González",
     "## Experiencia",
     "* Admin Contable",
-    "  - STAR: Reduje 12% costes"
+    "  - Logro: Reduje 12% costes"
   ];
 
   const [typedLines, setTypedLines] = useState<string[]>(["", "", "", ""]);
@@ -696,7 +696,7 @@ export function MiniEditorMockup() {
               </motion.div>
             )}
 
-            {/* AI optimized STAR Bullet Highlight */}
+            {/* AI optimized achievement Bullet Highlight */}
             {pdfVisibleCount >= 4 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -706,7 +706,7 @@ export function MiniEditorMockup() {
               >
                 <div className="font-extrabold text-emerald-700 flex items-center gap-0.5 mb-0.5 text-[4.2px]">
                   <Sparkles className="w-1.5 h-1.5 text-emerald-600 animate-pulse" />
-                  <span>Método STAR Aplicado</span>
+                  <span>Logro Optimizado por IA</span>
                 </div>
                 Reduje un 12% en costes operativos automatizando conciliaciones bancarias.
                 {/* Glowing light shimmer */}
@@ -1110,7 +1110,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                             transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
                             className="absolute left-[10%] top-[12%] bg-[#8b5cf6]/8 hover:bg-[#8b5cf6]/15 border border-[#8b5cf6]/20 text-[#8b5cf6] dark:text-[#a78bfa] text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
-                            STAR
+                            Logros
                           </motion.div>
 
                           <motion.div

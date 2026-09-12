@@ -1812,7 +1812,7 @@ export default function AdminClient({
                     type="text"
                     value={promptForm.name}
                     onChange={(e) => setPromptForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. Asesor Harvard Avanzado con STAR"
+                    placeholder="e.g. Asesor Harvard Avanzado"
                     className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors w-full font-sans"
                     required
                   />
@@ -1863,7 +1863,7 @@ export default function AdminClient({
                           type="text"
                           value={promptForm.nameEn}
                           onChange={(e) => setPromptForm(prev => ({ ...prev, nameEn: e.target.value }))}
-                          placeholder="e.g. Advanced Harvard Advisor with STAR"
+                          placeholder="e.g. Advanced Harvard Advisor"
                           className="bg-white dark:bg-[#1f2937] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 text-xs text-[#1e1b4b] dark:text-white placeholder-[#1e1b4b]/30 dark:placeholder-slate-500 focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-colors w-full font-sans"
                         />
                       </div>
@@ -1940,8 +1940,7 @@ export default function AdminClient({
                   >
                     <option value="optimize_cv" className="dark:bg-[#1f2937]">optimize_cv (Optimizar CV para Ofertas de Empleo)</option>
                     <option value="import_cv" className="dark:bg-[#1f2937]">import_cv (Importar/Convertir CV a Markdown)</option>
-                    <option value="star_analyze" className="dark:bg-[#1f2937]">star_analyze (Método STAR - Análisis de Match)</option>
-                    <option value="star_optimize" className="dark:bg-[#1f2937]">star_optimize (Método STAR - Optimización XYZ)</option>
+                    <option value="star_analyze" className="dark:bg-[#1f2937]">star_analyze (Análisis de Match IA)</option>
                   </select>
                   <span className="text-[10px] text-[#1e1b4b]/50 dark:text-slate-500 font-light block mt-0.5">
                     * Selecciona la clave de función correspondiente para asociar el prompt a un flujo específico.
