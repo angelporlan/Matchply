@@ -23,7 +23,7 @@ graph TD
 ```
 
 ### A. Clave de API Personal (`matchply_usr_...`)
-Cada usuario con suscripción **Premium/PRO** activa puede generar su propia clave desde el panel de suscripción.
+Cada usuario con suscripción **Premium/PRO** activa puede generar su propia clave desde **Ajustes → Integraciones**.
 
 * **Prefijo distintivo:** `matchply_usr_` seguido de un hash aleatorio criptográficamente seguro de 48 caracteres.
 * **Propósito:** Automatizaciones individuales de candidatos, extensiones del navegador, scripts personalizados y portabilidad personal.

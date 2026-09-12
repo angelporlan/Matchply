@@ -17,7 +17,7 @@ test('pdf cache returns the same buffer for an identical render key', () => {
   assert.equal(getCachedPdf(key)?.equals(buffer), true);
 });
 
-test('pdf cache keys change when template options change', () => {
+test('pdf cache keys change when styling options change', () => {
   const base = {
     content: '# Name',
     template: 'harvard',
@@ -26,5 +26,5 @@ test('pdf cache keys change when template options change', () => {
     pageMargin: 36,
     fontSize: 12.5,
   };
-  assert.notEqual(pdfCacheKey(base), pdfCacheKey({ ...base, template: 'modern' }));
+  assert.notEqual(pdfCacheKey(base), pdfCacheKey({ ...base, accentColor: '#2ecc71' }));
 });

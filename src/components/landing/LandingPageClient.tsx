@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, useMotionValue, useReducedMotion, useTransform, animate } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -354,7 +354,6 @@ export function TemplateFlipCard({
   imagePath,
   session,
   t,
-  isPeeking = false,
 }: {
   title: string;
   badgeText: string;
@@ -364,7 +363,6 @@ export function TemplateFlipCard({
   imagePath: string;
   session: any;
   t: any;
-  isPeeking?: boolean;
 }) {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -378,7 +376,7 @@ export function TemplateFlipCard({
       <div
         className="preserve-3d duration-700 ease-in-out relative w-full h-full"
         style={{
-          transform: isFlipped ? 'rotateY(180deg)' : isPeeking ? 'rotateY(30deg)' : 'rotateY(0deg)',
+          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
         }}
       >
 
@@ -434,54 +432,6 @@ export function TemplateFlipCard({
 
       </div>
     </div>
-  );
-}
-
-// ----------------------------------------------------
-// Sub-component: 3D Carousel Card Wrapper
-// ----------------------------------------------------
-export function CarouselCard({
-  i,
-  rotation,
-  children,
-}: {
-  i: number;
-  rotation: any;
-  children: React.ReactNode;
-}) {
-  const transform = useTransform(rotation, (r: number) => {
-    const angle = (i * 72) + r;
-    return `rotateY(${angle}deg) translateZ(var(--carousel-radius)) rotateY(${-angle}deg)`;
-  });
-
-  const opacity = useTransform(rotation, (r: number) => {
-    const angle = ((i * 72) + r) % 360;
-    const normalizedAngle = angle < 0 ? angle + 360 : angle;
-    const cos = Math.cos((normalizedAngle * Math.PI) / 180);
-    // At cos = -1 (back), opacity is 0.15. At cos = 1 (front), opacity is 1.0.
-    return 0.15 + (cos + 1) * 0.425;
-  });
-
-  const pointerEvents = useTransform(rotation, (r: number) => {
-    const angle = ((i * 72) + r) % 360;
-    const normalizedAngle = angle < 0 ? angle + 360 : angle;
-    const cos = Math.cos((normalizedAngle * Math.PI) / 180);
-    // Only allow interaction if the card is in the front half (cos > 0)
-    return cos > 0 ? 'auto' : 'none';
-  });
-
-  return (
-    <motion.div
-      className="absolute inset-0 w-full h-full"
-      style={{
-        transform,
-        opacity,
-        pointerEvents,
-        transformStyle: 'preserve-3d',
-      }}
-    >
-      {children}
-    </motion.div>
   );
 }
 
@@ -801,18 +751,13 @@ export default function LandingPageClient({ session }: { session: any }) {
   }, [headlineText, shouldReduceMotion]);
 
   const [pricingInViewRef, pricingInView] = useInView({ triggerOnce: true, threshold: 0.1 });
-  const [templatesInViewRef, templatesInView] = useInView({ threshold: 0.15 });
-
-  const rotation = useMotionValue(0);
-  const [isCarouselHovered, setIsCarouselHovered] = useState(false);
-  const [peekingCardIndex, setPeekingCardIndex] = useState<number | null>(null);
 
   // Mini Kanban state on landing page
   const [kanbanCards, setKanbanCards] = useState<KanbanCardType[]>([
     { id: '1', title: 'Software Engineer', company: 'Google', template: 'Harvard CV', status: 'postulado' },
-    { id: '2', title: 'Data Analyst', company: 'Netflix', template: 'Modern CV', status: 'postulado' },
-    { id: '3', title: 'Fullstack Dev', company: 'Stripe', template: 'Swiss CV', status: 'entrevista', info: 'Mañana 10:00' },
-    { id: '4', title: 'AI Lead', company: 'OpenAI', template: 'Minimal CV', status: 'oferta', accepted: true },
+    { id: '2', title: 'Data Analyst', company: 'Netflix', template: 'Harvard CV', status: 'postulado' },
+    { id: '3', title: 'Fullstack Dev', company: 'Stripe', template: 'Harvard CV', status: 'entrevista', info: 'Mañana 10:00' },
+    { id: '4', title: 'AI Lead', company: 'OpenAI', template: 'Harvard CV', status: 'oferta', accepted: true },
   ]);
   const [activeColumn, setActiveColumn] = useState<string | null>(null);
   const [applications, setApplications] = useState(10);
@@ -847,63 +792,6 @@ export default function LandingPageClient({ session }: { session: any }) {
       return card;
     }));
     setActiveColumn(null);
-  };
-
-  // Auto-rotation animation loop using framer-motion's animate
-  useEffect(() => {
-    if (isCarouselHovered || shouldUseLightMotion || !templatesInView) return;
-
-    // Slow elegant continuous rotation
-    const controls = animate(rotation, rotation.get() + 360, {
-      duration: 36, // 36 seconds per full rotation
-      ease: 'linear',
-      repeat: Infinity,
-    });
-
-    return () => controls.stop();
-  }, [isCarouselHovered, rotation, shouldUseLightMotion, templatesInView]);
-
-  // Periodic partial wiggling (peeking) hint animation
-  useEffect(() => {
-    if (shouldUseLightMotion || !templatesInView) return;
-
-    const interval = setInterval(() => {
-      if (isCarouselHovered) return;
-
-      // Choose a random card to wiggle
-      const randomIndex = Math.floor(Math.random() * 5);
-      setPeekingCardIndex(randomIndex);
-
-      // Reset peeking state after wiggle is done
-      setTimeout(() => {
-        setPeekingCardIndex(null);
-      }, 1400);
-    }, 5000); // Trigger every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [isCarouselHovered, shouldUseLightMotion, templatesInView]);
-
-  // Navigation handlers
-  const handleNext = () => {
-    const current = rotation.get();
-    // Step forward by 72deg to the next nearest slot
-    const target = Math.floor(current / 72) * 72 - 72;
-    animate(rotation, target, {
-      type: 'spring',
-      stiffness: 80,
-      damping: 18,
-    });
-  };
-
-  const handlePrev = () => {
-    const current = rotation.get();
-    // Step backward by 72deg to the previous nearest slot
-    const target = Math.ceil(current / 72) * 72 + 72;
-    animate(rotation, target, {
-      type: 'spring',
-      stiffness: 80,
-      damping: 18,
-    });
   };
 
   return (
@@ -1251,8 +1139,8 @@ export default function LandingPageClient({ session }: { session: any }) {
         </div>
       </section>
 
-      {/* Templates Section (Horizontal Stagger + 3D Flip) */}
-      <section id="templates" ref={templatesInViewRef} className="py-24 bg-[#fafafa] dark:bg-[#0b0f19] scroll-mt-24 relative overflow-hidden transition-colors duration-300">
+      {/* Templates Section */}
+      <section id="templates" className="py-24 bg-[#fafafa] dark:bg-[#0b0f19] scroll-mt-24 relative overflow-hidden transition-colors duration-300">
         <div className="absolute top-[30%] left-[-15%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6]/3 dark:bg-[#8b5cf6]/5 blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -1266,109 +1154,18 @@ export default function LandingPageClient({ session }: { session: any }) {
             </p>
           </div>
 
-          <div
-            className="relative w-full h-[500px] flex items-center justify-center overflow-visible select-none py-10"
-            onMouseEnter={() => setIsCarouselHovered(true)}
-            onMouseLeave={() => setIsCarouselHovered(false)}
-          >
-            {/* Navigation Buttons */}
-            <button
-              onClick={handlePrev}
-              className="absolute left-4 lg:left-12 z-40 bg-white/80 dark:bg-[#1f2937]/80 hover:bg-white dark:hover:bg-[#1f2937] text-[#1e1b4b] dark:text-white p-3 rounded-full shadow-lg border border-[#1e1b4b]/5 dark:border-white/5 backdrop-blur-md transition-all active:scale-95 group"
-              aria-label="Previous Template"
-            >
-              <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
-            </button>
-
-            <button
-              onClick={handleNext}
-              className="absolute right-4 lg:right-12 z-40 bg-white/80 dark:bg-[#1f2937]/80 hover:bg-white dark:hover:bg-[#1f2937] text-[#1e1b4b] dark:text-white p-3 rounded-full shadow-lg border border-[#1e1b4b]/5 dark:border-white/5 backdrop-blur-md transition-all active:scale-95 group"
-              aria-label="Next Template"
-            >
-              <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-
-            {/* Carousel Container */}
-            <div
-              className="relative w-[280px] sm:w-[300px] md:w-[320px] h-[380px] carousel-container"
-              style={{ transformStyle: 'preserve-3d' }}
-            >
-
-              {/* Card 0: Harvard */}
-              <CarouselCard i={0} rotation={rotation}>
-                <TemplateFlipCard
-                  title="Harvard"
-                  badgeText="Harvard (Básico)"
-                  badgeColorClass="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200 border-slate-200 dark:border-slate-700"
-                  desc={t('landing.templates.harvard.desc')}
-                  ctaText={t('landing.templates.harvard.cta')}
-                  imagePath="/assets/images/cvs/harvard.jpg"
-                  session={session}
-                  t={t}
-                  isPeeking={peekingCardIndex === 0}
-                />
-              </CarouselCard>
-
-              {/* Card 1: Modern */}
-              <CarouselCard i={1} rotation={rotation}>
-                <TemplateFlipCard
-                  title="Modern"
-                  badgeText="Modern (PRO)"
-                  badgeColorClass="bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20"
-                  desc={t('landing.templates.modern.desc')}
-                  ctaText={t('landing.templates.modern.cta')}
-                  imagePath="/assets/images/cvs/modern.jpg"
-                  session={session}
-                  t={t}
-                  isPeeking={peekingCardIndex === 1}
-                />
-              </CarouselCard>
-
-              {/* Card 2: Minimal */}
-              <CarouselCard i={2} rotation={rotation}>
-                <TemplateFlipCard
-                  title="Minimal"
-                  badgeText="Minimal (PRO)"
-                  badgeColorClass="bg-[#1e1b4b]/5 dark:bg-white/5 text-[#1e1b4b] dark:text-slate-300 border-[#1e1b4b]/10 dark:border-white/10"
-                  desc={t('landing.templates.minimal.desc')}
-                  ctaText={t('landing.templates.minimal.cta')}
-                  imagePath="/assets/images/cvs/minimal.jpg"
-                  session={session}
-                  t={t}
-                  isPeeking={peekingCardIndex === 2}
-                />
-              </CarouselCard>
-
-              {/* Card 3: Creative */}
-              <CarouselCard i={3} rotation={rotation}>
-                <TemplateFlipCard
-                  title="Creative"
-                  badgeText="Creative (PRO)"
-                  badgeColorClass="bg-pink-500/10 text-pink-600 border-pink-500/20"
-                  desc={t('landing.templates.creative.desc')}
-                  ctaText={t('landing.templates.creative.cta')}
-                  imagePath="/assets/images/cvs/creative.jpg"
-                  session={session}
-                  t={t}
-                  isPeeking={peekingCardIndex === 3}
-                />
-              </CarouselCard>
-
-              {/* Card 4: Swiss */}
-              <CarouselCard i={4} rotation={rotation}>
-                <TemplateFlipCard
-                  title="Swiss"
-                  badgeText="Swiss (PRO)"
-                  badgeColorClass="bg-red-500/10 text-red-600 border-red-500/20"
-                  desc={t('landing.templates.swiss.desc')}
-                  ctaText={t('landing.templates.swiss.cta')}
-                  imagePath="/assets/images/cvs/swiss.jpg"
-                  session={session}
-                  t={t}
-                  isPeeking={peekingCardIndex === 4}
-                />
-              </CarouselCard>
-
+          <div className="flex justify-center py-10">
+            <div className="w-[300px] md:w-[320px]">
+              <TemplateFlipCard
+                title="Harvard"
+                badgeText="Harvard (Básico)"
+                badgeColorClass="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+                desc={t('landing.templates.harvard.desc')}
+                ctaText={t('landing.templates.harvard.cta')}
+                imagePath="/assets/images/cvs/harvard.jpg"
+                session={session}
+                t={t}
+              />
             </div>
           </div>
         </div>

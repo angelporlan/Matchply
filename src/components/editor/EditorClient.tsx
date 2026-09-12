@@ -12,7 +12,6 @@ import {
   AlertCircle
 } from 'lucide-react';
 import LinkNext from 'next/link';
-import AlertModal from '../ui/AlertModal';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -60,14 +59,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [fullscreenPanel, setFullscreenPanel] = useState<'none' | 'editor' | 'pdf'>('none');
 
   // Estados de Estilo
-  const [templateName, setTemplateName] = useState(cv.templateName);
+  const templateName = cv.templateName || 'harvard';
   const [accentColor, setAccentColor] = useState(cv.accentColor || '#1a5f7a');
   const [fontFamily, setFontFamily] = useState(cv.fontFamily || 'helvetica');
   const [pageMargin, setPageMargin] = useState(cv.pageMargin || 36);
   const [scale, setScale] = useState(cv.scale || 1.0);
-
-  // Estado para el modal de alerta premium
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Estado del Cajón de Optimización por IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -333,21 +329,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     });
   };
 
-  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    // Comprobar suscripción para plantillas premium
-    if (isGuest && val !== 'harvard') {
-      setIsUpgradeModalOpen(true);
-      return;
-    }
-    if (!isPremium && val !== 'harvard') {
-      setIsUpgradeModalOpen(true);
-      return;
-    }
-    setTemplateName(val);
-    saveStyling({ templateName: val });
-  };
-
   const handleFontChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     setFontFamily(val);
@@ -483,17 +464,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               <Layout className="w-3 h-3 text-[#1e1b4b]/50 dark:text-slate-400 stroke-[1.75]" />
               {t('editor.toolbar.design')}
             </span>
-            <select
-              value={templateName}
-              onChange={handleTemplateChange}
-              className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 py-1 text-xs text-[#1e1b4b] dark:text-slate-300 font-medium focus:outline-none focus:border-[#8b5cf6] dark:focus:border-[#8b5cf6] transition-all cursor-pointer h-7 shadow-sm"
-            >
-              <option value="harvard">{t('editor.toolbar.templates.harvard')}</option>
-              <option value="modern" className={!isPremium ? 'text-slate-500' : ''}>{t('editor.toolbar.templates.modern')}</option>
-              <option value="minimal" className={!isPremium ? 'text-slate-500' : ''}>{t('editor.toolbar.templates.minimal')}</option>
-              <option value="creative" className={!isPremium ? 'text-slate-500' : ''}>{t('editor.toolbar.templates.creative')}</option>
-              <option value="swiss" className={!isPremium ? 'text-slate-500' : ''}>{t('editor.toolbar.templates.swiss')}</option>
-            </select>
+            <div className="bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-2 h-7 flex items-center text-xs text-[#1e1b4b] dark:text-slate-300 font-medium shadow-sm">
+              {t('editor.toolbar.templates.harvard')}
+            </div>
           </div>
 
           {/* Selector de Fuente */}
@@ -922,19 +895,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           </div>
         </div>
       )}
-
-      <AlertModal
-        isOpen={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
-        title={t('editor.upgradeModal.title')}
-        message={t('editor.upgradeModal.message')}
-        type="warning"
-        confirmLabel={t('editor.upgradeModal.confirm')}
-        onConfirm={() => {
-          setIsUpgradeModalOpen(false);
-          window.location.href = isGuest ? '/register' : '/api/stripe/checkout';
-        }}
-      />
 
       {/* Barra de estado inferior fija */}
       <footer className="w-full h-9 bg-white/95 dark:bg-[#090d16]/90 border-t border-[#1e1b4b]/10 dark:border-white/10 px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-[#1e1b4b]/70 dark:text-slate-400 font-medium transition-colors">

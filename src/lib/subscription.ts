@@ -3,13 +3,11 @@ export const PRO_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 export const FREE_USER_MAX_CVS = 1;
 export const GUEST_MAX_CVS = 3;
 export const HARVARD_TEMPLATE = 'harvard';
-export const PREMIUM_CV_TEMPLATES = ['modern', 'minimal', 'creative', 'swiss'] as const;
-export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE, ...PREMIUM_CV_TEMPLATES] as const;
+export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE] as const;
 
 export type AccessTier = 'guest' | 'free' | 'pro';
 export type SubscriptionFeature =
   | 'advancedAi'
-  | 'premiumTemplates'
   | 'kanban'
   | 'apiKeys'
   | 'linkedinExtension'
@@ -27,7 +25,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      premiumTemplates: false,
       kanban: false,
       apiKeys: false,
       linkedinExtension: false,
@@ -39,7 +36,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      premiumTemplates: false,
       kanban: false,
       apiKeys: false,
       linkedinExtension: false,
@@ -51,7 +47,6 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: ALL_CV_TEMPLATES,
     features: {
       advancedAi: true,
-      premiumTemplates: true,
       kanban: true,
       apiKeys: true,
       linkedinExtension: true,

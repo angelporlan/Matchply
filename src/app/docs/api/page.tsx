@@ -166,8 +166,8 @@ print(response.json())`;
                   </h3>
                   <p className="text-xs text-[#1e1b4b]/60 dark:text-slate-400 mt-1 leading-relaxed">
                     {language === 'es' 
-                      ? 'Dirígete al panel de Suscripción en tu panel y haz clic en "Generar Clave de API". Copia la clave secreta con prefijo "matchply_usr_".' 
-                      : 'Navigate to the Subscription Panel and click "Generate API Key". Copy the secret key starting with prefix "matchply_usr_".'}
+                      ? 'Dirígete a Ajustes → Integraciones y haz clic en "Generar Clave de API". Copia la clave secreta con prefijo "matchply_usr_".' 
+                      : 'Navigate to Settings → Integrations and click "Generate API Key". Copy the secret key starting with prefix "matchply_usr_".'}
                   </p>
                 </div>
               </div>

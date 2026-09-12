@@ -32,7 +32,7 @@ export const cvs = pgTable('cv', {
   content: text('content').notNull(), // Contenido en Markdown
   isBase: boolean('isBase').default(false).notNull(), // true = CV Base real del usuario
   isPrincipal: boolean('isPrincipal').default(false).notNull(), // true = CV Principal predeterminado para generación rápida
-  templateName: text('templateName').default('harvard').notNull(), // 'harvard', 'modern', 'minimal', 'creative', 'swiss'
+  templateName: text('templateName').default('harvard').notNull(), // 'harvard'
   accentColor: text('accentColor').default('#000000'),
   fontFamily: text('fontFamily').default('helvetica'),
   pageMargin: doublePrecision('pageMargin').default(36),

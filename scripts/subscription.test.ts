@@ -28,7 +28,9 @@ test('CV caps and Harvard fallback match the paid plan', () => {
   assert.equal(canCreateCv('none', 3, { isGuest: true }), false);
   assert.equal(canCreateCv('active', 40), true);
 
+  assert.equal(canUseCvTemplate('none', 'harvard'), true);
   assert.equal(canUseCvTemplate('none', 'swiss'), false);
   assert.equal(getAllowedCvTemplate('none', 'swiss'), HARVARD_TEMPLATE);
-  assert.equal(getAllowedCvTemplate('active', 'swiss'), 'swiss');
+  assert.equal(getAllowedCvTemplate('active', 'modern'), HARVARD_TEMPLATE);
+  assert.equal(getAllowedCvTemplate('active', 'harvard'), 'harvard');
 });
