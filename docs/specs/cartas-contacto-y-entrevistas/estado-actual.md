@@ -30,7 +30,7 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 ## Fuentes de implementación
 
 - [src/app/api/ai/outreach/route.ts](<../../../src/app/api/ai/outreach/route.ts>)
-- [src/components/kanban/JobOfferDetailsPage.tsx](<../../../src/components/kanban/JobOfferDetailsPage.tsx>)
+- [src/components/applications/JobOfferDetailsPage.tsx](<../../../src/components/applications/JobOfferDetailsPage.tsx>)
 - [src/lib/ai-service.ts](<../../../src/lib/ai-service.ts>)
 
 ## Comprobación disponible

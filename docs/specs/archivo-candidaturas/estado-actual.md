@@ -9,7 +9,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Acceso y punto de entrada
 
 **Quién lo usa:** PRO.  
-**Dónde comienza:** /dashboard/kanban/archived y acciones del tablero.
+**Dónde comienza:** /dashboard/applications/archived y acciones del tablero.
 
 ## Qué hace actualmente
 
@@ -29,10 +29,10 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 
 ## Fuentes de implementación
 
-- [src/app/dashboard/kanban/actions.ts](<../../../src/app/dashboard/kanban/actions.ts>)
-- [src/app/dashboard/kanban/archived/page.tsx](<../../../src/app/dashboard/kanban/archived/page.tsx>)
-- [src/app/dashboard/kanban/archived/ArchivedOffersClient.tsx](<../../../src/app/dashboard/kanban/archived/ArchivedOffersClient.tsx>)
-- [src/components/kanban/KanbanCard.tsx](<../../../src/components/kanban/KanbanCard.tsx>)
+- [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
+- [src/app/dashboard/applications/archived/page.tsx](<../../../src/app/dashboard/applications/archived/page.tsx>)
+- [src/app/dashboard/applications/archived/ArchivedOffersClient.tsx](<../../../src/app/dashboard/applications/archived/ArchivedOffersClient.tsx>)
+- [src/components/applications/ApplicationCard.tsx](<../../../src/components/applications/ApplicationCard.tsx>)
 
 ## Comprobación disponible
 

@@ -9,7 +9,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Acceso y punto de entrada
 
 **Quién lo usa:** PRO para selección en lote; ver salvedad de acción individual.  
-**Dónde comienza:** Modal de selección del Kanban · /api/ai/curate · detalle de oferta.
+**Dónde comienza:** Modal de selección del tablero de postulaciones · /api/ai/curate · detalle de oferta.
 
 ## Qué hace actualmente
 
@@ -35,11 +35,11 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 ## Fuentes de implementación
 
 - [src/app/api/ai/curate/route.ts](<../../../src/app/api/ai/curate/route.ts>)
-- [src/app/dashboard/kanban/actions.ts](<../../../src/app/dashboard/kanban/actions.ts>)
-- [src/components/kanban/CurateWithAiModal.tsx](<../../../src/components/kanban/CurateWithAiModal.tsx>)
+- [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
+- [src/components/applications/CurateWithAiModal.tsx](<../../../src/components/applications/CurateWithAiModal.tsx>)
 - [src/lib/ai-service.ts](<../../../src/lib/ai-service.ts>)
 - [src/lib/curation-constraints.ts](<../../../src/lib/curation-constraints.ts>)
-- [src/components/kanban/KanbanBoard.tsx](<../../../src/components/kanban/KanbanBoard.tsx>)
+- [src/components/applications/ApplicationsBoard.tsx](<../../../src/components/applications/ApplicationsBoard.tsx>)
 
 ## Comprobación disponible
 

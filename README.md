@@ -1,6 +1,6 @@
 # Matchply 🚀
 
-Matchply es una plataforma web inteligente diseñada para ayudar a candidatos a optimizar sus currículums de forma personalizada utilizando Inteligencia Artificial (motores como DeepSeek, Gemini y OpenRouter) y a realizar un seguimiento visual e interactivo de sus procesos de selección mediante un tablero Kanban.
+Matchply es una plataforma web inteligente diseñada para ayudar a candidatos a optimizar sus currículums de forma personalizada utilizando Inteligencia Artificial (motores como DeepSeek, Gemini y OpenRouter) y a realizar un seguimiento visual e interactivo de sus procesos de selección mediante un tablero de postulaciones.
 
 ---
 
@@ -29,15 +29,15 @@ src/
 │   │   ├── auth/         # Configuración y handlers de NextAuth
 │   │   ├── stripe/       # Webhooks e integración de Stripe Checkout
 │   │   └── cv/pdf/       # Generación de PDF interactivo
-│   ├── dashboard/        # Panel principal del usuario y tablero Kanban
-│   │   ├── kanban/       # Vista de seguimiento de postulaciones
+│   ├── dashboard/        # Panel principal del usuario y tablero de postulaciones
+│   │   ├── applications/       # Vista de seguimiento de postulaciones
 │   │   └── actions.ts    # Acciones de servidor (Server Actions) del dashboard
 │   ├── editor/           # Editor interactivo de currículums por ID
 │   ├── layout.tsx        # Layout global (metadatos, fuentes, estilos base)
 │   └── page.tsx          # Landing page promocional del producto
 ├── components/           # Componentes de UI modulares y reutilizables
 │   ├── editor/           # Editor de Markdown, barra de estilos y visor de PDF
-│   ├── kanban/           # Columnas y tarjetas individuales del tablero de seguimiento
+│   ├── applications/           # Columnas y tarjetas individuales del tablero de seguimiento
 │   └── ui/               # Componentes básicos de interfaz
 ├── db/                   # Configuración y esquemas de Base de Datos relacional
 │   ├── index.ts          # Inicialización del cliente Postgres de Drizzle

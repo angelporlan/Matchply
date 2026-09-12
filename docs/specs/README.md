@@ -31,7 +31,7 @@ Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.
 | F09 | Optimización de CV para una oferta | [Leer estado actual](optimizacion-cv/estado-actual.md) | [Escribir lo que quiero](optimizacion-cv/spec.md) |
 | F10 | Perfil profesional, preferencias y reglas de selección | [Leer estado actual](perfil-profesional/estado-actual.md) | [Escribir lo que quiero](perfil-profesional/spec.md) |
 | F11 | Extracción, entrevista y documento profesional con IA | [Leer estado actual](asistente-perfil-ia/estado-actual.md) | [Escribir lo que quiero](asistente-perfil-ia/spec.md) |
-| F12 | Candidaturas, Kanban y detalle de oferta | [Leer estado actual](candidaturas-kanban/estado-actual.md) | [Escribir lo que quiero](candidaturas-kanban/spec.md) |
+| F12 | Candidaturas, tablero de postulaciones y detalle de oferta | [Leer estado actual](candidaturas-kanban/estado-actual.md) | [Escribir lo que quiero](candidaturas-kanban/spec.md) |
 | F13 | Archivo, restauración y borrado de candidaturas | [Leer estado actual](archivo-candidaturas/estado-actual.md) | [Escribir lo que quiero](archivo-candidaturas/spec.md) |
 | F14 | Selección de ofertas con IA y afinidad individual | [Leer estado actual](seleccion-y-afinidad-ofertas/estado-actual.md) | [Escribir lo que quiero](seleccion-y-afinidad-ofertas/spec.md) |
 | F15 | Copia de informes y análisis de candidaturas con IA | [Leer estado actual](informes-y-analisis-candidaturas/estado-actual.md) | [Escribir lo que quiero](informes-y-analisis-candidaturas/spec.md) |
@@ -51,7 +51,7 @@ Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.
 - **CV y versiones:** Gratis reutiliza su único CV y la optimización guarda automáticamente el resultado. La comparación visual no es un historial ni una aprobación previa. Véanse [optimización](optimizacion-cv/estado-actual.md) y [editor](editor-cv/estado-actual.md).
 - **Planes:** invitado admite 3 CVs y Gratis 1; al reclamar la prueba no se recorta ese conjunto. PRO corresponde a `active` o `trialing`. Véanse [prueba](prueba-invitado/estado-actual.md) y [permisos](planes-y-permisos/estado-actual.md).
 - **Afinidad:** hay distintos motores que escriben puntuaciones. El modal actual puntúa, pero no aplica automáticamente las recomendaciones de archivo. Véase [selección de ofertas](seleccion-y-afinidad-ofertas/estado-actual.md).
-- **Automatización:** capturar LinkedIn no inicia actualmente investigación; guardar una fecha de seguimiento no envía recordatorios; generar una carta no la envía. Véanse [extensión](extension-linkedin/estado-actual.md), [Kanban](candidaturas-kanban/estado-actual.md) y [cartas](cartas-contacto-y-entrevistas/estado-actual.md).
+- **Automatización:** capturar LinkedIn no inicia actualmente investigación; guardar una fecha de seguimiento no envía recordatorios; generar una carta no la envía. Véanse [extensión](extension-linkedin/estado-actual.md), [postulaciones](candidaturas-kanban/estado-actual.md) y [cartas](cartas-contacto-y-entrevistas/estado-actual.md).
 
 Son decisiones abiertas para tus plantillas, no cambios realizados ni propuestas aprobadas automáticamente.
 

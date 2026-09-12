@@ -39,7 +39,7 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 - [src/lib/research/quota.ts](<../../../src/lib/research/quota.ts>)
 - [src/lib/research/orchestrator.ts](<../../../src/lib/research/orchestrator.ts>)
 - [src/lib/research/providers.ts](<../../../src/lib/research/providers.ts>)
-- [src/components/kanban/ResearchPanel.tsx](<../../../src/components/kanban/ResearchPanel.tsx>)
+- [src/components/applications/ResearchPanel.tsx](<../../../src/components/applications/ResearchPanel.tsx>)
 - [scripts/research-worker.ts](<../../../scripts/research-worker.ts>)
 
 ## Comprobación disponible

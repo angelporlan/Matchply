@@ -1,4 +1,4 @@
-# Candidaturas, Kanban y detalle de oferta — estado actual
+# Candidaturas, tablero de postulaciones y detalle de oferta — estado actual
 
 Área: **F12**  
 Fecha de inventario: **12 de septiembre de 2026**  
@@ -9,7 +9,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Acceso y punto de entrada
 
 **Quién lo usa:** PRO en páginas y acciones principales.  
-**Dónde comienza:** /dashboard/kanban · /dashboard/kanban/offer/[id].
+**Dónde comienza:** /dashboard/applications · /dashboard/applications/offer/[id].
 
 ## Qué hace actualmente
 
@@ -32,13 +32,13 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 
 ## Fuentes de implementación
 
-- [src/app/dashboard/kanban/page.tsx](<../../../src/app/dashboard/kanban/page.tsx>)
-- [src/components/kanban/KanbanBoard.tsx](<../../../src/components/kanban/KanbanBoard.tsx>)
-- [src/components/kanban/JobOfferDetailsModal.tsx](<../../../src/components/kanban/JobOfferDetailsModal.tsx>)
-- [src/components/kanban/JobOfferDetailsPage.tsx](<../../../src/components/kanban/JobOfferDetailsPage.tsx>)
-- [src/app/dashboard/kanban/actions.ts](<../../../src/app/dashboard/kanban/actions.ts>)
+- [src/app/dashboard/applications/page.tsx](<../../../src/app/dashboard/applications/page.tsx>)
+- [src/components/applications/ApplicationsBoard.tsx](<../../../src/components/applications/ApplicationsBoard.tsx>)
+- [src/components/applications/JobOfferDetailsModal.tsx](<../../../src/components/applications/JobOfferDetailsModal.tsx>)
+- [src/components/applications/JobOfferDetailsPage.tsx](<../../../src/components/applications/JobOfferDetailsPage.tsx>)
+- [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
 - [src/db/schema.ts](<../../../src/db/schema.ts>)
-- [src/app/dashboard/kanban/offer/[id]/page.tsx](<../../../src/app/dashboard/kanban/offer/[id]/page.tsx>)
+- [src/app/dashboard/applications/offer/[id]/page.tsx](<../../../src/app/dashboard/applications/offer/[id]/page.tsx>)
 
 ## Comprobación disponible
 

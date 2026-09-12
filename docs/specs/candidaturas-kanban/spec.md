@@ -1,4 +1,4 @@
-# Candidaturas, Kanban y detalle de oferta — comportamiento deseado
+# Candidaturas, tablero de postulaciones y detalle de oferta — comportamiento deseado
 
 Estado: **Borrador — pendiente de rellenar**  
 Responsable: [POR DEFINIR]  

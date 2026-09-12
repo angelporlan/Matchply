@@ -9,7 +9,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 ## Acceso y punto de entrada
 
 **Quién lo usa:** PRO.  
-**Dónde comienza:** Opciones de copia/análisis del Kanban.
+**Dónde comienza:** Opciones de copia/análisis del tablero de postulaciones.
 
 ## Qué hace actualmente
 
@@ -17,7 +17,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 - **ACT-F15-02:** La interfaz permite copiar el informe al portapapeles en español o inglés.
 - **ACT-F15-03:** Para análisis IA puede limitar a las 8 ofertas más recientes del conjunto elegido.
 - **ACT-F15-04:** analyzeFailuresAction envía el texto al servicio IA, devuelve un análisis y registra auditoría.
-- **ACT-F15-05:** El Kanban mantiene un panel de resultados/conversación local y vuelve a solicitar análisis a partir del contexto textual al continuar.
+- **ACT-F15-05:** El tablero de postulaciones mantiene un panel de resultados/conversación local y vuelve a solicitar análisis a partir del contexto textual al continuar.
 
 ## Límites, diferencias y capacidades parciales
 
@@ -29,8 +29,8 @@ Estas observaciones describen esta revisión; no son una auditoría exhaustiva n
 
 ## Fuentes de implementación
 
-- [src/app/dashboard/kanban/actions.ts](<../../../src/app/dashboard/kanban/actions.ts>)
-- [src/components/kanban/KanbanBoard.tsx](<../../../src/components/kanban/KanbanBoard.tsx>)
+- [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
+- [src/components/applications/ApplicationsBoard.tsx](<../../../src/components/applications/ApplicationsBoard.tsx>)
 - [src/lib/ai-service.ts](<../../../src/lib/ai-service.ts>)
 
 ## Comprobación disponible
