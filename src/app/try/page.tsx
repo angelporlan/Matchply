@@ -82,7 +82,9 @@ export default async function TryPage() {
 
           <DashboardClient 
             initialCvs={userCvs} 
+            cvTargets={[]} 
             isPremium={false} 
+            isGuest={true} 
             availablePrompts={availablePrompts || []} 
           />
         </main>

@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, prompts } from '@/db/schema';
+import { cvs, users, prompts, jobOffers } from '@/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
-import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
+import { cvListColumns, cvTargetColumns, sessionUserColumns } from '@/lib/job-offer-queries';
 import { CreditCard, Crown } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
@@ -53,7 +53,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .select(cvListColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
+    .orderBy(desc(cvs.isPrincipal), desc(cvs.updatedAt));
+
+  // 2b. Oferta más reciente vinculada a cada CV (target y encaje)
+  const cvTargets = await db
+    .selectDistinctOn([jobOffers.cvId], cvTargetColumns)
+    .from(jobOffers)
+    .where(eq(jobOffers.userId, userId))
+    .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt));
 
   // 3. Obtener prompts no archivados para optimización de CV
   const availablePrompts = await db
@@ -110,6 +117,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {/* Sección de Currículums */}
         <DashboardClient 
           initialCvs={userCvs} 
+          cvTargets={cvTargets} 
           isPremium={isPremium} 
           availablePrompts={availablePrompts || []} 
         />

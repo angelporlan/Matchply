@@ -34,6 +34,7 @@ export const cvs = pgTable('cv', {
   pageMargin: doublePrecision('pageMargin').default(36),
   scale: doublePrecision('scale').default(1.0),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
   userIdIdx: index('cv_user_id_idx').on(table.userId),
 }));

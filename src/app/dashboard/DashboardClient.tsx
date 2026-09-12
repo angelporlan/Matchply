@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useTransition, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { CvListItem } from '@/lib/job-offer-queries';
+import { CvListItem, CvTargetSummary } from '@/lib/job-offer-queries';
 import {
-  Sparkles, Plus, FileText, Trash2, ArrowRight, Star, X,
+  Sparkles, Plus, FileText, ArrowRight, Star, X,
   Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
-  Crown, Lock, Upload, Clipboard
+  Crown, Lock, Upload, Clipboard, Search
 } from 'lucide-react';
-import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder } from './actions';
+import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
+import CvCard from '@/components/dashboard/CvCard';
+import CvQuickPreviewModal from '@/components/dashboard/CvQuickPreviewModal';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const promptConfigs: Record<
@@ -86,7 +87,9 @@ const defaultPromptConfig = {
 
 interface DashboardClientProps {
   initialCvs: CvListItem[];
+  cvTargets: CvTargetSummary[];
   isPremium: boolean;
+  isGuest?: boolean;
   availablePrompts: {
     id: string;
     name: string;
@@ -100,13 +103,23 @@ interface DashboardClientProps {
 
 export default function DashboardClient({
   initialCvs,
+  cvTargets,
   isPremium,
+  isGuest = false,
   availablePrompts
 }: DashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [userCvs, setUserCvs] = useState<CvListItem[]>(initialCvs);
   const { t, language } = useLanguage();
+
+  const targetByCvId = useMemo(() => {
+    const map = new Map<string, CvTargetSummary>();
+    for (const target of cvTargets) {
+      if (target.cvId) map.set(target.cvId, target);
+    }
+    return map;
+  }, [cvTargets]);
 
   // Refresh dashboard data on mount to ensure it's always fresh and shows newly created CVs
   useEffect(() => {
@@ -117,7 +130,13 @@ export default function DashboardClient({
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [previewCv, setPreviewCv] = useState<CvListItem | null>(null);
   const [cvToDelete, setCvToDelete] = useState<string | null>(null);
+
+  // Búsqueda y filtros del listado de CVs
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'base' | 'optimized'>('all');
 
   // Estados de IA
   const [aiLoading, setAiLoading] = useState(false);
@@ -286,6 +305,7 @@ export default function DashboardClient({
     try {
       const res = await createBaseCv(newCvTitle.trim());
       if (res.success && res.cvId) {
+        setIsCreateOpen(false);
         router.push(`/editor/${res.cvId}`);
       } else {
         alert(res.error || t('dashboard.errors.createFail'));
@@ -297,6 +317,46 @@ export default function DashboardClient({
       setCreateLoading(false);
     }
   };
+
+  const handleRename = (cvId: string, title: string) => {
+    startTransition(async () => {
+      const previousTitle = userCvs.find(cv => cv.id === cvId)?.title;
+      setUserCvs(prev => prev.map(cv => (cv.id === cvId ? { ...cv, title } : cv)));
+
+      const res = await renameCv(cvId, title);
+      if (res.error) {
+        setUserCvs(prev => prev.map(cv => (cv.id === cvId && previousTitle ? { ...cv, title: previousTitle } : cv)));
+        alert(res.error);
+      }
+    });
+  };
+
+  const handleDuplicate = (cvId: string) => {
+    startTransition(async () => {
+      const res = await duplicateCv(cvId);
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const filteredCvs = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return userCvs.filter((cv) => {
+      if (activeFilter === 'base' && !cv.isBase) return false;
+      if (activeFilter === 'optimized' && cv.isBase) return false;
+
+      if (!query) return true;
+      const target = targetByCvId.get(cv.id);
+      return [
+        cv.title,
+        target?.title,
+        target?.company,
+      ].some(value => value && value.toLowerCase().includes(query));
+    });
+  }, [userCvs, searchQuery, activeFilter, targetByCvId]);
 
   // Manejar marcar principal
   const handleMarkAsPrincipal = (cvId: string) => {
@@ -463,31 +523,15 @@ export default function DashboardClient({
 
         {/* Acciones principales */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Crear nuevo CV rápido */}
-          <form onSubmit={handleCreateQuick} className="flex gap-2 w-full sm:w-auto">
-            <input
-              type="text"
-              required
-              value={newCvTitle}
-              onChange={(e) => setNewCvTitle(e.target.value)}
-              placeholder={t('dashboard.cvs.placeholder')}
-              className="bg-canvas border border-control rounded-[8px] px-4 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all w-full sm:w-44"
-              disabled={createLoading}
-            />
-            <Button
-              type="submit"
-              variant="strong"
-              disabled={createLoading}
-              loading={createLoading}
-              className="shrink-0"
-            >
-              {!createLoading && <Plus className="w-4 h-4 stroke-[1.75]" />}
-              {t('dashboard.cvs.create')}
-            </Button>
-          </form>
-
-          {/* Separador */}
-          <div className="hidden sm:block h-6 w-[1px] bg-text/10 dark:bg-white/10 mx-1" />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsCreateOpen(true)}
+            className="shrink-0"
+          >
+            <Plus className="w-4 h-4 stroke-[1.75]" />
+            {t('dashboard.cvs.create')}
+          </Button>
 
           {/* Botón premium de Generar con IA */}
           <Button
@@ -505,6 +549,44 @@ export default function DashboardClient({
           </Button>
         </div>
       </div>
+
+      {/* Búsqueda y filtros */}
+      {userCvs.length > 1 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted stroke-[1.75]" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t('dashboard.cvs.search')}
+              className="w-full bg-canvas border border-control rounded-[8px] pl-9 pr-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai transition-colors"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5" role="group" aria-label={t('dashboard.cvs.filters.label')}>
+            {([
+              { key: 'all', label: t('dashboard.cvs.filters.all') },
+              { key: 'base', label: t('dashboard.cvs.filters.base') },
+              { key: 'optimized', label: t('dashboard.cvs.filters.optimized') },
+            ] as const).map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => setActiveFilter(filter.key)}
+                aria-pressed={activeFilter === filter.key}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  activeFilter === filter.key
+                    ? 'bg-text text-canvas border-text'
+                    : 'bg-surface text-text-muted border-subtle hover:border-control hover:text-text'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {userCvs.length === 0 ? (
         <div className="bg-surface border border-subtle rounded-[12px] p-6 md:p-8 shadow-sm max-w-4xl mx-auto relative overflow-hidden">
@@ -770,93 +852,25 @@ export default function DashboardClient({
             </div>
           )}
         </div>
+      ) : filteredCvs.length === 0 ? (
+        <div className="bg-surface border border-subtle rounded-[12px] p-10 text-center shadow-card">
+          <p className="text-sm text-text-muted font-sans">{t('dashboard.cvs.noResults')}</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {userCvs.map((cv) => (
-            <div
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCvs.map((cv) => (
+            <CvCard
               key={cv.id}
-              className={`bg-surface p-6 rounded-[12px] border transition-all relative overflow-hidden group flex flex-col justify-between shadow-sm hover:shadow-md ${cv.isPrincipal
-                ? 'border-ai/30 dark:border-ai/40 bg-ai/2 dark:bg-ai/2'
-                : 'border-subtle hover:border-control dark:hover:border-white/10'
-                }`}
-            >
-              {/* Decorative glowing accent */}
-              <div
-                className="absolute top-0 left-0 w-1.5 h-full"
-                style={{ backgroundColor: cv.isPrincipal ? '#8B5CF6' : (cv.accentColor || '#1E1B4B') }}
-              />
-
-              <div>
-                <div className="flex items-start justify-between mb-4 pl-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase
-                        ? 'bg-text/5 dark:bg-white/5 text-text-muted dark:text-slate-300 border-subtle'
-                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                        }`}>
-                        {cv.isBase ? t('dashboard.cvs.card.base') : t('dashboard.cvs.card.copy')}
-                      </span>
-
-                      {cv.isPrincipal && (
-                        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-ai/15 text-ai border border-ai/20 flex items-center gap-0.5 animate-pulse">
-                          <Star className="w-2.5 h-2.5 fill-ai stroke-[1.75]" />
-                          {t('dashboard.cvs.card.primary')}
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="font-bold text-text text-base leading-snug group-hover:text-ai dark:group-hover:text-violet-400 transition-colors pt-0.5 font-display">
-                      {cv.title}
-                    </h4>
-                  </div>
-
-                  {/* Acciones de estrella principal */}
-                  <button
-                    onClick={() => !cv.isPrincipal && handleMarkAsPrincipal(cv.id)}
-                    className={`p-1.5 rounded-lg border transition-all ${cv.isPrincipal
-                      ? 'bg-ai/10 text-ai border-ai/20 shadow-sm'
-                      : 'bg-canvas text-text-muted border-subtle hover:text-ai dark:hover:text-violet-400 hover:border-ai/20 opacity-0 group-hover:opacity-100 transition-opacity'
-                      }`}
-                    title={cv.isPrincipal ? t('dashboard.cvs.card.primary') : t('dashboard.cvs.card.setPrimary')}
-                    disabled={cv.isPrincipal || isPending}
-                  >
-                    <Star className={`w-4 h-4 ${cv.isPrincipal ? 'fill-ai text-ai stroke-[1.75]' : 'stroke-[1.75]'}`} />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pl-2 text-[11px] font-light text-text-muted mb-6 font-sans">
-                  <div className="bg-canvas border border-control px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-text-muted font-bold uppercase">{t('dashboard.cvs.card.template')}</span>
-                    <span className="text-text-muted dark:text-text font-medium capitalize">{cv.templateName}</span>
-                  </div>
-                  <div className="bg-canvas border border-control px-2.5 py-1.5 rounded-[8px]">
-                    <span className="block text-[9px] text-text-muted font-bold uppercase">{t('dashboard.cvs.card.created')}</span>
-                    <span className="text-text-muted dark:text-text font-medium">
-                      {new Date(cv.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-subtle pt-4 pl-2">
-                <Link
-                  href={`/editor/${cv.id}`}
-                  className="text-xs font-semibold text-ai hover:text-ai/85 dark:hover:text-violet-300 flex items-center gap-1.5 group/link"
-                >
-                  {t('dashboard.cvs.card.edit')}
-                  <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform stroke-[1.75]" />
-                </Link>
-
-                <button
-                  onClick={() => triggerDelete(cv.id)}
-                  className="text-text-muted hover:text-rose-600 dark:hover:text-rose-400 p-2 rounded-xl transition-all"
-                  title={t('dashboard.cvs.card.delete')}
-                  disabled={isPending}
-                >
-                  <Trash2 className="w-4 h-4 stroke-[1.75]" />
-                </button>
-              </div>
-            </div>
+              cv={cv}
+              target={targetByCvId.get(cv.id)}
+              isGuest={isGuest}
+              isPending={isPending}
+              onPreview={setPreviewCv}
+              onSetPrincipal={handleMarkAsPrincipal}
+              onRename={handleRename}
+              onDuplicate={handleDuplicate}
+              onDelete={triggerDelete}
+            />
           ))}
         </div>
       )}
@@ -1132,6 +1146,83 @@ export default function DashboardClient({
         cancelLabel={t('common.cancel')}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Modal para crear un CV en blanco */}
+      {isCreateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('dashboard.cvs.create')}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !createLoading) setIsCreateOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md bg-surface border border-subtle rounded-2xl shadow-dialog p-6 relative overflow-hidden">
+            <div className="absolute top-[-20%] right-[-20%] w-56 h-56 bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+
+            <div className="relative z-10">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="text-lg font-bold text-text font-display">
+                    {t('dashboard.cvs.create')}
+                  </h3>
+                  <p className="text-xs text-text-muted mt-1 font-sans">
+                    {t('dashboard.cvs.subtitle')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  disabled={createLoading}
+                  aria-label={t('common.close')}
+                  className="p-1.5 rounded-[8px] border border-subtle bg-canvas text-text-muted hover:text-text transition-colors disabled:opacity-50"
+                >
+                  <X className="w-4 h-4 stroke-[1.75]" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateQuick} className="space-y-4">
+                <input
+                  autoFocus
+                  type="text"
+                  required
+                  maxLength={120}
+                  value={newCvTitle}
+                  onChange={(e) => setNewCvTitle(e.target.value)}
+                  placeholder={t('dashboard.cvs.placeholder')}
+                  className="w-full bg-canvas border border-control rounded-[8px] px-4 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-colors"
+                  disabled={createLoading}
+                />
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateOpen(false)}
+                    disabled={createLoading}
+                    className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text transition-colors disabled:opacity-50"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <Button
+                    type="submit"
+                    variant="strong"
+                    disabled={createLoading || !newCvTitle.trim()}
+                    loading={createLoading}
+                  >
+                    {!createLoading && <Plus className="w-4 h-4 stroke-[1.75]" />}
+                    {t('dashboard.cvs.create')}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de vista rápida del CV */}
+      {previewCv && (
+        <CvQuickPreviewModal cv={previewCv} onClose={() => setPreviewCv(null)} />
+      )}
     </div>
   );
 }

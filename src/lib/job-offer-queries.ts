@@ -44,6 +44,14 @@ export const cvListColumns = {
   templateName: cvs.templateName,
   accentColor: cvs.accentColor,
   createdAt: cvs.createdAt,
+  updatedAt: cvs.updatedAt,
+};
+
+export const cvTargetColumns = {
+  cvId: jobOffers.cvId,
+  title: jobOffers.title,
+  company: jobOffers.company,
+  scoreOverall: jobOffers.scoreOverall,
 };
 
 export const curateOfferColumns = {
@@ -84,4 +92,12 @@ export type CvListItem = {
   templateName: string;
   accentColor: string | null;
   createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CvTargetSummary = {
+  cvId: string | null;
+  title: string;
+  company: string;
+  scoreOverall: number | null;
 };

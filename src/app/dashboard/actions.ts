@@ -229,6 +229,102 @@ export async function saveCvContent(cvId: string, content: string) {
   }
 }
 
+export async function renameCv(cvId: string, title: string) {
+  try {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
+      throw new Error("Unauthorized");
+    }
+
+    const cleanTitle = title.trim().replace(/\s+/g, " ");
+    if (!cleanTitle) {
+      throw new Error("INVALID_TITLE");
+    }
+    if (cleanTitle.length > 120) {
+      throw new Error("TITLE_TOO_LONG");
+    }
+
+    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    if (!cv || cv.userId !== actor.userId) {
+      throw new Error("Forbidden or CV not found");
+    }
+
+    if (cv.title === cleanTitle) {
+      return { success: true, title: cleanTitle };
+    }
+
+    await db
+      .update(cvs)
+      .set({ title: cleanTitle })
+      .where(eq(cvs.id, cvId));
+
+    if (actor.kind === "user") {
+      await createAuditLog("cv_rename", actor.userId, actor.email || null, {
+        cvId,
+        previousTitle: cv.title,
+        title: cleanTitle,
+      });
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, title: cleanTitle };
+  } catch (error: any) {
+    console.error("Error renaming CV:", error);
+    return { error: error.message || "Failed to rename CV" };
+  }
+}
+
+export async function duplicateCv(cvId: string) {
+  try {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
+      throw new Error("Unauthorized");
+    }
+
+    const userId = actor.userId;
+
+    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    if (!cv || cv.userId !== userId) {
+      throw new Error("Forbidden or CV not found");
+    }
+
+    const cvCount = await getGuestCvCount(userId);
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+      throw new Error(cvLimitMessage(actor.kind === "guest"));
+    }
+
+    const [newCv] = (await db
+      .insert(cvs)
+      .values({
+        userId,
+        title: `${cv.title} (Copia)`,
+        content: cv.content,
+        isBase: false,
+        isPrincipal: false,
+        templateName: cv.templateName,
+        accentColor: cv.accentColor,
+        fontFamily: cv.fontFamily,
+        pageMargin: cv.pageMargin,
+        scale: cv.scale,
+      })
+      .returning()) as any[];
+
+    if (actor.kind === "user") {
+      await createAuditLog("cv_duplicate", userId, actor.email || null, {
+        sourceCvId: cv.id,
+        cvId: newCv.id,
+        title: newCv.title,
+      });
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, cvId: newCv.id };
+  } catch (error: any) {
+    console.error("Error duplicating CV:", error);
+    return { error: error.message || "Failed to duplicate CV" };
+  }
+}
+
 export async function createCvPlaceholder(updates: {
   title: string;
   isBase: boolean;
