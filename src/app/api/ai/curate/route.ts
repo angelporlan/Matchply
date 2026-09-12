@@ -8,7 +8,7 @@ import { createAuditLog } from '@/lib/audit';
 import { requireUserFeature } from '@/lib/permissions';
 import { revalidatePath } from 'next/cache';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
-import { curateOfferColumns } from '@/lib/job-offer-queries';
+import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   }
 
   const [baseCv] = await db
-    .select({ id: cvs.id, title: cvs.title, content: cvs.content, isBase: cvs.isBase, isPrincipal: cvs.isPrincipal })
+    .select(baseCvForAiColumns)
     .from(cvs)
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))

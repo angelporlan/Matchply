@@ -9,6 +9,8 @@ import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { requireUserFeature } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
+import { log } from "@/lib/logger";
+import { baseCvForAiColumns, curateOfferColumns } from "@/lib/job-offer-queries";
 
 const ARCHIVED_STATUS_PREFIX = "archived:";
 const VALID_PIPELINE_STATUSES = ["interested", "applied", "interview", "offer", "rejected"] as const;
@@ -623,98 +625,6 @@ export async function analyzeFailuresAction(targetOffersText: string) {
   }
 }
 
-export async function curateOffersWithAiAction(targetThreshold: number = 65) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-    const userId = session.user.id;
-
-    // 1. Obtener usuario para suscripción
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    // 2. Obtener CV Base del usuario
-    const userCvsList = await db
-      .select()
-      .from(cvs)
-      .where(eq(cvs.userId, userId))
-      .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt));
-
-    const baseCv = userCvsList.find(c => c.isBase || c.isPrincipal) || userCvsList[0];
-    const baseCvMarkdown = baseCv?.content || "";
-
-    // 3. Obtener todas las ofertas activas en la columna "interested"
-    const interestedOffers = await db
-      .select()
-      .from(jobOffers)
-      .where(and(eq(jobOffers.userId, userId), eq(jobOffers.status, "interested")))
-      .orderBy(desc(jobOffers.createdAt));
-
-    if (interestedOffers.length === 0) {
-      return { results: [], baseCvName: baseCv?.title || null };
-    }
-
-    // 4. Ejecutar evaluación por lotes con IA
-    const userProfile = (user.careerProfile as any) || {};
-
-    const { curated } = await AIService.curateOffersBatch({
-      baseCvMarkdown,
-      userCareerProfile: userProfile,
-      offers: interestedOffers.map(o => ({
-        id: o.id,
-        title: o.title,
-        company: o.company,
-        description: o.description,
-        platform: o.platform,
-        scoreOverall: o.scoreOverall,
-        tldr: o.tldr,
-        sourceMetadata: o.sourceMetadata,
-      })),
-      userSubscriptionStatus: user.subscriptionStatus,
-      targetThreshold,
-    });
-
-    // 5. Opcional: Actualizar los scores evaluados en base de datos para que persistan
-    for (const item of curated) {
-      if (typeof item.score === 'number' && item.score > 0) {
-        await db
-          .update(jobOffers)
-          .set({ scoreOverall: item.score, updatedAt: new Date() })
-          .where(and(eq(jobOffers.id, item.id), eq(jobOffers.userId, userId)))
-          .catch(() => {});
-      }
-    }
-
-    // 6. Log de auditoría
-    await createAuditLog("job_offers_ai_curate_preview", userId, user.email || null, {
-      totalEvaluated: interestedOffers.length,
-      keptCount: curated.filter(c => c.decision === 'keep').length,
-      archivedCount: curated.filter(c => c.decision === 'archive').length,
-    });
-
-    revalidatePath("/dashboard/applications");
-
-    return { 
-      results: curated,
-      baseCvName: baseCv?.title || "CV Principal",
-      totalCount: interestedOffers.length
-    };
-  } catch (error: any) {
-    console.error("Error in curateOffersWithAiAction:", error);
-    return { error: error.message || "Failed to curate offers" };
-  }
-}
-
 export async function evaluateSingleOfferMatchAction(offerId: string) {
   try {
     const session = await auth();
@@ -722,15 +632,21 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
       throw new Error("Unauthorized");
     }
     const userId = session.user.id;
+    const user = await requireUserFeature(userId, "applications");
 
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (!user) throw new Error("User not found");
-
-    const [offer] = await db.select().from(jobOffers).where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId))).limit(1);
+    const [offer] = await db
+      .select(curateOfferColumns)
+      .from(jobOffers)
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
+      .limit(1);
     if (!offer) throw new Error("Job offer not found");
 
-    const userCvsList = await db.select().from(cvs).where(eq(cvs.userId, userId)).orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt));
-    const baseCv = userCvsList.find(c => c.isBase || c.isPrincipal) || userCvsList[0];
+    const [baseCv] = await db
+      .select(baseCvForAiColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))
+      .limit(1);
 
     const { curated } = await AIService.curateOffersBatch({
       baseCvMarkdown: baseCv?.content || "",
@@ -768,7 +684,7 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
 
     return { error: "No se pudo calcular la afinidad" };
   } catch (error: any) {
-    console.error("Error evaluating single offer match:", error);
+    log({ event: 'offer_match_evaluate_failed', level: 'error', error });
     return { error: error.message || "Failed to evaluate match" };
   }
 }

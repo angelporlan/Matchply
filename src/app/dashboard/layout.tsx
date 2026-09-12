@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
+import { sessionUserColumns } from '@/lib/job-offer-queries';
 import Sidebar from './Sidebar';
 
 export default async function DashboardLayout({
@@ -20,7 +21,7 @@ export default async function DashboardLayout({
 
   // Fetch updated user status
   const [dbUser] = await db
-    .select()
+    .select(sessionUserColumns)
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

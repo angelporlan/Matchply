@@ -6,7 +6,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
-import { cvListColumns } from '@/lib/job-offer-queries';
+import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
 
 interface OfferPageProps {
   params: {
@@ -25,7 +25,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
 
   // 1. Fetch updated user status
   const [dbUser] = await db
-    .select()
+    .select(sessionUserColumns)
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

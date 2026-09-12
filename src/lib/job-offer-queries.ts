@@ -1,4 +1,4 @@
-import { cvs, jobOffers } from '@/db/schema';
+import { cvs, jobOffers, users } from '@/db/schema';
 
 export const applicationSummaryColumns = {
   id: jobOffers.id,
@@ -16,6 +16,23 @@ export const applicationSummaryColumns = {
   nextFollowupDate: jobOffers.nextFollowupDate,
   createdAt: jobOffers.createdAt,
   updatedAt: jobOffers.updatedAt,
+};
+
+export const sessionUserColumns = {
+  id: users.id,
+  name: users.name,
+  email: users.email,
+  image: users.image,
+  role: users.role,
+  subscriptionStatus: users.subscriptionStatus,
+};
+
+export const baseCvForAiColumns = {
+  id: cvs.id,
+  title: cvs.title,
+  content: cvs.content,
+  isBase: cvs.isBase,
+  isPrincipal: cvs.isPrincipal,
 };
 
 export const cvListColumns = {

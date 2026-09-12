@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, users, jobOffers, prompts } from '@/db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
-import { cvListColumns } from '@/lib/job-offer-queries';
+import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
 import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText, PartyPopper } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
@@ -41,7 +41,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // 1. Obtener información actualizada del usuario de la base de datos
   const [dbUser] = await db
-    .select()
+    .select(sessionUserColumns)
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

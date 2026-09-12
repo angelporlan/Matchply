@@ -18,7 +18,7 @@ export default async function ApplicationsPage() {
 
   // 1. Obtener información actualizada del usuario de la base de datos
   const [dbUser] = await db
-    .select()
+    .select({ subscriptionStatus: users.subscriptionStatus })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
