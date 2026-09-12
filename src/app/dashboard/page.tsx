@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, jobOffers, prompts } from '@/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { cvs, users, prompts } from '@/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
-import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText, PartyPopper } from 'lucide-react';
+import { CreditCard, Crown } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
@@ -56,20 +55,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
 
-  const offerCounts = await db
-    .select({
-      status: jobOffers.status,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .groupBy(jobOffers.status);
-
-  const totalOffers = offerCounts.reduce((sum, row) => sum + Number(row.count || 0), 0);
-  const interviewOffers = Number(offerCounts.find((row) => row.status === 'interview')?.count || 0);
-  const successfulOffers = Number(offerCounts.find((row) => row.status === 'offer')?.count || 0);
-
-  // 4. Obtener prompts no archivados para optimización de CV
+  // 3. Obtener prompts no archivados para optimización de CV
   const availablePrompts = await db
     .select({
       id: prompts.id,
@@ -118,43 +104,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <Crown className="w-4 h-4" />
               {t('dashboard.banner.upgrade')}
             </a>
-          </div>
-        )}
-
-        {/* Panel de Estadísticas Rápidas */}
-        {isPremium && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 animate-fadeIn">
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans">{t('dashboard.stats.active')}</span>
-                <h3 className="text-3xl font-bold font-display text-text mt-1">{totalOffers}</h3>
-              </div>
-              <div className="p-3 bg-ai/10 text-ai rounded-xl border border-ai/10">
-                <FileText className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
-
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans">{t('dashboard.stats.interview')}</span>
-                <h3 className="text-3xl font-bold font-display text-amber-500 dark:text-amber-400 mt-1">{interviewOffers}</h3>
-              </div>
-              <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/10">
-                <Sparkles className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
-
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans flex items-center gap-1.5">
-                  {t('dashboard.stats.successful')} <PartyPopper className="w-3.5 h-3.5 text-success-text" />
-                </span>
-                <h3 className="text-3xl font-bold font-display text-success-text mt-1">{successfulOffers}</h3>
-              </div>
-              <div className="p-3 bg-action/10 text-success-text rounded-xl border border-action/10">
-                <CheckCircle2 className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
           </div>
         )}
 
