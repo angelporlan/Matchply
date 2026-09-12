@@ -17,7 +17,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 - **ACT-F24-02:** Hay clientes OpenRouter, DeepSeek y Gemini; las credenciales provienen del entorno. Los valores por defecto actuales están en models.ts y pueden ser sobrescritos en BD.
 - **ACT-F24-03:** Los prompts guardan clave funcional, nombre/descripción ES/EN, color, mensajes system/user, estado activo/archivado y modo estricto.
 - **ACT-F24-04:** Crear/editar/activar un prompt desactiva otros de la misma clave cuando corresponde. No permite borrar o archivar el activo.
-- **ACT-F24-05:** Los contratos optimize_cv, import_cv, star_analyze y analyze_failures tienen prompts integrados si no hay una sobrescritura válida o falla su consulta.
+- **ACT-F24-05:** Los contratos optimize_cv, import_cv y star_analyze tienen prompts integrados si no hay una sobrescritura válida o falla su consulta.
 - **ACT-F24-06:** El selector de modos de optimización muestra prompts no archivados. Las funciones nuevas de perfil, selección y outreach también contienen instrucciones propias en ai-service.ts.
 - **ACT-F24-07:** El admin puede consultar información de consumo/límites de la clave OpenRouter mediante su API.
 

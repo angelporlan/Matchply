@@ -11,8 +11,7 @@
 export type BuiltInPromptKey =
   | 'optimize_cv'
   | 'import_cv'
-  | 'star_analyze'
-  | 'analyze_failures';
+  | 'star_analyze';
 
 export interface BuiltInPrompt {
   readonly systemPrompt: string;
@@ -84,16 +83,6 @@ Responde exactamente con este JSON:
     "work_mode": 0
   }
 }`,
-    isStrict: false,
-  },
-
-  analyze_failures: {
-    systemPrompt: `Eres un consultor experto en selección y reclutamiento de Matchply. Analiza el historial de candidaturas y currículums para identificar patrones de rechazo, errores de posicionamiento y acciones concretas para mejorar la tasa de conversión. Sé directo, profesional, empático y estructurado en Markdown.`,
-    userPrompt: `Reporte de candidaturas y currículums:
-
-{{report}}
-
-Analiza en qué está fallando el candidato y propón consejos específicos y priorizados para mejorar.`,
     isStrict: false,
   },
 };

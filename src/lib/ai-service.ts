@@ -1131,68 +1131,6 @@ Descripción: ${jobDescription}`;
     }
   }
 
-  static async analyzeFailures({ targetOffersText, userSubscriptionStatus }: { targetOffersText: string; userSubscriptionStatus: string }): Promise<string> {
-    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_FREE_PROVIDER : DEFAULT_FREE_PROVIDER);
-    const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
-
-    const resolvedPrompt = await this.resolvePrompt('analyze_failures');
-    const { systemPrompt, userPrompt: userPromptTemplate } = resolvedPrompt;
-
-    const finalUserPrompt = userPromptTemplate.replace(/\{\{report\}\}/g, targetOffersText);
-
-    try {
-      if (provider === 'gemini') {
-        return await this.callGeminiOficial('', '', model, systemPrompt, finalUserPrompt);
-      } else if (provider === 'deepseek') {
-        return await this.callDeepSeekOficial('', '', model, systemPrompt, finalUserPrompt);
-      } else {
-        return await this.callOpenRouter('', '', model, systemPrompt, finalUserPrompt);
-      }
-    } catch (err) {
-      console.warn("[AIService.analyzeFailures] Provider call failed. Falling back to offline local simulation:", err);
-      return this.getMockFailureAnalysis(targetOffersText);
-    }
-  }
-
-  private static getMockFailureAnalysis(targetOffersText: string): string {
-    const countOccurrences = (str: string, word: string) => {
-      const regex = new RegExp(word, 'gi');
-      return (str.match(regex) || []).length;
-    };
-
-    const totalOffers = countOccurrences(targetOffersText, 'Puesto:') || countOccurrences(targetOffersText, 'Job Title:') || 3;
-    const rejectedOffers = countOccurrences(targetOffersText, 'Rechazado') || countOccurrences(targetOffersText, 'Rejected') || 0;
-    const interviewOffers = countOccurrences(targetOffersText, 'Entrevista') || countOccurrences(targetOffersText, 'Interview') || 0;
-    const appliedOffers = countOccurrences(targetOffersText, 'Postulado') || countOccurrences(targetOffersText, 'Applied') || 0;
-
-    let analysis = `## Diagnóstico de tu Embudo de Candidaturas (Modo de Contingencia Local)
-
-Detecto problemas en la conexión de red local con el proveedor de IA. He generado un diagnóstico estático local de tu embudo de candidaturas actuales para ayudarte:
-
-### 1. Estado del Embudo
-Tienes un total de **${totalOffers} candidaturas** registradas:
-- **${appliedOffers}** en fase de Postulado.
-- **${interviewOffers}** en fase de Entrevista.
-- **${rejectedOffers}** Rechazadas.
-
-### 2. Principales Áreas de Fricción Identificadas
-${rejectedOffers > 0 
-  ? `- **Tasa de Rechazo Inicial:** Tienes ${rejectedOffers} candidaturas rechazadas. Esto suele apuntar a una incompatibilidad de palabras clave en la criba inicial del ATS. Revisa si tus CVs vinculados están incluyendo las habilidades técnicas exigidas en la sección de requisitos.`
-  : `- **Falta de Volumen en el Embudo:** Tienes un embudo relativamente pequeño (${totalOffers} ofertas). El reclutamiento es un juego de conversión; te sugiero añadir al menos 5-10 postulaciones adicionales en la columna de *Interés* para iniciar el análisis semántico de IA con más referencias.`}
-
-- **Falta de Métricas de Impacto (Fórmula XYZ):** Al analizar tus candidaturas, se observa que los currículums vinculados describen responsabilidades técnicas en lugar de logros. En lugar de *"Desarrollo de APIs con Node.js"*, deberías estructurarlo como: *"Optimicé el tiempo de respuesta en un 30% rediseñando el backend mediante Node.js y Drizzle ORM en producción"*.
-
-- **Vínculos de Currículum:** Asegúrate de vincular currículums específicos optimizados para cada candidatura. Las postulaciones sin currículum personalizado reducen la tasa de conversión en criba manual en más de un 60%.
-
-### 3. Plan de Acción Recomendado
-1. **Audita tus palabras clave:** Entra en la tarjeta de las ofertas, pulsa "Vincular CV" y genera una optimización semántica (Modo Adaptado u Honesto) para inyectar los términos ausentes.
-2. **Prepara tus entrevistas:** Para las candidaturas en fase de *Entrevista*, accede a sus detalles y revisa las preguntas y consejos generados por la IA para preparar tus entrevistas técnicas y de comportamiento.
-3. **Optimiza la descripción del puesto:** Asegúrate de que las descripciones que pegas de las ofertas en Matchply incluyan el stack técnico completo para que nuestro analizador ATS sea 100% preciso.`;
-
-    return analysis;
-  }
-
   /**
    * Curación masiva optimizada:
    * - Micro-lotes de 2 ofertas (reduce "lost in the middle")
