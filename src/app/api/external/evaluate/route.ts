@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { enqueueAiJob } from '@/lib/ai-jobs/queue';
+import { findUserByPersonalApiKey } from '@/lib/api-keys';
 import { settleAiJob } from '@/lib/ai-jobs/settle';
 
 export async function POST(req: NextRequest) {
@@ -25,11 +26,7 @@ export async function POST(req: NextRequest) {
 
     // Comprobar Clave de API Personal de usuario
     if (token.startsWith('matchply_usr_')) {
-      const [dbUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.apiKey, token))
-        .limit(1);
+      const dbUser = await findUserByPersonalApiKey(token);
 
       if (!dbUser) {
         return new NextResponse(

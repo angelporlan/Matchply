@@ -21,7 +21,8 @@ interface LocationPreference {
 
 interface IntegrationsTabsProps {
   isPremium: boolean;
-  initialApiKey: string | null;
+  initialHasKey: boolean;
+  initialApiKeyPrefix: string | null;
   userCvs: CVOption[];
   initialMcpCvId: string | null;
   initialMcpProfile: {
@@ -54,7 +55,8 @@ interface IntegrationsTabsProps {
 
 export default function IntegrationsTabs({
   isPremium,
-  initialApiKey,
+  initialHasKey,
+  initialApiKeyPrefix,
   userCvs,
   initialMcpCvId,
   initialMcpProfile,
@@ -66,7 +68,7 @@ export default function IntegrationsTabs({
 
   // Si no es premium, ApiKeyConsole gestionará el upsell/bloqueo de todo el apartado.
   if (!isPremium) {
-    return <ApiKeyConsole initialApiKey={initialApiKey} isPremium={false} />;
+    return <ApiKeyConsole initialHasKey={initialHasKey} initialApiKeyPrefix={initialApiKeyPrefix} isPremium={false} />;
   }
 
   return (
@@ -111,7 +113,7 @@ export default function IntegrationsTabs({
       {/* Contenido de la pestaña */}
       <div className="transition-all duration-300">
         {activeTab === 'api' ? (
-          <ApiKeyConsole initialApiKey={initialApiKey} isPremium={true} />
+          <ApiKeyConsole initialHasKey={initialHasKey} initialApiKeyPrefix={initialApiKeyPrefix} isPremium={true} />
         ) : activeTab === 'mcp' ? (
           <McpProfileConsole
             userCvs={userCvs}

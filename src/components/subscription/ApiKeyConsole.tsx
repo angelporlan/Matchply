@@ -12,14 +12,17 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { generateUserApiKey, revokeUserApiKey } from '@/app/dashboard/actions';
 
 interface ApiKeyConsoleProps {
-  initialApiKey: string | null;
+  initialHasKey: boolean;
+  initialApiKeyPrefix: string | null;
   isPremium: boolean;
 }
 
-export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsoleProps) {
+export default function ApiKeyConsole({ initialHasKey, initialApiKeyPrefix, isPremium }: ApiKeyConsoleProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const [apiKey, setApiKey] = useState<string | null>(initialApiKey);
+  const [hasKey, setHasKey] = useState(initialHasKey);
+  const [keyPrefix, setKeyPrefix] = useState<string | null>(initialApiKeyPrefix);
+  const [plaintextKey, setPlaintextKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,8 +30,8 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleCopy = () => {
-    if (!apiKey) return;
-    navigator.clipboard.writeText(apiKey);
+    if (!plaintextKey) return;
+    navigator.clipboard.writeText(plaintextKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -40,7 +43,10 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
     
     const result = await generateUserApiKey();
     if (result.success && result.apiKey) {
-      setApiKey(result.apiKey);
+      setHasKey(true);
+      setPlaintextKey(result.apiKey);
+      setKeyPrefix(result.prefix || result.apiKey.slice(0, 20));
+      setShowKey(true);
       setSuccessMsg(t('subscription.apiKey.toastSuccess'));
       router.refresh();
     } else {
@@ -59,7 +65,9 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
 
     const result = await revokeUserApiKey();
     if (result.success) {
-      setApiKey(null);
+      setHasKey(false);
+      setPlaintextKey(null);
+      setKeyPrefix(null);
       setShowKey(false);
       setSuccessMsg(t('subscription.apiKey.toastRevoked'));
       router.refresh();
@@ -177,32 +185,37 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
             {t('subscription.apiKey.labelSecretKey')}
           </label>
 
-          {apiKey ? (
+          {hasKey ? (
             <div className="flex gap-2">
               <div className="flex-1 bg-[#fafafa] dark:bg-[#0b0f19]/45 border border-[#1e1b4b]/10 dark:border-white/10 rounded-[8px] px-3.5 py-2.5 flex items-center justify-between font-mono text-xs text-[#1e1b4b] dark:text-white select-all min-w-0">
                 <span className="truncate pr-4">
-                  {showKey ? apiKey : '••••••••••••••••••••••••••••••••••••••••••••••••'}
+                  {plaintextKey
+                    ? (showKey ? plaintextKey : '••••••••••••••••••••••••••••••••••••••••••••••••')
+                    : `${keyPrefix || 'matchply_usr_'}••••••••`}
                 </span>
                 
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="text-[#1e1b4b]/50 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white shrink-0 p-1 transition-colors"
-                  title={showKey ? 'Ocultar' : 'Revelar'}
-                >
-                  {showKey ? <EyeOff className="w-4 h-4 stroke-[1.75]" /> : <Eye className="w-4 h-4 stroke-[1.75]" />}
-                </button>
+                {plaintextKey && (
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="text-[#1e1b4b]/50 dark:text-slate-400 hover:text-[#1e1b4b] dark:hover:text-white shrink-0 p-1 transition-colors"
+                    title={showKey ? 'Ocultar' : 'Revelar'}
+                  >
+                    {showKey ? <EyeOff className="w-4 h-4 stroke-[1.75]" /> : <Eye className="w-4 h-4 stroke-[1.75]" />}
+                  </button>
+                )}
               </div>
 
-              {/* Botón Copiar */}
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="px-3.5 bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-[#0b0f19]/90 rounded-[8px] flex items-center justify-center shrink-0 transition-all text-[#1e1b4b] dark:text-white"
-                title="Copiar Clave"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 stroke-[1.75]" />}
-              </button>
+              {plaintextKey && (
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="px-3.5 bg-white dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-[#0b0f19]/90 rounded-[8px] flex items-center justify-center shrink-0 transition-all text-[#1e1b4b] dark:text-white"
+                  title="Copiar Clave"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 stroke-[1.75]" />}
+                </button>
+              )}
 
               {/* Botón Revocar (Trash icon) */}
               <button
@@ -244,7 +257,19 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
         </div>
 
         {/* Regenerar clave si existe */}
-        {apiKey && (
+        {hasKey && plaintextKey && (
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-sans leading-relaxed">
+            {t('subscription.apiKey.revealedOnce')}
+          </p>
+        )}
+
+        {hasKey && !plaintextKey && (
+          <p className="text-[11px] text-[#1e1b4b]/60 dark:text-slate-400 font-sans leading-relaxed">
+            {t('subscription.apiKey.storedMasked')}
+          </p>
+        )}
+
+        {hasKey && (
           <div className="flex justify-end pt-1">
             <button
               type="button"
@@ -263,7 +288,7 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
         )}
 
         {/* Interactive Guide for API integration */}
-        {apiKey && (
+        {hasKey && (
           <div className="space-y-3 pt-4 border-t border-[#1e1b4b]/10 dark:border-white/5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b] dark:text-white">
@@ -285,7 +310,7 @@ export default function ApiKeyConsole({ initialApiKey, isPremium }: ApiKeyConsol
 
             <div className="relative bg-[#fafafa] dark:bg-[#0b0f19] border border-[#1e1b4b]/10 dark:border-white/10 p-4 rounded-xl font-mono text-[10px] text-[#1e1b4b]/80 dark:text-slate-200 select-all leading-relaxed whitespace-pre-wrap">
               {`# Integración oficial con tu Kanban de Matchply\n`}
-              {`MATCHPLY_API_KEY=${apiKey}\n`}
+              {`MATCHPLY_API_KEY=${plaintextKey || `${keyPrefix || 'matchply_usr_'}••••`}\n`}
               {`MATCHPLY_API_URL=http://localhost:3000/api/external/applications`}
             </div>
 

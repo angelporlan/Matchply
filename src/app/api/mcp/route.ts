@@ -13,6 +13,7 @@ import { canAccessFeature } from '@/lib/subscription';
 import { enqueueResearchForOffer, getResearchRunForUser } from '@/lib/research/queue';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { enqueueAiJob, getAiJobForUser } from '@/lib/ai-jobs/queue';
+import { findUserByPersonalApiKey } from '@/lib/api-keys';
 import { settleAiJob } from '@/lib/ai-jobs/settle';
 import { log } from '@/lib/logger';
 import { formatPendingJobMessage } from '@/lib/ai-jobs/evaluation';
@@ -45,12 +46,7 @@ async function resolveUserFromBearer(req: NextRequest) {
 
   // User-specific API key
   if (token.startsWith('matchply_usr_')) {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.apiKey, token))
-      .limit(1);
-    return user || null;
+    return findUserByPersonalApiKey(token);
   }
 
   // Global API Key fallback

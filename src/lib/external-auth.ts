@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { users } from '@/db/schema';
+import { findUserByPersonalApiKey } from '@/lib/api-keys';
 
 export class ExternalAuthError extends Error {
   constructor(public status: number, message: string) {
@@ -19,7 +20,7 @@ export async function resolveExternalUser(req: NextRequest, bodyUserEmail?: stri
   if (!token) throw new ExternalAuthError(401, 'Missing API key');
 
   if (token.startsWith('matchply_usr_')) {
-    const [user] = await db.select().from(users).where(eq(users.apiKey, token)).limit(1);
+    const user = await findUserByPersonalApiKey(token);
     if (!user) throw new ExternalAuthError(401, 'Invalid User API Key');
     return user;
   }

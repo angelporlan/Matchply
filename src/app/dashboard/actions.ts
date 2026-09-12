@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/auth";
-import { randomBytes } from "crypto";
+import { issueUserApiKey } from "@/lib/api-keys";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -250,12 +250,15 @@ export async function generateUserApiKey() {
       throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
     }
 
-    // Generate a secure API Key prefixing with 'matchply_usr_'
-    const newApiKey = `matchply_usr_${randomBytes(24).toString("hex")}`;
+    const issued = issueUserApiKey();
 
     await db
       .update(users)
-      .set({ apiKey: newApiKey })
+      .set({
+        apiKey: null,
+        apiKeyHash: issued.hash,
+        apiKeyPrefix: issued.prefix,
+      })
       .where(eq(users.id, userId));
 
     // Log de auditoría
@@ -264,7 +267,8 @@ export async function generateUserApiKey() {
     });
 
     revalidatePath("/dashboard/subscription");
-    return { success: true, apiKey: newApiKey };
+    revalidatePath("/dashboard/integrations");
+    return { success: true, apiKey: issued.plaintext, prefix: issued.prefix };
   } catch (error: any) {
     console.error("Error generating user API Key:", error);
     return { error: error.message || "Failed to generate API Key" };
@@ -293,7 +297,7 @@ export async function revokeUserApiKey() {
 
     await db
       .update(users)
-      .set({ apiKey: null })
+      .set({ apiKey: null, apiKeyHash: null, apiKeyPrefix: null })
       .where(eq(users.id, userId));
 
     // Log de auditoría
@@ -302,6 +306,7 @@ export async function revokeUserApiKey() {
     });
 
     revalidatePath("/dashboard/subscription");
+    revalidatePath("/dashboard/integrations");
     return { success: true };
   } catch (error: any) {
     console.error("Error revoking user API Key:", error);

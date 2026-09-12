@@ -4,6 +4,7 @@
 import { db } from '../src/db';
 import { users } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
+import { hashUserApiKey, userApiKeyPrefix } from '../src/lib/api-keys';
 
 async function runTest() {
   console.log('🧪 Iniciando pruebas de integración robustas para la API de Matchply...');
@@ -28,6 +29,8 @@ async function runTest() {
 
   const originalSubscriptionStatus = testUser.subscriptionStatus;
   const originalApiKey = testUser.apiKey;
+  const originalApiKeyHash = testUser.apiKeyHash;
+  const originalApiKeyPrefix = testUser.apiKeyPrefix;
 
   console.log(`👤 Usuario de prueba encontrado: ${testUser.name} (${TEST_EMAIL})`);
   console.log(`   - Estado de suscripción original: "${originalSubscriptionStatus}"`);
@@ -70,7 +73,12 @@ async function runTest() {
     // Configurar usuario como gratuito y con clave personal asignada
     await db
       .update(users)
-      .set({ subscriptionStatus: 'none', apiKey: MOCK_PERSONAL_KEY })
+      .set({
+        subscriptionStatus: 'none',
+        apiKey: null,
+        apiKeyHash: hashUserApiKey(MOCK_PERSONAL_KEY),
+        apiKeyPrefix: userApiKeyPrefix(MOCK_PERSONAL_KEY),
+      })
       .where(eq(users.id, testUser.id));
 
     // A. Probar con API Key Personal
@@ -191,7 +199,9 @@ async function runTest() {
       .update(users)
       .set({
         subscriptionStatus: originalSubscriptionStatus,
-        apiKey: originalApiKey
+        apiKey: originalApiKey,
+        apiKeyHash: originalApiKeyHash,
+        apiKeyPrefix: originalApiKeyPrefix,
       })
       .where(eq(users.id, testUser.id));
     console.log('✅ Base de datos restaurada correctamente a su estado original.');

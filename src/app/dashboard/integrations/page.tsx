@@ -51,7 +51,8 @@ export default async function IntegrationsPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         <IntegrationsTabs
           isPremium={isPremium}
-          initialApiKey={dbUser?.apiKey || null}
+          initialHasKey={Boolean(dbUser?.apiKeyHash || dbUser?.apiKey)}
+          initialApiKeyPrefix={dbUser?.apiKeyPrefix || null}
           userCvs={userCvs}
           initialMcpCvId={dbUser?.mcpCvId || null}
           initialMcpProfile={dbUser?.mcpProfile as any}
