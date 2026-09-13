@@ -235,6 +235,77 @@ test('filterApplications applies date column filters', () => {
   );
 });
 
+test('normalizeViewConfig validates and normalizes score column filters', () => {
+  const config = normalizeViewConfig({
+    filters: {
+      columnFilters: [
+        { column: 'score', operator: 'scoreRange', value: '' }, // invalid: no min or max
+        { column: 'score', operator: 'gte90', value: '' },
+      ],
+    },
+  });
+
+  assert.deepEqual(config.filters.columnFilters, [
+    { column: 'score', operator: 'gte90', value: '' },
+  ]);
+
+  const rangeConfig = normalizeViewConfig({
+    filters: {
+      columnFilters: [
+        { column: 'score', operator: 'scoreRange', minScore: -10, maxScore: 120, value: '' },
+      ],
+    },
+  });
+  assert.deepEqual(rangeConfig.filters.columnFilters, [
+    { column: 'score', operator: 'scoreRange', minScore: 0, maxScore: 100, value: '' },
+  ]);
+});
+
+test('filterApplications applies score presets and score range filters', () => {
+  const offers = [
+    offer({ id: 'top', scoreOverall: 95 }),
+    offer({ id: 'high', scoreOverall: 82 }),
+    offer({ id: 'good', scoreOverall: 75 }),
+    offer({ id: 'legacy', scoreOverall: 4.5 }), // legacy 5-point scale -> 90%
+    offer({ id: 'mid', scoreOverall: 55 }),
+    offer({ id: 'low', scoreOverall: 30 }),
+    offer({ id: 'none', scoreOverall: null }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte90', value: '' }] }).map(o => o.id),
+    ['top', 'legacy'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte80', value: '' }] }).map(o => o.id),
+    ['top', 'high', 'legacy'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte75', value: '' }] }).map(o => o.id),
+    ['top', 'high', 'good', 'legacy'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte60', value: '' }] }).map(o => o.id),
+    ['top', 'high', 'good', 'legacy'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte50', value: '' }] }).map(o => o.id),
+    ['top', 'high', 'good', 'legacy', 'mid'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'scoreRange', value: '', minScore: 50, maxScore: 80 }] }).map(o => o.id),
+    ['good', 'mid'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'isEmpty', value: '' }] }).map(o => o.id),
+    ['none'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'isNotEmpty', value: '' }] }).map(o => o.id),
+    ['top', 'high', 'good', 'legacy', 'mid', 'low'],
+  );
+});
+
 test('normalizeViewConfig keeps multi-select filters and drops unknown statuses', () => {
   const config = normalizeViewConfig({
     filters: {

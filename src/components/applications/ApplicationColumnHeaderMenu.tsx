@@ -19,6 +19,7 @@ import {
   APPLICATION_COLUMN_DATE_FILTER_OPERATORS,
   APPLICATION_COLUMN_FILTER_OPERATORS,
   APPLICATION_COLUMN_IDS,
+  APPLICATION_COLUMN_SCORE_FILTER_OPERATORS,
   APPLICATION_COLUMN_WIDTHS,
   APPLICATION_STATUSES,
   isApplicationDateColumn,
@@ -26,6 +27,7 @@ import {
   type ApplicationColumnFilter,
   type ApplicationColumnFilterOperatorValue,
   type ApplicationColumnId,
+  type ApplicationColumnScoreFilterOperator,
   type ApplicationColumnWidth,
   type ApplicationGrouping,
   type ApplicationSortDirection,
@@ -163,12 +165,15 @@ export default function ApplicationColumnHeaderMenu({
   const [draftValues, setDraftValues] = useState<string[]>([]);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
+  const [draftMinScore, setDraftMinScore] = useState('');
+  const [draftMaxScore, setDraftMaxScore] = useState('');
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   const isDateColumn = isApplicationDateColumn(column);
+  const isScoreColumn = column === 'score';
   const isSorted = sort.key === column;
   const isGrouped = grouping?.column === column;
   const hasFilter = Boolean(columnFilter);
@@ -252,17 +257,38 @@ export default function ApplicationColumnHeaderMenu({
   };
 
   const openFilterPanel = () => {
-    setDraftOperator(columnFilter?.operator ?? (isDateColumn ? 'today' : 'contains'));
-    setDraftValue(columnFilter?.value ?? '');
-    setDraftValues(columnFilter?.operator === 'in' ? columnFilter.values ?? [] : []);
-    setDraftStartDate(columnFilter?.startDate ?? '');
-    setDraftEndDate(columnFilter?.endDate ?? '');
+    if (column === 'score') {
+      setDraftOperator(columnFilter?.operator ?? 'gte75');
+      setDraftMinScore(columnFilter?.minScore !== undefined ? String(columnFilter.minScore) : '');
+      setDraftMaxScore(columnFilter?.maxScore !== undefined ? String(columnFilter.maxScore) : '');
+    } else {
+      setDraftOperator(columnFilter?.operator ?? (isDateColumn ? 'today' : 'contains'));
+      setDraftValue(columnFilter?.value ?? '');
+      setDraftValues(columnFilter?.operator === 'in' ? columnFilter.values ?? [] : []);
+      setDraftStartDate(columnFilter?.startDate ?? '');
+      setDraftEndDate(columnFilter?.endDate ?? '');
+    }
     setPanel('filter');
   };
 
   const applyStatusFilter = () => {
     if (column === 'actions' || draftValues.length === 0) return;
     onSetColumnFilter({ column, operator: 'in', value: '', values: draftValues });
+    close(true);
+  };
+
+  const applyScoreRange = () => {
+    if (column !== 'score') return;
+    const min = draftMinScore.trim() !== '' ? Number(draftMinScore) : undefined;
+    const max = draftMaxScore.trim() !== '' ? Number(draftMaxScore) : undefined;
+    if (min === undefined && max === undefined) return;
+    onSetColumnFilter({
+      column: 'score',
+      operator: 'scoreRange',
+      value: '',
+      ...(min !== undefined && !Number.isNaN(min) ? { minScore: Math.max(0, Math.min(100, Math.round(min))) } : {}),
+      ...(max !== undefined && !Number.isNaN(max) ? { maxScore: Math.max(0, Math.min(100, Math.round(max))) } : {}),
+    });
     close(true);
   };
 
@@ -395,6 +421,144 @@ export default function ApplicationColumnHeaderMenu({
               >
                 {t('applications.columns.headerMenu.apply')}
               </button>
+              {columnFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetColumnFilter(null);
+                    close(true);
+                  }}
+                  className="px-3 py-1.5 rounded-[6px] border border-subtle text-text-muted hover:text-text text-[10px] font-bold uppercase tracking-wider transition-colors"
+                >
+                  {t('applications.columns.headerMenu.removeFilter')}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      if (column === 'score') {
+        const SCORE_PRESETS: ApplicationColumnScoreFilterOperator[] = [
+          'gte90',
+          'gte80',
+          'gte75',
+          'gte60',
+          'gte50',
+        ];
+
+        return (
+          <div>
+            <PanelHeader
+              title={t('applications.columns.headerMenu.filterBy')}
+              onBack={() => setPanel('root')}
+            />
+            <div className="space-y-0.5">
+              {SCORE_PRESETS.map((operator) => (
+                <MenuItem
+                  key={operator}
+                  label={t(`applications.columns.headerMenu.score${operator.charAt(0).toUpperCase() + operator.slice(1)}`)}
+                  active={columnFilter?.operator === operator}
+                  onClick={() => {
+                    onSetColumnFilter({ column: 'score', operator, value: '' });
+                    close(true);
+                  }}
+                />
+              ))}
+              <MenuItem
+                label={t('applications.columns.headerMenu.scoreRange')}
+                active={draftOperator === 'scoreRange' || columnFilter?.operator === 'scoreRange'}
+                onClick={() => setDraftOperator('scoreRange')}
+              />
+            </div>
+
+            {draftOperator === 'scoreRange' && (
+              <div className="px-1.5 pt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="column-filter-min-score"
+                      className="text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                    >
+                      {t('applications.columns.headerMenu.scoreMin')}
+                    </label>
+                    <input
+                      id="column-filter-min-score"
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="0"
+                      value={draftMinScore}
+                      onChange={(event) => setDraftMinScore(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          applyScoreRange();
+                        }
+                      }}
+                      className="w-full bg-canvas border border-control rounded-[6px] px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-ai transition-colors font-sans"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="column-filter-max-score"
+                      className="text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                    >
+                      {t('applications.columns.headerMenu.scoreMax')}
+                    </label>
+                    <input
+                      id="column-filter-max-score"
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="100"
+                      value={draftMaxScore}
+                      onChange={(event) => setDraftMaxScore(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          applyScoreRange();
+                        }
+                      }}
+                      className="w-full bg-canvas border border-control rounded-[6px] px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-ai transition-colors font-sans"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="my-1.5 h-px bg-subtle" />
+
+            <div className="space-y-0.5">
+              <MenuItem
+                label={t('applications.columns.headerMenu.scoreEmpty')}
+                active={columnFilter?.operator === 'isEmpty'}
+                onClick={() => {
+                  onSetColumnFilter({ column: 'score', operator: 'isEmpty', value: '' });
+                  close(true);
+                }}
+              />
+              <MenuItem
+                label={t('applications.columns.headerMenu.scoreNotEmpty')}
+                active={columnFilter?.operator === 'isNotEmpty'}
+                onClick={() => {
+                  onSetColumnFilter({ column: 'score', operator: 'isNotEmpty', value: '' });
+                  close(true);
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 px-1.5 pt-2">
+              {draftOperator === 'scoreRange' && (
+                <button
+                  type="button"
+                  onClick={applyScoreRange}
+                  disabled={!draftMinScore.trim() && !draftMaxScore.trim()}
+                  className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                >
+                  {t('applications.columns.headerMenu.apply')}
+                </button>
+              )}
               {columnFilter && (
                 <button
                   type="button"
@@ -595,7 +759,13 @@ export default function ApplicationColumnHeaderMenu({
           <>
             <MenuItem
               icon={<ArrowUp className="w-4 h-4 stroke-[1.75]" />}
-              label={t('applications.columns.headerMenu.sortAsc')}
+              label={
+                isScoreColumn
+                  ? t('applications.columns.headerMenu.sortScoreAsc')
+                  : isDateColumn
+                    ? t('applications.columns.headerMenu.sortDateAsc')
+                    : t('applications.columns.headerMenu.sortAsc')
+              }
               active={isSorted && sort.direction === 'asc'}
               onClick={() => {
                 onSetSort(column as ApplicationSortKey, 'asc');
@@ -604,7 +774,13 @@ export default function ApplicationColumnHeaderMenu({
             />
             <MenuItem
               icon={<ArrowDown className="w-4 h-4 stroke-[1.75]" />}
-              label={t('applications.columns.headerMenu.sortDesc')}
+              label={
+                isScoreColumn
+                  ? t('applications.columns.headerMenu.sortScoreDesc')
+                  : isDateColumn
+                    ? t('applications.columns.headerMenu.sortDateDesc')
+                    : t('applications.columns.headerMenu.sortDesc')
+              }
               active={isSorted && sort.direction === 'desc'}
               onClick={() => {
                 onSetSort(column as ApplicationSortKey, 'desc');

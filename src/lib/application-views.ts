@@ -67,13 +67,25 @@ export const APPLICATION_COLUMN_DATE_FILTER_OPERATORS = [
 
 export type ApplicationColumnDateFilterOperator = typeof APPLICATION_COLUMN_DATE_FILTER_OPERATORS[number];
 
+export const APPLICATION_COLUMN_SCORE_FILTER_OPERATORS = [
+  'gte90',
+  'gte80',
+  'gte75',
+  'gte60',
+  'gte50',
+  'scoreRange',
+] as const;
+
+export type ApplicationColumnScoreFilterOperator = typeof APPLICATION_COLUMN_SCORE_FILTER_OPERATORS[number];
+
 export const APPLICATION_COLUMN_MULTI_FILTER_OPERATORS = ['in'] as const;
 export type ApplicationColumnMultiFilterOperator = typeof APPLICATION_COLUMN_MULTI_FILTER_OPERATORS[number];
 
 export type ApplicationColumnFilterOperatorValue =
   | ApplicationColumnFilterOperator
   | ApplicationColumnDateFilterOperator
-  | ApplicationColumnMultiFilterOperator;
+  | ApplicationColumnMultiFilterOperator
+  | ApplicationColumnScoreFilterOperator;
 
 export const APPLICATION_DATE_COLUMN_IDS = ['createdAt', 'updatedAt'] as const;
 export type ApplicationDateColumnId = typeof APPLICATION_DATE_COLUMN_IDS[number];
@@ -89,6 +101,13 @@ export function isApplicationDateColumnFilterOperator(
     && (APPLICATION_COLUMN_DATE_FILTER_OPERATORS as readonly string[]).includes(operator);
 }
 
+export function isApplicationScoreColumnFilterOperator(
+  operator: unknown,
+): operator is ApplicationColumnScoreFilterOperator {
+  return typeof operator === 'string'
+    && (APPLICATION_COLUMN_SCORE_FILTER_OPERATORS as readonly string[]).includes(operator);
+}
+
 export function isApplicationMultiFilterOperator(
   operator: unknown,
 ): operator is ApplicationColumnMultiFilterOperator {
@@ -102,6 +121,8 @@ export type ApplicationColumnFilter = {
   values?: string[];
   startDate?: string;
   endDate?: string;
+  minScore?: number;
+  maxScore?: number;
 };
 
 export type ApplicationGrouping = {
@@ -303,6 +324,23 @@ function normalizeColumnFilters(input: unknown): ApplicationColumnFilter[] {
       }
       if (values.length === 0) continue;
       filter = { column: candidate.column, operator: candidate.operator, value: '', values };
+    } else if (candidate.column === 'score' && isApplicationScoreColumnFilterOperator(candidate.operator)) {
+      if (candidate.operator === 'scoreRange') {
+        const rawMin = typeof candidate.minScore === 'number' ? candidate.minScore : (candidate.value ? Number(candidate.value) : undefined);
+        const rawMax = typeof candidate.maxScore === 'number' ? candidate.maxScore : undefined;
+        const minScore = rawMin !== undefined && Number.isFinite(rawMin) ? Math.max(0, Math.min(100, Math.round(rawMin))) : undefined;
+        const maxScore = rawMax !== undefined && Number.isFinite(rawMax) ? Math.max(0, Math.min(100, Math.round(rawMax))) : undefined;
+        if (minScore === undefined && maxScore === undefined) continue;
+        filter = {
+          column: 'score',
+          operator: 'scoreRange',
+          value: '',
+          ...(minScore !== undefined ? { minScore } : {}),
+          ...(maxScore !== undefined ? { maxScore } : {}),
+        };
+      } else {
+        filter = { column: 'score', operator: candidate.operator, value: '' };
+      }
     } else {
       if (!isColumnFilterOperator(candidate.operator)) continue;
       const needsValue = candidate.operator !== 'isEmpty' && candidate.operator !== 'isNotEmpty';
@@ -538,6 +576,38 @@ export function matchesColumnFilter(
     const values = filter.values ?? [];
     if (values.length === 0) return true;
     return values.some((entry) => entry.toLowerCase() === value.toLowerCase());
+  }
+
+  if (filter.column === 'score') {
+    const score = scoreToPercent(offer.scoreOverall);
+    if (filter.operator === 'isEmpty') return score === null;
+    if (filter.operator === 'isNotEmpty') return score !== null;
+    if (score === null) return false;
+
+    switch (filter.operator) {
+      case 'gte90':
+        return score >= 90;
+      case 'gte80':
+        return score >= 80;
+      case 'gte75':
+        return score >= 75;
+      case 'gte60':
+        return score >= 60;
+      case 'gte50':
+        return score >= 50;
+      case 'scoreRange': {
+        let matches = true;
+        if (filter.minScore !== undefined) matches = matches && score >= filter.minScore;
+        if (filter.maxScore !== undefined) matches = matches && score <= filter.maxScore;
+        return matches;
+      }
+      case 'equals':
+        return String(score) === filter.value;
+      case 'notEquals':
+        return String(score) !== filter.value;
+      default:
+        break;
+    }
   }
 
   switch (filter.operator) {
