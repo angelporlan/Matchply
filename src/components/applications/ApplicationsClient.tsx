@@ -686,7 +686,6 @@ export default function ApplicationsClient({
 
   const boardOffers = localOffers.filter((offer) => !isArchivedStatus(offer.status));
   const archivedOffers = localOffers.filter((offer) => isArchivedStatus(offer.status));
-  const linkedOffers = boardOffers.filter((offer) => Boolean(offer.cvId)).length;
   const filteredOffers = useMemo(
     () => filterApplications(boardOffers, viewFilters),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -805,25 +804,6 @@ export default function ApplicationsClient({
             <Plus className="w-4 h-4 stroke-[1.75]" />
             {t('applications.board.newApplicationBtn')}
           </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 font-display">
-        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.activeBadge')}</p>
-          <p className="text-xl font-bold text-text mt-1">{boardOffers.length}</p>
-        </div>
-        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.archivedBadge')}</p>
-          <p className="text-xl font-bold text-amber-600 dark:text-amber-300 mt-1">{archivedOffers.length}</p>
-        </div>
-        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.linkedBadge')}</p>
-          <p className="text-xl font-bold text-success-text mt-1">{linkedOffers}</p>
-        </div>
-        <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted font-bold">{t('applications.board.showingBadge')}</p>
-          <p className="text-xl font-bold text-text mt-1">{filteredOffers.length}</p>
         </div>
       </div>
 
@@ -1144,6 +1124,7 @@ export default function ApplicationsClient({
             hasActiveFilters={hasActiveFilters}
             onClearFilters={clearFilters}
             onNewApplication={() => setIsModalOpen(true)}
+            attachedFooter={filteredOffers.length > 0}
           />
 
           {filteredOffers.length > 0 && (
