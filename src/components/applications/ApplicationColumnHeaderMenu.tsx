@@ -16,11 +16,14 @@ import {
   Rows3,
 } from 'lucide-react';
 import {
+  APPLICATION_COLUMN_DATE_FILTER_OPERATORS,
   APPLICATION_COLUMN_FILTER_OPERATORS,
   APPLICATION_COLUMN_IDS,
   APPLICATION_COLUMN_WIDTHS,
+  isApplicationDateColumn,
+  type ApplicationColumnDateFilterOperator,
   type ApplicationColumnFilter,
-  type ApplicationColumnFilterOperator,
+  type ApplicationColumnFilterOperatorValue,
   type ApplicationColumnId,
   type ApplicationColumnWidth,
   type ApplicationGrouping,
@@ -39,6 +42,17 @@ const WIDTH_LABEL_KEYS: Record<ApplicationColumnWidth, string> = {
   md: 'applications.columns.headerMenu.widthMd',
   lg: 'applications.columns.headerMenu.widthLg',
 };
+
+const DATE_OPERATOR_LABEL_KEYS: Record<ApplicationColumnDateFilterOperator, string> = {
+  today: 'applications.columns.headerMenu.dateToday',
+  last3Days: 'applications.columns.headerMenu.dateLast3Days',
+  last7Days: 'applications.columns.headerMenu.dateLast7Days',
+  customRange: 'applications.columns.headerMenu.dateCustomRange',
+};
+
+const DATE_PRESET_OPERATORS = APPLICATION_COLUMN_DATE_FILTER_OPERATORS.filter(
+  (operator): operator is Exclude<ApplicationColumnDateFilterOperator, 'customRange'> => operator !== 'customRange',
+);
 
 type Panel = 'root' | 'group' | 'filter' | 'width';
 
@@ -139,13 +153,16 @@ export default function ApplicationColumnHeaderMenu({
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>('root');
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const [draftOperator, setDraftOperator] = useState<ApplicationColumnFilterOperator>('contains');
+  const [draftOperator, setDraftOperator] = useState<ApplicationColumnFilterOperatorValue>('contains');
   const [draftValue, setDraftValue] = useState('');
+  const [draftStartDate, setDraftStartDate] = useState('');
+  const [draftEndDate, setDraftEndDate] = useState('');
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
+  const isDateColumn = isApplicationDateColumn(column);
   const isSorted = sort.key === column;
   const isGrouped = grouping?.column === column;
   const hasFilter = Boolean(columnFilter);
@@ -227,12 +244,32 @@ export default function ApplicationColumnHeaderMenu({
   };
 
   const openFilterPanel = () => {
-    setDraftOperator(columnFilter?.operator ?? 'contains');
+    setDraftOperator(columnFilter?.operator ?? (isDateColumn ? 'today' : 'contains'));
     setDraftValue(columnFilter?.value ?? '');
+    setDraftStartDate(columnFilter?.startDate ?? '');
+    setDraftEndDate(columnFilter?.endDate ?? '');
     setPanel('filter');
   };
 
   const applyFilter = () => {
+    if (isDateColumn) {
+      if (draftOperator !== 'customRange') {
+        onSetColumnFilter({ column, operator: draftOperator, value: '' });
+        close(true);
+        return;
+      }
+      if (!draftStartDate && !draftEndDate) return;
+      onSetColumnFilter({
+        column,
+        operator: 'customRange',
+        value: '',
+        ...(draftStartDate ? { startDate: draftStartDate } : {}),
+        ...(draftEndDate ? { endDate: draftEndDate } : {}),
+      });
+      close(true);
+      return;
+    }
+
     const needsValue = draftOperator !== 'isEmpty' && draftOperator !== 'isNotEmpty';
     if (needsValue && !draftValue.trim()) return;
     onSetColumnFilter({
@@ -299,6 +336,93 @@ export default function ApplicationColumnHeaderMenu({
     }
 
     if (panel === 'filter') {
+      if (isDateColumn) {
+        return (
+          <div>
+            <PanelHeader
+              title={t('applications.columns.headerMenu.filterBy')}
+              onBack={() => setPanel('root')}
+            />
+            <div className="space-y-0.5">
+              {DATE_PRESET_OPERATORS.map((operator) => (
+                <MenuItem
+                  key={operator}
+                  label={t(DATE_OPERATOR_LABEL_KEYS[operator])}
+                  active={columnFilter?.operator === operator}
+                  onClick={() => {
+                    onSetColumnFilter({ column, operator, value: '' });
+                    close(true);
+                  }}
+                />
+              ))}
+              <MenuItem
+                label={t(DATE_OPERATOR_LABEL_KEYS.customRange)}
+                active={draftOperator === 'customRange'}
+                onClick={() => setDraftOperator('customRange')}
+              />
+            </div>
+            {draftOperator === 'customRange' && (
+              <div className="px-1.5 pt-2 space-y-2">
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`column-filter-start-${column}`}
+                    className="text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                  >
+                    {t('applications.columns.headerMenu.dateFrom')}
+                  </label>
+                  <input
+                    id={`column-filter-start-${column}`}
+                    type="date"
+                    value={draftStartDate}
+                    onChange={(event) => setDraftStartDate(event.target.value)}
+                    className="w-full bg-canvas border border-control rounded-[6px] px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-ai transition-colors font-sans"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label
+                    htmlFor={`column-filter-end-${column}`}
+                    className="text-[10px] font-bold uppercase tracking-wider text-text-muted"
+                  >
+                    {t('applications.columns.headerMenu.dateTo')}
+                  </label>
+                  <input
+                    id={`column-filter-end-${column}`}
+                    type="date"
+                    value={draftEndDate}
+                    onChange={(event) => setDraftEndDate(event.target.value)}
+                    className="w-full bg-canvas border border-control rounded-[6px] px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-ai transition-colors font-sans"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-1.5 pt-2">
+              {draftOperator === 'customRange' && (
+                <button
+                  type="button"
+                  onClick={applyFilter}
+                  disabled={!draftStartDate && !draftEndDate}
+                  className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                >
+                  {t('applications.columns.headerMenu.apply')}
+                </button>
+              )}
+              {columnFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetColumnFilter(null);
+                    close(true);
+                  }}
+                  className="px-3 py-1.5 rounded-[6px] border border-subtle text-text-muted hover:text-text text-[10px] font-bold uppercase tracking-wider transition-colors"
+                >
+                  {t('applications.columns.headerMenu.removeFilter')}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
+
       const needsValue = draftOperator !== 'isEmpty' && draftOperator !== 'isNotEmpty';
       return (
         <div>

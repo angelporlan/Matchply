@@ -56,10 +56,39 @@ export const APPLICATION_COLUMN_FILTER_OPERATORS = [
 
 export type ApplicationColumnFilterOperator = typeof APPLICATION_COLUMN_FILTER_OPERATORS[number];
 
+export const APPLICATION_COLUMN_DATE_FILTER_OPERATORS = [
+  'today',
+  'last3Days',
+  'last7Days',
+  'customRange',
+] as const;
+
+export type ApplicationColumnDateFilterOperator = typeof APPLICATION_COLUMN_DATE_FILTER_OPERATORS[number];
+
+export type ApplicationColumnFilterOperatorValue =
+  | ApplicationColumnFilterOperator
+  | ApplicationColumnDateFilterOperator;
+
+export const APPLICATION_DATE_COLUMN_IDS = ['createdAt', 'updatedAt'] as const;
+export type ApplicationDateColumnId = typeof APPLICATION_DATE_COLUMN_IDS[number];
+
+export function isApplicationDateColumn(column: unknown): column is ApplicationDateColumnId {
+  return typeof column === 'string' && (APPLICATION_DATE_COLUMN_IDS as readonly string[]).includes(column);
+}
+
+export function isApplicationDateColumnFilterOperator(
+  operator: unknown,
+): operator is ApplicationColumnDateFilterOperator {
+  return typeof operator === 'string'
+    && (APPLICATION_COLUMN_DATE_FILTER_OPERATORS as readonly string[]).includes(operator);
+}
+
 export type ApplicationColumnFilter = {
   column: ApplicationColumnId;
-  operator: ApplicationColumnFilterOperator;
+  operator: ApplicationColumnFilterOperatorValue;
   value: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 export type ApplicationGrouping = {
@@ -196,21 +225,47 @@ function isColumnWidth(value: unknown): value is ApplicationColumnWidth {
   return typeof value === 'string' && (APPLICATION_COLUMN_WIDTHS as readonly string[]).includes(value);
 }
 
+function normalizeDateInput(value: unknown): string | undefined {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
 function normalizeColumnFilters(input: unknown): ApplicationColumnFilter[] {
   if (!Array.isArray(input)) return [];
   const filters: ApplicationColumnFilter[] = [];
   for (const entry of input) {
     if (!entry || typeof entry !== 'object') continue;
     const candidate = entry as Partial<ApplicationColumnFilter>;
-    if (!isColumnId(candidate.column) || !isColumnFilterOperator(candidate.operator)) continue;
-    const needsValue = candidate.operator !== 'isEmpty' && candidate.operator !== 'isNotEmpty';
-    const value = typeof candidate.value === 'string' ? candidate.value.trim().slice(0, 160) : '';
-    if (needsValue && !value) continue;
-    const filter: ApplicationColumnFilter = {
-      column: candidate.column,
-      operator: candidate.operator,
-      value: needsValue ? value : '',
-    };
+    if (!isColumnId(candidate.column)) continue;
+
+    let filter: ApplicationColumnFilter;
+    if (isApplicationDateColumn(candidate.column)) {
+      if (!isApplicationDateColumnFilterOperator(candidate.operator)) continue;
+      if (candidate.operator === 'customRange') {
+        const startDate = normalizeDateInput(candidate.startDate);
+        const endDate = normalizeDateInput(candidate.endDate);
+        if (!startDate && !endDate) continue;
+        filter = {
+          column: candidate.column,
+          operator: candidate.operator,
+          value: '',
+          ...(startDate ? { startDate } : {}),
+          ...(endDate ? { endDate } : {}),
+        };
+      } else {
+        filter = { column: candidate.column, operator: candidate.operator, value: '' };
+      }
+    } else {
+      if (!isColumnFilterOperator(candidate.operator)) continue;
+      const needsValue = candidate.operator !== 'isEmpty' && candidate.operator !== 'isNotEmpty';
+      const value = typeof candidate.value === 'string' ? candidate.value.trim().slice(0, 160) : '';
+      if (needsValue && !value) continue;
+      filter = {
+        column: candidate.column,
+        operator: candidate.operator,
+        value: needsValue ? value : '',
+      };
+    }
+
     const existing = filters.findIndex((item) => item.column === filter.column);
     if (existing >= 0) filters[existing] = filter;
     else filters.push(filter);
@@ -360,10 +415,52 @@ export function getApplicationColumnValue(
   }
 }
 
-export function matchesColumnFilter(offer: ApplicationSummary, filter: ApplicationColumnFilter): boolean {
+function matchesColumnDateFilter(
+  rawValue: string | null,
+  filter: ApplicationColumnFilter,
+  now: Date,
+): boolean {
+  if (!rawValue) return false;
+  const date = new Date(rawValue);
+  if (Number.isNaN(date.valueOf())) return false;
+
+  const offerTime = dayStart(date);
+  const today = dayStart(now);
+
+  if (filter.operator === 'today') return offerTime === today;
+  if (filter.operator === 'last3Days' || filter.operator === 'last7Days') {
+    const days = filter.operator === 'last3Days' ? 3 : 7;
+    const from = new Date(today);
+    from.setDate(from.getDate() - days);
+    return offerTime >= from.getTime() && offerTime <= today;
+  }
+  if (filter.operator === 'customRange') {
+    let matches = true;
+    if (filter.startDate) {
+      const start = new Date(`${filter.startDate}T00:00:00`);
+      if (!Number.isNaN(start.valueOf())) matches = matches && offerTime >= start.getTime();
+    }
+    if (filter.endDate) {
+      const end = new Date(`${filter.endDate}T00:00:00`);
+      if (!Number.isNaN(end.valueOf())) matches = matches && offerTime <= end.getTime();
+    }
+    return matches;
+  }
+  return true;
+}
+
+export function matchesColumnFilter(
+  offer: ApplicationSummary,
+  filter: ApplicationColumnFilter,
+  now: Date = new Date(),
+): boolean {
   const raw = getApplicationColumnValue(offer, filter.column);
   const value = raw === null ? '' : raw;
   const needle = filter.value.trim().toLowerCase();
+
+  if (isApplicationDateColumnFilterOperator(filter.operator)) {
+    return matchesColumnDateFilter(raw, filter, now);
+  }
 
   switch (filter.operator) {
     case 'isEmpty':
@@ -407,7 +504,7 @@ export function filterApplications(
     if (!matchesDateFilter(offer.createdAt, filters, now)) return false;
     if (!matchesFollowupFilter(offer, filters, now)) return false;
     for (const columnFilter of columnFilters) {
-      if (!matchesColumnFilter(offer, columnFilter)) return false;
+      if (!matchesColumnFilter(offer, columnFilter, now)) return false;
     }
     return true;
   });

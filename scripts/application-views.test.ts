@@ -186,6 +186,55 @@ test('normalizeViewConfig drops invalid grouping and widths', () => {
   assert.deepEqual(config.filters.columnFilters, []);
 });
 
+test('normalizeViewConfig restricts date operators to date columns', () => {
+  const config = normalizeViewConfig({
+    filters: {
+      columnFilters: [
+        { column: 'createdAt', operator: 'last7Days', value: '' },
+        { column: 'updatedAt', operator: 'customRange', startDate: '2026-09-01', endDate: '2026-09-10' },
+        { column: 'createdAt', operator: 'customRange', value: '' },
+        { column: 'title', operator: 'today', value: '' },
+        { column: 'company', operator: 'contains', value: ' Acme ', startDate: '2026-09-01' },
+        { column: 'updatedAt', operator: 'contains', value: 'x' },
+      ],
+    },
+  });
+
+  assert.deepEqual(config.filters.columnFilters, [
+    { column: 'createdAt', operator: 'last7Days', value: '' },
+    { column: 'updatedAt', operator: 'customRange', value: '', startDate: '2026-09-01', endDate: '2026-09-10' },
+    { column: 'company', operator: 'contains', value: 'Acme' },
+  ]);
+});
+
+test('filterApplications applies date column filters', () => {
+  const offers = [
+    offer({ id: 'today', createdAt: new Date('2026-09-12T08:00:00.000Z') }),
+    offer({ id: 'three', createdAt: new Date('2026-09-09T08:00:00.000Z') }),
+    offer({ id: 'seven', createdAt: new Date('2026-09-05T08:00:00.000Z') }),
+    offer({ id: 'old', createdAt: new Date('2026-08-01T08:00:00.000Z') }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'createdAt', operator: 'today', value: '' }] }, now).map(o => o.id),
+    ['today'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'createdAt', operator: 'last3Days', value: '' }] }, now).map(o => o.id),
+    ['today', 'three'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'createdAt', operator: 'last7Days', value: '' }] }, now).map(o => o.id),
+    ['today', 'three', 'seven'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, {
+      columnFilters: [{ column: 'createdAt', operator: 'customRange', value: '', startDate: '2026-09-09', endDate: '2026-09-10' }],
+    }, now).map(o => o.id),
+    ['three'],
+  );
+});
+
 test('filterApplications applies per-column filters', () => {
   const offers = [
     offer({ id: 'a', company: 'Acme', status: 'applied', scoreOverall: 80 }),

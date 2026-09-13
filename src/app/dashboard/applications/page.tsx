@@ -72,14 +72,15 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
     ? requestedViewId
     : defaultViewId;
   const initialLayout = searchParams?.layout === 'board' ? 'board' : 'table';
+  const isTableLayout = initialLayout === 'table';
 
   return (
-    <div className="relative overflow-x-clip min-h-screen">
+    <div className={`relative overflow-x-clip min-h-screen ${isTableLayout ? 'md:h-[100dvh] md:overflow-hidden' : ''}`}>
       {/* Background blur */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <main className={`max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 ${isTableLayout ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
         <ApplicationsClient
           offers={offers}
           userCvs={userCvs}

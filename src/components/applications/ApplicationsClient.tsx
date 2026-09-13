@@ -255,7 +255,10 @@ export default function ApplicationsClient({
     if (searchParams.get('layout')) return;
     try {
       const stored = window.localStorage.getItem('applications.layout');
-      if (stored === 'board') setLayout('board');
+      if (stored === 'board') {
+        setLayout('board');
+        syncUrl({ layout: 'board' });
+      }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -737,7 +740,7 @@ export default function ApplicationsClient({
   }
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${layout === 'table' ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
       {/* Cabecera del Tablero */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
@@ -1057,7 +1060,7 @@ export default function ApplicationsClient({
           onDelete={handleDeleteOffer}
         />
       ) : (
-        <div>
+        <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <span className="text-xs font-bold text-text font-display">
@@ -1128,7 +1131,7 @@ export default function ApplicationsClient({
           />
 
           {filteredOffers.length > 0 && (
-            <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:mt-0">
+            <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:static md:mt-0 md:shrink-0">
               <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm md:rounded-t-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-display">
                 <p className="text-xs text-text-muted">
                   {t('applications.table.pagination.showing')
