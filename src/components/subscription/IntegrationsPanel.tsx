@@ -1,7 +1,8 @@
 'use client';
 
-import { ArrowRight, CheckCircle2, Lock, Sparkles } from 'lucide-react';
+import { CheckCircle2, Lock, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { ButtonLink } from '@/components/ui/Button';
 import LinkedInExtensionConsole from './LinkedInExtensionConsole';
 
 type Installation = {
@@ -68,14 +69,14 @@ export default function IntegrationsPanel({
             </div>
 
             <div className="pt-2">
-              <a
+              <ButtonLink
                 href="/api/stripe/checkout"
-                className="inline-flex items-center gap-2 bg-ai-action hover:bg-ai-hover text-on-ai-action font-bold py-2.5 px-5 rounded-[8px] text-xs transition-all shadow-sm shadow-ai/10"
+                variant="primary"
+                size="sm"
               >
-                <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-                {t('subscription.integrations.upsellCta')}
-                <ArrowRight className="w-3.5 h-3.5 stroke-[1.75]" />
-              </a>
+                <ShieldCheck className="w-3.5 h-3.5 stroke-[1.75]" />
+                {t('settings.account.upgrade')}
+              </ButtonLink>
             </div>
           </div>
         </div>
