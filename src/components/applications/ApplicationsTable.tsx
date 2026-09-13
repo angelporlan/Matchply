@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ChevronRight,
   ExternalLink,
+  Eye,
   Inbox,
   Plus,
   Search,
@@ -311,19 +312,15 @@ export default function ApplicationsTable({
 
   const rowActions = (offer: ApplicationSummary, compact = false) => (
     <div className="flex items-center justify-end gap-0.5">
-      {offer.url && (
-        <a
-          href={offer.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          title={t('applications.table.actions.openOffer')}
-          aria-label={t('applications.table.actions.openOffer')}
-          className="p-1.5 rounded-md text-slate-400 hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-white/10 transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
-        </a>
-      )}
+      <NextLink
+        href={`/dashboard/applications/offer/${offer.id}`}
+        onClick={(event) => event.stopPropagation()}
+        title={t('applications.table.actions.openOffer')}
+        aria-label={t('applications.table.actions.openOffer')}
+        className={`p-1.5 rounded-md text-slate-400 hover:text-text dark:hover:text-white hover:bg-surface-muted dark:hover:bg-white/10 transition-colors ${compact ? '' : 'opacity-60 group-hover:opacity-100'}`}
+      >
+        <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
+      </NextLink>
       <button
         type="button"
         onClick={(event) => {

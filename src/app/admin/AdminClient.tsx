@@ -1435,8 +1435,8 @@ export default function AdminClient({
                     <tbody className="divide-y divide-subtle dark:divide-white/5 bg-surface/50">
                       {paginatedAuditLogs.map((log) => (
                          <tr key={log.id} className="hover:bg-canvas dark:hover:bg-canvas/20 transition-colors">
-                           <td className="px-6 py-4 text-text-muted dark:text-slate-300 whitespace-nowrap font-mono">
-                             {new Date(log.createdAt).toLocaleString('es-ES')}
+                           <td suppressHydrationWarning className="px-6 py-4 text-text-muted dark:text-slate-300 whitespace-nowrap font-mono">
+                             {new Date(log.createdAt).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
                            </td>
                            <td className="px-6 py-4 font-semibold text-text whitespace-nowrap font-display">
                              {log.userEmail || 'Desconocido'}
@@ -2079,7 +2079,7 @@ export default function AdminClient({
                 </div>
                 <div className="p-3.5 bg-canvas/40 rounded-xl border border-subtle">
                   <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">FECHA & HORA</span>
-                  <span className="text-text font-semibold">{new Date(selectedLog.createdAt).toLocaleString('es-ES')}</span>
+                  <span suppressHydrationWarning className="text-text font-semibold">{new Date(selectedLog.createdAt).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}</span>
                 </div>
                 <div className="p-3.5 bg-canvas/40 rounded-xl border border-subtle col-span-2">
                   <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">USUARIO ASOCIADO</span>

@@ -410,11 +410,11 @@ export default function JobOfferDetailsModal({
                           <div className="space-y-1 text-xs text-text-muted dark:text-text font-sans">
                             <p className="flex justify-between sm:justify-start sm:gap-4">
                               <span className="text-text-muted font-medium">{t('applications.modal.dateRegistered')}</span> 
-                              <span className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+                              <span suppressHydrationWarning className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
                             </p>
                             <p className="flex justify-between sm:justify-start sm:gap-4">
                               <span className="text-text-muted font-medium">{t('applications.modal.dateUpdated')}</span> 
-                              <span className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+                              <span suppressHydrationWarning className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
                             </p>
                           </div>
                         </div>
@@ -566,16 +566,16 @@ export default function JobOfferDetailsModal({
                               <div className="space-y-1 text-xs text-text-muted dark:text-text font-sans">
                                 <p className="flex justify-between sm:justify-start sm:gap-4">
                                   <span className="text-text-muted font-medium">{t('applications.modal.dateRegistered')}</span> 
-                                  <span className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+                                  <span suppressHydrationWarning className="font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
                                 </p>
                                 <p className="flex justify-between sm:justify-start sm:gap-4">
                                   <span className="text-text-muted font-medium">{t('applications.modal.dateUpdated')}</span> 
-                                  <span className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+                                  <span suppressHydrationWarning className="font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
                                 </p>
                                 {offer.nextFollowupDate && (
                                   <p className="flex justify-between sm:justify-start sm:gap-4 text-ai font-bold">
                                     <span className="text-text-muted font-medium">Seguimiento:</span> 
-                                    <span>{new Date(offer.nextFollowupDate).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+                                    <span suppressHydrationWarning>{new Date(offer.nextFollowupDate).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
                                   </p>
                                 )}
                               </div>

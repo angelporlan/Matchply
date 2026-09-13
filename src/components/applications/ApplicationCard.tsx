@@ -180,7 +180,7 @@ export default function ApplicationCard({
 
             <div className="flex items-center gap-1 text-[10px] text-text-muted font-sans font-light">
               <Clock className="w-3 h-3 stroke-[1.75]" />
-              <span>{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+              <span suppressHydrationWarning>{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
             </div>
           </div>
 

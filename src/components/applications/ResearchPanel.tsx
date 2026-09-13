@@ -24,7 +24,11 @@ function statusLabel(status: string) {
 function dateLabel(value: string | Date | null) {
   if (!value) return '—';
   const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? '—' : date.toLocaleString('es-ES');
+  return Number.isNaN(date.valueOf())
+    ? '—'
+    : date.toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+      });
 }
 
 export default function ResearchPanel({ offerId, initialResearch }: { offerId: string; initialResearch: ResearchData | null }) {
@@ -87,7 +91,7 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-xl bg-canvas/30 border border-subtle p-4"><span className="text-[10px] uppercase tracking-wider text-slate-500">Score</span><div className="text-2xl font-black text-text mt-1">{research.scoreOverall ?? 'N/D'}{research.scoreOverall !== null && <span className="text-xs font-normal text-slate-400">/100</span>}</div></div>
             <div className="rounded-xl bg-canvas/30 border border-subtle p-4"><span className="text-[10px] uppercase tracking-wider text-slate-500">Confianza</span><div className="text-2xl font-black text-text mt-1">{research.confidence === null ? 'N/D' : `${Math.round(research.confidence * 100)}%`}</div></div>
-            <div className="rounded-xl bg-canvas/30 border border-subtle p-4"><span className="text-[10px] uppercase tracking-wider text-slate-500">Actualizada</span><div className="text-xs font-semibold text-text mt-2">{dateLabel(research.completedAt || research.createdAt)}</div></div>
+            <div className="rounded-xl bg-canvas/30 border border-subtle p-4"><span className="text-[10px] uppercase tracking-wider text-slate-500">Actualizada</span><div suppressHydrationWarning className="text-xs font-semibold text-text mt-2">{dateLabel(research.completedAt || research.createdAt)}</div></div>
           </div>
 
           <div className="rounded-xl border border-subtle p-4 space-y-3">

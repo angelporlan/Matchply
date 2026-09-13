@@ -650,11 +650,11 @@ export default function JobOfferDetailsPage({
           <div className="border-t border-subtle pt-4 space-y-2 font-display text-[11px]">
             <div className="flex justify-between">
               <span className="text-text-muted font-bold uppercase tracking-wider">Registrado</span>
-              <span className="text-text-muted dark:text-slate-355 font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+              <span suppressHydrationWarning className="text-text-muted dark:text-slate-355 font-light">{new Date(offer.createdAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted font-bold uppercase tracking-wider">Actualizado</span>
-              <span className="text-text-muted dark:text-slate-355 font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}</span>
+              <span suppressHydrationWarning className="text-text-muted dark:text-slate-355 font-light">{new Date(offer.updatedAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { timeZone: 'Europe/Madrid' })}</span>
             </div>
           </div>
         </div>
