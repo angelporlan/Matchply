@@ -390,15 +390,16 @@ export default function CareerProfileForm({
             <span>Cómo te ve la IA</span>
           </button>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => handleSave()}
           disabled={saving}
-          className="px-6 py-2 min-h-11 rounded-[8px] bg-action hover:bg-action-hover text-on-action text-xs font-bold flex items-center gap-2 disabled:opacity-50 ml-auto"
+          loading={saving}
+          className="ml-auto"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin stroke-[1.75]" /> : <Save className="w-4 h-4 stroke-[1.75]" />}
+          {!saving && <Save className="w-4 h-4 stroke-[1.75]" />}
           <span>{saving ? 'Guardando…' : 'Guardar'}</span>
-        </button>
+        </Button>
       </div>
 
       {autoFilled && (
