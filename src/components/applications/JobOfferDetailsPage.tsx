@@ -21,6 +21,7 @@ import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parseSections, parseMarkdownTable, ParsedReport } from '@/lib/ai-parser';
 import ResearchPanel from './ResearchPanel';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 // Markdown-to-HTML parser function locally
 function mdToHtml(markdown: string): string {
@@ -95,6 +96,7 @@ export default function JobOfferDetailsPage({
   const [aiGenerating, setAiGenerating] = useState(false);
   const [optimizingCv, setOptimizingCv] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   // Form State for editing details
   const [formData, setFormData] = useState({
@@ -321,6 +323,18 @@ export default function JobOfferDetailsPage({
 
   // Generate outreach and prep questions on demand
   const handleGenerateOutreach = async () => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'outreach',
+      title: `Carta de Presentación y Contacto (${offer.title} - ${offer.company})`,
+      data: {
+        offerId: offer.id,
+        jobTitle: offer.title,
+        company: offer.company,
+        jobDescription: offer.description,
+      },
+    });
+    if (!proceed) return;
+
     setAiGenerating(true);
     setError(null);
     try {
@@ -509,6 +523,16 @@ export default function JobOfferDetailsPage({
               <button
                 type="button"
                 onClick={async () => {
+                  const proceed = await inspectOrExecutePrompt({
+                    action: 'curate_offers',
+                    title: `Recalcular Match con IA (${offer.title} - ${offer.company})`,
+                    data: {
+                      offerIds: [offer.id],
+                      offers: [offer],
+                    },
+                  });
+                  if (!proceed) return;
+
                   setEvaluatingMatch(true);
                   try {
                     const res = await evaluateSingleOfferMatchAction(offer.id);

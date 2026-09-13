@@ -15,6 +15,7 @@ import {
 import LinkNext from 'next/link';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 interface EditorClientProps {
   cv: CV;
@@ -76,6 +77,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
   
   useEffect(() => {
     setCvContent(cv.content);
@@ -140,6 +142,22 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   }, []);
 
   const runOptimizeStream = async (params: any) => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'optimize_cv',
+      title: 'Optimización de CV con IA',
+      data: {
+        baseCvMarkdown: params.baseCvMarkdown || cvContent || cv.content,
+        jobDescription: params.jobDescription,
+        promptId: params.promptId,
+        candidateName: params.candidateName,
+        careerProfileContext: params.careerProfileContext,
+      },
+    });
+    if (!proceed) {
+      setSaveStatus('saved');
+      return;
+    }
+
     setIsStreaming(true);
     setStreamingError(null);
     setSaveStatus('saving');
@@ -210,6 +228,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const runImportStream = async (rawText: string) => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'import_cv',
+      title: 'Importar y Formatear CV con IA',
+      data: {
+        rawText,
+      },
+    });
+    if (!proceed) {
+      setSaveStatus('saved');
+      return;
+    }
+
     setIsStreaming(true);
     setStreamingError(null);
     setSaveStatus('saving');

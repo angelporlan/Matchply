@@ -3,6 +3,7 @@ import { Inter, Outfit } from 'next/font/google';
 import { cookies } from 'next/headers';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import { Language } from '@/lib/i18n/translations';
+import { AiPromptDebugProvider } from '@/components/ai/AiPromptDebugContext';
 import './globals.css';
 
 const inter = Inter({
@@ -31,6 +32,10 @@ export default function RootLayout({
   const cookieLang = cookieStore.get('lang')?.value;
   const initialLanguage: Language = (cookieLang === 'es' || cookieLang === 'en') ? cookieLang : 'es';
 
+  const isDebugEnabled =
+    process.env.AI_PROMPTS_DEBUG === 'true' ||
+    process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG === 'true';
+
   return (
     <html lang={initialLanguage} className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <head>
@@ -51,7 +56,9 @@ export default function RootLayout({
       </head>
       <body className="bg-canvas text-text min-h-screen">
         <LanguageProvider initialLanguage={initialLanguage}>
-          {children}
+          <AiPromptDebugProvider initialDebugEnabled={isDebugEnabled}>
+            {children}
+          </AiPromptDebugProvider>
         </LanguageProvider>
       </body>
     </html>

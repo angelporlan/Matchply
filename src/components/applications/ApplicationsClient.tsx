@@ -34,6 +34,7 @@ import {
 } from '@/lib/application-views';
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
 
@@ -65,6 +66,7 @@ export default function ApplicationsClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t, language } = useLanguage();
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   const initialConfig = (() => {
     const saved = initialSavedViews.find((view) => view.id === initialViewId);
@@ -472,10 +474,21 @@ export default function ApplicationsClient({
     router.refresh();
   };
 
-  const handleCurateSelected = () => {
+  const handleCurateSelected = async () => {
     if (selectedIds.size === 0) return;
     const selectedOffers = localOffers.filter((o) => selectedIds.has(o.id));
     if (selectedOffers.length === 0) return;
+
+    const proceed = await inspectOrExecutePrompt({
+      action: 'curate_offers',
+      title: `Curar y calcular Match con IA (${selectedOffers.length} ofertas)`,
+      data: {
+        targetThreshold: 65,
+        offerIds: selectedOffers.map((o) => o.id),
+      },
+    });
+    if (!proceed) return;
+
     setCurateTargetOffers(selectedOffers);
     setIsSimulationMode(false);
     setIsCurateModalOpen(true);
@@ -777,7 +790,17 @@ export default function ApplicationsClient({
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onToggleInterestedSort={() => setInterestedSortMode((prev) => (prev === 'score' ? 'date' : 'score'))}
-          onOpenCurate={(simulation) => {
+          onOpenCurate={async (simulation) => {
+            if (!simulation) {
+              const proceed = await inspectOrExecutePrompt({
+                action: 'curate_offers',
+                title: 'Curar y calcular Match con IA (ofertas interesadas)',
+                data: {
+                  targetThreshold: 65,
+                },
+              });
+              if (!proceed) return;
+            }
             setCurateTargetOffers(null);
             setIsSimulationMode(simulation);
             setIsCurateModalOpen(true);
@@ -1088,6 +1111,7 @@ export default function ApplicationsClient({
       {/* Modal de Curación Inteligente de Candidaturas con IA (Efecto Mazo de Cartas) */}
       <CurateWithAiModal
         isOpen={isCurateModalOpen}
+        skipDebugPrompt={true}
         onClose={() => {
           setIsCurateModalOpen(false);
           setCurateTargetOffers(null);

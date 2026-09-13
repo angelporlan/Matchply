@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, X, Check, Loader2, Building2 } from 'lucide-react';
 import { ApplicationSummary } from '@/lib/job-offer-queries';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 export interface CuratedItem {
   id: string;
@@ -22,6 +23,7 @@ interface CurateWithAiModalProps {
   offersCount: number;
   offers?: ApplicationSummary[];
   isSimulation?: boolean;
+  skipDebugPrompt?: boolean;
 }
 
 interface PendingCard {
@@ -45,6 +47,7 @@ export default function CurateWithAiModal({
   offersCount,
   offers = [],
   isSimulation = false,
+  skipDebugPrompt = false,
 }: CurateWithAiModalProps) {
   const [phase, setPhase] = useState<Phase>('revealing');
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -54,6 +57,7 @@ export default function CurateWithAiModal({
   const [resolvedCount, setResolvedCount] = useState(0);
   const [shownCount, setShownCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sleepResolveRef = useRef<(() => void) | null>(null);
@@ -415,13 +419,11 @@ export default function CurateWithAiModal({
     markAiFinishedAndMaybeSummarize(true);
   };
 
-  const startFlow = () => {
+  const startFlow = async () => {
     abortedRef.current = false;
     aiFinishedRef.current = false;
     finishingRef.current = false;
     currentIndexRef.current = -1;
-    setPhase('revealing');
-    setAiFinished(false);
     setError(null);
     setResolvedCount(0);
     setShownCount(0);
@@ -437,6 +439,25 @@ export default function CurateWithAiModal({
       fitReason: null,
       resolved: false,
     }));
+
+    if (!isSimulation && !skipDebugPrompt) {
+      const proceed = await inspectOrExecutePrompt({
+        action: 'curate_offers',
+        title: `Curar y calcular Match con IA (${pendingCards.length} ofertas)`,
+        data: {
+          targetThreshold: 65,
+          offerIds: offers.map((o) => o.id),
+          offers,
+        },
+      });
+      if (!proceed) {
+        onClose();
+        return;
+      }
+    }
+
+    setPhase('revealing');
+    setAiFinished(false);
     setCards(pendingCards);
     cardsRef.current = pendingCards;
 

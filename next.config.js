@@ -3,6 +3,9 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['pdfkit'],
   },
+  env: {
+    AI_PROMPTS_DEBUG: process.env.AI_PROMPTS_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG || '',
+  },
   async redirects() {
     return [
       { source: '/dashboard/kanban', destination: '/dashboard/applications', permanent: true },

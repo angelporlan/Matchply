@@ -32,6 +32,7 @@ import {
   type ProfileClassification,
 } from './profile-classification';
 import { hydrateStructuredProfile } from './career-profile';
+import type { AiPromptDebugAction } from './ai-prompts-debug';
 
 type CurationOfferInput = {
   id: string;
@@ -1938,6 +1939,275 @@ DIRECTRICES:
 
     await Promise.all(workers);
     return results;
+  }
+
+  static async buildDebugPrompt(
+    action: AiPromptDebugAction,
+    payload: any,
+    userContext: {
+      userId?: string;
+      subscriptionStatus?: string;
+      careerProfile?: any;
+    } = {}
+  ): Promise<{
+    actionTitle: string;
+    provider: string;
+    model: string;
+    systemPrompt: string;
+    userPrompt: string;
+  }> {
+    const isPro = canAccessFeature(userContext.subscriptionStatus || 'none', 'advancedAi');
+    const provider = await this.getSetting(
+      isPro ? 'pro_provider' : 'free_provider',
+      isPro ? DEFAULT_PRO_PROVIDER : DEFAULT_FREE_PROVIDER,
+    );
+    const model = await this.getSetting(
+      isPro ? 'pro_model' : 'free_model',
+      getDefaultModelForProvider(isPro ? 'pro' : 'free', provider),
+    );
+
+    if (action === 'optimize_cv') {
+      const resolvedPrompt = await this.resolvePrompt('optimize_cv', payload.promptId);
+      const systemPrompt = resolvedPrompt.systemPrompt;
+      const userPromptTemplate = resolvedPrompt.userPrompt;
+      const resolvedName = this.extractCandidateName(payload.baseCvMarkdown || '') || payload.candidateName || 'Candidato';
+      const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
+      const profileDirective = payload.careerProfileContext?.trim()
+        ? `\n\nPERFIL MAESTRO DEL CANDIDATO (fuente de la verdad de trayectoria y objetivo; no inventes fuera de esto ni del CV):\n${payload.careerProfileContext.trim().slice(0, 3200)}`
+        : '';
+      const defaultSystem = isPro
+        ? (provider === 'gemini'
+            ? 'Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick.'
+            : 'Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.')
+        : 'Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.';
+
+      const finalSystem = (systemPrompt || defaultSystem) + '\n\n' + MARKDOWN_STRUCTURE_INSTRUCTIONS + '\n\n' + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
+      const finalUser = (userPromptTemplate
+        ? this.templatePrompt(userPromptTemplate, payload.baseCvMarkdown || '', payload.jobDescription || '')
+        : `CV Base:\n${payload.baseCvMarkdown || ''}\n\nOferta de Empleo:\n${payload.jobDescription || ''}`) + profileDirective;
+
+      return {
+        actionTitle: 'Optimización de CV con IA',
+        provider,
+        model,
+        systemPrompt: finalSystem,
+        userPrompt: finalUser,
+      };
+    }
+
+    if (action === 'curate_offers') {
+      const userProfile = userContext.careerProfile || {};
+      const userCurationRules = (userProfile.curationCriteria || '').trim();
+      const hardConstraints = parseHardConstraints({
+        curationCriteria: userProfile.curationCriteria,
+        bio: userProfile.bio,
+      });
+      const ruleChecklist = this.extractCurationRuleChecklist(userCurationRules);
+      const candidateContext = this.buildCurationCandidateContext(
+        userProfile,
+        payload.baseCvMarkdown || '',
+        hardConstraints,
+      );
+      const systemPrompt = this.buildCurationSystemPrompt(
+        userCurationRules,
+        ruleChecklist,
+        payload.targetThreshold || 65,
+        hardConstraints,
+      );
+
+      const rawOffers = Array.isArray(payload.offers) ? payload.offers : [];
+      const simplifiedOffers = rawOffers.map((o: any) => {
+        const meta = o.sourceMetadata && typeof o.sourceMetadata === 'object' ? o.sourceMetadata : {};
+        return {
+          id: o.id,
+          title: o.title,
+          company: o.company,
+          platform: o.platform,
+          tldr: o.tldr ? String(o.tldr).slice(0, 220) : undefined,
+          workplaceType: typeof meta.workplaceType === 'string' ? meta.workplaceType : undefined,
+          location: typeof meta.location === 'string' ? meta.location : undefined,
+          descriptionSnippet: this.compressJobDescription(o.description, o.title, o.sourceMetadata),
+        };
+      });
+
+      const userPrompt = `${candidateContext}\n\n### OFERTAS A EVALUAR (${simplifiedOffers.length}):\n${JSON.stringify(simplifiedOffers, null, 2)}\n\nEvalúa PRIMERO el checklist de reglas duras (rellena rulesChecked y violatedRules).\nSi idioma_oferta es ingles y el candidato penaliza o rechaza inglés, violatedRules DEBE incluir esa regla.\nDevuelve JSON con exactamente estas ${simplifiedOffers.length} ofertas.`;
+
+      return {
+        actionTitle: `Curar y calcular Match con IA (${simplifiedOffers.length} ofertas)`,
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    if (action === 'outreach') {
+      const systemPrompt = `Eres un experto en selección de personal y marca profesional. Tu tarea es generar:
+1. Un email o mensaje de contacto corto (outreach) para enviar al reclutador por LinkedIn o email (máximo 150 palabras, tono profesional y persuasivo, adaptado a la vacante y la experiencia del candidato).
+2. Una carta de presentación (cover letter) profesional y adaptada estilo Harvard (máximo 300 palabras).
+3. Una lista de las 3-5 preguntas técnicas y de comportamiento más probables en una entrevista para esta vacante, junto con consejos clave para responder cada una usando la experiencia del candidato.
+
+Debes responder ÚNICA y EXCLUSIVAMENTE con un objeto JSON válido que contenga las siguientes claves:
+{
+  "outreachMessage": "...",
+  "coverLetter": "...",
+  "interviewQuestions": [
+    {
+      "question": "...",
+      "tip": "..."
+    }
+  ]
+}
+No uses bloques de código Markdown (sin triple backticks). Responde directamente con el JSON parseable.`;
+
+      const userPrompt = `CV del candidato:
+${payload.cvContent || ''}
+
+Oferta de empleo:
+Puesto: ${payload.jobTitle || ''}
+Empresa: ${payload.company || ''}
+Descripción: ${payload.jobDescription || ''}`;
+
+      return {
+        actionTitle: `Carta de Presentación y Contacto (${payload.jobTitle || 'Puesto'} - ${payload.company || 'Empresa'})`,
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    if (action === 'import_cv') {
+      const resolvedPrompt = await this.resolvePrompt('import_cv');
+      const { systemPrompt, userPrompt: userPromptTemplate, isStrict } = resolvedPrompt;
+      const resolvedName = this.extractCandidateName(payload.rawText || '') || payload.candidateName || 'Candidato';
+      const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: Identifica el nombre de la persona en el CV (usualmente al principio). El currículum resultante DEBE comenzar obligatoriamente con ese nombre propio en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
+      const finalSystem = systemPrompt + (isStrict ? '\n\n' + MARKDOWN_STRUCTURE_INSTRUCTIONS : '') + nameDirective;
+      const finalUser = userPromptTemplate.replace(/\{\{cv\}\}/g, payload.rawText || '');
+
+      return {
+        actionTitle: 'Importar y Formatear CV con IA',
+        provider,
+        model,
+        systemPrompt: finalSystem,
+        userPrompt: finalUser,
+      };
+    }
+
+    if (action === 'profile_extract') {
+      const systemPrompt = `Eres un Chief Technology Officer (CTO) y Lead AI Recruiter de élite. Tu objetivo es analizar la información, CV o notas de un candidato y estructurar su "Perfil Profesional Maestro & Criterios".
+Debes extraer solo lo que el texto demuestra: logros, tecnologías exactas y preferencias. No inventes stacks ni un rol objetivo. El objetivo profesional es opcional.
+
+REGLAS DE SALIDA:
+- Devuelve ÚNICA y EXCLUSIVAMENTE un JSON válido (sin triple backticks ni texto antes/después) con la estructura del perfil profesional maestro.`;
+
+      const userPrompt = `A continuación tienes la información bruta / CV / notas del candidato:
+---
+${(payload.rawText || '').slice(0, 15000)}
+---
+
+Por favor, estructura el Perfil Maestro completo en JSON según las instrucciones.`;
+
+      return {
+        actionTitle: 'Estructurar Perfil Profesional con IA',
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    if (action === 'start_interview') {
+      const dump = (payload.dumpText || userContext.careerProfile?.bio || '').trim();
+      const resolvedClassification = payload.classification || heuristicClassifyCareerProfile(
+        [dump, payload.optionalTarget].filter(Boolean).join('\n'),
+      );
+      const systemPrompt = `Eres un career coach para profesionales de software (y perfiles afines).
+Formula 3 preguntas cortas para rellenar HUECOS del texto del candidato.
+
+REGLAS:
+- Nicho: desarrollo de software. Adapta frontend/backend/fullstack/mobile/datos/IA/junior/senior según la clasificación.
+- Pregunta solo sobre lo que NO está claro en el texto.
+- No uses ejemplos de productos inventados ni de un usuario concreto.
+- Devuelve ÚNICAMENTE un JSON array:
+[{"id":"q1","category":"stack|projects|target","question":"...","hint":"...","suggestedAnswers":[]}]`;
+
+      const userPrompt = `Clasificación: ${JSON.stringify(resolvedClassification)}
+Objetivo explícito (opcional): ${payload.optionalTarget?.trim() || 'ninguno'}
+Texto / CV / notas:
+---
+${dump.slice(0, 10000) || 'Vacío'}
+---`;
+
+      return {
+        actionTitle: 'Generar Preguntas de Entrevista IA',
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    if (action === 'synthesize_profile') {
+      const systemPrompt = `Redactas el perfil maestro de un candidato para matching de ofertas y adaptación de CVs.
+Público principal: desarrolladores de software de cualquier seniority. Si el perfil no es software, redacta con honestidad lo que hay.
+
+REGLAS:
+- Documento maestro: 250-400 palabras. Quién es, qué ha hecho, con qué tecnología, y el norte SOLO si lo ha dicho.
+- NO inventes herramientas, empresas, métricas ni un rol objetivo. Si no dijo "quiero ser X", no lo inventes.
+- Devuelve ÚNICAMENTE JSON con el perfil estructurado.`;
+
+      const qaList = Array.isArray(payload.qaList) ? payload.qaList : [];
+      const userPrompt = `Clasificación: ${JSON.stringify(payload.classification || {})}
+Objetivo explícito opcional: ${payload.optionalTarget?.trim() || 'ninguno'}
+Borrador / CV:
+---
+${(payload.dumpText || userContext.careerProfile?.bio || '').slice(0, 12000)}
+---
+Perfil previo (JSON):
+${JSON.stringify(payload.currentProfile || userContext.careerProfile || {}, null, 2).slice(0, 4000)}
+
+Respuestas de la entrevista:
+${qaList.map((qa: any, i: number) => `P${i + 1}: ${qa.question}\nR: ${qa.answer}`).join('\n\n')}`;
+
+      return {
+        actionTitle: 'Sintetizar Perfil desde Entrevista IA',
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    if (action === 'polish_section') {
+      const systemPrompt = `Eres un experto redactor de perfiles técnicos y headhunter internacional.
+Tu tarea es reescribir y pulir el texto de la sección "${payload.sectionType || 'sección'}" proporcionada por un profesional tech.
+
+DIRECTRICES:
+- Si es "bio": Hazla concisa, orientada a impacto y resultados, destacando stack y valor técnico sin caer en clichés corporativos vacíos.
+- Si es "curationCriteria": Conviértelo en reglas claras e inequívocas para que un sistema de scoring de ofertas sepa exactamente qué priorizar, qué penalizar y qué descartar.
+- Si es "project": Enfatiza arquitectura técnica, problemas resueltos y métricas de impacto (fórmula XYZ).
+- Conserva al 100% la verdad de los datos; NO inventes tecnologías que no aparezcan en el texto original.
+- Devuelve DIRECTAMENTE el texto pulido en Markdown simple (sin preámbulos ni bloques envolventes de código).`;
+
+      const userPrompt = `Texto actual a pulir:\n${payload.currentContent || ''}`;
+
+      return {
+        actionTitle: `Pulir Sección "${payload.sectionType || 'sección'}" con IA`,
+        provider,
+        model,
+        systemPrompt,
+        userPrompt,
+      };
+    }
+
+    return {
+      actionTitle: `Acción de IA: ${action}`,
+      provider,
+      model,
+      systemPrompt: 'Prompt no especificado.',
+      userPrompt: JSON.stringify(payload, null, 2),
+    };
   }
 }
 

@@ -12,6 +12,7 @@ import {
   FileCheck2,
   Copy,
 } from 'lucide-react';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 interface CvItem {
   id: string;
@@ -40,16 +41,17 @@ export default function CvImportProfileModal({
   const [pastedText, setPastedText] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-        setError('Por favor selecciona un archivo PDF válido.');
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setError('Solo se admiten archivos PDF.');
         return;
       }
       setSelectedFile(file);
@@ -58,6 +60,23 @@ export default function CvImportProfileModal({
   };
 
   const handleExtract = async () => {
+    let rawText = '';
+    if (tab === 'select') {
+      const found = userCvs.find((c) => c.id === selectedCvId);
+      rawText = found?.content || '';
+    } else if (tab === 'paste') {
+      rawText = pastedText;
+    }
+
+    if (rawText) {
+      const proceed = await inspectOrExecutePrompt({
+        action: 'profile_extract',
+        title: 'Estructurar Perfil Profesional con IA',
+        data: { rawText },
+      });
+      if (!proceed) return;
+    }
+
     setLoading(true);
     setError(null);
 
