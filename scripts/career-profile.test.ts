@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  addUniqueSkill,
   attachSkillEvidence,
   computeProfileCompleteness,
   detectStructuredProfile,
+  entriesOfKind,
   extractProjectsFromMarkdown,
   extractSkillsFromText,
   formatCareerProfileContext,
@@ -61,12 +63,17 @@ test('extracts real stack from a fullstack dump and does not invent Java', () =>
 
 test('extracts jobs and own projects from a markdown CV', () => {
   const projects = extractProjectsFromMarkdown(CV);
-  const titles = projects.map((project) => project.title);
-  assert.ok(titles.some((title) => /ENAE/i.test(title)));
-  assert.ok(titles.some((title) => /Sevensystem/i.test(title)));
-  assert.ok(titles.some((title) => /Matchply/i.test(title)));
-  assert.equal(titles.some((title) => /DAW|Ramón Arcas/i.test(title)), false);
-  const matchply = projects.find((project) => /Matchply/i.test(project.title));
+  const jobs = entriesOfKind(projects, 'experience');
+  const personal = entriesOfKind(projects, 'project');
+  assert.ok(jobs.some((item) => /ENAE/i.test(item.title)));
+  assert.ok(jobs.some((item) => /Sevensystem/i.test(item.title)));
+  assert.ok(personal.some((item) => /Matchply/i.test(item.title)));
+  assert.equal(jobs.some((item) => /Matchply/i.test(item.title)), false);
+  assert.equal(personal.some((item) => /ENAE/i.test(item.title)), false);
+  assert.equal(projects.some((item) => /DAW|Ramón Arcas/i.test(item.title)), false);
+  const enae = jobs.find((item) => /ENAE/i.test(item.title));
+  assert.match(enae?.role || '', /Full Stack/i);
+  const matchply = personal.find((item) => /Matchply/i.test(item.title));
   assert.ok(matchply?.description);
 });
 
@@ -111,8 +118,10 @@ test('formatCareerProfileContext keeps stack even when a master document exists'
   });
   assert.match(context, /Stack con evidencia/);
   assert.match(context, /TypeScript/);
-  assert.match(context, /Proyectos y logros/);
+  assert.match(context, /Experiencia profesional/);
+  assert.match(context, /Proyectos personales/);
   assert.match(context, /Matchply/);
+  assert.match(context, /ENAE/);
   assert.match(context, /Criterios de puntuación/);
 });
 
@@ -151,6 +160,19 @@ test('saving a profile does not resurrect skills the user removed', () => {
   const names = saved.skills.map((skill: { name: string }) => skill.name);
   assert.deepEqual(names, ['TypeScript']);
   assert.equal(saved.techStack.frontend?.[0], 'TypeScript');
+});
+
+test('addUniqueSkill appends a suggestion even when the list is already long', () => {
+  const current = Array.from({ length: 24 }, (_, index) => ({
+    name: `Skill${index}`,
+    category: 'other' as const,
+    proficiency: 'used' as const,
+  }));
+  const merged = mergeSkills(current, [{ name: 'Express', category: 'backend', proficiency: 'solid' }]);
+  assert.ok(merged.some((skill) => skill.name === 'Express'));
+  const added = addUniqueSkill(current, { name: 'REST APIs', category: 'backend', proficiency: 'solid' });
+  assert.ok(added.some((skill) => skill.name === 'REST APIs'));
+  assert.equal(added.length, 25);
 });
 
 test('attachSkillEvidence falls back to a matching project title', () => {

@@ -1,62 +1,120 @@
 "use client";
 
-import { Plus, Trash2 } from 'lucide-react';
-import { EMPTY_PROJECT, type KeyProject } from '@/lib/career-profile';
+import { ArrowRightLeft, Plus, Trash2 } from 'lucide-react';
+import {
+  EMPTY_EXPERIENCE,
+  EMPTY_PROJECT,
+  type KeyProject,
+  type ProfileEntryKind,
+} from '@/lib/career-profile';
 
 const inputClass =
   'w-full rounded-[8px] bg-canvas border border-control px-3 py-2 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai min-h-11';
 
+const COPY: Record<ProfileEntryKind, {
+  empty: string;
+  add: string;
+  item: string;
+  title: string;
+  titlePlaceholder: string;
+  rolePlaceholder: string;
+  descriptionPlaceholder: string;
+  move: string;
+}> = {
+  experience: {
+    empty: 'Añade las empresas donde has trabajado: puesto, stack y un resultado concreto.',
+    add: 'Añadir puesto',
+    item: 'Puesto',
+    title: 'Empresa',
+    titlePlaceholder: 'ENAE Business School',
+    rolePlaceholder: 'Full Stack Developer',
+    descriptionPlaceholder: 'Qué hiciste en el día a día y con qué tecnologías.',
+    move: 'Mover a proyectos',
+  },
+  project: {
+    empty: 'Añade proyectos propios o freelance: qué construiste, con qué y qué cambió.',
+    add: 'Añadir proyecto',
+    item: 'Proyecto',
+    title: 'Nombre',
+    titlePlaceholder: 'Matchply',
+    rolePlaceholder: 'Fundador, Full Stack…',
+    descriptionPlaceholder: 'Problema, qué construiste tú y con qué.',
+    move: 'Mover a experiencia',
+  },
+};
+
 type KeyProjectsEditorProps = {
+  kind: ProfileEntryKind;
   projects: KeyProject[];
   onChange: (projects: KeyProject[]) => void;
 };
 
-export default function KeyProjectsEditor({ projects, onChange }: KeyProjectsEditorProps) {
+export default function KeyProjectsEditor({ kind = 'project', projects, onChange }: KeyProjectsEditorProps) {
+  const copy = COPY[kind] || COPY.project;
+  const otherKind: ProfileEntryKind = kind === 'experience' ? 'project' : 'experience';
+
   const update = (index: number, patch: Partial<KeyProject>) => {
-    onChange(projects.map((project, i) => (i === index ? { ...project, ...patch } : project)));
+    onChange(projects.map((project, i) => (i === index ? { ...project, kind, ...patch } : project)));
   };
 
   return (
     <div className="space-y-4">
       {projects.length === 0 && (
-        <p className="text-sm text-text-muted">
-          Añade 1–3 casos con resultado. Sirven para el match, el CV adaptado y las entrevistas.
-        </p>
+        <p className="text-sm text-text-muted">{copy.empty}</p>
       )}
 
       {projects.map((project, index) => (
         <div key={`${project.title}-${index}`} className="rounded-[12px] border border-subtle bg-canvas/40 p-3 sm:p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-xs font-bold text-text">Proyecto {index + 1}</p>
-            <button
-              type="button"
-              onClick={() => onChange(projects.filter((_, i) => i !== index))}
-              className="inline-flex min-h-11 items-center gap-1.5 px-3 rounded-[8px] text-sm font-semibold text-danger-text"
-              aria-label={`Quitar ${project.title || `proyecto ${index + 1}`}`}
-            >
-              <Trash2 className="w-4 h-4 stroke-[1.75]" />
-              Quitar
-            </button>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="text-xs font-bold text-text">{copy.item} {index + 1}</p>
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => update(index, { kind: otherKind })}
+                className="inline-flex min-h-11 items-center gap-1.5 px-3 rounded-[8px] text-sm font-semibold text-text-muted"
+              >
+                <ArrowRightLeft className="w-4 h-4 stroke-[1.75]" />
+                {copy.move}
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(projects.filter((_, i) => i !== index))}
+                className="inline-flex min-h-11 items-center gap-1.5 px-3 rounded-[8px] text-sm font-semibold text-danger-text"
+                aria-label={`Quitar ${project.title || `${copy.item} ${index + 1}`}`}
+              >
+                <Trash2 className="w-4 h-4 stroke-[1.75]" />
+                Quitar
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-text mb-1.5">Nombre</label>
+              <label className="block text-xs font-semibold text-text mb-1.5">{copy.title}</label>
               <input
                 value={project.title}
                 onChange={(event) => update(index, { title: event.target.value })}
                 className={inputClass}
-                placeholder="Matchply"
+                placeholder={copy.titlePlaceholder}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text mb-1.5">Rol</label>
+              <label className="block text-xs font-semibold text-text mb-1.5">Puesto / rol</label>
               <input
                 value={project.role || ''}
                 onChange={(event) => update(index, { role: event.target.value })}
                 className={inputClass}
-                placeholder="Full Stack, fundador…"
+                placeholder={copy.rolePlaceholder}
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text mb-1.5">Periodo</label>
+            <input
+              value={project.period || ''}
+              onChange={(event) => update(index, { period: event.target.value })}
+              className={inputClass}
+              placeholder={kind === 'experience' ? 'Abril 2025 – Presente' : '2025 – Presente'}
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-text mb-1.5">Stack usado</label>
@@ -74,7 +132,7 @@ export default function KeyProjectsEditor({ projects, onChange }: KeyProjectsEdi
               onChange={(event) => update(index, { description: event.target.value })}
               rows={3}
               className={`${inputClass} min-h-[5.5rem]`}
-              placeholder="Problema, qué construiste tú y con qué."
+              placeholder={copy.descriptionPlaceholder}
             />
           </div>
           <div>
@@ -91,11 +149,11 @@ export default function KeyProjectsEditor({ projects, onChange }: KeyProjectsEdi
 
       <button
         type="button"
-        onClick={() => onChange([...projects, { ...EMPTY_PROJECT }])}
+        onClick={() => onChange([...projects, { ...(kind === 'experience' ? EMPTY_EXPERIENCE : EMPTY_PROJECT) }])}
         className="inline-flex min-h-11 items-center gap-2 px-4 rounded-[8px] border border-control bg-surface text-sm font-semibold text-text"
       >
         <Plus className="w-4 h-4 stroke-[1.75]" />
-        Añadir proyecto
+        {copy.add}
       </button>
     </div>
   );

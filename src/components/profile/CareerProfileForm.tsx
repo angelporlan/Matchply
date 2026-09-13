@@ -23,15 +23,20 @@ import {
   parseHardConstraints,
 } from '@/lib/curation-constraints';
 import {
+  assignEntryKinds,
   detectStructuredProfile,
+  entriesOfKind,
+  extractProjectsFromMarkdown,
   hydrateStructuredProfile,
   mergeProjects,
   mergeSkills,
   normalizeProjects,
   normalizeSkills,
+  resolveEntryKind,
   skillsFromTechStack,
   techStackFromSkills,
   type KeyProject,
+  type ProfileEntryKind,
   type ProfileSkill,
   type TechStackCategories,
 } from '@/lib/career-profile';
@@ -94,7 +99,10 @@ function loadStructured(
     normalizeSkills(profile?.skills),
     skillsFromTechStack(profile?.techStack),
   );
-  const savedProjects = normalizeProjects(profile?.keyProjects);
+  const savedProjects = assignEntryKinds(
+    normalizeProjects(profile?.keyProjects),
+    extractProjectsFromMarkdown(cvMarkdown),
+  );
   if (savedSkills.length || savedProjects.length) {
     return { skills: savedSkills, projects: savedProjects, autoFilled: false };
   }
@@ -172,6 +180,13 @@ export default function CareerProfileForm({
     () => keyProjects.map((project) => project.title).filter(Boolean),
     [keyProjects],
   );
+
+  const replaceEntries = (kind: ProfileEntryKind, next: KeyProject[]) => {
+    setKeyProjects((prev) => [
+      ...prev.filter((entry) => resolveEntryKind(entry) !== kind),
+      ...next.map((entry) => ({ ...entry, kind: entry.kind || kind })),
+    ]);
+  };
 
   const suggestions = useMemo(() => {
     const detected = detectStructuredProfile({
@@ -484,7 +499,27 @@ export default function CareerProfileForm({
             evidenceOptions={evidenceOptions}
             suggestions={suggestions}
             onChange={setSkills}
-            onAddSuggestion={(skill) => setSkills(mergeSkills(skills, [skill]))}
+          />
+        </div>
+
+        <div id="section-experience" className="bg-white dark:bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
+              <Briefcase className="w-4 h-4 stroke-[1.75]" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-text font-display">
+                4. Experiencia profesional
+              </h2>
+              <p className="text-xs text-text-muted font-sans">
+                Empresas donde has trabajado. El match usa puesto, stack e impacto.
+              </p>
+            </div>
+          </div>
+          <KeyProjectsEditor
+            kind="experience"
+            projects={entriesOfKind(keyProjects, 'experience')}
+            onChange={(next) => replaceEntries('experience', next)}
           />
         </div>
 
@@ -495,14 +530,18 @@ export default function CareerProfileForm({
             </div>
             <div>
               <h2 className="text-sm font-bold text-text font-display">
-                4. Proyectos y logros
+                5. Proyectos personales
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Qué hiciste, con qué stack y qué cambió. Eso es lo que puntúa el match.
+                Productos propios, freelance o side projects. Separado de los puestos de empresa.
               </p>
             </div>
           </div>
-          <KeyProjectsEditor projects={keyProjects} onChange={setKeyProjects} />
+          <KeyProjectsEditor
+            kind="project"
+            projects={entriesOfKind(keyProjects, 'project')}
+            onChange={(next) => replaceEntries('project', next)}
+          />
         </div>
 
         <div id="section-criteria" className="bg-white dark:bg-surface border border-ai/30 rounded-[12px] p-6 shadow-sm space-y-4">
@@ -512,7 +551,7 @@ export default function CareerProfileForm({
             </div>
             <div>
               <h2 className="text-sm font-bold text-text font-display">
-                5. Preferencias y cómo puntuar
+                6. Preferencias y cómo puntuar
               </h2>
               <p className="text-xs text-text-muted font-sans">
                 Idioma, modalidad, ciudad y tipo de empresa. Las reglas de idioma se aplican en código.

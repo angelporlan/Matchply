@@ -14,12 +14,16 @@ export type ProfileSkill = {
   evidence?: string;
 };
 
+export type ProfileEntryKind = 'experience' | 'project';
+
 export type KeyProject = {
   title: string;
   role?: string;
   techStack?: string;
   description: string;
   impact?: string;
+  kind?: ProfileEntryKind;
+  period?: string;
 };
 
 export type TechStackCategories = {
@@ -115,8 +119,8 @@ const SKILL_CATALOG: CatalogEntry[] = [
   { name: 'Camunda', category: 'other', pattern: /\bCamunda\b/i },
 ];
 
-const MAX_SKILLS = 24;
-const MAX_PROJECTS = 8;
+const MAX_SKILLS = 40;
+const MAX_PROJECTS = 16;
 
 function asString(value: unknown, max = 500) {
   if (typeof value !== 'string') return '';
@@ -167,12 +171,15 @@ export function normalizeProject(raw: unknown): KeyProject | null {
   const description = asString(item.description, 600);
   const impact = asString(item.impact, 240);
   if (!title && !description) return null;
+  const kind = item.kind === 'experience' || item.kind === 'project' ? item.kind : undefined;
   return {
-    title: title || 'Proyecto',
+    title: title || (kind === 'experience' ? 'Puesto' : 'Proyecto'),
     role: asString(item.role, 80) || undefined,
     techStack: asString(item.techStack, 200) || undefined,
     description,
     impact: impact || undefined,
+    kind,
+    period: asString(item.period, 80) || undefined,
   };
 }
 
@@ -183,7 +190,7 @@ export function normalizeProjects(raw: unknown): KeyProject[] {
   for (const item of raw) {
     const project = normalizeProject(item);
     if (!project) continue;
-    const key = project.title.toLowerCase();
+    const key = `${project.kind || 'project'}:${project.title.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     projects.push(project);
@@ -232,10 +239,15 @@ export function techStackFromSkills(skills: ProfileSkill[]): TechStackCategories
 
 export function mergeSkills(current: ProfileSkill[], incoming: ProfileSkill[]): ProfileSkill[] {
   const map = new Map<string, ProfileSkill>();
-  for (const skill of [...current, ...incoming]) {
+  for (const skill of current) {
+    const key = skill.name.toLowerCase();
+    if (!map.has(key)) map.set(key, skill);
+  }
+  for (const skill of incoming) {
     const key = skill.name.toLowerCase();
     const prev = map.get(key);
     if (!prev) {
+      if (map.size >= MAX_SKILLS) continue;
       map.set(key, skill);
       continue;
     }
@@ -249,13 +261,54 @@ export function mergeSkills(current: ProfileSkill[], incoming: ProfileSkill[]): 
       evidence: prev.evidence || skill.evidence,
     });
   }
-  return Array.from(map.values()).slice(0, MAX_SKILLS);
+  return Array.from(map.values());
+}
+
+export function addUniqueSkill(current: ProfileSkill[], incoming: ProfileSkill): ProfileSkill[] {
+  const skill = normalizeSkill(incoming);
+  if (!skill) return current;
+  if (current.some((item) => item.name.toLowerCase() === skill.name.toLowerCase())) return current;
+  return [...current, skill].slice(0, MAX_SKILLS);
+}
+
+export function resolveEntryKind(entry: KeyProject): ProfileEntryKind {
+  if (entry.kind === 'experience' || entry.kind === 'project') return entry.kind;
+  if (/\s·\s/.test(entry.title || '')) return 'experience';
+  if (/\b(business school|universidad|university|s\.l\.|inc\.|ltd|gmbh|consultor)/i.test(entry.title || '')) {
+    return 'experience';
+  }
+  if (/\b(saas|plataforma|proyecto propio|side project)\b/i.test(`${entry.title} ${entry.description}`)) {
+    return 'project';
+  }
+  return 'project';
+}
+
+function titlesOverlap(left: string, right: string) {
+  const a = left.toLowerCase().trim();
+  const b = right.toLowerCase().trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aTail = a.split(' · ').pop() || a;
+  const bTail = b.split(' · ').pop() || b;
+  return a.includes(b) || b.includes(a) || aTail === bTail;
+}
+
+export function assignEntryKinds(entries: KeyProject[], extracted: KeyProject[] = []): KeyProject[] {
+  return entries.map((entry) => {
+    if (entry.kind === 'experience' || entry.kind === 'project') return entry;
+    const match = extracted.find((item) => titlesOverlap(item.title, entry.title) || titlesOverlap(item.role || '', entry.title));
+    return { ...entry, kind: match ? resolveEntryKind(match) : resolveEntryKind(entry) };
+  });
+}
+
+export function entriesOfKind(entries: KeyProject[], kind: ProfileEntryKind): KeyProject[] {
+  return entries.filter((entry) => resolveEntryKind(entry) === kind);
 }
 
 export function mergeProjects(current: KeyProject[], incoming: KeyProject[]): KeyProject[] {
   const map = new Map<string, KeyProject>();
   for (const project of [...current, ...incoming]) {
-    const key = project.title.toLowerCase();
+    const key = `${resolveEntryKind(project)}:${project.title.toLowerCase()}`;
     const prev = map.get(key);
     if (!prev) {
       map.set(key, project);
@@ -267,6 +320,8 @@ export function mergeProjects(current: KeyProject[], incoming: KeyProject[]): Ke
       techStack: prev.techStack || project.techStack,
       description: prev.description.length >= project.description.length ? prev.description : project.description,
       impact: prev.impact || project.impact,
+      kind: prev.kind || project.kind,
+      period: prev.period || project.period,
     });
   }
   return Array.from(map.values()).slice(0, MAX_PROJECTS);
@@ -350,6 +405,9 @@ export function extractProjectsFromMarkdown(markdown: string): KeyProject[] {
 
     const companyMatch = block.lines.map((line) => line.match(/\*\*([^*]+)\*\*/)).find(Boolean);
     const company = companyMatch?.[1]?.trim() || '';
+    const periodMatch = block.lines
+      .map((line) => line.match(/\|\s*\*([^*]+)\*/) || line.match(/\*([^*]*(?:–|-|Presente|Present|actualidad)[^*]*)\*/i))
+      .find(Boolean);
     const bodyLines = block.lines
       .map((line) => line.replace(/^[\s>*]+/, '').trim())
       .filter((line) => line && !/^\*\*[^*]+\*\*/.test(line) && !/^[\d/|*\sA-Za-záéíóúÁÉÍÓÚ.-]+–/.test(line));
@@ -358,18 +416,16 @@ export function extractProjectsFromMarkdown(markdown: string): KeyProject[] {
       .map((line) => line.replace(/^[-*•]\s*/, ''));
     const prose = bodyLines.filter((line) => !/^[-*•]/.test(line)).join(' ');
     const description = asString(prose || bullets.slice(0, 2).join(' '), 600);
-    const title = isProject
-      ? block.heading
-      : company
-        ? `${block.heading} · ${company}`
-        : block.heading;
+    const title = isProject ? block.heading : (company || block.heading);
     const detectedSkills = extractSkillsFromText(`${block.heading}\n${block.lines.join('\n')}`);
     projects.push({
       title,
-      role: isExperience ? block.heading : company || undefined,
+      role: isExperience ? block.heading : undefined,
       techStack: detectedSkills.map((skill) => skill.name).slice(0, 8).join(', ') || undefined,
       description,
       impact: impactFromLines(bullets),
+      kind: isExperience ? 'experience' : 'project',
+      period: asString(periodMatch?.[1], 80) || undefined,
     });
   }
 
@@ -392,7 +448,10 @@ export function detectStructuredProfile(input: {
   cvMarkdown?: string;
 }) {
   const fromCv = extractProjectsFromMarkdown(input.cvMarkdown || '');
-  const projects = mergeProjects(normalizeProjects(input.keyProjects), fromCv);
+  const projects = assignEntryKinds(
+    mergeProjects(normalizeProjects(input.keyProjects), fromCv),
+    fromCv,
+  );
   const corpus = [
     input.masterDocument || '',
     input.bio || '',
@@ -469,7 +528,7 @@ export function computeProfileCompleteness(input: {
     (project) => (project.title || '').trim() && ((project.description || '').trim() || (project.impact || '').trim()),
   );
   if (projects.length >= 1) score += 15;
-  else missing.push({ label: '+15% Añade un proyecto con impacto', boost: 15, section: 'projects' });
+  else missing.push({ label: '+15% Añade un puesto o un proyecto', boost: 15, section: 'experience' });
 
   if ((input.curationCriteria || '').trim().length >= 20) score += 10;
   else missing.push({ label: '+10% Reglas de puntuación', boost: 10, section: 'criteria' });
@@ -520,7 +579,10 @@ export function formatCareerProfileContext(profile: any, maxChars = 3200): strin
   else if (bio) chunks.push(`Trayectoria:\n${bio}`);
 
   if (skills.length) chunks.push(`Stack con evidencia:\n${compactSkills(skills)}`);
-  if (projects.length) chunks.push(`Proyectos y logros:\n${compactProjects(projects)}`);
+  const jobs = entriesOfKind(projects, 'experience');
+  const personal = entriesOfKind(projects, 'project');
+  if (jobs.length) chunks.push(`Experiencia profesional:\n${compactProjects(jobs)}`);
+  if (personal.length) chunks.push(`Proyectos personales:\n${compactProjects(personal)}`);
 
   const prefs: string[] = [];
   if (Array.isArray(profile.targetRoles) && profile.targetRoles.length) {
@@ -553,7 +615,7 @@ export function formatCareerProfileContext(profile: any, maxChars = 3200): strin
 }
 
 export function normalizeCareerProfileFields(profile: Record<string, any>): Record<string, any> {
-  const keyProjects = normalizeProjects(profile.keyProjects);
+  const keyProjects = assignEntryKinds(normalizeProjects(profile.keyProjects));
   const skills = attachSkillEvidence(
     mergeSkills(normalizeSkills(profile.skills), skillsFromTechStack(profile.techStack)),
     keyProjects,
@@ -581,10 +643,21 @@ export const SKILL_PROFICIENCY_LABELS: Record<SkillProficiency, string> = {
   core: 'Núcleo',
 };
 
-export const EMPTY_PROJECT: KeyProject = {
+export const EMPTY_ENTRY: KeyProject = {
   title: '',
   role: '',
   techStack: '',
   description: '',
   impact: '',
+  period: '',
+};
+
+export const EMPTY_PROJECT: KeyProject = {
+  ...EMPTY_ENTRY,
+  kind: 'project',
+};
+
+export const EMPTY_EXPERIENCE: KeyProject = {
+  ...EMPTY_ENTRY,
+  kind: 'experience',
 };

@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import {
   SKILL_CATEGORY_LABELS,
   SKILL_PROFICIENCY_LABELS,
+  addUniqueSkill,
   type ProfileSkill,
   type SkillCategory,
   type SkillProficiency,
@@ -20,7 +21,6 @@ type SkillsEvidenceEditorProps = {
   evidenceOptions: string[];
   suggestions?: ProfileSkill[];
   onChange: (skills: ProfileSkill[]) => void;
-  onAddSuggestion?: (skill: ProfileSkill) => void;
 };
 
 export default function SkillsEvidenceEditor({
@@ -28,7 +28,6 @@ export default function SkillsEvidenceEditor({
   evidenceOptions,
   suggestions = [],
   onChange,
-  onAddSuggestion,
 }: SkillsEvidenceEditorProps) {
   const update = (index: number, patch: Partial<ProfileSkill>) => {
     onChange(skills.map((skill, i) => (i === index ? { ...skill, ...patch } : skill)));
@@ -130,7 +129,7 @@ export default function SkillsEvidenceEditor({
               <button
                 key={skill.name}
                 type="button"
-                onClick={() => onAddSuggestion?.(skill)}
+                onClick={() => onChange(addUniqueSkill(skills, skill))}
                 className="min-h-11 px-3 rounded-[8px] border border-ai/25 bg-ai/5 text-ai-text text-xs font-semibold"
               >
                 + {skill.name}
