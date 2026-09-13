@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import NextLink from 'next/link';
 import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
 import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
@@ -12,7 +11,7 @@ import ApplicationsTable from './ApplicationsTable';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
-import { createJobOffer, updateJobOfferStatus, deleteJobOffer, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
 import {
   DEFAULT_VIEW_CONFIG,
@@ -33,7 +32,7 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Archive, Clipboard, Check, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
@@ -109,22 +108,6 @@ export default function ApplicationsClient({
   const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  // Copy Modal States
-  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
-  const [copyDateFilter, setCopyDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>('all');
-  const [copyStartDate, setCopyStartDate] = useState('');
-  const [copyEndDate, setCopyEndDate] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  // Sync copy filters with active board filters when copy modal opens
-  useEffect(() => {
-    if (isCopyModalOpen) {
-      setCopyDateFilter(dateFilter);
-      setCopyStartDate(startDate);
-      setCopyEndDate(endDate);
-      setCopied(false);
-    }
-  }, [isCopyModalOpen, dateFilter, startDate, endDate]);
 
   // Vistas guardadas, columnas y orden de la tabla
   const viewOptions = useMemo<ApplicationViewOption[]>(() => [
@@ -443,60 +426,6 @@ export default function ApplicationsClient({
     router.refresh();
   };
 
-  const getFilteredOffersForCopy = () => {
-    return localOffers.filter((offer) => {
-      if (offer.status === 'archived') return false;
-
-      let matchesDateFilter = true;
-      if (copyDateFilter !== 'all') {
-        const offerDate = new Date(offer.createdAt);
-        offerDate.setHours(0, 0, 0, 0);
-        const offerTime = offerDate.getTime();
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayTime = today.getTime();
-
-        if (copyDateFilter === 'today') {
-          matchesDateFilter = offerTime === todayTime;
-        } else if (copyDateFilter === '7days') {
-          const sevenDaysAgo = new Date(today);
-          sevenDaysAgo.setDate(today.getDate() - 7);
-          const sevenDaysAgoTime = sevenDaysAgo.getTime();
-          matchesDateFilter = offerTime >= sevenDaysAgoTime && offerTime <= todayTime;
-        } else if (copyDateFilter === 'custom') {
-          if (copyStartDate) {
-            const start = new Date(copyStartDate + 'T00:00:00');
-            matchesDateFilter = matchesDateFilter && offerTime >= start.getTime();
-          }
-          if (copyEndDate) {
-            const end = new Date(copyEndDate + 'T00:00:00');
-            matchesDateFilter = matchesDateFilter && offerTime <= end.getTime();
-          }
-        }
-      }
-      return matchesDateFilter;
-    });
-  };
-
-  const loadOffersReportText = async (
-    filterType: 'all' | 'today' | '7days' | 'custom',
-    startVal: string,
-    endVal: string,
-  ) => {
-    const result = await exportJobOffersReport({
-      dateFilter: filterType,
-      startDate: startVal,
-      endDate: endVal,
-      language,
-    });
-    if (result.error) {
-      console.error(result.error);
-      return '';
-    }
-    return result.text || '';
-  };
-
   const handleOpenDetails = async (offer: ApplicationSummary) => {
     setDetailsLoading(true);
     setSelectedOfferForDetails(null);
@@ -507,22 +436,6 @@ export default function ApplicationsClient({
       }
     } finally {
       setDetailsLoading(false);
-    }
-  };
-
-  const handleCopyData = async () => {
-    const textStr = await loadOffersReportText(copyDateFilter, copyStartDate, copyEndDate);
-    if (!textStr) return;
-
-    try {
-      await navigator.clipboard.writeText(textStr);
-      setCopied(true);
-      setTimeout(() => {
-        setCopied(false);
-        setIsCopyModalOpen(false);
-      }, 1500);
-    } catch (err) {
-      console.error('Error al copiar al portapapeles:', err);
     }
   };
 
@@ -692,21 +605,6 @@ export default function ApplicationsClient({
             </button>
           </div>
 
-          <button
-            onClick={() => setIsCopyModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-ai/30 text-text-muted dark:text-slate-300 hover:text-ai dark:hover:text-violet-400 font-semibold text-sm transition-all shadow-sm"
-          >
-            <Clipboard className="w-4 h-4 text-ai stroke-[1.75]" />
-            {t('applications.copyDataModal.copyDataBtn')}
-          </button>
-
-          <NextLink
-            href="/dashboard/applications?view=archived"
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-amber-500/30 text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
-          >
-            <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
-            {t('applications.views.system.archived')}
-          </NextLink>
 
           <button
             onClick={() => setIsModalOpen(true)}
@@ -948,145 +846,6 @@ export default function ApplicationsClient({
         </div>
       )}
 
-      {/* Modal Premium para copiar Candidaturas */}
-      {isCopyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* Adornos visuales */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
-
-            <div className="flex justify-between items-start mb-6 relative z-10">
-              <div>
-                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
-                  <Clipboard className="w-5 h-5 text-ai stroke-[1.75]" />
-                  {t('applications.copyDataModal.title')}
-                </h3>
-                <p className="text-xs text-text-muted mt-1 font-sans">
-                  {t('applications.copyDataModal.subtitle')}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsCopyModalOpen(false)}
-                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all"
-              >
-                <X className="w-5 h-5 stroke-[1.75]" />
-              </button>
-            </div>
-
-            <div className="space-y-5 relative z-10">
-              {/* Selector de Período */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-text-muted dark:text-text font-display">
-                  {t('applications.copyDataModal.filterLabel')}
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'all', label: t('applications.copyDataModal.all') },
-                    { value: 'today', label: t('applications.copyDataModal.today') },
-                    { value: '7days', label: t('applications.copyDataModal.week') },
-                    { value: 'custom', label: t('applications.copyDataModal.custom') },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setCopyDateFilter(opt.value as any)}
-                      className={`px-3 py-2.5 rounded-[8px] text-xs font-semibold border text-center transition-all ${
-                        copyDateFilter === opt.value
-                          ? 'bg-text dark:bg-white text-canvas border-text dark:border-white shadow-sm'
-                          : 'bg-surface border-subtle text-text-muted dark:text-slate-300 hover:border-ai/30 hover:text-ai dark:hover:text-violet-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Rango Personalizado */}
-              {copyDateFilter === 'custom' && (
-                <div className="grid grid-cols-2 gap-4 p-3.5 bg-canvas/30 border border-subtle rounded-[8px] animate-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
-                      {t('applications.copyDataModal.startDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={copyStartDate}
-                      onChange={(e) => setCopyStartDate(e.target.value)}
-                      className="w-full bg-canvas border border-control rounded-[6px] px-3 py-2 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
-                      {t('applications.copyDataModal.endDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={copyEndDate}
-                      onChange={(e) => setCopyEndDate(e.target.value)}
-                      className="w-full bg-canvas border border-control rounded-[6px] px-3 py-2 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Resumen de Exportación */}
-              <div className="p-4 rounded-[8px] bg-surface-muted/40 border border-slate-100 dark:border-slate-800 space-y-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-text-muted font-display">
-                  {t('applications.copyDataModal.summary')}
-                </h4>
-                <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                  <div className="text-text-muted dark:text-slate-300">
-                    {t('applications.copyDataModal.foundOffers').replace('{count}', getFilteredOffersForCopy().length.toString())}
-                  </div>
-                  <div className="text-text-muted dark:text-slate-300">
-                    {t('applications.copyDataModal.linkedCvs').replace('{count}', (() => {
-                      const offers = getFilteredOffersForCopy();
-                      const ids = new Set(offers.filter(o => o.cvId).map(o => o.cvId));
-                      return ids.size.toString();
-                    })())}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-subtle font-display">
-                <button
-                  type="button"
-                  onClick={() => setIsCopyModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyData}
-                  disabled={getFilteredOffersForCopy().length === 0}
-                  className={`flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-[8px] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    copied
-                      ? 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
-                      : 'bg-ai-action hover:bg-ai-hover dark:bg-ai-action dark:hover:bg-ai-hover shadow-md hover:-translate-y-0.5'
-                  }`}
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4 stroke-[2]" />
-                      {t('applications.copyDataModal.successToast')}
-                    </>
-                  ) : (
-                    <>
-                      <Clipboard className="w-4 h-4 stroke-[1.75]" />
-                      {t('applications.copyDataModal.copyBtn')}
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
