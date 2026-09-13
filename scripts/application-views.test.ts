@@ -5,6 +5,7 @@ import {
   DEFAULT_VIEW_CONFIG,
   filterApplications,
   formatApplicationTimestamp,
+  groupApplications,
   normalizeViewConfig,
   paginate,
   scoreToPercent,
@@ -147,4 +148,99 @@ test('score helpers normalize legacy five point scores', () => {
   assert.equal(scoreToPercent(null), null);
   assert.equal(formatApplicationTimestamp(null), '');
   assert.match(formatApplicationTimestamp(new Date('2026-09-12T10:30:00.000Z')), /\d{2}\/\d{2}\/\d{4}/);
+});
+
+test('normalizeViewConfig validates column filters, grouping and widths', () => {
+  const config = normalizeViewConfig({
+    columns: ['title'],
+    filters: {
+      columnFilters: [
+        { column: 'company', operator: 'contains', value: '  Acme  ' },
+        { column: 'status', operator: 'equals', value: '' },
+        { column: 'nope', operator: 'contains', value: 'x' },
+        { column: 'title', operator: 'made-up', value: 'x' },
+        { column: 'platform', operator: 'isEmpty', value: 'ignored' },
+        { column: 'company', operator: 'equals', value: 'Globex' },
+      ],
+    },
+    grouping: { column: 'status', direction: 'desc' },
+    columnWidths: { title: 'lg', company: 'auto', nope: 'sm', score: 'xxl' },
+  });
+
+  assert.deepEqual(config.filters.columnFilters, [
+    { column: 'company', operator: 'equals', value: 'Globex' },
+    { column: 'platform', operator: 'isEmpty', value: '' },
+  ]);
+  assert.deepEqual(config.grouping, { column: 'status', direction: 'desc' });
+  assert.deepEqual(config.columnWidths, { title: 'lg' });
+});
+
+test('normalizeViewConfig drops invalid grouping and widths', () => {
+  const config = normalizeViewConfig({
+    grouping: { column: 'nope', direction: 'asc' },
+    columnWidths: null,
+    filters: { columnFilters: 'nope' },
+  });
+  assert.equal(config.grouping, null);
+  assert.deepEqual(config.columnWidths, {});
+  assert.deepEqual(config.filters.columnFilters, []);
+});
+
+test('filterApplications applies per-column filters', () => {
+  const offers = [
+    offer({ id: 'a', company: 'Acme', status: 'applied', scoreOverall: 80 }),
+    offer({ id: 'b', company: 'Globex', status: 'interested', nextFollowupDate: new Date('2026-09-10T00:00:00.000Z') }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'company', operator: 'contains', value: 'ac' }] }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'status', operator: 'equals', value: 'applied' }] }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'status', operator: 'notEquals', value: 'applied' }] }).map(o => o.id),
+    ['b'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'followup', operator: 'isEmpty', value: '' }] }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'equals', value: '80' }] }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { columnFilters: [{ column: 'company', operator: 'notContains', value: 'acme' }] }).map(o => o.id),
+    ['b'],
+  );
+});
+
+test('groupApplications groups rows and keeps empty keys last', () => {
+  const offers = [
+    offer({ id: 'a', status: 'applied', company: 'Acme' }),
+    offer({ id: 'b', status: 'interested', company: 'Globex' }),
+    offer({ id: 'c', status: 'applied', company: 'Initech' }),
+  ];
+
+  const groups = groupApplications(offers, { column: 'status', direction: 'asc' });
+  assert.deepEqual(groups.map(group => group.key), ['interested', 'applied']);
+  assert.deepEqual(groups[1].offers.map(o => o.id), ['a', 'c']);
+
+  const desc = groupApplications(offers, { column: 'company', direction: 'desc' });
+  assert.deepEqual(desc.map(group => group.key), ['Initech', 'Globex', 'Acme']);
+
+  const empties = groupApplications(
+    [offer({ id: 'x', company: '' }), offer({ id: 'y', company: 'Acme' })],
+    { column: 'company', direction: 'asc' },
+  );
+  assert.deepEqual(empties.map(group => group.key), ['Acme', '']);
+
+  const byDay = groupApplications(
+    [offer({ id: 'n', createdAt: new Date('2026-09-12T08:00:00.000Z') }), offer({ id: 'o', createdAt: new Date('2026-09-01T08:00:00.000Z') })],
+    { column: 'createdAt', direction: 'desc' },
+  );
+  assert.deepEqual(byDay.map(group => group.key), ['2026-09-12', '2026-09-01']);
 });

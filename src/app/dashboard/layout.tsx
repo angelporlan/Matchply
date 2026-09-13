@@ -32,7 +32,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={{ name: dbUser?.name || session.user.name, email: session.user.email, image: dbUser?.image || session.user.image, role: dbUser?.role }} isPremium={isPremium} />
-      <div className="flex-1 min-h-screen relative z-10 overflow-y-auto">
+      <div className="flex-1 min-h-screen relative z-10">
         {children}
       </div>
     </div>

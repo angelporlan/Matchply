@@ -45,6 +45,38 @@ export type ApplicationFollowupFilter = 'all' | 'withDate' | 'overdue';
 export const APPLICATION_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
 export type ApplicationStatus = typeof APPLICATION_STATUSES[number];
 
+export const APPLICATION_COLUMN_FILTER_OPERATORS = [
+  'contains',
+  'notContains',
+  'equals',
+  'notEquals',
+  'isEmpty',
+  'isNotEmpty',
+] as const;
+
+export type ApplicationColumnFilterOperator = typeof APPLICATION_COLUMN_FILTER_OPERATORS[number];
+
+export type ApplicationColumnFilter = {
+  column: ApplicationColumnId;
+  operator: ApplicationColumnFilterOperator;
+  value: string;
+};
+
+export type ApplicationGrouping = {
+  column: ApplicationColumnId;
+  direction: ApplicationSortDirection;
+};
+
+export const APPLICATION_COLUMN_WIDTHS = ['auto', 'sm', 'md', 'lg'] as const;
+export type ApplicationColumnWidth = typeof APPLICATION_COLUMN_WIDTHS[number];
+
+export const APPLICATION_COLUMN_WIDTH_PX: Record<ApplicationColumnWidth, number | null> = {
+  auto: null,
+  sm: 110,
+  md: 180,
+  lg: 280,
+};
+
 export type ApplicationViewFilters = {
   search?: string;
   status?: string;
@@ -53,6 +85,7 @@ export type ApplicationViewFilters = {
   startDate?: string;
   endDate?: string;
   followup?: ApplicationFollowupFilter;
+  columnFilters?: ApplicationColumnFilter[];
 };
 
 export type ApplicationSortState = {
@@ -60,11 +93,15 @@ export type ApplicationSortState = {
   direction: ApplicationSortDirection;
 };
 
+export type ApplicationColumnWidths = Partial<Record<ApplicationColumnId, ApplicationColumnWidth>>;
+
 export type ApplicationViewConfig = {
   columns: ApplicationColumnId[];
   filters: ApplicationViewFilters;
   sort: ApplicationSortState;
   pageSize: number;
+  grouping: ApplicationGrouping | null;
+  columnWidths: ApplicationColumnWidths;
 };
 
 export const APPLICATION_PAGE_SIZES = [10, 25, 50, 100] as const;
@@ -74,6 +111,8 @@ export const DEFAULT_VIEW_CONFIG: ApplicationViewConfig = {
   filters: { status: 'all', cv: 'all', date: 'all', followup: 'all' },
   sort: { key: 'updatedAt', direction: 'desc' },
   pageSize: 25,
+  grouping: null,
+  columnWidths: {},
 };
 
 export type SystemViewDefinition = {
@@ -149,6 +188,56 @@ function isPageSize(value: unknown): value is number {
   return typeof value === 'number' && (APPLICATION_PAGE_SIZES as readonly number[]).includes(value);
 }
 
+function isColumnFilterOperator(value: unknown): value is ApplicationColumnFilterOperator {
+  return typeof value === 'string' && (APPLICATION_COLUMN_FILTER_OPERATORS as readonly string[]).includes(value);
+}
+
+function isColumnWidth(value: unknown): value is ApplicationColumnWidth {
+  return typeof value === 'string' && (APPLICATION_COLUMN_WIDTHS as readonly string[]).includes(value);
+}
+
+function normalizeColumnFilters(input: unknown): ApplicationColumnFilter[] {
+  if (!Array.isArray(input)) return [];
+  const filters: ApplicationColumnFilter[] = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== 'object') continue;
+    const candidate = entry as Partial<ApplicationColumnFilter>;
+    if (!isColumnId(candidate.column) || !isColumnFilterOperator(candidate.operator)) continue;
+    const needsValue = candidate.operator !== 'isEmpty' && candidate.operator !== 'isNotEmpty';
+    const value = typeof candidate.value === 'string' ? candidate.value.trim().slice(0, 160) : '';
+    if (needsValue && !value) continue;
+    const filter: ApplicationColumnFilter = {
+      column: candidate.column,
+      operator: candidate.operator,
+      value: needsValue ? value : '',
+    };
+    const existing = filters.findIndex((item) => item.column === filter.column);
+    if (existing >= 0) filters[existing] = filter;
+    else filters.push(filter);
+  }
+  return filters;
+}
+
+function normalizeGrouping(input: unknown): ApplicationGrouping | null {
+  if (!input || typeof input !== 'object') return null;
+  const candidate = input as Partial<ApplicationGrouping>;
+  if (!isColumnId(candidate.column)) return null;
+  return {
+    column: candidate.column,
+    direction: candidate.direction === 'desc' ? 'desc' : 'asc',
+  };
+}
+
+function normalizeColumnWidths(input: unknown): ApplicationColumnWidths {
+  if (!input || typeof input !== 'object') return {};
+  const widths: ApplicationColumnWidths = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!isColumnId(key) || !isColumnWidth(value) || value === 'auto') continue;
+    widths[key] = value;
+  }
+  return widths;
+}
+
 export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
   const raw = (input && typeof input === 'object' ? input : {}) as Partial<ApplicationViewConfig>;
   const rawFilters = (raw.filters && typeof raw.filters === 'object' ? raw.filters : {}) as ApplicationViewFilters;
@@ -178,12 +267,15 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
       startDate: typeof rawFilters.startDate === 'string' && rawFilters.startDate ? rawFilters.startDate : undefined,
       endDate: typeof rawFilters.endDate === 'string' && rawFilters.endDate ? rawFilters.endDate : undefined,
       followup,
+      columnFilters: normalizeColumnFilters(rawFilters.columnFilters),
     },
     sort: {
       key: isSortKey(raw.sort?.key) ? raw.sort!.key : DEFAULT_VIEW_CONFIG.sort.key,
       direction: raw.sort?.direction === 'asc' ? 'asc' : 'desc',
     },
     pageSize: isPageSize(raw.pageSize) ? raw.pageSize : DEFAULT_VIEW_CONFIG.pageSize,
+    grouping: normalizeGrouping(raw.grouping),
+    columnWidths: normalizeColumnWidths(raw.columnWidths),
   };
 }
 
@@ -232,6 +324,65 @@ function matchesFollowupFilter(offer: ApplicationSummary, filters: ApplicationVi
   return dayStart(new Date(offer.nextFollowupDate)) < dayStart(now);
 }
 
+export function getApplicationColumnValue(
+  offer: ApplicationSummary,
+  column: ApplicationColumnId,
+): string | null {
+  switch (column) {
+    case 'title':
+      return offer.title || null;
+    case 'company':
+      return offer.company || null;
+    case 'status':
+      return offer.status || null;
+    case 'score': {
+      const score = scoreToPercent(offer.scoreOverall);
+      return score === null ? null : String(score);
+    }
+    case 'cv':
+      return offer.cvId || null;
+    case 'followup':
+      return offer.nextFollowupDate ? new Date(offer.nextFollowupDate).toISOString() : null;
+    case 'platform':
+      return offer.platform || null;
+    case 'url':
+      return offer.url || null;
+    case 'source':
+      return offer.source || null;
+    case 'liveness':
+      return offer.livenessStatus || null;
+    case 'createdAt':
+      return new Date(offer.createdAt).toISOString();
+    case 'updatedAt':
+      return new Date(offer.updatedAt).toISOString();
+    default:
+      return null;
+  }
+}
+
+export function matchesColumnFilter(offer: ApplicationSummary, filter: ApplicationColumnFilter): boolean {
+  const raw = getApplicationColumnValue(offer, filter.column);
+  const value = raw === null ? '' : raw;
+  const needle = filter.value.trim().toLowerCase();
+
+  switch (filter.operator) {
+    case 'isEmpty':
+      return value.trim() === '';
+    case 'isNotEmpty':
+      return value.trim() !== '';
+    case 'contains':
+      return needle === '' || value.toLowerCase().includes(needle);
+    case 'notContains':
+      return needle === '' || !value.toLowerCase().includes(needle);
+    case 'equals':
+      return needle === '' || value.toLowerCase() === needle;
+    case 'notEquals':
+      return needle === '' || value.toLowerCase() !== needle;
+    default:
+      return true;
+  }
+}
+
 export function filterApplications(
   offers: ApplicationSummary[],
   filters: ApplicationViewFilters,
@@ -240,6 +391,7 @@ export function filterApplications(
   const search = (filters.search || '').trim().toLowerCase();
   const status = filters.status || 'all';
   const cv = filters.cv || 'all';
+  const columnFilters = filters.columnFilters ?? [];
 
   return offers.filter((offer) => {
     if (search) {
@@ -254,6 +406,9 @@ export function filterApplications(
     if (cv === 'unlinked' && offer.cvId) return false;
     if (!matchesDateFilter(offer.createdAt, filters, now)) return false;
     if (!matchesFollowupFilter(offer, filters, now)) return false;
+    for (const columnFilter of columnFilters) {
+      if (!matchesColumnFilter(offer, columnFilter)) return false;
+    }
     return true;
   });
 }
@@ -301,6 +456,50 @@ export function sortApplications(offers: ApplicationSummary[], sort: Application
     return a.id.localeCompare(b.id);
   });
   return sorted;
+}
+
+export type ApplicationGroup = {
+  key: string;
+  offers: ApplicationSummary[];
+};
+
+export function getApplicationGroupKey(offer: ApplicationSummary, column: ApplicationColumnId): string {
+  const value = getApplicationColumnValue(offer, column);
+  if (value === null) return '';
+  if (column === 'createdAt' || column === 'updatedAt' || column === 'followup') {
+    return value.slice(0, 10);
+  }
+  return value;
+}
+
+function compareGroupKeys(a: string, b: string, column: ApplicationColumnId) {
+  if (column === 'status') return (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99);
+  if (column === 'score') return (Number(a) || 0) - (Number(b) || 0);
+  if (column === 'createdAt' || column === 'updatedAt' || column === 'followup') return a.localeCompare(b);
+  return a.localeCompare(b, 'es', { sensitivity: 'base' });
+}
+
+export function groupApplications(
+  offers: ApplicationSummary[],
+  grouping: ApplicationGrouping,
+): ApplicationGroup[] {
+  const groups = new Map<string, ApplicationSummary[]>();
+  for (const offer of offers) {
+    const key = getApplicationGroupKey(offer, grouping.column);
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(offer);
+    else groups.set(key, [offer]);
+  }
+
+  const direction = grouping.direction === 'asc' ? 1 : -1;
+  return Array.from(groups.entries())
+    .sort(([keyA], [keyB]) => {
+      if (!keyA && !keyB) return 0;
+      if (!keyA) return 1;
+      if (!keyB) return -1;
+      return compareGroupKeys(keyA, keyB, grouping.column) * direction;
+    })
+    .map(([key, bucket]) => ({ key, offers: bucket }));
 }
 
 export function paginate<T>(items: T[], page: number, pageSize: number) {

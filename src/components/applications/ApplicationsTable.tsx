@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import NextLink from 'next/link';
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Archive,
   CalendarClock,
+  ChevronRight,
   ExternalLink,
   Inbox,
   Plus,
@@ -16,13 +14,23 @@ import {
 } from 'lucide-react';
 import type { ApplicationSummary, CvListItem } from '@/lib/job-offer-queries';
 import type {
+  ApplicationColumnFilter,
   ApplicationColumnId,
+  ApplicationColumnWidth,
+  ApplicationColumnWidths,
+  ApplicationGrouping,
+  ApplicationSortDirection,
   ApplicationSortKey,
   ApplicationSortState,
 } from '@/lib/application-views';
-import { formatApplicationTimestamp } from '@/lib/application-views';
-import { formatDate } from '@/lib/utils';
+import {
+  APPLICATION_COLUMN_WIDTH_PX,
+  formatApplicationTimestamp,
+  groupApplications,
+} from '@/lib/application-views';
+import { formatDate, cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
 import ApplicationStatusSelect from './ApplicationStatusSelect';
 
@@ -43,7 +51,14 @@ interface ApplicationsTableProps {
   userCvs: CvListItem[];
   columns: ApplicationColumnId[];
   sort: ApplicationSortState;
-  onSortChange: (key: ApplicationSortKey) => void;
+  onSetSort: (key: ApplicationSortKey, direction: ApplicationSortDirection) => void;
+  grouping: ApplicationGrouping | null;
+  onSetGrouping: (grouping: ApplicationGrouping | null) => void;
+  columnFilters: ApplicationColumnFilter[];
+  onSetColumnFilter: (column: ApplicationColumnId, filter: ApplicationColumnFilter | null) => void;
+  columnWidths: ApplicationColumnWidths;
+  onSetColumnWidth: (column: ApplicationColumnId, width: ApplicationColumnWidth) => void;
+  onMoveColumn: (column: ApplicationColumnId, direction: -1 | 1) => void;
   selectedIds: Set<string>;
   onToggleRow: (id: string) => void;
   onToggleAll: (ids: string[], checked: boolean) => void;
@@ -55,6 +70,7 @@ interface ApplicationsTableProps {
   hasActiveFilters: boolean;
   onClearFilters: () => void;
   onNewApplication: () => void;
+  attachedFooter?: boolean;
 }
 
 function SelectionCheckbox({
@@ -89,19 +105,19 @@ function SelectionCheckbox({
   );
 }
 
-function SortIndicator({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) {
-  if (!active) return <ArrowUpDown className="w-3 h-3 opacity-30 stroke-[2]" />;
-  return direction === 'asc'
-    ? <ArrowUp className="w-3 h-3 text-ai stroke-[2]" />
-    : <ArrowDown className="w-3 h-3 text-ai stroke-[2]" />;
-}
-
 export default function ApplicationsTable({
   offers,
   userCvs,
   columns,
   sort,
-  onSortChange,
+  onSetSort,
+  grouping,
+  onSetGrouping,
+  columnFilters,
+  onSetColumnFilter,
+  columnWidths,
+  onSetColumnWidth,
+  onMoveColumn,
   selectedIds,
   onToggleRow,
   onToggleAll,
@@ -113,14 +129,25 @@ export default function ApplicationsTable({
   hasActiveFilters,
   onClearFilters,
   onNewApplication,
+  attachedFooter = false,
 }: ApplicationsTableProps) {
   const { t } = useLanguage();
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const cvTitles = useMemo(() => {
     const map = new Map<string, string>();
     userCvs.forEach((cv) => map.set(cv.id, cv.title));
     return map;
   }, [userCvs]);
+
+  const groups = useMemo(
+    () => (grouping ? groupApplications(offers, grouping) : null),
+    [offers, grouping],
+  );
+
+  useEffect(() => {
+    setCollapsedGroups(new Set());
+  }, [grouping]);
 
   const visibleIds = offers.map((offer) => offer.id);
   const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -130,6 +157,37 @@ export default function ApplicationsTable({
   const isEmpty = offers.length === 0;
 
   const headerLabel = (column: ApplicationColumnId | 'actions') => t(`applications.columns.labels.${column}`);
+
+  const columnStyle = (column: ApplicationColumnId): React.CSSProperties | undefined => {
+    const px = APPLICATION_COLUMN_WIDTH_PX[columnWidths[column] ?? 'auto'];
+    return px ? { width: px, minWidth: px } : undefined;
+  };
+
+  const groupLabel = (key: string) => {
+    if (!grouping) return key;
+    if (!key) return t('applications.columns.headerMenu.noValue');
+    if (grouping.column === 'status') return t(`applications.columns.${key}.title`);
+    if (grouping.column === 'liveness') {
+      return key === 'expired'
+        ? t('applications.table.livenessExpired')
+        : t('applications.table.livenessActive');
+    }
+    if (grouping.column === 'cv') return cvTitles.get(key) ?? key;
+    if (grouping.column === 'createdAt' || grouping.column === 'updatedAt' || grouping.column === 'followup') {
+      return formatDate(new Date(`${key}T00:00:00`));
+    }
+    if (grouping.column === 'score') return `${key}%`;
+    return key;
+  };
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const renderCell = (offer: ApplicationSummary, column: ApplicationColumnId) => {
     switch (column) {
@@ -278,6 +336,31 @@ export default function ApplicationsTable({
     </div>
   );
 
+  const renderRow = (offer: ApplicationSummary) => {
+    const isSelected = selectedIds.has(offer.id);
+    return (
+      <tr
+        key={offer.id}
+        onClick={() => onOpenDetails(offer)}
+        className={`group cursor-pointer transition-colors ${isSelected ? 'bg-ai/5 dark:bg-ai/10' : 'hover:bg-canvas/70 dark:hover:bg-canvas/20'}`}
+      >
+        <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
+          <SelectionCheckbox
+            checked={isSelected}
+            onChange={() => onToggleRow(offer.id)}
+            label={t('applications.table.selectRow', { title: offer.title })}
+          />
+        </td>
+        {columns.map((column) => (
+          <td key={column} style={columnStyle(column)} className="px-3 py-2.5 align-middle">
+            {renderCell(offer, column)}
+          </td>
+        ))}
+        <td className="px-3 py-2.5 align-middle">{rowActions(offer)}</td>
+      </tr>
+    );
+  };
+
   if (isEmpty) {
     return (
       <div className="rounded-[12px] border border-dashed border-subtle bg-surface/50 p-12 text-center">
@@ -316,7 +399,7 @@ export default function ApplicationsTable({
   return (
     <div>
       {/* Tabla de escritorio */}
-      <div className="hidden md:block rounded-[12px] border border-subtle bg-surface shadow-sm overflow-hidden">
+      <div className={`hidden md:block border border-subtle bg-surface shadow-sm overflow-hidden ${attachedFooter ? 'rounded-t-[12px] border-b-0' : 'rounded-[12px]'}`}>
         <div className="overflow-x-auto scrollbar-custom">
           <table className="min-w-full text-left text-xs font-sans">
             <caption className="sr-only">{t('applications.table.caption')}</caption>
@@ -331,27 +414,31 @@ export default function ApplicationsTable({
                   />
                 </th>
                 {columns.map((column) => {
-                  const sortable = SORTABLE_COLUMNS.includes(column);
                   const isSorted = sort.key === column;
                   return (
                     <th
                       key={column}
                       scope="col"
+                      style={columnStyle(column)}
                       aria-sort={isSorted ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className="px-3 py-3 whitespace-nowrap font-bold"
                     >
-                      {sortable ? (
-                        <button
-                          type="button"
-                          onClick={() => onSortChange(column as ApplicationSortKey)}
-                          className={`inline-flex items-center gap-1.5 uppercase tracking-wider transition-colors ${isSorted ? 'text-text' : 'hover:text-text'}`}
-                        >
-                          {headerLabel(column)}
-                          <SortIndicator active={isSorted} direction={sort.direction} />
-                        </button>
-                      ) : (
-                        <span>{headerLabel(column)}</span>
-                      )}
+                      <ApplicationColumnHeaderMenu
+                        column={column}
+                        label={headerLabel(column)}
+                        sortable={SORTABLE_COLUMNS.includes(column)}
+                        sort={sort}
+                        grouping={grouping}
+                        columnFilter={columnFilters.find((filter) => filter.column === column)}
+                        width={columnWidths[column] ?? 'auto'}
+                        canMoveLeft={columns.indexOf(column) > 0}
+                        canMoveRight={columns.indexOf(column) < columns.length - 1}
+                        onSetSort={onSetSort}
+                        onSetGrouping={onSetGrouping}
+                        onSetColumnFilter={(filter) => onSetColumnFilter(column, filter)}
+                        onSetWidth={(width) => onSetColumnWidth(column, width)}
+                        onMove={(direction) => onMoveColumn(column, direction)}
+                      />
                     </th>
                   );
                 })}
@@ -361,30 +448,32 @@ export default function ApplicationsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-subtle dark:divide-white/5">
-              {offers.map((offer) => {
-                const isSelected = selectedIds.has(offer.id);
-                return (
-                  <tr
-                    key={offer.id}
-                    onClick={() => onOpenDetails(offer)}
-                    className={`group cursor-pointer transition-colors ${isSelected ? 'bg-ai/5 dark:bg-ai/10' : 'hover:bg-canvas/70 dark:hover:bg-canvas/20'}`}
-                  >
-                    <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
-                      <SelectionCheckbox
-                        checked={isSelected}
-                        onChange={() => onToggleRow(offer.id)}
-                        label={t('applications.table.selectRow', { title: offer.title })}
-                      />
-                    </td>
-                    {columns.map((column) => (
-                      <td key={column} className="px-3 py-2.5 align-middle">
-                        {renderCell(offer, column)}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2.5 align-middle">{rowActions(offer)}</td>
-                  </tr>
-                );
-              })}
+              {groups
+                ? groups.map((group) => {
+                    const collapsed = collapsedGroups.has(group.key);
+                    return (
+                      <Fragment key={`group-${group.key}`}>
+                        <tr className="bg-surface-muted/60 dark:bg-canvas/30">
+                          <td colSpan={columns.length + 2} className="px-3 py-1.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(group.key)}
+                              aria-expanded={!collapsed}
+                              className="flex items-center gap-2 w-full text-left text-[10px] uppercase tracking-wider font-display font-bold text-text-muted hover:text-text transition-colors"
+                            >
+                              <ChevronRight className={cn('w-3.5 h-3.5 stroke-[2] transition-transform', !collapsed && 'rotate-90')} />
+                              <span className="truncate">{groupLabel(group.key)}</span>
+                              <span className="px-1.5 py-0.5 rounded-full bg-canvas dark:bg-surface-muted border border-subtle text-[9px]">
+                                {group.offers.length}
+                              </span>
+                            </button>
+                          </td>
+                        </tr>
+                        {!collapsed && group.offers.map((offer) => renderRow(offer))}
+                      </Fragment>
+                    );
+                  })
+                : offers.map((offer) => renderRow(offer))}
             </tbody>
           </table>
         </div>

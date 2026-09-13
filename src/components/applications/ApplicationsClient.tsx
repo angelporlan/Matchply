@@ -15,14 +15,18 @@ import AlertModal from '@/components/ui/AlertModal';
 import { createJobOffer, updateJobOfferStatus, archiveJobOffer, archiveMultipleJobOffers, deleteJobOffer, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
 import {
-  APPLICATION_COLUMN_IDS,
   DEFAULT_VIEW_CONFIG,
   SYSTEM_VIEWS,
   filterApplications,
   normalizeViewConfig,
   paginate,
   sortApplications,
+  type ApplicationColumnFilter,
   type ApplicationColumnId,
+  type ApplicationColumnWidth,
+  type ApplicationColumnWidths,
+  type ApplicationGrouping,
+  type ApplicationSortDirection,
   type ApplicationSortKey,
   type ApplicationSortState,
   type ApplicationViewConfig,
@@ -82,6 +86,9 @@ export default function ApplicationsClient({
   const [activeViewId, setActiveViewId] = useState(initialViewId);
   const [columns, setColumns] = useState<ApplicationColumnId[]>(initialConfig.columns);
   const [sort, setSort] = useState<ApplicationSortState>(initialConfig.sort);
+  const [grouping, setGrouping] = useState<ApplicationGrouping | null>(initialConfig.grouping);
+  const [columnFilters, setColumnFilters] = useState<ApplicationColumnFilter[]>(initialConfig.filters.columnFilters ?? []);
+  const [columnWidths, setColumnWidths] = useState<ApplicationColumnWidths>(initialConfig.columnWidths);
   const [pageSize, setPageSize] = useState(initialConfig.pageSize);
   const [statusFilter, setStatusFilter] = useState<string>(initialConfig.filters.status || 'all');
   const [followupFilter, setFollowupFilter] = useState<'all' | 'withDate' | 'overdue'>(initialConfig.filters.followup || 'all');
@@ -167,14 +174,17 @@ export default function ApplicationsClient({
     startDate,
     endDate,
     followup: followupFilter,
-  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter]);
+    columnFilters,
+  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters]);
 
   const currentConfig = useMemo<ApplicationViewConfig>(() => normalizeViewConfig({
     columns,
     filters: viewFilters,
     sort,
     pageSize,
-  }), [columns, viewFilters, sort, pageSize]);
+    grouping,
+    columnWidths,
+  }), [columns, viewFilters, sort, pageSize, grouping, columnWidths]);
 
   const isDirty = useMemo(
     () => JSON.stringify(currentConfig) !== JSON.stringify(normalizeViewConfig(activeViewConfig)),
@@ -190,6 +200,9 @@ export default function ApplicationsClient({
     const normalized = normalizeViewConfig(viewConfig);
     setColumns(normalized.columns);
     setSort(normalized.sort);
+    setGrouping(normalized.grouping);
+    setColumnFilters(normalized.filters.columnFilters ?? []);
+    setColumnWidths(normalized.columnWidths);
     setPageSize(normalized.pageSize);
     setStatusFilter(normalized.filters.status || 'all');
     setFollowupFilter(normalized.filters.followup || 'all');
@@ -329,13 +342,47 @@ export default function ApplicationsClient({
     setEndDate('');
     setStatusFilter('all');
     setFollowupFilter('all');
+    setColumnFilters([]);
     resetPageAndSelection();
   };
 
-  const handleSortChange = (key: ApplicationSortKey) => {
-    setSort((prev) => prev.key === key
-      ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
-      : { key, direction: key === 'title' || key === 'company' || key === 'followup' ? 'asc' : 'desc' });
+  const handleSetSort = (key: ApplicationSortKey, direction: ApplicationSortDirection) => {
+    setSort({ key, direction });
+    setPage(1);
+  };
+
+  const handleSetGrouping = (next: ApplicationGrouping | null) => {
+    setGrouping(next);
+    resetPageAndSelection();
+  };
+
+  const handleSetColumnFilter = (column: ApplicationColumnId, filter: ApplicationColumnFilter | null) => {
+    setColumnFilters((prev) => {
+      const next = prev.filter((item) => item.column !== column);
+      if (filter) next.push(filter);
+      return next;
+    });
+    setPage(1);
+  };
+
+  const handleSetColumnWidth = (column: ApplicationColumnId, width: ApplicationColumnWidth) => {
+    setColumnWidths((prev) => {
+      const next = { ...prev };
+      if (width === 'auto') delete next[column];
+      else next[column] = width;
+      return next;
+    });
+  };
+
+  const handleMoveColumn = (column: ApplicationColumnId, direction: -1 | 1) => {
+    setColumns((prev) => {
+      const index = prev.indexOf(column);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
     setPage(1);
   };
 
@@ -647,7 +694,7 @@ export default function ApplicationsClient({
   );
   const sortedOffers = useMemo(() => sortApplications(filteredOffers, sort), [filteredOffers, sort]);
   const pagination = useMemo(() => paginate(sortedOffers, page, pageSize), [sortedOffers, page, pageSize]);
-  const hasActiveFilters = Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all';
+  const hasActiveFilters = Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all' || columnFilters.length > 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -1030,9 +1077,9 @@ export default function ApplicationsClient({
           onDelete={handleDeleteOffer}
         />
       ) : (
-        <div className="space-y-3">
+        <div>
           {selectedIds.size > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
+            <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <span className="text-xs font-bold text-text font-display">
                 {t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
               </span>
@@ -1078,7 +1125,14 @@ export default function ApplicationsClient({
             userCvs={userCvs}
             columns={columns}
             sort={sort}
-            onSortChange={handleSortChange}
+            onSetSort={handleSetSort}
+            grouping={grouping}
+            onSetGrouping={handleSetGrouping}
+            columnFilters={columnFilters}
+            onSetColumnFilter={handleSetColumnFilter}
+            columnWidths={columnWidths}
+            onSetColumnWidth={handleSetColumnWidth}
+            onMoveColumn={handleMoveColumn}
             selectedIds={selectedIds}
             onToggleRow={handleToggleRow}
             onToggleAll={handleToggleAll}
@@ -1093,49 +1147,51 @@ export default function ApplicationsClient({
           />
 
           {filteredOffers.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 font-display">
-              <p className="text-xs text-text-muted">
-                {t('applications.table.pagination.showing')
-                  .replace('{start}', String(pagination.total === 0 ? 0 : pagination.start + 1))
-                  .replace('{end}', String(pagination.end))
-                  .replace('{total}', String(pagination.total))}
-              </p>
-              <div className="flex items-center gap-2">
-                <label htmlFor="page-size" className="sr-only">{t('applications.table.pagination.perPage')}</label>
-                <select
-                  id="page-size"
-                  value={pageSize}
-                  onChange={(event) => {
-                    setPageSize(Number(event.target.value));
-                    setPage(1);
-                  }}
-                  className="bg-surface border border-subtle rounded-[8px] px-2.5 py-2 text-xs font-semibold text-text-muted focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
-                >
-                  {[10, 25, 50, 100].map((size) => (
-                    <option key={size} value={size}>{size} {t('applications.table.pagination.perPageSuffix')}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                  disabled={pagination.page <= 1}
-                  aria-label={t('applications.table.pagination.previous')}
-                  className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
-                </button>
-                <span className="text-xs font-semibold text-text-muted">
-                  {t('applications.table.pagination.page').replace('{page}', String(pagination.page)).replace('{total}', String(pagination.totalPages))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                  disabled={pagination.page >= pagination.totalPages}
-                  aria-label={t('applications.table.pagination.next')}
-                  className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4 stroke-[1.75]" />
-                </button>
+            <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:mt-0">
+              <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm md:rounded-t-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-display">
+                <p className="text-xs text-text-muted">
+                  {t('applications.table.pagination.showing')
+                    .replace('{start}', String(pagination.total === 0 ? 0 : pagination.start + 1))
+                    .replace('{end}', String(pagination.end))
+                    .replace('{total}', String(pagination.total))}
+                </p>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="page-size" className="sr-only">{t('applications.table.pagination.perPage')}</label>
+                  <select
+                    id="page-size"
+                    value={pageSize}
+                    onChange={(event) => {
+                      setPageSize(Number(event.target.value));
+                      setPage(1);
+                    }}
+                    className="bg-surface border border-subtle rounded-[8px] px-2.5 py-2 text-xs font-semibold text-text-muted focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
+                  >
+                    {[10, 25, 50, 100].map((size) => (
+                      <option key={size} value={size}>{size} {t('applications.table.pagination.perPageSuffix')}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    disabled={pagination.page <= 1}
+                    aria-label={t('applications.table.pagination.previous')}
+                    className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
+                  </button>
+                  <span className="text-xs font-semibold text-text-muted">
+                    {t('applications.table.pagination.page').replace('{page}', String(pagination.page)).replace('{total}', String(pagination.totalPages))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                    disabled={pagination.page >= pagination.totalPages}
+                    aria-label={t('applications.table.pagination.next')}
+                    className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4 stroke-[1.75]" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
