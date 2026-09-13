@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { formatCareerProfileContext } from '@/lib/career-profile';
 import {
   Eye,
   X,
@@ -20,6 +21,12 @@ interface AiPreviewModalProps {
     targetRoles: string[];
     experienceYears?: number | '';
     techStack?: Record<string, string[] | undefined> | any;
+    skills?: Array<{
+      name: string;
+      category?: string;
+      proficiency?: string;
+      evidence?: string;
+    }>;
     keyProjects?: Array<{
       title: string;
       techStack?: string;
@@ -110,16 +117,7 @@ export default function AiPreviewModal({
               Payload de Contexto del Candidato:
             </p>
             <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto border border-slate-800">
-{`${profileData.masterDocument ? `### DOCUMENTO MAESTRO:\n${profileData.masterDocument}\n\n` : ''}### PERFIL DEL CANDIDATO:
-- Trayectoria & Stack: ${profileData.bio || '(Sin biografía definida)'}
-- Roles Objetivo: ${profileData.targetRoles?.join(', ') || '(Sin definir)'}
-- Años de Experiencia: ${profileData.experienceYears || 'N/D'}
-- Modalidades: ${profileData.preferredWorkplaces?.join(', ') || 'Cualquiera'}
-- Ubicaciones: ${profileData.preferredLocations || 'No especificada'}
-- Empresas Preferidas: ${profileData.companyPreferences || 'Cualquiera'}
-- Salario: Min ${profileData.salaryMin || 'N/D'}€, Target ${profileData.salaryTarget || 'N/D'}€
-${profileData.keyProjects && profileData.keyProjects.length > 0 ? `\n- Proyectos Clave:\n${profileData.keyProjects.map(p => `  * ${p.title} (${p.techStack || ''}): ${p.description} [Impacto: ${p.impact || 'N/D'}]`).join('\n')}` : ''}
-${profileData.curationCriteria ? `\n### CRITERIOS DE CURACIÓN (LinkedIn Matching):\n${profileData.curationCriteria}` : ''}`}
+{formatCareerProfileContext(profileData) || 'Aún no hay suficiente perfil para inyectar contexto.'}
             </div>
           </div>
         </div>

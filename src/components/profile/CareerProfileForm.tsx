@@ -13,34 +13,36 @@ import {
   Upload,
   Eye,
   Loader2,
+  Layers,
+  FolderKanban,
+  ScanSearch,
 } from 'lucide-react';
 import { saveUserCareerProfileAction } from '@/app/dashboard/actions';
 import {
   describeHardConstraintChips,
   parseHardConstraints,
 } from '@/lib/curation-constraints';
+import {
+  detectStructuredProfile,
+  hydrateStructuredProfile,
+  mergeProjects,
+  mergeSkills,
+  normalizeProjects,
+  normalizeSkills,
+  skillsFromTechStack,
+  techStackFromSkills,
+  type KeyProject,
+  type ProfileSkill,
+  type TechStackCategories,
+} from '@/lib/career-profile';
 import DictationTextarea from '@/components/profile/DictationTextarea';
 import { Button } from '@/components/ui/Button';
 import ProfileCompletenessBar from '@/components/profile/ProfileCompletenessBar';
 import AiProfileInterviewModal from '@/components/profile/AiProfileInterviewModal';
 import CvImportProfileModal from '@/components/profile/CvImportProfileModal';
 import AiPreviewModal from '@/components/profile/AiPreviewModal';
-
-interface KeyProject {
-  title: string;
-  role?: string;
-  techStack?: string;
-  description: string;
-  impact?: string;
-}
-
-interface TechStackCategories {
-  frontend?: string[];
-  backend?: string[];
-  ai_ml?: string[];
-  cloud_devops?: string[];
-  database?: string[];
-}
+import SkillsEvidenceEditor from '@/components/profile/SkillsEvidenceEditor';
+import KeyProjectsEditor from '@/components/profile/KeyProjectsEditor';
 
 interface CareerProfileFormProps {
   initialProfile?: {
@@ -56,6 +58,7 @@ interface CareerProfileFormProps {
     additionalNotes?: string;
     keyProjects?: KeyProject[];
     techStack?: TechStackCategories;
+    skills?: ProfileSkill[];
     targetTransition?: {
       targetRole?: string;
       targetIndustries?: string;
@@ -74,10 +77,49 @@ interface CareerProfileFormProps {
   }>;
 }
 
+function baseCvMarkdown(
+  userCvs: Array<{ isBase: boolean; isPrincipal: boolean; content: string }>,
+) {
+  return userCvs.find((cv) => cv.isBase)?.content
+    || userCvs.find((cv) => cv.isPrincipal)?.content
+    || userCvs[0]?.content
+    || '';
+}
+
+function loadStructured(
+  profile: CareerProfileFormProps['initialProfile'],
+  cvMarkdown: string,
+) {
+  const savedSkills = mergeSkills(
+    normalizeSkills(profile?.skills),
+    skillsFromTechStack(profile?.techStack),
+  );
+  const savedProjects = normalizeProjects(profile?.keyProjects);
+  if (savedSkills.length || savedProjects.length) {
+    return { skills: savedSkills, projects: savedProjects, autoFilled: false };
+  }
+  const detected = detectStructuredProfile({
+    bio: profile?.bio,
+    masterDocument: profile?.masterDocument,
+    cvMarkdown,
+  });
+  return {
+    skills: detected.skills,
+    projects: detected.projects,
+    autoFilled: detected.skills.length > 0 || detected.projects.length > 0,
+  };
+}
+
 export default function CareerProfileForm({
   initialProfile,
   userCvs = [],
 }: CareerProfileFormProps) {
+  const cvMarkdown = useMemo(() => baseCvMarkdown(userCvs), [userCvs]);
+  const initialStructured = useMemo(
+    () => loadStructured(initialProfile, cvMarkdown),
+    [initialProfile, cvMarkdown],
+  );
+
   const [bio, setBio] = useState(initialProfile?.bio || initialProfile?.additionalNotes || '');
   const [optionalTarget, setOptionalTarget] = useState(
     initialProfile?.targetTransition?.targetRole || '',
@@ -101,14 +143,11 @@ export default function CareerProfileForm({
   );
   const [salaryMin, setSalaryMin] = useState<number | ''>(initialProfile?.salaryMin ?? '');
   const [salaryTarget, setSalaryTarget] = useState<number | ''>(initialProfile?.salaryTarget ?? '');
-  const [keyProjects, setKeyProjects] = useState<KeyProject[]>(
-    Array.isArray(initialProfile?.keyProjects) ? initialProfile.keyProjects : [],
-  );
-  const [techStack, setTechStack] = useState<TechStackCategories>(
-    initialProfile?.techStack || {},
-  );
+  const [keyProjects, setKeyProjects] = useState<KeyProject[]>(initialStructured.projects);
+  const [skills, setSkills] = useState<ProfileSkill[]>(initialStructured.skills);
   const [classification, setClassification] = useState<any>(initialProfile?.classification || null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(initialStructured.autoFilled);
 
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -127,6 +166,24 @@ export default function CareerProfileForm({
     [targetRolesText],
   );
 
+  const techStack = useMemo(() => techStackFromSkills(skills), [skills]);
+
+  const evidenceOptions = useMemo(
+    () => keyProjects.map((project) => project.title).filter(Boolean),
+    [keyProjects],
+  );
+
+  const suggestions = useMemo(() => {
+    const detected = detectStructuredProfile({
+      bio,
+      masterDocument,
+      cvMarkdown,
+      keyProjects,
+    });
+    const existing = new Set(skills.map((skill) => skill.name.toLowerCase()));
+    return detected.skills.filter((skill) => !existing.has(skill.name.toLowerCase())).slice(0, 8);
+  }, [bio, masterDocument, cvMarkdown, keyProjects, skills]);
+
   const buildPayload = (overrides: Record<string, unknown> = {}) => ({
     bio,
     experienceYears: experienceYears === '' ? null : Number(experienceYears),
@@ -139,6 +196,7 @@ export default function CareerProfileForm({
     curationCriteria,
     additionalNotes: bio,
     keyProjects: keyProjects.filter((project) => project.title.trim() || project.description.trim()),
+    skills: skills.filter((skill) => skill.name.trim()),
     techStack,
     targetTransition: {
       targetRole: optionalTarget || targetRolesArray[0] || '',
@@ -155,6 +213,19 @@ export default function CareerProfileForm({
     const res = await saveUserCareerProfileAction(payload);
     if (res.error) throw new Error(res.error);
     return payload;
+  };
+
+  const applyStructured = (data: Record<string, any>) => {
+    const hydrated = hydrateStructuredProfile(data, {
+      bio: data.bio ?? bio,
+      masterDocument: data.masterDocument ?? masterDocument,
+      cvMarkdown,
+    });
+    const nextSkills = mergeSkills(skills, hydrated.skills);
+    const nextProjects = mergeProjects(keyProjects, hydrated.keyProjects);
+    setSkills(nextSkills);
+    setKeyProjects(nextProjects);
+    return { skills: nextSkills, keyProjects: nextProjects, techStack: techStackFromSkills(nextSkills) };
   };
 
   const handleApplyEnrichedProfile = async (data: any) => {
@@ -175,10 +246,10 @@ export default function CareerProfileForm({
     if (data.companyPreferences) setCompanyPreferences(data.companyPreferences);
     if (typeof data.salaryMin === 'number') setSalaryMin(data.salaryMin);
     if (typeof data.salaryTarget === 'number') setSalaryTarget(data.salaryTarget);
-    if (data.keyProjects && Array.isArray(data.keyProjects)) setKeyProjects(data.keyProjects);
-    if (data.techStack && typeof data.techStack === 'object') setTechStack(data.techStack);
     if (data.classification) setClassification(data.classification);
     if (data.targetTransition?.targetRole) setOptionalTarget(data.targetTransition.targetRole);
+    const structured = applyStructured(data);
+    setAutoFilled(false);
 
     try {
       await persistProfile({
@@ -192,20 +263,32 @@ export default function CareerProfileForm({
         companyPreferences: data.companyPreferences ?? companyPreferences,
         salaryMin: typeof data.salaryMin === 'number' ? data.salaryMin : (salaryMin === '' ? null : salaryMin),
         salaryTarget: typeof data.salaryTarget === 'number' ? data.salaryTarget : (salaryTarget === '' ? null : salaryTarget),
-        keyProjects: data.keyProjects ?? keyProjects,
-        techStack: data.techStack ?? techStack,
         classification: data.classification ?? classification,
         targetTransition: {
           targetRole: data.targetTransition?.targetRole || optionalTarget,
           targetIndustries: data.targetTransition?.targetIndustries || '',
           targetGeography: data.targetTransition?.targetGeography || preferredLocations,
         },
+        ...structured,
       });
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 4000);
     } catch (err: any) {
       setError(err.message || 'Se aplicó el documento pero no se pudo guardar. Pulsa Guardar.');
     }
+  };
+
+  const handleDetectFromSources = () => {
+    const detected = detectStructuredProfile({
+      bio,
+      masterDocument,
+      keyProjects,
+      skills,
+      cvMarkdown,
+    });
+    setSkills(mergeSkills(skills, detected.skills));
+    setKeyProjects(mergeProjects(keyProjects, detected.projects));
+    setAutoFilled(true);
   };
 
   const toggleWorkplace = (type: string) => {
@@ -223,6 +306,7 @@ export default function CareerProfileForm({
     setSavedSuccess(false);
     try {
       await persistProfile();
+      setAutoFilled(false);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 4000);
     } catch (err: any) {
@@ -237,22 +321,31 @@ export default function CareerProfileForm({
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const inputClass =
+    'w-full rounded-[8px] bg-canvas border border-control px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai min-h-11';
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
       <ProfileCompletenessBar
         dumpText={bio}
         masterDocument={masterDocument}
         curationCriteria={curationCriteria}
+        skills={skills}
+        keyProjects={keyProjects}
+        preferredLocations={preferredLocations}
+        companyPreferences={companyPreferences}
+        salaryMin={salaryMin}
+        preferredWorkplaces={preferredWorkplaces}
         onActionClick={scrollToSection}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-surface border border-ai/20 p-4 rounded-2xl shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-surface border border-ai/20 p-4 rounded-[12px] shadow-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setIsInterviewOpen(true)}
             disabled={!bio.trim()}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold shadow-sm shadow-ai/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 min-h-11 rounded-[8px] bg-ai-action text-on-ai-action text-xs font-bold flex items-center gap-2 disabled:opacity-50"
           >
             <Bot className="w-4 h-4 stroke-[1.75]" />
             <span>Crear documento con IA</span>
@@ -260,15 +353,23 @@ export default function CareerProfileForm({
           <button
             type="button"
             onClick={() => setIsImportOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-canvas border border-control hover:border-ai text-xs font-bold text-text flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-3.5 py-2 min-h-11 rounded-[8px] bg-canvas border border-control hover:border-ai text-xs font-bold text-text flex items-center gap-1.5"
           >
             <Upload className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
             <span>Desde un CV</span>
           </button>
           <button
             type="button"
+            onClick={handleDetectFromSources}
+            className="px-3.5 py-2 min-h-11 rounded-[8px] bg-canvas border border-control hover:border-ai text-xs font-bold text-text flex items-center gap-1.5"
+          >
+            <ScanSearch className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
+            <span>Detectar stack y proyectos</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-canvas border border-control text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-3.5 py-2 min-h-11 rounded-[8px] bg-canvas border border-control text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
           >
             <Eye className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Cómo te ve la IA</span>
@@ -278,28 +379,33 @@ export default function CareerProfileForm({
           type="button"
           onClick={() => handleSave()}
           disabled={saving}
-          className="px-6 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer ml-auto"
+          className="px-6 py-2 min-h-11 rounded-[8px] bg-action hover:bg-action-hover text-on-action text-xs font-bold flex items-center gap-2 disabled:opacity-50 ml-auto"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin stroke-[1.75]" /> : <Save className="w-4 h-4 stroke-[1.75]" />}
           <span>{saving ? 'Guardando…' : 'Guardar'}</span>
         </button>
       </div>
 
+      {autoFilled && (
+        <div className="p-4 rounded-[12px] bg-ai/5 border border-ai/20 text-ai-text dark:text-ai text-xs font-semibold">
+          Hemos rellenado stack y proyectos desde tu CV y tu texto. Revisa la prueba de cada tecnología y pulsa Guardar.
+        </div>
+      )}
       {savedSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
+        <div className="p-4 rounded-[12px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
           <Check className="w-4 h-4 text-emerald-600 stroke-[1.75]" />
           <span>Perfil guardado. La curación y la adaptación de CVs usarán este documento.</span>
         </div>
       )}
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+        <div className="p-4 rounded-[12px] bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 stroke-[1.75]" />
           <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
-        <div id="section-dump" className="bg-white dark:bg-surface border border-subtle rounded-2xl p-6 shadow-sm space-y-4">
+        <div id="section-dump" className="bg-white dark:bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
             <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
               <Briefcase className="w-4 h-4 stroke-[1.75]" />
@@ -330,14 +436,14 @@ export default function CareerProfileForm({
               value={optionalTarget}
               onChange={(e) => setOptionalTarget(e.target.value)}
               placeholder="Ej: AI Engineer, no centrar en Dynamics. Déjalo vacío si no lo tienes claro."
-              className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai"
+              className={inputClass}
             />
           </div>
         </div>
 
-        <div id="section-master" className="bg-white dark:bg-surface border border-ai/25 rounded-2xl p-6 shadow-sm space-y-4">
+        <div id="section-master" className="bg-white dark:bg-surface border border-ai/25 rounded-[12px] p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-ai to-ai-action text-white flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
               <Sparkles className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
@@ -345,7 +451,7 @@ export default function CareerProfileForm({
                 2. Documento maestro
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Lo genera el copiloto a partir de lo que pegaste. Puedes editarlo. Es la fuente de la verdad.
+                Lo genera el copiloto a partir de lo que pegaste. Puedes editarlo. Es la fuente de la verdad narrativa.
               </p>
             </div>
           </div>
@@ -359,17 +465,57 @@ export default function CareerProfileForm({
           />
         </div>
 
-        <div id="section-criteria" className="bg-white dark:bg-surface border border-ai/30 rounded-2xl p-6 shadow-md shadow-ai/5 space-y-4">
+        <div id="section-skills" className="bg-white dark:bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
+              <Layers className="w-4 h-4 stroke-[1.75]" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-text font-display">
+                3. Stack con evidencia
+              </h2>
+              <p className="text-xs text-text-muted font-sans">
+                Solo lo que puedes defender. Enlaza cada tecnología a un proyecto o logro.
+              </p>
+            </div>
+          </div>
+          <SkillsEvidenceEditor
+            skills={skills}
+            evidenceOptions={evidenceOptions}
+            suggestions={suggestions}
+            onChange={setSkills}
+            onAddSuggestion={(skill) => setSkills(mergeSkills(skills, [skill]))}
+          />
+        </div>
+
+        <div id="section-projects" className="bg-white dark:bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
+              <FolderKanban className="w-4 h-4 stroke-[1.75]" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-text font-display">
+                4. Proyectos y logros
+              </h2>
+              <p className="text-xs text-text-muted font-sans">
+                Qué hiciste, con qué stack y qué cambió. Eso es lo que puntúa el match.
+              </p>
+            </div>
+          </div>
+          <KeyProjectsEditor projects={keyProjects} onChange={setKeyProjects} />
+        </div>
+
+        <div id="section-criteria" className="bg-white dark:bg-surface border border-ai/30 rounded-[12px] p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
             <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
               <Sparkles className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-text font-display">
-                3. Cómo debe puntuar las ofertas
+                5. Preferencias y cómo puntuar
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Idioma, presencial, consultoras… Las reglas de idioma se aplican en código.
+                Idioma, modalidad, ciudad y tipo de empresa. Las reglas de idioma se aplican en código.
               </p>
             </div>
           </div>
@@ -395,7 +541,7 @@ export default function CareerProfileForm({
           )}
           <div>
             <label className="block text-xs font-bold text-text mb-2 font-display">
-              Modalidad (opcional)
+              Modalidad
             </label>
             <div className="flex items-center gap-2 flex-wrap">
               {[
@@ -409,7 +555,7 @@ export default function CareerProfileForm({
                     key={item.id}
                     type="button"
                     onClick={() => toggleWorkplace(item.id)}
-                    className={`text-xs font-bold px-3.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                    className={`text-xs font-bold min-h-11 px-3.5 rounded-[8px] border ${
                       active
                         ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25'
                         : 'bg-canvas text-slate-500 border-subtle'
@@ -422,13 +568,55 @@ export default function CareerProfileForm({
               })}
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-text mb-1.5 font-display">Ubicaciones</label>
+              <input
+                type="text"
+                value={preferredLocations}
+                onChange={(e) => setPreferredLocations(e.target.value)}
+                placeholder="Alicante, Valencia, remoto…"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text mb-1.5 font-display">Empresas</label>
+              <input
+                type="text"
+                value={companyPreferences}
+                onChange={(e) => setCompanyPreferences(e.target.value)}
+                placeholder="Producto / scale-up; evitar consultoría masiva"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario mínimo (€)</label>
+              <input
+                type="number"
+                step={1000}
+                value={salaryMin}
+                onChange={(e) => setSalaryMin(e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario objetivo (€)</label>
+              <input
+                type="number"
+                step={1000}
+                value={salaryTarget}
+                onChange={(e) => setSalaryTarget(e.target.value === '' ? '' : Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-surface border border-subtle rounded-2xl p-6">
+        <div className="bg-white dark:bg-surface border border-subtle rounded-[12px] p-6">
           <button
             type="button"
             onClick={() => setShowAdvanced((open) => !open)}
-            className="w-full flex items-center justify-between gap-3 text-left"
+            className="w-full flex items-center justify-between gap-3 text-left min-h-11"
             aria-expanded={showAdvanced}
           >
             <div className="flex items-center gap-2.5">
@@ -438,7 +626,7 @@ export default function CareerProfileForm({
               <div>
                 <h2 className="text-sm font-bold text-text font-display">Ajustes avanzados</h2>
                 <p className="text-xs text-text-muted font-sans">
-                  Roles, años y salario. La IA puede rellenarlos; no hace falta tocarlos.
+                  Roles objetivo y años. La IA puede rellenarlos.
                 </p>
               </div>
             </div>
@@ -452,8 +640,8 @@ export default function CareerProfileForm({
                   type="text"
                   value={targetRolesText}
                   onChange={(e) => setTargetRolesText(e.target.value)}
-                  placeholder="Frontend, Backend…"
-                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
+                  placeholder="Full Stack, AI Engineer…"
+                  className={inputClass}
                 />
               </div>
               <div>
@@ -464,27 +652,7 @@ export default function CareerProfileForm({
                   max={40}
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario mínimo (€)</label>
-                <input
-                  type="number"
-                  step={1000}
-                  value={salaryMin}
-                  onChange={(e) => setSalaryMin(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario objetivo (€)</label>
-                <input
-                  type="number"
-                  step={1000}
-                  value={salaryTarget}
-                  onChange={(e) => setSalaryTarget(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-xl bg-canvas border border-control px-3.5 py-2.5 text-xs focus:outline-none focus:border-ai"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -526,6 +694,7 @@ export default function CareerProfileForm({
           targetRoles: targetRolesArray,
           experienceYears,
           techStack,
+          skills,
           keyProjects,
           targetTransition: { targetRole: optionalTarget, targetIndustries: '', targetGeography: preferredLocations },
           preferredWorkplaces,

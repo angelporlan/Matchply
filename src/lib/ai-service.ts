@@ -24,12 +24,14 @@ import {
 } from './curation-constraints';
 
 import {
+  formatCareerProfileContext,
   genericSoftwareInterviewQuestions,
   heuristicClassifyCareerProfile,
   normalizeClassification,
   type InterviewQuestion,
   type ProfileClassification,
 } from './profile-classification';
+import { hydrateStructuredProfile } from './career-profile';
 
 type CurationOfferInput = {
   id: string;
@@ -920,44 +922,9 @@ Responde exactamente con este formato JSON:
     // Reemplazar la variable {{company}} en el systemPrompt si está presente
     systemPrompt = systemPrompt.replace(/\{\{company\}\}/g, company);
 
-    // Inyectar contexto dinámico del perfil profesional del usuario si existe
-    if (careerProfile) {
-      let profileContext = '\n\nINFORMACIÓN Y PREFERENCIAS DEL CANDIDATO (ÚSALAS PARA CALCULAR LA PUNTUACIÓN DE MATCH, VEREDICTO Y REDFLAGS):';
-      if (careerProfile.targetRoles && Array.isArray(careerProfile.targetRoles) && careerProfile.targetRoles.length > 0) {
-        profileContext += `\n- Roles y tecnologías objetivo: ${careerProfile.targetRoles.join(', ')}`;
-      }
-      if (careerProfile.experienceYears !== undefined && careerProfile.experienceYears !== null) {
-        profileContext += `\n- Años de experiencia real del candidato: ${careerProfile.experienceYears} años`;
-      }
-      if (careerProfile.salaryMin || careerProfile.salaryTarget) {
-        profileContext += `\n- Rango de salario pretendido: Min: ${careerProfile.salaryMin || 'No especificado'} EUR/año, Target: ${careerProfile.salaryTarget || 'No especificado'} EUR/año`;
-      }
-      if (careerProfile.locations && Array.isArray(careerProfile.locations) && careerProfile.locations.length > 0) {
-        profileContext += '\n- Puntuaciones de preferencia geográfica y modalidad (1.0 = rechazo, 5.0 = ideal):';
-        careerProfile.locations.forEach((loc: any) => {
-          if (loc.name && loc.score !== undefined) {
-            profileContext += `\n  * ${loc.name}: ${loc.score}/5.0`;
-          }
-        });
-      }
-      if (careerProfile.experienceFitRules) {
-        profileContext += '\n- Reglas de puntuación para años de experiencia requeridos por la oferta (1.0 = pésimo fit, 5.0 = fit ideal):';
-        Object.entries(careerProfile.experienceFitRules).forEach(([key, val]) => {
-          profileContext += `\n  * Requisito de ${key} de experiencia: Puntuación ${val}/5.0`;
-        });
-      }
-      if (careerProfile.masterDocument) {
-        profileContext += `\n- Perfil maestro:\n${String(careerProfile.masterDocument).slice(0, 2500)}`;
-      } else if (careerProfile.bio) {
-        profileContext += `\n- Trayectoria: ${String(careerProfile.bio).slice(0, 1200)}`;
-      }
-      if (careerProfile.additionalNotes && !careerProfile.masterDocument) {
-        profileContext += `\n- Notas adicionales de trayectoria y negociación: ${careerProfile.additionalNotes}`;
-      }
-
-      profileContext += `\n\nREGLA CRÍTICA DE EVALUACIÓN: Evalúa cada dimensión y el score global considerando ESTAS preferencias y el CV. Por ejemplo, si la oferta exige más años de experiencia de los que el candidato tiene, o si la ubicación/salario no encajan con sus preferencias, la puntuación de match en esa dimensión debe bajar drásticamente. Justifica cada Red Flag y desajuste según este perfil del usuario.`;
-
-      systemPrompt += profileContext;
+    const profileContext = formatCareerProfileContext(careerProfile, 2500);
+    if (profileContext) {
+      systemPrompt += `\n\nINFORMACIÓN Y PREFERENCIAS DEL CANDIDATO (ÚSALAS PARA CALCULAR LA PUNTUACIÓN DE MATCH, VEREDICTO Y REDFLAGS):\n${profileContext}\n\nREGLA CRÍTICA DE EVALUACIÓN: Evalúa cada dimensión y el score global considerando ESTAS preferencias, el stack con evidencia y el CV. No afirmes tecnologías sin prueba. Si la oferta exige un stack o años que el candidato no tiene, baja esa dimensión. Justifica cada red flag según este perfil.`;
     }
 
     // Asegurar que devuelva la estructura de puntuación scoreBreakdown en el JSON
@@ -1320,77 +1287,17 @@ Descripción: ${jobDescription}`;
     baseCvMarkdown: string,
     hardConstraints?: HardConstraints,
   ): string {
-    let candidateContext = '';
-    if (userCareerProfile && (userCareerProfile.bio || userCareerProfile.targetRoles || userCareerProfile.curationCriteria || userCareerProfile.keyProjects || userCareerProfile.techStack || userCareerProfile.masterDocument)) {
-      candidateContext += `### PERFIL DEL CANDIDATO:\n`;
-      if (userCareerProfile.masterDocument) {
-        candidateContext += `${String(userCareerProfile.masterDocument).slice(0, 3000)}\n\n`;
-      } else {
-        if (userCareerProfile.bio) {
-          candidateContext += `- Trayectoria & Stack: ${String(userCareerProfile.bio).slice(0, 2000)}\n`;
-        }
-        if (userCareerProfile.keyProjects && Array.isArray(userCareerProfile.keyProjects) && userCareerProfile.keyProjects.length > 0) {
-          const projectsSummary = userCareerProfile.keyProjects
-            .map((p: any) => `${p.title || 'Proyecto'} (${p.techStack || ''}): ${p.description || ''}${p.impact ? ` [Impacto: ${p.impact}]` : ''}`)
-            .join('; ');
-          candidateContext += `- Proyectos Clave & Logros: ${projectsSummary.slice(0, 1500)}\n`;
-        }
-        if (userCareerProfile.techStack) {
-          const stackFormatted = typeof userCareerProfile.techStack === 'object'
-            ? Object.entries(userCareerProfile.techStack)
-                .map(([cat, items]) => `${cat}: ${Array.isArray(items) ? items.join(', ') : items}`)
-                .join(' | ')
-            : String(userCareerProfile.techStack);
-          candidateContext += `- Tech Stack: ${stackFormatted.slice(0, 600)}\n`;
-        }
-        if (userCareerProfile.targetTransition) {
-          const trans = typeof userCareerProfile.targetTransition === 'object'
-            ? `Rol: ${userCareerProfile.targetTransition.targetRole || ''}, Industria: ${userCareerProfile.targetTransition.targetIndustries || ''}, Geografía: ${userCareerProfile.targetTransition.targetGeography || ''}`
-            : String(userCareerProfile.targetTransition);
-          candidateContext += `- Objetivo de Transición: ${trans}\n`;
-        }
-      }
-      if (userCareerProfile.targetRoles?.length) {
-        const roles = Array.isArray(userCareerProfile.targetRoles)
-          ? userCareerProfile.targetRoles.join(', ')
-          : userCareerProfile.targetRoles;
-        candidateContext += `- Roles Objetivo: ${roles}\n`;
-      }
-      if (userCareerProfile.experienceYears !== undefined && userCareerProfile.experienceYears !== null) {
-        candidateContext += `- Años de Experiencia: ${userCareerProfile.experienceYears}\n`;
-      }
-      if (userCareerProfile.preferredWorkplaces?.length) {
-        const modes = Array.isArray(userCareerProfile.preferredWorkplaces)
-          ? userCareerProfile.preferredWorkplaces.join(', ')
-          : userCareerProfile.preferredWorkplaces;
-        candidateContext += `- Modalidades: ${modes}\n`;
-      }
-      if (userCareerProfile.preferredLocations) {
-        candidateContext += `- Ubicaciones: ${userCareerProfile.preferredLocations}\n`;
-      }
-      if (userCareerProfile.companyPreferences) {
-        candidateContext += `- Empresas: ${String(userCareerProfile.companyPreferences).slice(0, 220)}\n`;
-      }
-      if (userCareerProfile.salaryMin || userCareerProfile.salaryTarget) {
-        candidateContext += `- Salario: Min ${userCareerProfile.salaryMin || 'N/D'}€, Target ${userCareerProfile.salaryTarget || 'N/D'}€\n`;
-      }
-    }
-
-    if (userCareerProfile?.curationCriteria) {
-      candidateContext += `\n### CRITERIOS DEL CANDIDATO (texto completo):\n${String(userCareerProfile.curationCriteria).slice(0, 2500)}\n`;
-    }
+    const parts: string[] = [];
+    const structured = formatCareerProfileContext(userCareerProfile, 2800);
+    if (structured) parts.push(structured);
 
     const extractedRules = formatHardConstraintsForPrompt(hardConstraints);
-    if (extractedRules) {
-      candidateContext += `\n${extractedRules}\n`;
-    }
+    if (extractedRules) parts.push(extractedRules);
 
     const cvSummary = this.compressCvForCuration(baseCvMarkdown);
-    if (cvSummary) {
-      candidateContext += `\n### CV (resumen):\n${cvSummary}\n`;
-    }
+    if (cvSummary) parts.push(`### CV (resumen):\n${cvSummary}`);
 
-    return candidateContext.trim() || 'Perfil general de Desarrollo de Software.';
+    return parts.join('\n\n').trim() || 'Perfil general de Desarrollo de Software.';
   }
 
   private static buildCurationSystemPrompt(
@@ -1711,6 +1618,12 @@ ${optionalTarget?.trim() ? `Objetivo explícito opcional: ${optionalTarget.trim(
       cloud_devops?: string[];
       database?: string[];
     };
+    skills?: Array<{
+      name: string;
+      category?: string;
+      proficiency?: string;
+      evidence?: string;
+    }>;
     keyProjects?: Array<{
       title: string;
       role?: string;
@@ -1767,7 +1680,10 @@ REGLAS DE SALIDA:
   "salaryMin": null,
   "salaryTarget": null,
   "curationCriteria": "",
-  "masterDocument": "..."
+  "masterDocument": "...",
+  "skills": [
+    { "name": "TypeScript", "category": "frontend", "proficiency": "core", "evidence": "Proyecto o logro real" }
+  ]
 }`;
 
     const userPrompt = `A continuación tienes la información bruta / CV / notas del candidato:
@@ -1792,10 +1708,14 @@ Por favor, estructura el Perfil Maestro completo en JSON según las instruccione
           clean = clean.slice(start, end + 1);
         }
       }
-      return JSON.parse(clean);
+      const parsed = JSON.parse(clean);
+      return {
+        ...parsed,
+        ...hydrateStructuredProfile(parsed, { bio: parsed.bio, masterDocument: parsed.masterDocument, cvMarkdown: rawText }),
+      };
     } catch (e) {
       console.error('[AIService.extractProfileFromRawText] Error parsing JSON:', e, 'Raw:', rawResponse);
-      return {
+      const fallback = {
         bio: rawText.slice(0, 800),
         experienceYears: null,
         targetRoles: [],
@@ -1809,6 +1729,10 @@ Por favor, estructura el Perfil Maestro completo en JSON según las instruccione
         salaryTarget: null,
         curationCriteria: '',
         masterDocument: rawText.slice(0, 2000),
+      };
+      return {
+        ...fallback,
+        ...hydrateStructuredProfile(fallback, { bio: fallback.bio, masterDocument: fallback.masterDocument, cvMarkdown: rawText }),
       };
     }
   }
@@ -1907,7 +1831,7 @@ REGLAS:
 - Extrae campos estructurados solo de evidencias del texto. Arrays vacíos si no hay datos. Salario null si no lo dijo.
 - preferredWorkplaces vacío si no lo dijo.
 - Devuelve ÚNICAMENTE JSON:
-{"bio":"...","experienceYears":null,"targetRoles":[],"techStack":{"frontend":[],"backend":[],"ai_ml":[],"cloud_devops":[],"database":[]},"keyProjects":[],"targetTransition":{"targetRole":"","targetIndustries":"","targetGeography":""},"preferredWorkplaces":[],"preferredLocations":"","companyPreferences":"","salaryMin":null,"salaryTarget":null,"curationCriteria":"","masterDocument":"..."}`;
+{"bio":"...","experienceYears":null,"targetRoles":[],"techStack":{"frontend":[],"backend":[],"ai_ml":[],"cloud_devops":[],"database":[]},"keyProjects":[],"skills":[{"name":"...","category":"backend","proficiency":"solid","evidence":"..."}],"targetTransition":{"targetRole":"","targetIndustries":"","targetGeography":""},"preferredWorkplaces":[],"preferredLocations":"","companyPreferences":"","salaryMin":null,"salaryTarget":null,"curationCriteria":"","masterDocument":"..."}`;
 
     const userPrompt = `Clasificación: ${JSON.stringify(classification || {})}
 Objetivo explícito opcional: ${optionalTarget?.trim() || 'ninguno'}
@@ -1936,17 +1860,30 @@ ${qaList.map((qa, i) => `P${i + 1}: ${qa.question}\nR: ${qa.answer}`).join('\n\n
           clean = clean.slice(start, end + 1);
         }
       }
-      return JSON.parse(clean);
+      const parsed = JSON.parse(clean);
+      return {
+        ...currentProfile,
+        ...parsed,
+        ...hydrateStructuredProfile({ ...currentProfile, ...parsed }, {
+          bio: parsed.bio || dumpText,
+          masterDocument: parsed.masterDocument,
+          cvMarkdown: dumpText,
+        }),
+      };
     } catch (e) {
       console.error('[AIService.synthesizeProfileFromInterview] Error parsing JSON:', e, 'Raw:', rawResponse);
       const combined = [
         dumpText || currentProfile?.bio || '',
         ...qaList.map((qa) => qa.answer),
       ].filter(Boolean).join('\n\n');
-      return {
+      const fallback = {
         ...currentProfile,
         bio: (dumpText || currentProfile?.bio || combined).trim(),
         masterDocument: combined.trim().slice(0, 2500),
+      };
+      return {
+        ...fallback,
+        ...hydrateStructuredProfile(fallback, { bio: fallback.bio, masterDocument: fallback.masterDocument, cvMarkdown: dumpText }),
       };
     }
   }

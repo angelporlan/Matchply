@@ -14,6 +14,7 @@ import {
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
 import { parseHardConstraints } from "@/lib/curation-constraints";
+import { normalizeCareerProfileFields } from "@/lib/career-profile";
 
 function cvLimitMessage(isGuest: boolean) {
   return isGuest
@@ -415,13 +416,14 @@ export async function saveUserCareerProfileAction(profileData: any) {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const currentProfile = (user?.careerProfile as any) || {};
     const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
+    const normalizedFields = normalizeCareerProfileFields(profileFields || {});
 
     const updatedProfile = {
       ...currentProfile,
-      ...profileFields,
+      ...normalizedFields,
       hardConstraints: parseHardConstraints({
-        curationCriteria: profileFields?.curationCriteria,
-        bio: profileFields?.bio,
+        curationCriteria: normalizedFields?.curationCriteria,
+        bio: normalizedFields?.bio,
       }),
       updatedAt: new Date().toISOString(),
     };
@@ -434,9 +436,11 @@ export async function saveUserCareerProfileAction(profileData: any) {
       .where(eq(users.id, userId));
 
     await createAuditLog("career_profile_update", userId, session.user.email || null, {
-      hasBio: !!profileData.bio,
-      hasMasterDocument: !!profileFields?.masterDocument,
-      targetRolesCount: Array.isArray(profileData.targetRoles) ? profileData.targetRoles.length : 0,
+      hasBio: !!normalizedFields.bio,
+      hasMasterDocument: !!normalizedFields.masterDocument,
+      targetRolesCount: Array.isArray(normalizedFields.targetRoles) ? normalizedFields.targetRoles.length : 0,
+      skillsCount: Array.isArray(normalizedFields.skills) ? normalizedFields.skills.length : 0,
+      projectsCount: Array.isArray(normalizedFields.keyProjects) ? normalizedFields.keyProjects.length : 0,
     });
 
     revalidatePath("/dashboard/profile");
