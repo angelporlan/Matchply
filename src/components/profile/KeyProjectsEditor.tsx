@@ -26,7 +26,7 @@ const COPY: Record<ProfileEntryKind, {
     add: 'Añadir puesto',
     item: 'Puesto',
     title: 'Empresa',
-    titlePlaceholder: 'ENAE Business School',
+    titlePlaceholder: 'Acme Corp',
     rolePlaceholder: 'Full Stack Developer',
     descriptionPlaceholder: 'Qué hiciste en el día a día y con qué tecnologías.',
     move: 'Mover a proyectos',

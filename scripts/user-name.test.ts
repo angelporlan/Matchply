@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { sanitizeDisplayName } from '@/lib/user-name';
 
 test('sanitizeDisplayName trims and collapses whitespace', () => {
-  assert.equal(sanitizeDisplayName('  Ángel   Porlán  '), 'Ángel Porlán');
+  assert.equal(sanitizeDisplayName('  Carlos   García  '), 'Carlos García');
   assert.equal(sanitizeDisplayName('Ana\nMaría\tGarcía'), 'Ana María García');
 });
 

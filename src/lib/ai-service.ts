@@ -52,14 +52,14 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
 1. NOMBRE DEL CANDIDATO (LA PRIMERÍSIMA LÍNEA DEL DOCUMENTO):
    - La primera línea del documento DEBE ser siempre un título de primer nivel ('# ') con el nombre completo del candidato.
    - Ejemplo exacto:
-     # ANGEL PORLAN
+     # ALEJANDRO MARTÍNEZ
    - Debe haber obligatoriamente una línea en blanco después del nombre.
 
 2. ENCABEZADO DE CONTACTO (Inmediatamente después del nombre y antes de cualquier sección '##'):
    - Las líneas de contacto deben estar en una o dos líneas al principio, formateadas usando el separador ' | ' y negrita para los nombres de los campos.
    - Ejemplo exacto:
-     **Email:** angelporlandev@gmail.com | **Teléfono:** +34 652 68 49 26 | **Ubicación:** Murcia, España
-     **LinkedIn:** linkedin.com/in/angelporlan | **GitHub:** github.com/angelporlan | **Web:** angelporlan.vercel.app
+     **Email:** alejandro.martinez@ejemplo.com | **Teléfono:** +34 600 00 00 00 | **Ubicación:** Madrid, España
+     **LinkedIn:** linkedin.com/in/alejandro-martinez | **GitHub:** github.com/alejandro-martinez | **Web:** alejandromartinez.dev
 
 3. SECCIONES PRINCIPALES:
    - Deben empezar siempre con '## ' (ejemplo: ## Experiencia Profesional, ## Educación, ## Habilidades Técnicas, ## Perfil Profesional).
@@ -70,11 +70,11 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
      - LÍNEA 2 (Empresa y Fecha - Línea inmediatamente posterior): Debe contener el nombre de la Empresa o Institución en negrita, seguido exactamente del separador ' | ' (espacio, barra vertical, espacio), seguido del rango de fechas en cursiva.
        Ejemplo exacto:
        ### Desarrollador Full Stack
-       **ENAE Business School** | *Abril 2025 – Presente*
+       **Tech Solutions Inc.** | *Enero 2024 – Presente*
        
        Ejemplo exacto:
-       ### Técnico Superior en Desarrollo de Aplicaciones Web (DAW)
-       **IES Ramón Arcas Meca** | *2022 – 2024*
+       ### Grado en Ingeniería Informática
+       **Universidad Tecnológica** | *2020 – 2024*
 
    ¡NUNCA mezcles el puesto/título y la empresa/fecha en la misma línea del '### '! Deben estar estrictamente en líneas separadas.
 

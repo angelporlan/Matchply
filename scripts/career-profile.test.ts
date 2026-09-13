@@ -18,19 +18,19 @@ import {
 
 const BIO = 'Programador Full Stack con 2 años de experiencia profesional y un SaaS propio en producción. Especializado en PHP (Laravel), Node.js, TypeScript, APIs RESTful y desarrollo frontend con Angular y React. Experiencia demostrada en la optimización de bases de datos relacionales (MySQL/PostgreSQL) y entornos contenedorizados con Docker.';
 
-const CV = `# ANGEL PORLÁN GARCÍA
+const CV = `# CARLOS GARCÍA LÓPEZ
 
 ## Perfil Profesional
 ${BIO}
 
 ## Experiencia Profesional
 ### Desarrollador Full Stack (PHP Laravel & Node.js)
-**ENAE Business School** | *Abril 2025 – Presente*
+**Acme Technologies** | *Abril 2025 – Presente*
 * Desarrollé servicios backend y APIs RESTful robustas en PHP (Laravel) y Node.js bajo arquitectura limpia.
 * Incorporé APIs de LLMs en flujos de backend para automatizar la clasificación de documentación académica, ahorrando 15 horas semanales.
 
 ### Desarrollador Full Stack
-**Sevensystem** | *Febrero 2024 – Junio 2024*
+**CloudSystems Labs** | *Febrero 2024 – Junio 2024*
 * Optimicé esquemas relacionales y consultas SQL en MySQL/PostgreSQL, reduciendo tiempos de respuesta de APIs en un 50%.
 * Configuré entornos contenedorizados usando Docker y Docker Compose.
 
@@ -43,7 +43,7 @@ Fundé y desarrollé en solitario Matchply, una plataforma SaaS de optimización
 
 ## Educación
 ### Técnico Superior en DAW
-**IES Ramón Arcas Meca** | *2022 – 2024*
+**Instituto Tecnológico Central** | *2022 – 2024*
 * Mención de honor.
 `;
 
@@ -65,14 +65,14 @@ test('extracts jobs and own projects from a markdown CV', () => {
   const projects = extractProjectsFromMarkdown(CV);
   const jobs = entriesOfKind(projects, 'experience');
   const personal = entriesOfKind(projects, 'project');
-  assert.ok(jobs.some((item) => /ENAE/i.test(item.title)));
-  assert.ok(jobs.some((item) => /Sevensystem/i.test(item.title)));
+  assert.ok(jobs.some((item) => /Acme/i.test(item.title)));
+  assert.ok(jobs.some((item) => /CloudSystems/i.test(item.title)));
   assert.ok(personal.some((item) => /Matchply/i.test(item.title)));
   assert.equal(jobs.some((item) => /Matchply/i.test(item.title)), false);
-  assert.equal(personal.some((item) => /ENAE/i.test(item.title)), false);
-  assert.equal(projects.some((item) => /DAW|Ramón Arcas/i.test(item.title)), false);
-  const enae = jobs.find((item) => /ENAE/i.test(item.title));
-  assert.match(enae?.role || '', /Full Stack/i);
+  assert.equal(personal.some((item) => /Acme/i.test(item.title)), false);
+  assert.equal(projects.some((item) => /DAW|Instituto Tecnológico/i.test(item.title)), false);
+  const acme = jobs.find((item) => /Acme/i.test(item.title));
+  assert.match(acme?.role || '', /Full Stack/i);
   const matchply = personal.find((item) => /Matchply/i.test(item.title));
   assert.ok(matchply?.description);
 });
@@ -121,7 +121,7 @@ test('formatCareerProfileContext keeps stack even when a master document exists'
   assert.match(context, /Experiencia profesional/);
   assert.match(context, /Proyectos personales/);
   assert.match(context, /Matchply/);
-  assert.match(context, /ENAE/);
+  assert.match(context, /Acme/);
   assert.match(context, /Criterios de puntuación/);
 });
 
@@ -142,12 +142,12 @@ test('skillsFromTechStack and reverse conversion stay aligned', () => {
 
 test('mergeSkills keeps user evidence and upgrades proficiency', () => {
   const merged = mergeSkills(
-    [{ name: 'Docker', category: 'cloud_devops', proficiency: 'used', evidence: 'Sevensystem' }],
+    [{ name: 'Docker', category: 'cloud_devops', proficiency: 'used', evidence: 'CloudSystems Labs' }],
     [{ name: 'Docker', category: 'cloud_devops', proficiency: 'core' }, { name: 'Stripe', category: 'backend', proficiency: 'solid' }],
   );
   const docker = merged.find((skill) => skill.name === 'Docker');
   assert.equal(docker?.proficiency, 'core');
-  assert.equal(docker?.evidence, 'Sevensystem');
+  assert.equal(docker?.evidence, 'CloudSystems Labs');
   assert.ok(merged.some((skill) => skill.name === 'Stripe'));
 });
 
