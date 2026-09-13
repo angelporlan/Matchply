@@ -833,7 +833,7 @@ export default function ApplicationsClient({
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
           <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
             <SlidersHorizontal className="w-4 h-4 text-text-muted ml-2 hidden sm:block stroke-[1.75]" />
             {[

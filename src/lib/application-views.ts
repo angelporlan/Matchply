@@ -65,9 +65,13 @@ export const APPLICATION_COLUMN_DATE_FILTER_OPERATORS = [
 
 export type ApplicationColumnDateFilterOperator = typeof APPLICATION_COLUMN_DATE_FILTER_OPERATORS[number];
 
+export const APPLICATION_COLUMN_MULTI_FILTER_OPERATORS = ['in'] as const;
+export type ApplicationColumnMultiFilterOperator = typeof APPLICATION_COLUMN_MULTI_FILTER_OPERATORS[number];
+
 export type ApplicationColumnFilterOperatorValue =
   | ApplicationColumnFilterOperator
-  | ApplicationColumnDateFilterOperator;
+  | ApplicationColumnDateFilterOperator
+  | ApplicationColumnMultiFilterOperator;
 
 export const APPLICATION_DATE_COLUMN_IDS = ['createdAt', 'updatedAt'] as const;
 export type ApplicationDateColumnId = typeof APPLICATION_DATE_COLUMN_IDS[number];
@@ -83,10 +87,17 @@ export function isApplicationDateColumnFilterOperator(
     && (APPLICATION_COLUMN_DATE_FILTER_OPERATORS as readonly string[]).includes(operator);
 }
 
+export function isApplicationMultiFilterOperator(
+  operator: unknown,
+): operator is ApplicationColumnMultiFilterOperator {
+  return operator === 'in';
+}
+
 export type ApplicationColumnFilter = {
   column: ApplicationColumnId;
   operator: ApplicationColumnFilterOperatorValue;
   value: string;
+  values?: string[];
   startDate?: string;
   endDate?: string;
 };
@@ -254,6 +265,24 @@ function normalizeColumnFilters(input: unknown): ApplicationColumnFilter[] {
       } else {
         filter = { column: candidate.column, operator: candidate.operator, value: '' };
       }
+    } else if (isApplicationMultiFilterOperator(candidate.operator)) {
+      const rawValues = Array.isArray(candidate.values) ? candidate.values : [];
+      const values: string[] = [];
+      for (const entry of rawValues) {
+        if (typeof entry !== 'string') continue;
+        const normalizedValue = entry.trim().slice(0, 80);
+        if (!normalizedValue) continue;
+        if (
+          candidate.column === 'status'
+          && !(APPLICATION_STATUSES as readonly string[]).includes(normalizedValue)
+        ) {
+          continue;
+        }
+        if (!values.includes(normalizedValue)) values.push(normalizedValue);
+        if (values.length >= 50) break;
+      }
+      if (values.length === 0) continue;
+      filter = { column: candidate.column, operator: candidate.operator, value: '', values };
     } else {
       if (!isColumnFilterOperator(candidate.operator)) continue;
       const needsValue = candidate.operator !== 'isEmpty' && candidate.operator !== 'isNotEmpty';
@@ -460,6 +489,12 @@ export function matchesColumnFilter(
 
   if (isApplicationDateColumnFilterOperator(filter.operator)) {
     return matchesColumnDateFilter(raw, filter, now);
+  }
+
+  if (isApplicationMultiFilterOperator(filter.operator)) {
+    const values = filter.values ?? [];
+    if (values.length === 0) return true;
+    return values.some((entry) => entry.toLowerCase() === value.toLowerCase());
   }
 
   switch (filter.operator) {

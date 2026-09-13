@@ -363,7 +363,7 @@ export default function ApplicationsTable({
 
   if (isEmpty) {
     return (
-      <div className="rounded-[12px] border border-dashed border-subtle bg-surface/50 p-12 text-center">
+      <div className="rounded-[12px] border border-dashed border-subtle bg-surface/50 p-12 text-center md:my-auto">
         {hasActiveFilters ? (
           <>
             <Search className="w-8 h-8 mx-auto mb-3 text-text-muted opacity-60 stroke-[1.75]" />

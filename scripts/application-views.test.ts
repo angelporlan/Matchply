@@ -235,6 +235,42 @@ test('filterApplications applies date column filters', () => {
   );
 });
 
+test('normalizeViewConfig keeps multi-select filters and drops unknown statuses', () => {
+  const config = normalizeViewConfig({
+    filters: {
+      columnFilters: [
+        { column: 'status', operator: 'in', value: '', values: ['applied', 'nope', 'applied', 'interview'] },
+        { column: 'status', operator: 'in', value: '', values: [] },
+      ],
+    },
+  });
+
+  assert.deepEqual(config.filters.columnFilters, [
+    { column: 'status', operator: 'in', value: '', values: ['applied', 'interview'] },
+  ]);
+});
+
+test('filterApplications matches multi-select status filters', () => {
+  const offers = [
+    offer({ id: 'a', status: 'applied' }),
+    offer({ id: 'b', status: 'interested' }),
+    offer({ id: 'c', status: 'rejected' }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, {
+      columnFilters: [{ column: 'status', operator: 'in', value: '', values: ['applied', 'interview'] }],
+    }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, {
+      columnFilters: [{ column: 'status', operator: 'in', value: '', values: [] }],
+    }).map(o => o.id),
+    ['a', 'b', 'c'],
+  );
+});
+
 test('filterApplications applies per-column filters', () => {
   const offers = [
     offer({ id: 'a', company: 'Acme', status: 'applied', scoreOverall: 80 }),
