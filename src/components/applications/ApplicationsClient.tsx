@@ -32,7 +32,7 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
@@ -105,6 +105,7 @@ export default function ApplicationsClient({
   const [endDate, setEndDate] = useState(initialConfig.filters.endDate || '');
   const [isCurateModalOpen, setIsCurateModalOpen] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const [curateTargetOffers, setCurateTargetOffers] = useState<ApplicationSummary[] | null>(null);
   const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
@@ -426,6 +427,15 @@ export default function ApplicationsClient({
     router.refresh();
   };
 
+  const handleCurateSelected = () => {
+    if (selectedIds.size === 0) return;
+    const selectedOffers = localOffers.filter((o) => selectedIds.has(o.id));
+    if (selectedOffers.length === 0) return;
+    setCurateTargetOffers(selectedOffers);
+    setIsSimulationMode(false);
+    setIsCurateModalOpen(true);
+  };
+
   const handleOpenDetails = async (offer: ApplicationSummary) => {
     setDetailsLoading(true);
     setSelectedOfferForDetails(null);
@@ -723,6 +733,7 @@ export default function ApplicationsClient({
           onDragEnd={handleDragEnd}
           onToggleInterestedSort={() => setInterestedSortMode((prev) => (prev === 'score' ? 'date' : 'score'))}
           onOpenCurate={(simulation) => {
+            setCurateTargetOffers(null);
             setIsSimulationMode(simulation);
             setIsCurateModalOpen(true);
           }}
@@ -737,6 +748,14 @@ export default function ApplicationsClient({
                 {t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
               </span>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCurateSelected}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold font-display shadow-xs shadow-ai/20 hover:opacity-95 active:scale-98 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 stroke-[2] text-violet-200" />
+                  <span>{t('applications.table.bulk.matchWithAi')}</span>
+                </button>
                 <label className="sr-only" htmlFor="bulk-status">{t('applications.table.bulk.changeStatus')}</label>
                 <select
                   id="bulk-status"
@@ -1024,12 +1043,21 @@ export default function ApplicationsClient({
       {/* Modal de Curación Inteligente de Candidaturas con IA (Efecto Mazo de Cartas) */}
       <CurateWithAiModal
         isOpen={isCurateModalOpen}
-        onClose={() => setIsCurateModalOpen(false)}
+        onClose={() => {
+          setIsCurateModalOpen(false);
+          setCurateTargetOffers(null);
+        }}
         onSuccess={(summary) => {
+          setSelectedIds(new Set());
+          setCurateTargetOffers(null);
           router.refresh();
           if (summary) {
+            const count = summary.total;
+            const message = count === 1
+              ? `🎉 ¡1 candidatura puntuada con éxito! (${summary.kept} apta, ${summary.archived} suspensa)`
+              : `🎉 ¡${count} candidaturas puntuadas con éxito! (${summary.kept} aptas, ${summary.archived} suspensas)`;
             setCurationToast({
-              message: `🎉 ¡${summary.total} candidaturas puntuadas con éxito! (${summary.kept} aptas, ${summary.archived} suspensas)`,
+              message,
               type: 'success',
             });
             setTimeout(() => setCurationToast(null), 6000);
@@ -1044,8 +1072,8 @@ export default function ApplicationsClient({
             })
           );
         }}
-        offersCount={boardOffers.filter(o => o.status === 'interested').length}
-        offers={boardOffers.filter(o => o.status === 'interested')}
+        offersCount={(curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')).length}
+        offers={curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')}
         isSimulation={isSimulationMode}
       />
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
@@ -34,10 +34,14 @@ export async function POST(req: Request) {
   }
 
   let targetThreshold = 65;
+  let offerIds: string[] | undefined;
   try {
     const body = await req.json().catch(() => ({}));
     if (typeof body?.targetThreshold === 'number' && Number.isFinite(body.targetThreshold)) {
       targetThreshold = Math.max(0, Math.min(100, Math.round(body.targetThreshold)));
+    }
+    if (Array.isArray(body?.offerIds) && body.offerIds.length > 0) {
+      offerIds = body.offerIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0);
     }
   } catch {
     // body opcional
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    consumeRateLimit(`ai:curate:${userId}`, 4, 10 * 60_000);
+    consumeRateLimit(`ai:curate:${userId}`, 10, 10 * 60_000);
   } catch (error) {
     if (error instanceof RateLimitError) {
       return new NextResponse(error.message, { status: 429 });
@@ -72,10 +76,17 @@ export async function POST(req: Request) {
     .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))
     .limit(1);
 
+  const conditions = [eq(jobOffers.userId, userId)];
+  if (offerIds && offerIds.length > 0) {
+    conditions.push(inArray(jobOffers.id, offerIds));
+  } else {
+    conditions.push(eq(jobOffers.status, 'interested'));
+  }
+
   const interestedOffers = await db
     .select(curateOfferColumns)
     .from(jobOffers)
-    .where(and(eq(jobOffers.userId, userId), eq(jobOffers.status, 'interested')))
+    .where(and(...conditions))
     .orderBy(desc(jobOffers.createdAt));
 
   const encoder = new TextEncoder();
@@ -140,6 +151,7 @@ export async function POST(req: Request) {
           keptCount: kept,
           archivedCount: archived,
           streamed: true,
+          offerIds: offerIds ?? null,
         });
 
         revalidatePath('/dashboard/applications');

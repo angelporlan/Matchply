@@ -76,12 +76,11 @@ export default function SkillsEvidenceEditor({
     return map;
   }, [skills]);
 
-  // Initial state: expand categories that already have skills
+  // Initial state: todas las categorías plegadas por defecto
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     CATEGORIES.forEach((cat) => {
-      const count = skills.filter((s) => s.category === cat).length;
-      initial[cat] = count > 0;
+      initial[cat] = false;
     });
     return initial;
   });
@@ -90,7 +89,7 @@ export default function SkillsEvidenceEditor({
     setExpandedCats((prev) => ({ ...prev, [cat]: !prev[cat] }));
   };
 
-  const allOpen = Object.values(expandedCats).every(Boolean);
+  const allOpen = CATEGORIES.length > 0 && CATEGORIES.every((c) => Boolean(expandedCats[c]));
 
   const toggleAll = () => {
     const next: Record<string, boolean> = {};

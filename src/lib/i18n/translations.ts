@@ -548,6 +548,7 @@ export const translations = {
         },
         bulk: {
           selected: '{count} seleccionadas',
+          matchWithAi: 'Match con IA',
           changeStatus: 'Cambiar estado',
           clear: 'Quitar selección',
         },
@@ -1329,6 +1330,7 @@ export const translations = {
         },
         bulk: {
           selected: '{count} selected',
+          matchWithAi: 'AI Match',
           changeStatus: 'Change status',
           clear: 'Clear selection',
         },

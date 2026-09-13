@@ -295,7 +295,10 @@ export default function CurateWithAiModal({
       const res = await fetch('/api/ai/curate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetThreshold: 65 }),
+        body: JSON.stringify({
+          targetThreshold: 65,
+          offerIds: offers && offers.length > 0 ? offers.map((o) => o.id) : undefined,
+        }),
         signal: controller.signal,
       });
 
