@@ -6,6 +6,7 @@ import { users, cvs, jobOffers, settings, prompts, auditLogs } from '@/db/schema
 import { eq, and, not, sql, desc, gte, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { clearAiSettingsCache } from '@/lib/ai-settings';
+import { CustomModelConfig, getDefaultModelCatalog } from '@/lib/models';
 
 // Helper de seguridad para asegurar que solo los admins llaman a estas acciones
 async function verifyAdmin() {
@@ -161,6 +162,57 @@ export async function updateAISetting(key: string, value: string) {
   } catch (error: any) {
     console.error(`Error al guardar configuración ${key}:`, error);
     return { success: false, error: error.message };
+  }
+}
+
+// 4b. Guardar catálogo de modelos de IA
+export async function saveModelCatalogAction(catalog: CustomModelConfig[]) {
+  await verifyAdmin();
+
+  if (!Array.isArray(catalog)) {
+    return { success: false, error: 'Catálogo de modelos inválido' };
+  }
+
+  try {
+    const jsonValue = JSON.stringify(catalog);
+    await db
+      .insert(settings)
+      .values({ key: 'ai_models_catalog', value: jsonValue, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: jsonValue, updatedAt: new Date() },
+      });
+
+    clearAiSettingsCache();
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al guardar catálogo de modelos:', error);
+    return { success: false, error: error.message || 'Error al guardar modelos' };
+  }
+}
+
+// 4c. Restaurar catálogo de modelos a valores predeterminados
+export async function resetModelCatalogAction() {
+  await verifyAdmin();
+
+  try {
+    const defaultCatalog = getDefaultModelCatalog();
+    const jsonValue = JSON.stringify(defaultCatalog);
+    await db
+      .insert(settings)
+      .values({ key: 'ai_models_catalog', value: jsonValue, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value: jsonValue, updatedAt: new Date() },
+      });
+
+    clearAiSettingsCache();
+    revalidatePath('/admin');
+    return { success: true, catalog: defaultCatalog };
+  } catch (error: any) {
+    console.error('Error al resetear catálogo de modelos:', error);
+    return { success: false, error: error.message || 'Error al restaurar modelos' };
   }
 }
 
