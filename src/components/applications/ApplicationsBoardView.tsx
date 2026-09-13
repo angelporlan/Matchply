@@ -21,7 +21,7 @@ import ApplicationCard from './ApplicationCard';
 import ApplicationDenseListItem from './ApplicationDenseListItem';
 
 interface Column {
-  id: 'interested' | 'applied' | 'interview' | 'offer' | 'rejected';
+  id: 'interested' | 'applied' | 'interview' | 'offer' | 'rejected' | 'archived';
   title: string;
   shortTitle: string;
   description: string;
@@ -41,7 +41,6 @@ interface ApplicationsBoardViewProps {
   onDragEnd: (result: any) => void;
   onToggleInterestedSort: () => void;
   onOpenCurate: (simulation: boolean) => void;
-  onArchiveAll: (columnId: string, columnTitle: string, offers: ApplicationSummary[]) => void;
   onOpenDetails: (offer: ApplicationSummary) => void;
   onDelete: (offerId: string) => void;
 }
@@ -58,7 +57,6 @@ export default function ApplicationsBoardView({
   onDragEnd,
   onToggleInterestedSort,
   onOpenCurate,
-  onArchiveAll,
   onOpenDetails,
   onDelete,
 }: ApplicationsBoardViewProps) {
@@ -70,6 +68,7 @@ export default function ApplicationsBoardView({
     { id: 'interview', title: t('applications.columns.interview.title'), shortTitle: t('applications.columns.interview.shortTitle'), description: t('applications.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20' },
     { id: 'offer', title: t('applications.columns.offer.title'), shortTitle: t('applications.columns.offer.shortTitle'), description: t('applications.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
     { id: 'rejected', title: t('applications.columns.rejected.title'), shortTitle: t('applications.columns.rejected.shortTitle'), description: t('applications.columns.rejected.desc'), color: 'text-rose-400 bg-rose-500/10', borderColor: 'border-rose-500/20' },
+    { id: 'archived', title: t('applications.columns.archived.title'), shortTitle: t('applications.columns.archived.shortTitle'), description: t('applications.columns.archived.desc'), color: 'text-slate-400 bg-slate-500/10', borderColor: 'border-slate-500/20' },
   ];
 
   const renderColumnIcon = (columnId: Column['id']) => {
@@ -84,6 +83,8 @@ export default function ApplicationsBoardView({
         return <PartyPopper className="w-3.5 h-3.5" />;
       case 'rejected':
         return <Ban className="w-3.5 h-3.5" />;
+      case 'archived':
+        return <Archive className="w-3.5 h-3.5" />;
       default:
         return null;
     }
@@ -95,7 +96,7 @@ export default function ApplicationsBoardView({
       onDragEnd={onDragEnd}
     >
       <div className="-mx-4 px-4 overflow-x-auto pb-4 scrollbar-custom">
-        <div className="grid min-w-[1240px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 items-start">
+        <div className="grid min-w-[1480px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-start">
           {columns.map((column) => {
             const rawColumnOffers = offers.filter((offer) => offer.status === column.id);
             let columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
@@ -179,16 +180,6 @@ export default function ApplicationsBoardView({
                         <ArrowUpDown className="w-3 h-3 stroke-[2]" />
                         <span>{interestedSortMode === 'score' ? 'Score' : 'Fecha'}</span>
                       </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onArchiveAll(column.id, column.shortTitle, columnOffers)}
-                        title={t('applications.board.archiveAllTooltip')}
-                        className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg border border-subtle bg-white dark:bg-surface hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-1 shrink-0 font-display"
-                      >
-                        <Archive className="w-3 h-3 stroke-[2]" />
-                        <span>{t('applications.board.archiveAllBtn')}</span>
-                      </button>
                     </div>
                   )}
 
@@ -203,14 +194,6 @@ export default function ApplicationsBoardView({
                           }}
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => onArchiveAll(column.id, column.shortTitle, columnOffers)}
-                        title={t('applications.board.archiveAllTooltip')}
-                        className="text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors shrink-0"
-                      >
-                        <Archive className="w-3 h-3 stroke-[2]" />
-                      </button>
                     </div>
                   )}
                 </div>

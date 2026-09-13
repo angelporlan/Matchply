@@ -271,6 +271,19 @@ test('filterApplications matches multi-select status filters', () => {
   );
 });
 
+test('normalizeViewConfig normalizes actions position and width', () => {
+  const clamped = normalizeViewConfig({ columns: ['title', 'company'], actionsIndex: 99 });
+  assert.equal(clamped.actionsIndex, 2);
+  assert.equal(normalizeViewConfig({ columns: ['title'], actionsIndex: -3 }).actionsIndex, 0);
+  assert.equal(normalizeViewConfig({ columns: ['title'], actionsIndex: 'first' }).actionsIndex, null);
+  assert.equal(normalizeViewConfig({ columns: ['title'] }).actionsIndex, null);
+
+  const widths = normalizeViewConfig({
+    columnWidths: { actions: 'md', title: 'lg', nope: 'sm', company: 'auto' },
+  });
+  assert.deepEqual(widths.columnWidths, { actions: 'md', title: 'lg' });
+});
+
 test('filterApplications applies per-column filters', () => {
   const offers = [
     offer({ id: 'a', company: 'Acme', status: 'applied', scoreOverall: 80 }),
@@ -328,4 +341,48 @@ test('groupApplications groups rows and keeps empty keys last', () => {
     { column: 'createdAt', direction: 'desc' },
   );
   assert.deepEqual(byDay.map(group => group.key), ['2026-09-12', '2026-09-01']);
+});
+
+test('filterApplications excludes archived unless status is explicitly filtered', () => {
+  const offers = [
+    offer({ id: 'a', status: 'applied' }),
+    offer({ id: 'b', status: 'archived' }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, { excludedStatuses: ['archived'] }).map(o => o.id),
+    ['a'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { status: 'archived', excludedStatuses: ['archived'] }).map(o => o.id),
+    ['b'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, {
+      excludedStatuses: ['archived'],
+      columnFilters: [{ column: 'status', operator: 'in', value: '', values: ['archived'] }],
+    }).map(o => o.id),
+    ['b'],
+  );
+  assert.deepEqual(
+    filterApplications(offers, { excludedStatuses: [] }).map(o => o.id),
+    ['a', 'b'],
+  );
+});
+
+test('normalizeViewConfig defaults to excluding archived and validates statuses', () => {
+  assert.deepEqual(normalizeViewConfig({}).filters.excludedStatuses, ['archived']);
+  assert.deepEqual(
+    normalizeViewConfig({ filters: { excludedStatuses: ['archived', 'nope', 'archived'] } }).filters.excludedStatuses,
+    ['archived'],
+  );
+  assert.deepEqual(normalizeViewConfig({ filters: { excludedStatuses: [] } }).filters.excludedStatuses, []);
+});
+
+test('archived status participates in status ordering', () => {
+  const offers = [offer({ id: 'a', status: 'archived' }), offer({ id: 'b', status: 'interested' })];
+  assert.deepEqual(
+    sortApplications(offers, { key: 'status', direction: 'asc' }).map(o => o.id),
+    ['b', 'a'],
+  );
 });

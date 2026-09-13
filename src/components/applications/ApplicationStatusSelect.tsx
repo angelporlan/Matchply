@@ -1,20 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Ban, Bookmark, Calendar, Check, ChevronDown, Loader2, PartyPopper, Send } from 'lucide-react';
+import { Archive, Ban, Bookmark, Calendar, Check, ChevronDown, Loader2, PartyPopper, Send } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { APPLICATION_STATUSES } from '@/lib/application-views';
 
-export const APPLICATION_STATUS_STYLES: Record<string, { color: string; border: string; icon: 'bookmark' | 'send' | 'calendar' | 'party' | 'ban' }> = {
+export const APPLICATION_STATUS_STYLES: Record<string, { color: string; border: string; icon: 'bookmark' | 'send' | 'calendar' | 'party' | 'ban' | 'archive' }> = {
   interested: { color: 'text-indigo-400 bg-indigo-500/10', border: 'border-indigo-500/20', icon: 'bookmark' },
   applied: { color: 'text-blue-400 bg-blue-500/10', border: 'border-blue-500/20', icon: 'send' },
   interview: { color: 'text-amber-400 bg-amber-500/10', border: 'border-amber-500/20', icon: 'calendar' },
   offer: { color: 'text-emerald-400 bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'party' },
   rejected: { color: 'text-rose-400 bg-rose-500/10', border: 'border-rose-500/20', icon: 'ban' },
+  archived: { color: 'text-slate-400 bg-slate-500/10', border: 'border-slate-500/20', icon: 'archive' },
 };
 
 export function ApplicationStatusIcon({ status, className = 'w-3 h-3 stroke-[1.75]' }: { status: string; className?: string }) {
-  switch (status) {
+  const safeStatus = status.startsWith('archived:') ? 'archived' : status;
+  switch (safeStatus) {
     case 'applied':
       return <Send className={className} />;
     case 'interview':
@@ -23,6 +25,8 @@ export function ApplicationStatusIcon({ status, className = 'w-3 h-3 stroke-[1.7
       return <PartyPopper className={className} />;
     case 'rejected':
       return <Ban className={className} />;
+    case 'archived':
+      return <Archive className={className} />;
     default:
       return <Bookmark className={className} />;
   }
@@ -65,7 +69,12 @@ export default function ApplicationStatusSelect({
     };
   }, [isOpen]);
 
-  const config = APPLICATION_STATUS_STYLES[status] || APPLICATION_STATUS_STYLES.interested;
+  const safeStatus = status.startsWith('archived:')
+    ? 'archived'
+    : ((APPLICATION_STATUSES as readonly string[]).includes(status) ? status : 'interested');
+  const config = APPLICATION_STATUS_STYLES[safeStatus] || APPLICATION_STATUS_STYLES.interested;
+  const rawLabel = t(`applications.columns.${safeStatus}.title`);
+  const label = rawLabel.startsWith('applications.columns.') ? safeStatus : rawLabel;
 
   return (
     <div ref={containerRef} className={`relative inline-flex ${className}`}>
@@ -81,8 +90,8 @@ export default function ApplicationStatusSelect({
         aria-label={t('applications.table.statusLabel')}
         className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-all disabled:opacity-60 ${config.color} ${config.border} hover:brightness-110`}
       >
-        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ApplicationStatusIcon status={status} />}
-        <span>{t(`applications.columns.${status}.title`)}</span>
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ApplicationStatusIcon status={safeStatus} />}
+        <span>{label}</span>
         <ChevronDown className="w-3 h-3 opacity-70 stroke-[2]" />
       </button>
 
@@ -93,7 +102,7 @@ export default function ApplicationStatusSelect({
         >
           {APPLICATION_STATUSES.map((option) => {
             const optionConfig = APPLICATION_STATUS_STYLES[option];
-            const isActive = option === status;
+            const isActive = option === safeStatus;
             return (
               <button
                 key={option}

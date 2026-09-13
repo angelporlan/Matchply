@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import NextLink from 'next/link';
 import {
-  Archive,
   CalendarClock,
   ChevronRight,
   ExternalLink,
@@ -57,13 +56,14 @@ interface ApplicationsTableProps {
   columnFilters: ApplicationColumnFilter[];
   onSetColumnFilter: (column: ApplicationColumnId, filter: ApplicationColumnFilter | null) => void;
   columnWidths: ApplicationColumnWidths;
-  onSetColumnWidth: (column: ApplicationColumnId, width: ApplicationColumnWidth) => void;
+  onSetColumnWidth: (column: ApplicationColumnId | 'actions', width: ApplicationColumnWidth) => void;
   onMoveColumn: (column: ApplicationColumnId, direction: -1 | 1) => void;
+  actionsIndex: number | null;
+  onMoveActions: (direction: -1 | 1) => void;
   selectedIds: Set<string>;
   onToggleRow: (id: string) => void;
   onToggleAll: (ids: string[], checked: boolean) => void;
   onOpenDetails: (offer: ApplicationSummary) => void;
-  onArchive: (offer: ApplicationSummary) => void;
   onDelete: (offer: ApplicationSummary) => void;
   onStatusChange: (offer: ApplicationSummary, status: string) => void;
   pendingStatusId: string | null;
@@ -118,11 +118,12 @@ export default function ApplicationsTable({
   columnWidths,
   onSetColumnWidth,
   onMoveColumn,
+  actionsIndex,
+  onMoveActions,
   selectedIds,
   onToggleRow,
   onToggleAll,
   onOpenDetails,
-  onArchive,
   onDelete,
   onStatusChange,
   pendingStatusId,
@@ -158,7 +159,17 @@ export default function ApplicationsTable({
 
   const headerLabel = (column: ApplicationColumnId | 'actions') => t(`applications.columns.labels.${column}`);
 
-  const columnStyle = (column: ApplicationColumnId): React.CSSProperties | undefined => {
+  const actionsPosition = actionsIndex === null
+    ? columns.length
+    : Math.min(Math.max(0, actionsIndex), columns.length);
+
+  const tableItems = useMemo(() => {
+    const items: Array<ApplicationColumnId | 'actions'> = [...columns];
+    items.splice(actionsPosition, 0, 'actions');
+    return items;
+  }, [columns, actionsPosition]);
+
+  const columnStyle = (column: ApplicationColumnId | 'actions'): React.CSSProperties | undefined => {
     const px = APPLICATION_COLUMN_WIDTH_PX[columnWidths[column] ?? 'auto'];
     return px ? { width: px, minWidth: px } : undefined;
   };
@@ -166,7 +177,11 @@ export default function ApplicationsTable({
   const groupLabel = (key: string) => {
     if (!grouping) return key;
     if (!key) return t('applications.columns.headerMenu.noValue');
-    if (grouping.column === 'status') return t(`applications.columns.${key}.title`);
+    if (grouping.column === 'status') {
+      const safeKey = key.startsWith('archived:') ? 'archived' : key;
+      const label = t(`applications.columns.${safeKey}.title`);
+      return label.startsWith('applications.columns.') ? safeKey : label;
+    }
     if (grouping.column === 'liveness') {
       return key === 'expired'
         ? t('applications.table.livenessExpired')
@@ -313,18 +328,6 @@ export default function ApplicationsTable({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onArchive(offer);
-        }}
-        title={t('applications.table.actions.archive')}
-        aria-label={t('applications.table.actions.archive')}
-        className={`p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors ${compact ? '' : 'opacity-60 group-hover:opacity-100'}`}
-      >
-        <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
           onDelete(offer);
         }}
         title={t('applications.table.actions.delete')}
@@ -351,12 +354,17 @@ export default function ApplicationsTable({
             label={t('applications.table.selectRow', { title: offer.title })}
           />
         </td>
-        {columns.map((column) => (
-          <td key={column} style={columnStyle(column)} className="px-3 py-2.5 align-middle">
-            {renderCell(offer, column)}
-          </td>
+        {tableItems.map((item) => (
+          item === 'actions' ? (
+            <td key="actions" style={columnStyle('actions')} className="px-3 py-2.5 align-middle">
+              {rowActions(offer)}
+            </td>
+          ) : (
+            <td key={item} style={columnStyle(item)} className="px-3 py-2.5 align-middle">
+              {renderCell(offer, item)}
+            </td>
+          )
         ))}
-        <td className="px-3 py-2.5 align-middle">{rowActions(offer)}</td>
       </tr>
     );
   };
@@ -413,38 +421,63 @@ export default function ApplicationsTable({
                     label={t('applications.table.selectAll')}
                   />
                 </th>
-                {columns.map((column) => {
-                  const isSorted = sort.key === column;
+                {tableItems.map((item) => {
+                  if (item === 'actions') {
+                    return (
+                      <th
+                        key="actions"
+                        scope="col"
+                        style={columnStyle('actions')}
+                        className="px-3 py-3 whitespace-nowrap font-bold"
+                      >
+                        <ApplicationColumnHeaderMenu
+                          column="actions"
+                          label={headerLabel('actions')}
+                          sortable={false}
+                          groupable={false}
+                          filterable={false}
+                          sort={sort}
+                          grouping={grouping}
+                          width={columnWidths.actions ?? 'auto'}
+                          canMoveLeft={actionsPosition > 0}
+                          canMoveRight={actionsPosition < columns.length}
+                          onSetSort={onSetSort}
+                          onSetGrouping={onSetGrouping}
+                          onSetColumnFilter={() => {}}
+                          onSetWidth={(width) => onSetColumnWidth('actions', width)}
+                          onMove={onMoveActions}
+                        />
+                      </th>
+                    );
+                  }
+                  const isSorted = sort.key === item;
                   return (
                     <th
-                      key={column}
+                      key={item}
                       scope="col"
-                      style={columnStyle(column)}
+                      style={columnStyle(item)}
                       aria-sort={isSorted ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className="px-3 py-3 whitespace-nowrap font-bold"
                     >
                       <ApplicationColumnHeaderMenu
-                        column={column}
-                        label={headerLabel(column)}
-                        sortable={SORTABLE_COLUMNS.includes(column)}
+                        column={item}
+                        label={headerLabel(item)}
+                        sortable={SORTABLE_COLUMNS.includes(item)}
                         sort={sort}
                         grouping={grouping}
-                        columnFilter={columnFilters.find((filter) => filter.column === column)}
-                        width={columnWidths[column] ?? 'auto'}
-                        canMoveLeft={columns.indexOf(column) > 0}
-                        canMoveRight={columns.indexOf(column) < columns.length - 1}
+                        columnFilter={columnFilters.find((filter) => filter.column === item)}
+                        width={columnWidths[item] ?? 'auto'}
+                        canMoveLeft={columns.indexOf(item) > 0}
+                        canMoveRight={columns.indexOf(item) < columns.length - 1}
                         onSetSort={onSetSort}
                         onSetGrouping={onSetGrouping}
-                        onSetColumnFilter={(filter) => onSetColumnFilter(column, filter)}
-                        onSetWidth={(width) => onSetColumnWidth(column, width)}
-                        onMove={(direction) => onMoveColumn(column, direction)}
+                        onSetColumnFilter={(filter) => onSetColumnFilter(item, filter)}
+                        onSetWidth={(width) => onSetColumnWidth(item, width)}
+                        onMove={(direction) => onMoveColumn(item, direction)}
                       />
                     </th>
                   );
                 })}
-                <th scope="col" className="px-3 py-3 text-right font-bold whitespace-nowrap">
-                  {headerLabel('actions')}
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-subtle dark:divide-white/5">

@@ -42,8 +42,10 @@ export type ApplicationCvFilter = 'all' | 'linked' | 'unlinked';
 export type ApplicationDateFilter = 'all' | 'today' | '7days' | 'custom';
 export type ApplicationFollowupFilter = 'all' | 'withDate' | 'overdue';
 
-export const APPLICATION_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
+export const APPLICATION_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
 export type ApplicationStatus = typeof APPLICATION_STATUSES[number];
+
+export const DEFAULT_EXCLUDED_STATUSES: ApplicationStatus[] = ['archived'];
 
 export const APPLICATION_COLUMN_FILTER_OPERATORS = [
   'contains',
@@ -126,6 +128,7 @@ export type ApplicationViewFilters = {
   endDate?: string;
   followup?: ApplicationFollowupFilter;
   columnFilters?: ApplicationColumnFilter[];
+  excludedStatuses?: ApplicationStatus[];
 };
 
 export type ApplicationSortState = {
@@ -133,7 +136,7 @@ export type ApplicationSortState = {
   direction: ApplicationSortDirection;
 };
 
-export type ApplicationColumnWidths = Partial<Record<ApplicationColumnId, ApplicationColumnWidth>>;
+export type ApplicationColumnWidths = Partial<Record<ApplicationColumnId | 'actions', ApplicationColumnWidth>>;
 
 export type ApplicationViewConfig = {
   columns: ApplicationColumnId[];
@@ -142,17 +145,25 @@ export type ApplicationViewConfig = {
   pageSize: number;
   grouping: ApplicationGrouping | null;
   columnWidths: ApplicationColumnWidths;
+  actionsIndex: number | null;
 };
 
 export const APPLICATION_PAGE_SIZES = [10, 25, 50, 100] as const;
 
 export const DEFAULT_VIEW_CONFIG: ApplicationViewConfig = {
   columns: DEFAULT_APPLICATION_COLUMNS,
-  filters: { status: 'all', cv: 'all', date: 'all', followup: 'all' },
+  filters: {
+    status: 'all',
+    cv: 'all',
+    date: 'all',
+    followup: 'all',
+    excludedStatuses: DEFAULT_EXCLUDED_STATUSES,
+  },
   sort: { key: 'updatedAt', direction: 'desc' },
   pageSize: 25,
   grouping: null,
   columnWidths: {},
+  actionsIndex: null,
 };
 
 export type SystemViewDefinition = {
@@ -172,7 +183,7 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     nameKey: 'applications.views.system.interested',
     config: {
       ...DEFAULT_VIEW_CONFIG,
-      filters: { status: 'interested', cv: 'all', date: 'all', followup: 'all' },
+      filters: { ...DEFAULT_VIEW_CONFIG.filters, status: 'interested' },
       sort: { key: 'score', direction: 'desc' },
     },
   },
@@ -181,7 +192,7 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     nameKey: 'applications.views.system.applied',
     config: {
       ...DEFAULT_VIEW_CONFIG,
-      filters: { status: 'applied', cv: 'all', date: 'all', followup: 'all' },
+      filters: { ...DEFAULT_VIEW_CONFIG.filters, status: 'applied' },
       sort: { key: 'updatedAt', direction: 'desc' },
     },
   },
@@ -190,7 +201,16 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     nameKey: 'applications.views.system.interview',
     config: {
       ...DEFAULT_VIEW_CONFIG,
-      filters: { status: 'interview', cv: 'all', date: 'all', followup: 'all' },
+      filters: { ...DEFAULT_VIEW_CONFIG.filters, status: 'interview' },
+      sort: { key: 'updatedAt', direction: 'desc' },
+    },
+  },
+  {
+    id: 'archived',
+    nameKey: 'applications.views.system.archived',
+    config: {
+      ...DEFAULT_VIEW_CONFIG,
+      filters: { ...DEFAULT_VIEW_CONFIG.filters, status: 'archived' },
       sort: { key: 'updatedAt', direction: 'desc' },
     },
   },
@@ -200,7 +220,7 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
     config: {
       ...DEFAULT_VIEW_CONFIG,
       columns: ['title', 'company', 'status', 'followup', 'updatedAt'],
-      filters: { status: 'all', cv: 'all', date: 'all', followup: 'withDate' },
+      filters: { ...DEFAULT_VIEW_CONFIG.filters, followup: 'withDate' },
       sort: { key: 'followup', direction: 'asc' },
     },
   },
@@ -312,23 +332,44 @@ function normalizeGrouping(input: unknown): ApplicationGrouping | null {
   };
 }
 
+function isColumnWidthKey(value: string): value is ApplicationColumnId | 'actions' {
+  return value === 'actions' || isColumnId(value);
+}
+
 function normalizeColumnWidths(input: unknown): ApplicationColumnWidths {
   if (!input || typeof input !== 'object') return {};
   const widths: ApplicationColumnWidths = {};
   for (const [key, value] of Object.entries(input)) {
-    if (!isColumnId(key) || !isColumnWidth(value) || value === 'auto') continue;
+    if (!isColumnWidthKey(key) || !isColumnWidth(value) || value === 'auto') continue;
     widths[key] = value;
   }
   return widths;
+}
+
+function normalizeActionsIndex(input: unknown, columnsCount: number): number | null {
+  if (typeof input !== 'number' || !Number.isInteger(input)) return null;
+  return Math.min(Math.max(0, input), columnsCount);
+}
+
+function normalizeExcludedStatuses(input: unknown): ApplicationStatus[] {
+  if (!Array.isArray(input)) return [...DEFAULT_EXCLUDED_STATUSES];
+  const statuses: ApplicationStatus[] = [];
+  for (const value of input) {
+    if (typeof value !== 'string' || !(APPLICATION_STATUSES as readonly string[]).includes(value)) continue;
+    const status = value as ApplicationStatus;
+    if (!statuses.includes(status)) statuses.push(status);
+  }
+  return statuses;
 }
 
 export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
   const raw = (input && typeof input === 'object' ? input : {}) as Partial<ApplicationViewConfig>;
   const rawFilters = (raw.filters && typeof raw.filters === 'object' ? raw.filters : {}) as ApplicationViewFilters;
 
-  const columns = Array.isArray(raw.columns)
+  const rawColumns = Array.isArray(raw.columns)
     ? Array.from(new Set(raw.columns.filter(isColumnId)))
     : [];
+  const columns = rawColumns.length > 0 ? rawColumns : DEFAULT_APPLICATION_COLUMNS;
   const status = typeof rawFilters.status === 'string'
     && (rawFilters.status === 'all' || (APPLICATION_STATUSES as readonly string[]).includes(rawFilters.status))
     ? rawFilters.status
@@ -342,7 +383,7 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
     : 'all';
 
   return {
-    columns: columns.length > 0 ? columns : DEFAULT_APPLICATION_COLUMNS,
+    columns,
     filters: {
       search: typeof rawFilters.search === 'string' && rawFilters.search.trim() ? rawFilters.search : undefined,
       status,
@@ -352,6 +393,7 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
       endDate: typeof rawFilters.endDate === 'string' && rawFilters.endDate ? rawFilters.endDate : undefined,
       followup,
       columnFilters: normalizeColumnFilters(rawFilters.columnFilters),
+      excludedStatuses: normalizeExcludedStatuses(rawFilters.excludedStatuses),
     },
     sort: {
       key: isSortKey(raw.sort?.key) ? raw.sort!.key : DEFAULT_VIEW_CONFIG.sort.key,
@@ -360,6 +402,7 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
     pageSize: isPageSize(raw.pageSize) ? raw.pageSize : DEFAULT_VIEW_CONFIG.pageSize,
     grouping: normalizeGrouping(raw.grouping),
     columnWidths: normalizeColumnWidths(raw.columnWidths),
+    actionsIndex: normalizeActionsIndex(raw.actionsIndex, columns.length),
   };
 }
 
@@ -524,6 +567,9 @@ export function filterApplications(
   const status = filters.status || 'all';
   const cv = filters.cv || 'all';
   const columnFilters = filters.columnFilters ?? [];
+  const excludedStatuses = filters.excludedStatuses ?? [];
+  const hasExplicitStatusFilter = status !== 'all'
+    || columnFilters.some((filter) => filter.column === 'status');
 
   return offers.filter((offer) => {
     if (search) {
@@ -534,6 +580,7 @@ export function filterApplications(
       if (!haystack.includes(search)) return false;
     }
     if (status !== 'all' && offer.status !== status) return false;
+    if (!hasExplicitStatusFilter && excludedStatuses.includes(offer.status as ApplicationStatus)) return false;
     if (cv === 'linked' && !offer.cvId) return false;
     if (cv === 'unlinked' && offer.cvId) return false;
     if (!matchesDateFilter(offer.createdAt, filters, now)) return false;
@@ -551,6 +598,7 @@ const STATUS_ORDER: Record<string, number> = {
   interview: 2,
   offer: 3,
   rejected: 4,
+  archived: 5,
 };
 
 function compareValues(a: ApplicationSummary, b: ApplicationSummary, key: ApplicationSortKey) {

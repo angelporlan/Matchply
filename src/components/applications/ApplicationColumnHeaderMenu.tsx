@@ -58,9 +58,11 @@ const DATE_PRESET_OPERATORS = APPLICATION_COLUMN_DATE_FILTER_OPERATORS.filter(
 type Panel = 'root' | 'group' | 'filter' | 'width';
 
 interface ApplicationColumnHeaderMenuProps {
-  column: ApplicationColumnId;
+  column: ApplicationColumnId | 'actions';
   label: string;
   sortable: boolean;
+  groupable?: boolean;
+  filterable?: boolean;
   sort: ApplicationSortState;
   grouping: ApplicationGrouping | null;
   columnFilter?: ApplicationColumnFilter;
@@ -138,6 +140,8 @@ export default function ApplicationColumnHeaderMenu({
   column,
   label,
   sortable,
+  groupable = true,
+  filterable = true,
   sort,
   grouping,
   columnFilter,
@@ -257,12 +261,13 @@ export default function ApplicationColumnHeaderMenu({
   };
 
   const applyStatusFilter = () => {
-    if (draftValues.length === 0) return;
+    if (column === 'actions' || draftValues.length === 0) return;
     onSetColumnFilter({ column, operator: 'in', value: '', values: draftValues });
     close(true);
   };
 
   const applyFilter = () => {
+    if (column === 'actions') return;
     if (isDateColumn) {
       if (draftOperator !== 'customRange') {
         onSetColumnFilter({ column, operator: draftOperator, value: '' });
@@ -609,21 +614,25 @@ export default function ApplicationColumnHeaderMenu({
             <div className="my-1 h-px bg-subtle" />
           </>
         )}
-        <MenuItem
-          icon={<Rows3 className="w-4 h-4 stroke-[1.75]" />}
-          label={t('applications.columns.headerMenu.groupBy')}
-          active={isGrouped}
-          trailing={<ChevronRight className="w-3.5 h-3.5 text-text-muted stroke-[2]" />}
-          onClick={() => setPanel('group')}
-        />
-        <MenuItem
-          icon={<Filter className={cn('w-4 h-4 stroke-[1.75]', hasFilter && 'text-ai')} />}
-          label={t('applications.columns.headerMenu.filterBy')}
-          active={hasFilter}
-          trailing={<ChevronRight className="w-3.5 h-3.5 text-text-muted stroke-[2]" />}
-          onClick={openFilterPanel}
-        />
-        <div className="my-1 h-px bg-subtle" />
+        {groupable && (
+          <MenuItem
+            icon={<Rows3 className="w-4 h-4 stroke-[1.75]" />}
+            label={t('applications.columns.headerMenu.groupBy')}
+            active={isGrouped}
+            trailing={<ChevronRight className="w-3.5 h-3.5 text-text-muted stroke-[2]" />}
+            onClick={() => setPanel('group')}
+          />
+        )}
+        {filterable && (
+          <MenuItem
+            icon={<Filter className={cn('w-4 h-4 stroke-[1.75]', hasFilter && 'text-ai')} />}
+            label={t('applications.columns.headerMenu.filterBy')}
+            active={hasFilter}
+            trailing={<ChevronRight className="w-3.5 h-3.5 text-text-muted stroke-[2]" />}
+            onClick={openFilterPanel}
+          />
+        )}
+        {(sortable || groupable || filterable) && <div className="my-1 h-px bg-subtle" />}
         <MenuItem
           icon={<MoveHorizontal className="w-4 h-4 stroke-[1.75]" />}
           label={t('applications.columns.headerMenu.columnWidth')}

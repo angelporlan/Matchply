@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
 import { requireUserFeature } from '@/lib/permissions';
 
-export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
+export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
 
 export class ApplicationConflictError extends Error {}
@@ -37,6 +37,7 @@ export type ExternalApplicationInput = {
 };
 
 export function normalizeStatus(value?: string): PipelineStatus {
+  if (value && value.startsWith('archived:')) return 'archived';
   return PIPELINE_STATUSES.includes(value as PipelineStatus)
     ? value as PipelineStatus
     : 'interested';

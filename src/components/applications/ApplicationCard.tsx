@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
-import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer, archiveJobOffer } from '@/app/dashboard/applications/actions';
-import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Archive, Sparkles, Clock, FileText } from 'lucide-react';
+import { updateJobOfferStatus, updateJobOfferCv, deleteJobOffer } from '@/app/dashboard/applications/actions';
+import { ExternalLink, Trash2, ArrowLeft, ArrowRight, Link as LinkIcon, Sparkles, Clock, FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AlertModal from '../ui/AlertModal';
 import { Draggable } from '@hello-pangea/dnd';
@@ -72,15 +72,6 @@ export default function ApplicationCard({
     setIsDeleteModalOpen(true);
   };
 
-  const handleArchive = async () => {
-    setLoading(true);
-    const result = await archiveJobOffer(offer.id);
-    if (result.success) {
-      router.refresh();
-    }
-    setLoading(false);
-  };
-
   const confirmDelete = async () => {
     setIsDeleteModalOpen(false);
     // Optimistic UI update: hide card instantly
@@ -98,13 +89,14 @@ export default function ApplicationCard({
   };
 
   // Estados ordenados del pipeline para controles de dirección
-  const statuses = ['interested', 'applied', 'interview', 'offer', 'rejected'];
+  const statuses = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'];
   const statusLabels: Record<string, string> = {
     interested: t('applications.columns.interested.title'),
     applied: t('applications.columns.applied.title'),
     interview: t('applications.columns.interview.title'),
     offer: t('applications.columns.offer.title'),
     rejected: t('applications.columns.rejected.title'),
+    archived: t('applications.columns.archived.title'),
   };
   const currentIndex = statuses.indexOf(offer.status);
 
@@ -200,17 +192,6 @@ export default function ApplicationCard({
             }`}
           >
             <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleArchive();
-                }}
-                className="text-text-muted hover:text-amber-500 dark:hover:text-amber-400 p-1.5 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/60 transition-colors shrink-0"
-                title={t('applications.card.archiveBtn')}
-                aria-label={t('applications.card.archiveBtn')}
-              >
-                <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
-              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { ApplicationSummary } from '@/lib/job-offer-queries';
-import { Sparkles, ExternalLink, Send, Archive, GripVertical } from 'lucide-react';
-import { updateJobOfferStatus, archiveJobOffer } from '@/app/dashboard/applications/actions';
+import { Sparkles, ExternalLink, Send, GripVertical } from 'lucide-react';
+import { updateJobOfferStatus } from '@/app/dashboard/applications/actions';
 
 interface ApplicationDenseListItemProps {
   offer: ApplicationSummary;
@@ -65,16 +65,6 @@ export default function ApplicationDenseListItem({
     }
   };
 
-  const handleArchive = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      setLoadingAction('archive');
-      await archiveJobOffer(offer.id);
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
   return (
     <Draggable draggableId={offer.id} index={index}>
       {(provided, snapshot) => (
@@ -118,15 +108,6 @@ export default function ApplicationDenseListItem({
                 className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
               >
                 <Send className="w-3 h-3 stroke-[2]" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleArchive}
-                title="Archivar candidatura"
-                className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
-              >
-                <Archive className="w-3 h-3 stroke-[2]" />
               </button>
 
               {offer.url && (

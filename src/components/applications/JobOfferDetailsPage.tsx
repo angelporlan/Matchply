@@ -161,15 +161,8 @@ export default function JobOfferDetailsPage({
   const platformStyle = getPlatformStyle(offer.platform);
 
   const getStatusConfig = (status: string) => {
-    if (status.startsWith('archived:')) {
-      return {
-        title: t('applications.board.archivedBadge'),
-        style: 'text-amber-600 dark:text-amber-300 bg-amber-500/10 border-amber-500/20',
-        icon: <Archive className="w-3.5 h-3.5 stroke-[1.75]" />,
-      };
-    }
-
-    switch (status) {
+    const safeStatus = status.startsWith('archived:') ? 'archived' : status;
+    switch (safeStatus) {
       case 'interested':
         return {
           title: t('applications.columns.interested.title'),
@@ -199,6 +192,12 @@ export default function JobOfferDetailsPage({
           title: t('applications.columns.rejected.title'),
           style: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
           icon: <Ban className="w-3.5 h-3.5 stroke-[1.75]" />,
+        };
+      case 'archived':
+        return {
+          title: t('applications.columns.archived.title'),
+          style: 'text-slate-600 dark:text-slate-300 bg-slate-500/10 border-slate-500/20',
+          icon: <Archive className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       default:
         return {
@@ -396,9 +395,7 @@ export default function JobOfferDetailsPage({
               <option value="interview">{t('applications.columns.interview.title')}</option>
               <option value="offer">{t('applications.columns.offer.title')}</option>
               <option value="rejected">{t('applications.columns.rejected.title')}</option>
-              {offer.status.startsWith('archived:') && (
-                <option value={offer.status}>Archivado</option>
-              )}
+              <option value="archived">{t('applications.columns.archived.title')}</option>
             </select>
           </div>
 

@@ -49,7 +49,7 @@ export const jobOffers = pgTable('job_offer', {
   url: text('url'), // URL de la oferta
   platform: text('platform').default('linkedin').notNull(), // 'linkedin', 'infojobs', 'indeed', 'other'
   description: text('description'), // Descripción completa copiada de la oferta para optimización
-  status: text('status').default('interested').notNull(), // 'interested', 'applied', 'interview', 'offer', 'rejected'
+  status: text('status').default('interested').notNull(), // 'interested', 'applied', 'interview', 'offer', 'rejected', 'archived'
   
   // Pipeline / Scraping
   source: text('source'), // ej. 'ashby', 'greenhouse', 'linkedin'

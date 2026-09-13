@@ -12,7 +12,7 @@ import ApplicationsTable from './ApplicationsTable';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
-import { createJobOffer, updateJobOfferStatus, archiveJobOffer, archiveMultipleJobOffers, deleteJobOffer, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import { createJobOffer, updateJobOfferStatus, deleteJobOffer, exportJobOffersReport, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
 import {
   DEFAULT_VIEW_CONFIG,
@@ -29,11 +29,11 @@ import {
   type ApplicationSortDirection,
   type ApplicationSortKey,
   type ApplicationSortState,
+  type ApplicationStatus,
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { formatDate } from '@/lib/utils';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, SlidersHorizontal, Minimize2, Maximize2, Archive, Clipboard, Check, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Calendar } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Archive, Clipboard, Check, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
@@ -45,14 +45,7 @@ interface SavedApplicationView {
   config: ApplicationViewConfig;
 }
 
-
-const ARCHIVED_STATUS_PREFIX = 'archived:';
-
-function isArchivedStatus(status: string) {
-  return status.startsWith(ARCHIVED_STATUS_PREFIX);
-}
-
-type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejected';
+type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejected' | 'archived';
 
 interface ApplicationsClientProps {
   offers: ApplicationSummary[];
@@ -89,8 +82,10 @@ export default function ApplicationsClient({
   const [grouping, setGrouping] = useState<ApplicationGrouping | null>(initialConfig.grouping);
   const [columnFilters, setColumnFilters] = useState<ApplicationColumnFilter[]>(initialConfig.filters.columnFilters ?? []);
   const [columnWidths, setColumnWidths] = useState<ApplicationColumnWidths>(initialConfig.columnWidths);
+  const [actionsIndex, setActionsIndex] = useState<number | null>(initialConfig.actionsIndex);
   const [pageSize, setPageSize] = useState(initialConfig.pageSize);
   const [statusFilter, setStatusFilter] = useState<string>(initialConfig.filters.status || 'all');
+  const [excludedStatuses, setExcludedStatuses] = useState<ApplicationStatus[]>(initialConfig.filters.excludedStatuses ?? []);
   const [followupFilter, setFollowupFilter] = useState<'all' | 'withDate' | 'overdue'>(initialConfig.filters.followup || 'all');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -109,31 +104,10 @@ export default function ApplicationsClient({
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>(initialConfig.filters.date || 'all');
   const [startDate, setStartDate] = useState(initialConfig.filters.startDate || '');
   const [endDate, setEndDate] = useState(initialConfig.filters.endDate || '');
-  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
-
-  // AI Curation Modal State & Sort
   const [isCurateModalOpen, setIsCurateModalOpen] = useState(false);
   const [isSimulationMode, setIsSimulationMode] = useState(false);
   const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-
-  // Bulk Archive State
-  const [archiveTarget, setArchiveTarget] = useState<{
-    isOpen: boolean;
-    kind: 'column' | 'bulk';
-    columnId: string;
-    columnTitle: string;
-    offerIds: string[];
-    count: number;
-  }>({
-    isOpen: false,
-    kind: 'column',
-    columnId: '',
-    columnTitle: '',
-    offerIds: [],
-    count: 0,
-  });
-  const [isArchivingBulk, setIsArchivingBulk] = useState(false);
 
   // Copy Modal States
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
@@ -175,7 +149,8 @@ export default function ApplicationsClient({
     endDate,
     followup: followupFilter,
     columnFilters,
-  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters]);
+    excludedStatuses,
+  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters, excludedStatuses]);
 
   const currentConfig = useMemo<ApplicationViewConfig>(() => normalizeViewConfig({
     columns,
@@ -184,7 +159,8 @@ export default function ApplicationsClient({
     pageSize,
     grouping,
     columnWidths,
-  }), [columns, viewFilters, sort, pageSize, grouping, columnWidths]);
+    actionsIndex,
+  }), [columns, viewFilters, sort, pageSize, grouping, columnWidths, actionsIndex]);
 
   const isDirty = useMemo(
     () => JSON.stringify(currentConfig) !== JSON.stringify(normalizeViewConfig(activeViewConfig)),
@@ -203,8 +179,10 @@ export default function ApplicationsClient({
     setGrouping(normalized.grouping);
     setColumnFilters(normalized.filters.columnFilters ?? []);
     setColumnWidths(normalized.columnWidths);
+    setActionsIndex(normalized.actionsIndex);
     setPageSize(normalized.pageSize);
     setStatusFilter(normalized.filters.status || 'all');
+    setExcludedStatuses(normalized.filters.excludedStatuses ?? []);
     setFollowupFilter(normalized.filters.followup || 'all');
     setSearchQuery(normalized.filters.search || '');
     setCvFilter(normalized.filters.cv || 'all');
@@ -368,7 +346,7 @@ export default function ApplicationsClient({
     setPage(1);
   };
 
-  const handleSetColumnWidth = (column: ApplicationColumnId, width: ApplicationColumnWidth) => {
+  const handleSetColumnWidth = (column: ApplicationColumnId | 'actions', width: ApplicationColumnWidth) => {
     setColumnWidths((prev) => {
       const next = { ...prev };
       if (width === 'auto') delete next[column];
@@ -385,6 +363,16 @@ export default function ApplicationsClient({
       const next = [...prev];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
+    });
+    setPage(1);
+  };
+
+  const handleMoveActions = (direction: -1 | 1) => {
+    setActionsIndex((prev) => {
+      const max = columns.length;
+      const current = prev === null ? max : Math.min(Math.max(0, prev), max);
+      const next = Math.min(Math.max(0, current + direction), max);
+      return next >= max ? null : next;
     });
     setPage(1);
   };
@@ -424,19 +412,6 @@ export default function ApplicationsClient({
     router.refresh();
   };
 
-  const handleTableArchive = async (offer: ApplicationSummary) => {
-    const previous = localOffers;
-    setLocalOffers((prev) => prev.filter((item) => item.id !== offer.id));
-    const result = await archiveJobOffer(offer.id);
-    if (result.error) {
-      setLocalOffers(previous);
-      showToast(t('applications.table.archiveError'), 'info');
-      return;
-    }
-    showToast(t('applications.table.archived'));
-    router.refresh();
-  };
-
   const handleConfirmDeleteOffer = async () => {
     if (!offerToDelete) return;
     setIsDeletingOffer(true);
@@ -470,7 +445,7 @@ export default function ApplicationsClient({
 
   const getFilteredOffersForCopy = () => {
     return localOffers.filter((offer) => {
-      if (isArchivedStatus(offer.status)) return false;
+      if (offer.status === 'archived') return false;
 
       let matchesDateFilter = true;
       if (copyDateFilter !== 'all') {
@@ -554,8 +529,9 @@ export default function ApplicationsClient({
   // Hydration state
   const [hasMounted, setHasMounted] = useState(false);
 
-  // Drag and drop states
-  const [localOffers, setLocalOffers] = useState(offers);
+  const [localOffers, setLocalOffers] = useState(() =>
+    offers.map((o) => (o.status.startsWith('archived:') ? { ...o, status: 'archived' } : o))
+  );
   const [draggingOfferId, setDraggingOfferId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -563,79 +539,10 @@ export default function ApplicationsClient({
   }, []);
 
   useEffect(() => {
-    setLocalOffers(offers);
-  }, [offers]);
-
-  // Bulk Archive Handlers
-  const handleOpenArchiveAllModal = (columnId: string, columnTitle: string, offersToArchive: ApplicationSummary[]) => {
-    if (offersToArchive.length === 0) return;
-    setArchiveTarget({
-      isOpen: true,
-      kind: 'column',
-      columnId,
-      columnTitle,
-      offerIds: offersToArchive.map(o => o.id),
-      count: offersToArchive.length,
-    });
-  };
-
-  const handleOpenBulkArchive = () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    setArchiveTarget({
-      isOpen: true,
-      kind: 'bulk',
-      columnId: '',
-      columnTitle: '',
-      offerIds: ids,
-      count: ids.length,
-    });
-  };
-
-  const handleConfirmArchiveAll = async () => {
-    if (archiveTarget.offerIds.length === 0) return;
-    setIsArchivingBulk(true);
-
-    const idsSet = new Set(archiveTarget.offerIds);
-    const count = archiveTarget.count;
-
-    // Optimistic UI update
-    setLocalOffers(prev =>
-      prev.map(o => {
-        if (!idsSet.has(o.id)) return o;
-        const archivedStatus = o.status.startsWith(ARCHIVED_STATUS_PREFIX)
-          ? o.status
-          : `${ARCHIVED_STATUS_PREFIX}${o.status}`;
-        return { ...o, status: archivedStatus, updatedAt: new Date() };
-      })
+    setLocalOffers(
+      offers.map((o) => (o.status.startsWith('archived:') ? { ...o, status: 'archived' } : o))
     );
-
-    setArchiveTarget(prev => ({ ...prev, isOpen: false }));
-    setSelectedIds(new Set());
-
-    try {
-      const result = await archiveMultipleJobOffers(archiveTarget.offerIds);
-      if (result.success) {
-        setCurationToast({
-          message: t('applications.board.archiveAllSuccess')
-            ? t('applications.board.archiveAllSuccess').replace('{count}', count.toString())
-            : `📦 Se han archivado ${count} candidaturas correctamente`,
-          type: 'success',
-        });
-        setTimeout(() => setCurationToast(null), 5000);
-        router.refresh();
-      } else {
-        alert(result.error || 'Error al archivar las ofertas');
-        router.refresh();
-      }
-    } catch (err: any) {
-      console.error('Error al archivar ofertas:', err);
-      alert('Error inesperado al archivar ofertas');
-      router.refresh();
-    } finally {
-      setIsArchivingBulk(false);
-    }
-  };
+  }, [offers]);
 
   // Drag and Drop Handlers
   const handleDragStart = (start: any) => {
@@ -687,10 +594,14 @@ export default function ApplicationsClient({
     description: '',
   });
 
-  const boardOffers = localOffers.filter((offer) => !isArchivedStatus(offer.status));
-  const archivedOffers = localOffers.filter((offer) => isArchivedStatus(offer.status));
+  const boardOffers = localOffers;
   const filteredOffers = useMemo(
     () => filterApplications(boardOffers, viewFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [localOffers, viewFilters],
+  );
+  const boardFilteredOffers = useMemo(
+    () => filterApplications(boardOffers, { ...viewFilters, excludedStatuses: [] }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [localOffers, viewFilters],
   );
@@ -790,14 +701,11 @@ export default function ApplicationsClient({
           </button>
 
           <NextLink
-            href="/dashboard/applications/archived"
+            href="/dashboard/applications?view=archived"
             className="flex items-center justify-center gap-2 px-4 py-3 rounded-[8px] bg-surface border border-subtle hover:border-amber-500/30 text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-semibold text-sm transition-all shadow-sm"
           >
             <Archive className="w-4 h-4 text-amber-500 stroke-[1.75]" />
-            {t('applications.board.archivedBtn')}
-            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-200 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-              {archivedOffers.length}
-            </span>
+            {t('applications.views.system.archived')}
           </NextLink>
 
           <button
@@ -834,141 +742,6 @@ export default function ApplicationsClient({
         </div>
 
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
-          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
-            <SlidersHorizontal className="w-4 h-4 text-text-muted ml-2 hidden sm:block stroke-[1.75]" />
-            {[
-              { value: 'all', label: t('applications.board.filterAll') },
-              { value: 'linked', label: t('applications.board.filterLinked') },
-              { value: 'unlinked', label: t('applications.board.filterUnlinked') },
-            ].map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => setCvFilter(filter.value as 'all' | 'linked' | 'unlinked')}
-                className={`px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                  cvFilter === filter.value
-                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                    : 'text-text-muted hover:text-text dark:hover:text-white'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Filtro de Fechas */}
-          <div className="relative font-display">
-            <button
-              type="button"
-              onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] border text-xs font-bold transition-all shadow-sm ${
-                dateFilter !== 'all'
-                  ? 'bg-ai/10 border-ai/30 text-ai'
-                  : 'bg-surface border-subtle text-text-muted hover:text-text dark:hover:text-white'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 stroke-[1.75]" />
-              {dateFilter === 'all' && t('applications.board.dateFilterAll')}
-              {dateFilter === 'today' && t('applications.board.dateFilterToday')}
-              {dateFilter === '7days' && t('applications.board.dateFilter7Days')}
-              {dateFilter === 'custom' && (
-                startDate || endDate 
-                  ? `${startDate ? formatDate(new Date(startDate + 'T00:00:00')) : ''} - ${endDate ? formatDate(new Date(endDate + 'T00:00:00')) : ''}` 
-                  : t('applications.board.dateFilterCustom')
-              )}
-            </button>
-
-            {isDateDropdownOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setIsDateDropdownOpen(false)} 
-                />
-                <div className="absolute right-0 mt-1.5 w-64 rounded-[12px] border border-subtle bg-surface p-3 shadow-xl z-20 space-y-2.5 animate-in fade-in duration-100">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-1">
-                    {t('applications.board.filterBtnLabel')}
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    {[
-                      { value: 'all', label: t('applications.board.dateFilterAll') },
-                      { value: 'today', label: t('applications.board.dateFilterToday') },
-                      { value: '7days', label: t('applications.board.dateFilter7Days') },
-                      { value: 'custom', label: t('applications.board.dateFilterCustom') },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          setDateFilter(opt.value as any);
-                          if (opt.value !== 'custom') {
-                            setIsDateDropdownOpen(false);
-                          }
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-[6px] text-xs font-semibold transition-all ${
-                          dateFilter === opt.value
-                            ? 'bg-text dark:bg-white text-canvas'
-                            : 'text-text-muted dark:text-slate-300 hover:bg-canvas dark:hover:bg-canvas/45'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {dateFilter === 'custom' && (
-                    <div className="pt-2 border-t border-subtle space-y-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-text-muted">
-                          {t('applications.board.dateStart')}
-                        </label>
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-text-muted">
-                          {t('applications.board.dateEnd')}
-                        </label>
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1 text-xs text-text focus:outline-none focus:border-ai dark:focus:border-ai"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="relative font-display">
-            <label className="sr-only" htmlFor="status-filter">{t('applications.filters.status')}</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value);
-                resetPageAndSelection();
-              }}
-              className={`w-full sm:w-auto bg-surface border rounded-[8px] px-3 py-2 text-xs font-bold focus:outline-none focus:border-ai transition-all cursor-pointer shadow-sm ${
-                statusFilter !== 'all' ? 'border-ai/30 text-ai' : 'border-subtle text-text-muted'
-              }`}
-            >
-              <option value="all">{t('applications.filters.allStatuses')}</option>
-              <option value="interested">{t('applications.columns.interested.title')}</option>
-              <option value="applied">{t('applications.columns.applied.title')}</option>
-              <option value="interview">{t('applications.columns.interview.title')}</option>
-              <option value="offer">{t('applications.columns.offer.title')}</option>
-              <option value="rejected">{t('applications.columns.rejected.title')}</option>
-            </select>
-          </div>
-
           {followupFilter !== 'all' && (
             <button
               type="button"
@@ -1042,7 +815,7 @@ export default function ApplicationsClient({
       {layout === 'board' ? (
         <ApplicationsBoardView
           offers={boardOffers}
-          filteredOffers={filteredOffers}
+          filteredOffers={boardFilteredOffers}
           hasActiveFilters={hasActiveFilters}
           userCvs={userCvs}
           viewMode={viewMode}
@@ -1055,7 +828,6 @@ export default function ApplicationsClient({
             setIsSimulationMode(simulation);
             setIsCurateModalOpen(true);
           }}
-          onArchiveAll={handleOpenArchiveAllModal}
           onOpenDetails={handleOpenDetails}
           onDelete={handleDeleteOffer}
         />
@@ -1082,15 +854,8 @@ export default function ApplicationsClient({
                   <option value="interview">{t('applications.columns.interview.title')}</option>
                   <option value="offer">{t('applications.columns.offer.title')}</option>
                   <option value="rejected">{t('applications.columns.rejected.title')}</option>
+                  <option value="archived">{t('applications.columns.archived.title')}</option>
                 </select>
-                <button
-                  type="button"
-                  onClick={handleOpenBulkArchive}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                >
-                  <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
-                  {t('applications.table.bulk.archive')}
-                </button>
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
@@ -1116,11 +881,12 @@ export default function ApplicationsClient({
             columnWidths={columnWidths}
             onSetColumnWidth={handleSetColumnWidth}
             onMoveColumn={handleMoveColumn}
+            actionsIndex={actionsIndex}
+            onMoveActions={handleMoveActions}
             selectedIds={selectedIds}
             onToggleRow={handleToggleRow}
             onToggleAll={handleToggleAll}
             onOpenDetails={handleOpenDetails}
-            onArchive={handleTableArchive}
             onDelete={setOfferToDelete}
             onStatusChange={handleRowStatusChange}
             pendingStatusId={pendingStatusId}
@@ -1460,73 +1226,6 @@ export default function ApplicationsClient({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Confirmación para Archivar Todas las Candidaturas de la Columna */}
-      {archiveTarget.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-surface border border-subtle rounded-[16px] p-6 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 font-sans text-left">
-            {/* Adorno visual */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full filter blur-3xl pointer-events-none" />
-
-            <div className="flex items-start gap-3.5 mb-5 relative z-10">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
-                <Archive className="w-5 h-5 stroke-[1.75]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-text font-display">
-                  {archiveTarget.kind === 'bulk'
-                    ? t('applications.table.bulk.archiveConfirmTitle')
-                    : t('applications.board.archiveAllConfirmTitle')}
-                </h3>
-                <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-sans">
-                  {archiveTarget.kind === 'bulk'
-                    ? t('applications.table.bulk.archiveConfirmDesc').replace('{count}', archiveTarget.count.toString())
-                    : t('applications.board.archiveAllConfirmDesc')
-                      .replace('{count}', archiveTarget.count.toString())
-                      .replace('{column}', archiveTarget.columnTitle)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
-                disabled={isArchivingBulk}
-                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-lg hover:bg-surface-muted dark:hover:bg-white/10 transition-all shrink-0"
-              >
-                <X className="w-4 h-4 stroke-[1.75]" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-subtle relative z-10 font-display">
-              <button
-                type="button"
-                onClick={() => setArchiveTarget(prev => ({ ...prev, isOpen: false }))}
-                disabled={isArchivingBulk}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-text-muted dark:text-slate-300 hover:bg-surface-muted dark:hover:bg-white/5 transition-all disabled:opacity-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmArchiveAll}
-                disabled={isArchivingBulk}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-98 text-white shadow-sm shadow-amber-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {isArchivingBulk ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Archivando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Archive className="w-3.5 h-3.5 stroke-[1.75]" />
-                    <span>{t('applications.board.archiveAllConfirmBtn')}</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}

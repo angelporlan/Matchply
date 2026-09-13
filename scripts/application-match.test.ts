@@ -36,6 +36,8 @@ test('title+company is only the legacy fallback', () => {
 
 test('unknown pipeline statuses fall back to interested', () => {
   assert.equal(normalizeStatus('interview'), 'interview');
-  assert.equal(normalizeStatus('archived:applied'), 'interested');
+  assert.equal(normalizeStatus('archived'), 'archived');
+  assert.equal(normalizeStatus('archived:applied'), 'archived');
+  assert.equal(normalizeStatus('made-up'), 'interested');
   assert.equal(normalizeStatus(undefined), 'interested');
 });

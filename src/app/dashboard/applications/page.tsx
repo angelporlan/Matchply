@@ -35,7 +35,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   }
 
   // 2. Cargar currículums, postulaciones y vistas guardadas
-  const [userCvs, offers, viewRows] = await Promise.all([
+  const [userCvs, rawOffers, viewRows] = await Promise.all([
     db
       .select(cvListColumns)
       .from(cvs)
@@ -57,6 +57,11 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
       .where(eq(applicationViews.userId, userId))
       .orderBy(desc(applicationViews.isDefault), asc(applicationViews.name)),
   ]);
+
+  const offers = rawOffers.map((offer) => ({
+    ...offer,
+    status: offer.status.startsWith('archived:') ? 'archived' : offer.status,
+  }));
 
   const savedViews = viewRows.map((view) => ({
     id: view.id,

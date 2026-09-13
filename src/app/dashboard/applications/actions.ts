@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { jobOffers, users, cvs } from "@/db/schema";
+import { jobOffers, cvs } from "@/db/schema";
 import { AIService } from "@/lib/ai-service";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -11,24 +11,6 @@ import { requireUserFeature } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { log } from "@/lib/logger";
 import { baseCvForAiColumns, curateOfferColumns } from "@/lib/job-offer-queries";
-
-const ARCHIVED_STATUS_PREFIX = "archived:";
-const VALID_PIPELINE_STATUSES = ["interested", "applied", "interview", "offer", "rejected"] as const;
-type PipelineStatus = typeof VALID_PIPELINE_STATUSES[number];
-
-function getValidPipelineStatus(status: string | null | undefined): PipelineStatus {
-  return VALID_PIPELINE_STATUSES.includes(status as PipelineStatus)
-    ? (status as PipelineStatus)
-    : "interested";
-}
-
-function getRestoreStatus(status: string): PipelineStatus {
-  if (!status.startsWith(ARCHIVED_STATUS_PREFIX)) {
-    return getValidPipelineStatus(status);
-  }
-
-  return getValidPipelineStatus(status.slice(ARCHIVED_STATUS_PREFIX.length));
-}
 
 const COLUMN_TITLES: Record<'es' | 'en', Record<string, string>> = {
   es: {
@@ -63,6 +45,10 @@ export async function getOwnedJobOffer(offerId: string) {
 
     if (!offer) {
       throw new Error("Offer not found");
+    }
+
+    if (offer.status.startsWith('archived:')) {
+      offer.status = 'archived';
     }
 
     return { success: true as const, offer };
@@ -112,7 +98,7 @@ export async function exportJobOffersReport(options: {
     sevenDaysAgo.setDate(today.getDate() - 7);
 
     let targetOffers = offers.filter((offer) => {
-      if (offer.status.startsWith(ARCHIVED_STATUS_PREFIX)) return false;
+      if (offer.status === 'archived' || offer.status.startsWith('archived:')) return false;
       if (options.dateFilter === 'all') return true;
 
       const offerDate = new Date(offer.createdAt);
@@ -269,139 +255,6 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
   } catch (error: any) {
     console.error("Error updating offer status:", error);
     return { error: error.message || "Failed to update status" };
-  }
-}
-
-export async function archiveJobOffer(offerId: string) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-
-    const [offer] = await db
-      .select()
-      .from(jobOffers)
-      .where(eq(jobOffers.id, offerId))
-      .limit(1);
-
-    if (!offer || offer.userId !== session.user.id) {
-      throw new Error("Forbidden or Offer not found");
-    }
-
-    if (offer.status.startsWith(ARCHIVED_STATUS_PREFIX)) {
-      return { success: true };
-    }
-
-    const previousStatus = getValidPipelineStatus(offer.status);
-
-    await db
-      .update(jobOffers)
-      .set({
-        status: `${ARCHIVED_STATUS_PREFIX}${previousStatus}`,
-        updatedAt: new Date()
-      })
-      .where(eq(jobOffers.id, offerId));
-
-    revalidatePath("/dashboard/applications");
-    revalidatePath("/dashboard");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error archiving offer:", error);
-    return { error: error.message || "Failed to archive offer" };
-  }
-}
-
-export async function restoreArchivedJobOffer(offerId: string) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-
-    const [offer] = await db
-      .select()
-      .from(jobOffers)
-      .where(eq(jobOffers.id, offerId))
-      .limit(1);
-
-    if (!offer || offer.userId !== session.user.id) {
-      throw new Error("Forbidden or Offer not found");
-    }
-
-    const restoredStatus = getRestoreStatus(offer.status);
-
-    await db
-      .update(jobOffers)
-      .set({
-        status: restoredStatus,
-        updatedAt: new Date()
-      })
-      .where(eq(jobOffers.id, offerId));
-
-    revalidatePath("/dashboard/applications");
-    revalidatePath("/dashboard");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error restoring archived offer:", error);
-    return { error: error.message || "Failed to restore offer" };
-  }
-}
-
-export async function archiveMultipleJobOffers(offerIds: string[]) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-    const userId = session.user.id;
-
-    if (!offerIds || offerIds.length === 0) {
-      return { success: true, count: 0 };
-    }
-
-    const offersToArchive = await db
-      .select({ id: jobOffers.id, status: jobOffers.status })
-      .from(jobOffers)
-      .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, offerIds)));
-
-    const statusMap = new Map<string, string[]>();
-    for (const off of offersToArchive) {
-      if (!off.status.startsWith(ARCHIVED_STATUS_PREFIX)) {
-        const prevStatus = getValidPipelineStatus(off.status);
-        const targetStatus = `${ARCHIVED_STATUS_PREFIX}${prevStatus}`;
-        const list = statusMap.get(targetStatus) || [];
-        list.push(off.id);
-        statusMap.set(targetStatus, list);
-      }
-    }
-
-    for (const [targetStatus, ids] of Array.from(statusMap.entries())) {
-      if (ids.length > 0) {
-        await db
-          .update(jobOffers)
-          .set({
-            status: targetStatus,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, ids)));
-      }
-    }
-
-    await createAuditLog("job_offers_bulk_archived", userId, session.user.email || null, {
-      archivedCount: offersToArchive.length,
-    });
-
-    revalidatePath("/dashboard/applications");
-    revalidatePath("/dashboard");
-
-    return { success: true, count: offersToArchive.length };
-  } catch (error: any) {
-    console.error("Error archiving multiple offers:", error);
-    return { error: error.message || "Failed to archive offers" };
   }
 }
 
@@ -639,66 +492,4 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
   }
 }
 
-export async function applyCuratedOffersAction({
-  archiveOfferIds,
-  moveOfferIds,
-}: {
-  archiveOfferIds: string[];
-  moveOfferIds?: string[];
-}) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
-    const userId = session.user.id;
-
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    // 1. Archivar las ofertas descartadas
-    if (archiveOfferIds && archiveOfferIds.length > 0) {
-      await db
-        .update(jobOffers)
-        .set({
-          status: "archived:interested",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, archiveOfferIds)));
-    }
-
-    // 2. Mover a 'applied' si el usuario lo solicitó expresamente
-    if (moveOfferIds && moveOfferIds.length > 0) {
-      await db
-        .update(jobOffers)
-        .set({
-          status: "applied",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, moveOfferIds)));
-    }
-
-    // 3. Log de auditoría
-    await createAuditLog("job_offers_bulk_curate_applied", userId, user?.email || null, {
-      archivedCount: archiveOfferIds?.length || 0,
-      movedCount: moveOfferIds?.length || 0,
-    });
-
-    revalidatePath("/dashboard/applications");
-    revalidatePath("/dashboard");
-
-    return {
-      success: true,
-      archivedCount: archiveOfferIds?.length || 0,
-      movedCount: moveOfferIds?.length || 0,
-    };
-  } catch (error: any) {
-    console.error("Error in applyCuratedOffersAction:", error);
-    return { error: error.message || "Failed to apply curated offers" };
-  }
-}
 
