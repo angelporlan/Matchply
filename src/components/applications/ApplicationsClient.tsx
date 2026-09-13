@@ -187,6 +187,7 @@ export default function ApplicationsClient({
     setLayout(next);
     try {
       window.localStorage.setItem('applications.layout', next);
+      document.cookie = `applications_layout=${next}; path=/; max-age=31536000; SameSite=Lax`;
     } catch {}
     syncUrl({ layout: next });
   };
@@ -198,6 +199,10 @@ export default function ApplicationsClient({
     if (!viewConfig) return;
     applyViewConfig(viewConfig);
     setActiveViewId(id);
+    try {
+      window.localStorage.setItem('applications.view', id);
+      document.cookie = `applications_view=${id}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {}
     if (sync) syncUrl({ view: id });
   };
 
@@ -214,14 +219,42 @@ export default function ApplicationsClient({
   }, [searchParams]);
 
   useEffect(() => {
-    if (searchParams.get('layout')) return;
-    try {
-      const stored = window.localStorage.getItem('applications.layout');
-      if (stored === 'board') {
-        setLayout('board');
-        syncUrl({ layout: 'board' });
+    if (!searchParams.get('layout')) {
+      try {
+        const stored = window.localStorage.getItem('applications.layout');
+        if (stored === 'board' && layout !== 'board') {
+          setLayout('board');
+          syncUrl({ layout: 'board' });
+        } else if (stored === 'table' && layout !== 'table') {
+          setLayout('table');
+          syncUrl({ layout: 'table' });
+        }
+      } catch {}
+    }
+
+    if (!searchParams.get('view')) {
+      try {
+        const storedView = window.localStorage.getItem('applications.view');
+        if (
+          storedView &&
+          storedView !== activeViewId &&
+          (savedViews.some((v) => v.id === storedView) || SYSTEM_VIEWS.some((v) => v.id === storedView))
+        ) {
+          handleSelectView(storedView, true);
+        } else if (activeViewId) {
+          window.localStorage.setItem('applications.view', activeViewId);
+          document.cookie = `applications_view=${activeViewId}; path=/; max-age=31536000; SameSite=Lax`;
+        }
+      } catch {}
+    } else {
+      const urlView = searchParams.get('view');
+      if (urlView) {
+        try {
+          window.localStorage.setItem('applications.view', urlView);
+          document.cookie = `applications_view=${urlView}; path=/; max-age=31536000; SameSite=Lax`;
+        } catch {}
       }
-    } catch {}
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -266,6 +299,10 @@ export default function ApplicationsClient({
     };
     setSavedViews((prev) => [...prev, created]);
     setActiveViewId(created.id);
+    try {
+      window.localStorage.setItem('applications.view', created.id);
+      document.cookie = `applications_view=${created.id}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {}
     syncUrl({ view: created.id });
     showToast(t('applications.views.toasts.saved'));
     router.refresh();
@@ -278,6 +315,10 @@ export default function ApplicationsClient({
       return;
     }
     setSavedViews((prev) => prev.map((view) => ({ ...view, isDefault: view.id === activeViewId })));
+    try {
+      window.localStorage.setItem('applications.view', activeViewId);
+      document.cookie = `applications_view=${activeViewId}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {}
     showToast(t('applications.views.toasts.defaultUpdated'));
     router.refresh();
   };
@@ -290,6 +331,10 @@ export default function ApplicationsClient({
       return;
     }
     setSavedViews((prev) => prev.filter((view) => view.id !== activeViewId));
+    try {
+      window.localStorage.removeItem('applications.view');
+      document.cookie = 'applications_view=; path=/; max-age=0; SameSite=Lax';
+    } catch {}
     handleSelectView('active');
     showToast(t('applications.views.toasts.deleted'));
     router.refresh();

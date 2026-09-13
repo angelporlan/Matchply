@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { applicationViews, cvs, jobOffers, users } from '@/db/schema';
@@ -70,13 +71,19 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
     config: normalizeViewConfig(view.config),
   }));
 
+  const cookieStore = cookies();
+  const cookieView = cookieStore.get('applications_view')?.value;
+  const cookieLayout = cookieStore.get('applications_layout')?.value;
+
   const defaultViewId = savedViews.find((view) => view.isDefault)?.id || SYSTEM_VIEWS[0].id;
-  const requestedViewId = searchParams?.view;
+  const requestedViewId = searchParams?.view || cookieView;
   const initialViewId = requestedViewId
     && (savedViews.some((view) => view.id === requestedViewId) || SYSTEM_VIEWS.some((view) => view.id === requestedViewId))
     ? requestedViewId
     : defaultViewId;
-  const initialLayout = searchParams?.layout === 'board' ? 'board' : 'table';
+
+  const requestedLayout = searchParams?.layout || (cookieLayout === 'board' ? 'board' : 'table');
+  const initialLayout = requestedLayout === 'board' ? 'board' : 'table';
   const isTableLayout = initialLayout === 'table';
 
   return (
