@@ -840,9 +840,22 @@ export default function ApplicationsClient({
         <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
-              <span className="text-xs font-bold text-text font-display">
-                {t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-text font-display">
+                  {selectedIds.size === filteredOffers.length
+                    ? t('applications.table.bulk.allSelected').replace('{count}', String(filteredOffers.length))
+                    : t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
+                </span>
+                {selectedIds.size < filteredOffers.length && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set(filteredOffers.map((o) => o.id)))}
+                    className="text-xs font-bold text-ai hover:underline underline-offset-2 ml-1"
+                  >
+                    {t('applications.table.bulk.selectAllCount').replace('{count}', String(filteredOffers.length))}
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -883,6 +896,7 @@ export default function ApplicationsClient({
 
           <ApplicationsTable
             offers={pagination.items}
+            allSelectableIds={filteredOffers.map((o) => o.id)}
             userCvs={userCvs}
             columns={columns}
             sort={sort}

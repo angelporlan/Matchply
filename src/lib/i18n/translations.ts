@@ -566,6 +566,8 @@ export const translations = {
         },
         bulk: {
           selected: '{count} seleccionadas',
+          allSelected: 'Las {count} candidaturas seleccionadas',
+          selectAllCount: 'Seleccionar las {count} candidaturas',
           matchWithAi: 'Match con IA',
           changeStatus: 'Cambiar estado',
           clear: 'Quitar selección',
@@ -1366,7 +1368,9 @@ export const translations = {
         },
         bulk: {
           selected: '{count} selected',
-          matchWithAi: 'AI Match',
+          allSelected: 'All {count} applications selected',
+          selectAllCount: 'Select all {count} applications',
+          matchWithAi: 'Match with AI',
           changeStatus: 'Change status',
           clear: 'Clear selection',
         },

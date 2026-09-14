@@ -48,6 +48,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface ApplicationsTableProps {
   offers: ApplicationSummary[];
+  allSelectableIds?: string[];
   userCvs: CvListItem[];
   columns: ApplicationColumnId[];
   sort: ApplicationSortState;
@@ -108,6 +109,7 @@ function SelectionCheckbox({
 
 export default function ApplicationsTable({
   offers,
+  allSelectableIds,
   userCvs,
   columns,
   sort,
@@ -151,9 +153,11 @@ export default function ApplicationsTable({
     setCollapsedGroups(new Set());
   }, [grouping]);
 
-  const visibleIds = offers.map((offer) => offer.id);
-  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
-  const someSelected = visibleIds.some((id) => selectedIds.has(id));
+  const selectableIds = allSelectableIds && allSelectableIds.length > 0
+    ? allSelectableIds
+    : offers.map((offer) => offer.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = selectableIds.some((id) => selectedIds.has(id));
   const todayStart = new Date().setHours(0, 0, 0, 0);
 
   const isEmpty = offers.length === 0;
@@ -414,7 +418,7 @@ export default function ApplicationsTable({
                   <SelectionCheckbox
                     checked={allSelected}
                     indeterminate={!allSelected && someSelected}
-                    onChange={(checked) => onToggleAll(visibleIds, checked)}
+                    onChange={(checked) => onToggleAll(selectableIds, checked)}
                     label={t('applications.table.selectAll')}
                   />
                 </th>
