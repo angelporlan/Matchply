@@ -2,16 +2,25 @@ export type OfferLanguage = 'en' | 'es' | 'mixed' | 'unknown';
 export type ConstraintLanguage = 'en' | 'es';
 export type LanguagePolicy = 'reject' | 'penalize';
 
+export type OfferWorkplace = 'remote' | 'hybrid' | 'onsite' | 'unknown';
+
 export type HardConstraints = {
   language?: {
     rejectOfferLanguage?: ConstraintLanguage[];
     penalizeOfferLanguage?: Array<{ lang: ConstraintLanguage; maxScore: number }>;
   };
   dealBreakers?: string[];
+  workplace?: {
+    remoteOnly?: boolean;
+  };
+  salaryMin?: number;
 };
 
 export const LANGUAGE_REJECT_MAX_SCORE = 30;
 export const LANGUAGE_PENALIZE_MAX_SCORE = 40;
+export const WORKPLACE_REJECT_MAX_SCORE = 30;
+export const WORKPLACE_HYBRID_MAX_SCORE = 50;
+export const SALARY_REJECT_MAX_SCORE = 30;
 
 const EN_STOPWORDS = new Set([
   'the', 'and', 'with', 'this', 'that', 'from', 'your', 'our', 'will', 'are',
@@ -169,6 +178,41 @@ export function parseHardConstraints(input: {
   return constraints;
 }
 
+function isRemoteOnlyWorkplaces(workplaces: unknown): boolean {
+  if (!Array.isArray(workplaces) || workplaces.length === 0) return false;
+  const values = workplaces
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (values.length === 0) return false;
+  return values.every((item) => item === 'remote' || item === 'remoto' || item === 'teletrabajo');
+}
+
+export function parseMatchConstraints(input: {
+  curationCriteria?: string | null;
+  bio?: string | null;
+  preferredWorkplaces?: unknown;
+  salaryMin?: unknown;
+}): HardConstraints {
+  const constraints = parseHardConstraints({
+    curationCriteria: input.curationCriteria,
+    bio: input.bio,
+  });
+
+  if (isRemoteOnlyWorkplaces(input.preferredWorkplaces)) {
+    constraints.workplace = { remoteOnly: true };
+  }
+
+  const salaryMin = typeof input.salaryMin === 'number'
+    ? input.salaryMin
+    : Number(input.salaryMin);
+  if (Number.isFinite(salaryMin) && salaryMin > 0) {
+    constraints.salaryMin = Math.round(salaryMin);
+  }
+
+  return constraints;
+}
+
 export function detectOfferLanguage(input: {
   title?: string | null;
   description?: string | null;
@@ -294,12 +338,74 @@ export function getLanguageScoreCap(
   return null;
 }
 
+type ScoreCap = {
+  mode: LanguagePolicy;
+  maxScore: number;
+  reason: string;
+};
+
+export function getWorkplaceScoreCap(
+  offerWorkplace: OfferWorkplace | null | undefined,
+  constraints: HardConstraints | null | undefined,
+): ScoreCap | null {
+  if (!constraints?.workplace?.remoteOnly) return null;
+  if (offerWorkplace === 'onsite') {
+    return {
+      mode: 'reject',
+      maxScore: WORKPLACE_REJECT_MAX_SCORE,
+      reason: 'Presencial: tope por tu preferencia de remoto.',
+    };
+  }
+  if (offerWorkplace === 'hybrid') {
+    return {
+      mode: 'penalize',
+      maxScore: WORKPLACE_HYBRID_MAX_SCORE,
+      reason: 'Híbrido: puntuación limitada porque pides remoto.',
+    };
+  }
+  return null;
+}
+
+export function getSalaryScoreCap(
+  offerSalaryMax: number | null | undefined,
+  constraints: HardConstraints | null | undefined,
+): ScoreCap | null {
+  if (!constraints?.salaryMin || constraints.salaryMin <= 0) return null;
+  if (offerSalaryMax == null || !Number.isFinite(offerSalaryMax)) return null;
+  if (offerSalaryMax >= constraints.salaryMin) return null;
+  return {
+    mode: 'reject',
+    maxScore: SALARY_REJECT_MAX_SCORE,
+    reason: `Salario hasta ${Math.round(offerSalaryMax)}€: por debajo de tu mínimo (${constraints.salaryMin}€).`,
+  };
+}
+
+function applyCap(
+  score: number,
+  fitReason: string,
+  cap: ScoreCap | null,
+  reasonPattern: RegExp,
+): { score: number; fitReason: string; reject: boolean } {
+  if (!cap) return { score, fitReason, reject: false };
+  let nextScore = score;
+  let nextReason = fitReason;
+  if (score > cap.maxScore) {
+    nextScore = cap.maxScore;
+    nextReason = cap.reason;
+  } else if (!fitReason || !reasonPattern.test(fitReason)) {
+    nextReason = cap.reason;
+  }
+  return { score: nextScore, fitReason: nextReason, reject: cap.mode === 'reject' };
+}
+
 export function enforceCurationConstraints(input: {
   score: number;
   decision?: 'keep' | 'archive';
   fitReason?: string;
   violatedRules?: string[];
   offerLanguage: OfferLanguage;
+  offerWorkplace?: OfferWorkplace | null;
+  offerSalaryMax?: number | null;
   constraints: HardConstraints | null | undefined;
   targetThreshold: number;
 }): {
@@ -313,30 +419,40 @@ export function enforceCurationConstraints(input: {
 
   const violatedRules = (input.violatedRules || []).map((rule) => rule.trim()).filter(Boolean);
   let fitReason = (input.fitReason || '').trim();
+  let forcedReject = false;
 
   if (violatedRules.length > 0) {
     score = Math.min(score, LANGUAGE_REJECT_MAX_SCORE);
+    forcedReject = true;
     if (!/penaliz|regla|viol|tope|criterio/i.test(fitReason)) {
       fitReason = `Penalizada: ${violatedRules.slice(0, 2).join('; ')}`.slice(0, 160);
     }
   }
 
   const languageCap = getLanguageScoreCap(input.offerLanguage, input.constraints);
-  if (languageCap) {
-    if (score > languageCap.maxScore) {
-      score = languageCap.maxScore;
-      fitReason = languageCap.reason;
-    } else if (!fitReason || !/ingl[eé]s|espa[nñ]ol|idioma|criterio/i.test(fitReason)) {
-      fitReason = languageCap.reason;
-    }
-  }
+  const languageApplied = applyCap(score, fitReason, languageCap, /ingl[eé]s|espa[nñ]ol|idioma|criterio/i);
+  score = languageApplied.score;
+  fitReason = languageApplied.fitReason;
+  if (languageApplied.reject) forcedReject = true;
+
+  const workplaceCap = getWorkplaceScoreCap(input.offerWorkplace, input.constraints);
+  const workplaceApplied = applyCap(score, fitReason, workplaceCap, /remoto|presencial|h[ií]brido|modalidad/i);
+  score = workplaceApplied.score;
+  fitReason = workplaceApplied.fitReason;
+  if (workplaceApplied.reject) forcedReject = true;
+
+  const salaryCap = getSalaryScoreCap(input.offerSalaryMax, input.constraints);
+  const salaryApplied = applyCap(score, fitReason, salaryCap, /salario|mínimo|minimo/i);
+  score = salaryApplied.score;
+  fitReason = salaryApplied.fitReason;
+  if (salaryApplied.reject) forcedReject = true;
 
   let decision: 'keep' | 'archive' =
     input.decision === 'keep' || input.decision === 'archive'
       ? input.decision
       : (score >= input.targetThreshold ? 'keep' : 'archive');
 
-  if (violatedRules.length > 0 || languageCap?.mode === 'reject' || score < input.targetThreshold) {
+  if (forcedReject || score < input.targetThreshold) {
     decision = 'archive';
   } else if (score >= input.targetThreshold) {
     decision = 'keep';
@@ -365,6 +481,12 @@ export function describeHardConstraintChips(constraints: HardConstraints | null 
   }
   for (const deal of (constraints?.dealBreakers || []).slice(0, 3)) {
     chips.push(deal.length > 42 ? `${deal.slice(0, 42).trim()}…` : deal);
+  }
+  if (constraints?.workplace?.remoteOnly) {
+    chips.push('Solo remoto');
+  }
+  if (constraints?.salaryMin) {
+    chips.push(`Salario mín. ${constraints.salaryMin}€`);
   }
   return chips;
 }

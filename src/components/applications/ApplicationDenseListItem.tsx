@@ -21,8 +21,8 @@ export default function ApplicationDenseListItem({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   const rawScore = offer.scoreOverall;
-  const scoreVal = rawScore !== null && rawScore !== undefined 
-    ? (rawScore > 5 ? Math.round(rawScore) : Math.round(rawScore * 20))
+  const scoreVal = rawScore !== null && rawScore !== undefined && rawScore > 5
+    ? Math.round(rawScore)
     : null;
 
   const getScoreBadge = () => {

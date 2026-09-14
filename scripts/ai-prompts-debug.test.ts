@@ -89,10 +89,13 @@ test('AIService.buildDebugPrompt resolves curate_offers prompt with offers list'
   });
 
   assert.match(result.actionTitle, /Curar y calcular Match con IA/);
-  assert.match(result.systemPrompt, /Triage RIGUROSO/);
-  assert.match(result.systemPrompt, /Solo trabajo en remoto/);
+  assert.match(result.systemPrompt, /tech_stack/);
+  assert.match(result.systemPrompt, /DATOS/);
+  assert.doesNotMatch(result.systemPrompt, /"score": 85/);
+  assert.doesNotMatch(result.systemPrompt, /Solo trabajo en remoto/);
   assert.match(result.userPrompt, /Innovatech/);
   assert.match(result.userPrompt, /Tech Lead/);
+  assert.match(result.userPrompt, /remoto/i);
 });
 
 test('AIService.buildDebugPrompt resolves outreach and import_cv prompts', async () => {

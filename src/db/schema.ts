@@ -58,9 +58,11 @@ export const jobOffers = pgTable('job_offer', {
   livenessStatus: text('livenessStatus').default('active'), // 'active' | 'expired'
   sourceMetadata: jsonb('sourceMetadata'), // Payload normalizado y metadatos visibles de la fuente
   
-  // Evaluación de IA
-  scoreOverall: doublePrecision('scoreOverall'), // ej. 4.4
-  scoreBreakdown: jsonb('scoreBreakdown'), // Puntuaciones específicas (Tech, Salario, etc.)
+  // Evaluación de IA (match candidato–oferta, 0-100)
+  scoreOverall: doublePrecision('scoreOverall'),
+  scoreBreakdown: jsonb('scoreBreakdown'), // tech_stack, experience_fit, work_mode, salary_fit, career_alignment
+  matchInputHash: text('matchInputHash'),
+  matchKind: text('matchKind'), // 'triage' | 'deep'
   tldr: text('tldr'), // Resumen ejecutivo
   redFlags: jsonb('redFlags'), // Array de alertas/riesgos
   legitimacyTier: text('legitimacyTier'), // Ghost job detection tier

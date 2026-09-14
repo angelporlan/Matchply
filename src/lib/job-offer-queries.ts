@@ -61,8 +61,11 @@ export const curateOfferColumns = {
   description: jobOffers.description,
   platform: jobOffers.platform,
   scoreOverall: jobOffers.scoreOverall,
+  scoreBreakdown: jobOffers.scoreBreakdown,
   tldr: jobOffers.tldr,
   sourceMetadata: jobOffers.sourceMetadata,
+  matchInputHash: jobOffers.matchInputHash,
+  matchKind: jobOffers.matchKind,
 };
 
 export type ApplicationSummary = {

@@ -13,7 +13,7 @@ import {
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
-import { parseHardConstraints } from "@/lib/curation-constraints";
+import { parseMatchConstraints } from "@/lib/curation-constraints";
 import { normalizeCareerProfileFields } from "@/lib/career-profile";
 
 function cvLimitMessage(isGuest: boolean) {
@@ -421,9 +421,11 @@ export async function saveUserCareerProfileAction(profileData: any) {
     const updatedProfile = {
       ...currentProfile,
       ...normalizedFields,
-      hardConstraints: parseHardConstraints({
+      hardConstraints: parseMatchConstraints({
         curationCriteria: normalizedFields?.curationCriteria,
         bio: normalizedFields?.bio,
+        preferredWorkplaces: normalizedFields?.preferredWorkplaces,
+        salaryMin: normalizedFields?.salaryMin,
       }),
       updatedAt: new Date().toISOString(),
     };

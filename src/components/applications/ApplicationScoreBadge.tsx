@@ -1,7 +1,6 @@
 "use client";
 
 import { Sparkles } from 'lucide-react';
-import { scoreToPercent } from '@/lib/application-views';
 
 interface ApplicationScoreBadgeProps {
   score: number | null | undefined;
@@ -9,7 +8,7 @@ interface ApplicationScoreBadgeProps {
 }
 
 export default function ApplicationScoreBadge({ score, className = '' }: ApplicationScoreBadgeProps) {
-  const value = scoreToPercent(score);
+  const value = score != null && score > 5 ? Math.round(score) : null;
 
   if (value === null) {
     return (

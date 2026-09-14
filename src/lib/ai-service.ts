@@ -12,19 +12,25 @@ import {
 } from './models';
 import { canAccessFeature } from './subscription';
 import { getBuiltInPrompt, type BuiltInPromptKey } from './prompt-defaults';
+import { parseMatchConstraints } from './curation-constraints';
 import {
-  buildOfferSignalPrefix,
-  detectOfferLanguage,
-  enforceCurationConstraints,
-  extractLanguageSentences,
-  formatHardConstraintsForPrompt,
-  isLanguageRuleLine,
-  parseHardConstraints,
-  type HardConstraints,
-} from './curation-constraints';
+  buildCandidateCard,
+  buildMatchSystemPrompt,
+  buildMatchUserPrompt,
+  buildOfferCard,
+  cachedMatchItem,
+  canReuseCachedMatch,
+  isCanonicalMatchBreakdown,
+  isProfileMatchScore,
+  matchInputHash,
+  normalizeMatchItem,
+  type CuratedMatchItem,
+  type LlmMatchItem,
+  type MatchKind,
+  type MatchOfferCard,
+} from './matching';
 
 import {
-  formatCareerProfileContext,
   genericSoftwareInterviewQuestions,
   heuristicClassifyCareerProfile,
   normalizeClassification,
@@ -41,8 +47,10 @@ type CurationOfferInput = {
   description: string | null;
   platform: string;
   scoreOverall?: number | null;
+  scoreBreakdown?: unknown;
   tldr?: string | null;
   sourceMetadata?: unknown;
+  matchInputHash?: string | null;
 };
 
 
@@ -876,79 +884,24 @@ export class AIService {
       ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
       : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
 
-    // El prompt integrado se usa siempre como fallback; la DB solo puede
-    // aportar una sobrescritura completa y válida.
-    const dbPrompt = await this.resolvePrompt('star_analyze');
-
-    const defaultSystem = `Eres un reclutador senior experto de la empresa "{{company}}". Tu tarea es evaluar el currículum del candidato contra la descripción de la oferta de trabajo y responder con un objeto JSON estructurado que contenga un análisis exhaustivo.
-Es crítico que respondas única y exclusivamente con el objeto JSON válido, sin preámbulos, sin explicaciones, sin comentarios y sin bloques de código Markdown (no uses triple backticks \`\`\`json). Tu respuesta debe ser directamente parseable por JSON.parse.`;
-
-    const defaultUser = `CV del candidato:
-{{cv}}
-
-Descripción de la oferta de trabajo:
-{{job}}
-
-Actua como un reclutador senior de esta empresa exacta, analiza mi cv contra esta descripcion de referencia y dame una puntuacion de match sobre 100, las cinco palabras clave que me faltan y las 3 redflags que un responsable de selección pillaría en menos de 10 segundos.
-
-CRÍTICO: El siguiente JSON es una plantilla estructural de ejemplo. Debes rellenar todos los campos basándote única y exclusivamente en tu análisis real del CV y de la oferta proporcionados. NO copies bajo ningún concepto los valores de ejemplo (como tecnologías, años o la puntuación '38'). Genera una evaluación original basada al 100% en los datos reales del CV y la oferta.
-
-Responde exactamente con este formato JSON:
-{
-  "score": 0,
-  "scoreLabel": "Ejemplo: Match Alto / Match Medio / Match Bajo",
-  "scoreReason": "Ejemplo de justificación detallada y resumida de la puntuación en base a las coincidencias y diferencias reales encontradas.",
-  "dimensions": [
-    { "name": "Ejemplo Dimensión 1", "percentage": 0 },
-    { "name": "Ejemplo Dimensión 2", "percentage": 0 }
-  ],
-  "missingKeywords": [
-    "Ejemplo Palabra Clave Requerida Faltante 1",
-    "Ejemplo Palabra Clave Requerida Faltante 2"
-  ],
-  "presentKeywords": [
-    "Ejemplo Palabra Clave Requerida Presente 1",
-    "Ejemplo Palabra Clave Requerida Presente 2"
-  ],
-  "redFlags": [
-    {
-      "title": "Ejemplo de Alerta 1",
-      "description": "Ejemplo de por qué se considera una alerta de criba en base a la comparación real."
-    }
-  ],
-  "verdict": "Ejemplo de veredicto final detallado e imparcial del reclutador."
-}`;
-
-    let systemPrompt = dbPrompt?.systemPrompt || defaultSystem;
-    // Reemplazar la variable {{company}} en el systemPrompt si está presente
-    systemPrompt = systemPrompt.replace(/\{\{company\}\}/g, company);
-
-    const profileContext = formatCareerProfileContext(careerProfile, 2500);
-    if (profileContext) {
-      systemPrompt += `\n\nINFORMACIÓN Y PREFERENCIAS DEL CANDIDATO (ÚSALAS PARA CALCULAR LA PUNTUACIÓN DE MATCH, VEREDICTO Y REDFLAGS):\n${profileContext}\n\nREGLA CRÍTICA DE EVALUACIÓN: Evalúa cada dimensión y el score global considerando ESTAS preferencias, el stack con evidencia y el CV. No afirmes tecnologías sin prueba. Si la oferta exige un stack o años que el candidato no tiene, baja esa dimensión. Justifica cada red flag según este perfil.`;
-    }
-
-    // Asegurar que devuelva la estructura de puntuación scoreBreakdown en el JSON
-    systemPrompt += `\n\nCRÍTICO: Debes incluir un campo adicional llamado "scoreBreakdown" en la raíz de tu respuesta JSON con puntuaciones numéricas de 1.0 a 5.0 para cada una de estas dimensiones:
-- "tech_stack": Alineación técnica.
-- "experience_fit": Ajuste de años de experiencia.
-- "salary_fit": Alineación salarial.
-- "culture_alignment": Fit cultural y organizacional.
-- "work_mode": Fit geográfico y modalidad de trabajo.
-
-Ejemplo de cómo debe ser esta sección en tu JSON:
-  "scoreBreakdown": {
-    "tech_stack": 4.2,
-    "experience_fit": 5.0,
-    "salary_fit": 3.5,
-    "culture_alignment": 4.0,
-    "work_mode": 4.5
-  }`;
-
-    let userPromptTemplate = dbPrompt?.userPrompt || defaultUser;
-    const userPrompt = userPromptTemplate
-      .replace(/\{\{cv\}\}/g, cvMarkdown)
-      .replace(/\{\{job\}\}/g, jobDescription);
+    const constraints = parseMatchConstraints({
+      curationCriteria: careerProfile?.curationCriteria,
+      bio: careerProfile?.bio,
+      preferredWorkplaces: careerProfile?.preferredWorkplaces,
+      salaryMin: careerProfile?.salaryMin,
+    });
+    const candidateCard = buildCandidateCard(careerProfile, cvMarkdown, constraints);
+    const offerCard = buildOfferCard({
+      id: 'offer',
+      title: company,
+      company,
+      description: jobDescription,
+    }, 'deep');
+    const systemPrompt = buildMatchSystemPrompt({ kind: 'deep', targetThreshold: 65 });
+    const userPrompt = buildMatchUserPrompt({
+      candidateCard,
+      offers: [offerCard],
+    });
 
     if (provider === 'gemini') {
       return await this.streamGeminiOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
@@ -1100,11 +1053,11 @@ Descripción: ${jobDescription}`;
   }
 
   /**
-   * Curación masiva optimizada:
-   * - Micro-lotes de 2 ofertas (reduce "lost in the middle")
-   * - Concurrencia limitada en paralelo
-   * - JD/CV comprimidos
-   * - Checklist de reglas + enforcement en código
+   * Matching de ofertas:
+   * - Candidate card una vez por lote
+   * - Micro-lotes de 2
+   * - Overall y gates en código
+   * - Cache por hash en la fila
    */
   static async curateOffersBatch({
     baseCvMarkdown,
@@ -1112,6 +1065,7 @@ Descripción: ${jobDescription}`;
     offers,
     userSubscriptionStatus,
     targetThreshold = 65,
+    kind = 'triage',
     onBatchComplete,
   }: {
     baseCvMarkdown: string;
@@ -1119,26 +1073,9 @@ Descripción: ${jobDescription}`;
     offers: CurationOfferInput[];
     userSubscriptionStatus: string;
     targetThreshold?: number;
-    onBatchComplete?: (items: Array<{
-      id: string;
-      title: string;
-      company: string;
-      score: number;
-      decision: 'keep' | 'archive';
-      fitReason: string;
-      highlightSkills?: string[];
-    }>) => void | Promise<void>;
-  }): Promise<{
-    curated: Array<{
-      id: string;
-      title: string;
-      company: string;
-      score: number;
-      decision: 'keep' | 'archive';
-      fitReason: string;
-      highlightSkills?: string[];
-    }>;
-  }> {
+    kind?: MatchKind;
+    onBatchComplete?: (items: CuratedMatchItem[]) => void | Promise<void>;
+  }): Promise<{ curated: CuratedMatchItem[] }> {
     if (!offers || offers.length === 0) {
       return { curated: [] };
     }
@@ -1156,52 +1093,85 @@ Descripción: ${jobDescription}`;
       getDefaultModelForProvider(isPro ? 'pro' : 'free', provider),
     );
 
-    const userCurationRules = (userCareerProfile?.curationCriteria || '').trim();
-    const hardConstraints = parseHardConstraints({
+    const constraints = parseMatchConstraints({
       curationCriteria: userCareerProfile?.curationCriteria,
       bio: userCareerProfile?.bio,
+      preferredWorkplaces: userCareerProfile?.preferredWorkplaces,
+      salaryMin: userCareerProfile?.salaryMin,
     });
-    const ruleChecklist = this.extractCurationRuleChecklist(userCurationRules);
-    const candidateContext = this.buildCurationCandidateContext(
-      userCareerProfile,
-      baseCvMarkdown,
-      hardConstraints,
-    );
-    const systemPrompt = this.buildCurationSystemPrompt(
-      userCurationRules,
-      ruleChecklist,
-      targetThreshold,
-      hardConstraints,
-    );
+    const candidateCard = buildCandidateCard(userCareerProfile, baseCvMarkdown, constraints);
+    const systemPrompt = buildMatchSystemPrompt({ kind, targetThreshold });
 
-    const batches: typeof offers[] = [];
-    for (let i = 0; i < offers.length; i += MICRO_BATCH_SIZE) {
-      batches.push(offers.slice(i, i + MICRO_BATCH_SIZE));
+    type Prepared = {
+      offer: CurationOfferInput;
+      offerCard: MatchOfferCard;
+      hash: string;
+    };
+
+    const prepared: Prepared[] = offers.map((offer) => {
+      const offerCard = buildOfferCard(offer, kind);
+      return {
+        offer,
+        offerCard,
+        hash: matchInputHash({ candidateCard, offerCard, model, kind }),
+      };
+    });
+
+    const resultsMap = new Map<string, CuratedMatchItem>();
+    const pending: Prepared[] = [];
+
+    for (const row of prepared) {
+      if (canReuseCachedMatch({
+        hash: row.hash,
+        cachedHash: row.offer.matchInputHash,
+        scoreOverall: row.offer.scoreOverall,
+        scoreBreakdown: row.offer.scoreBreakdown,
+        hasDescription: Boolean((row.offer.description || '').trim()),
+        canonicalBreakdown: isCanonicalMatchBreakdown(row.offer.scoreBreakdown),
+      })) {
+        const cached = cachedMatchItem({
+          offer: row.offer,
+          score: row.offer.scoreOverall as number,
+          scoreBreakdown: row.offer.scoreBreakdown as CuratedMatchItem['scoreBreakdown'],
+          fitReason: row.offer.tldr,
+          hash: row.hash,
+          kind,
+          targetThreshold,
+        });
+        resultsMap.set(row.offer.id, cached);
+      } else {
+        pending.push(row);
+      }
+    }
+
+    const cachedItems = prepared
+      .map((row) => resultsMap.get(row.offer.id))
+      .filter((item): item is CuratedMatchItem => Boolean(item));
+    if (cachedItems.length && onBatchComplete) {
+      await onBatchComplete(cachedItems);
+    }
+
+    const batches: Prepared[][] = [];
+    for (let i = 0; i < pending.length; i += MICRO_BATCH_SIZE) {
+      batches.push(pending.slice(i, i + MICRO_BATCH_SIZE));
     }
 
     const batchResults = await this.mapWithConcurrency(batches, MAX_CONCURRENCY, async (batch) => {
-      let curatedBatch: Array<{
-        id: string;
-        title: string;
-        company: string;
-        score: number;
-        decision: 'keep' | 'archive';
-        fitReason: string;
-        highlightSkills?: string[];
-      }>;
+      let curatedBatch: CuratedMatchItem[];
       try {
         curatedBatch = await this.curateOffersMicroBatch({
           batch,
-          candidateContext,
+          candidateCard,
           systemPrompt,
           provider,
           model,
           targetThreshold,
-          hardConstraints,
+          constraints,
+          kind,
         });
       } catch (err) {
         console.warn('[AIService.curateOffersBatch] Micro-batch failed, using fallback for batch:', err);
-        curatedBatch = batch.map((offer) => this.fallbackCurateItem(offer, targetThreshold, hardConstraints));
+        curatedBatch = batch.map((row) => this.fallbackMatchItem(row, candidateCard, constraints, targetThreshold, kind, model));
       }
 
       if (onBatchComplete) {
@@ -1210,179 +1180,42 @@ Descripción: ${jobDescription}`;
       return curatedBatch;
     });
 
-    const resultsMap = new Map<string, {
-      id: string;
-      title: string;
-      company: string;
-      score: number;
-      decision: 'keep' | 'archive';
-      fitReason: string;
-      highlightSkills?: string[];
-    }>();
-
     for (const batch of batchResults) {
       for (const item of batch) {
         resultsMap.set(item.id, item);
       }
     }
 
-    const curated = offers.map((offer) =>
-      resultsMap.get(offer.id) || this.fallbackCurateItem(offer, targetThreshold, hardConstraints)
+    const curated = prepared.map((row) =>
+      resultsMap.get(row.offer.id) || this.fallbackMatchItem(row, candidateCard, constraints, targetThreshold, kind, model)
     );
 
     return { curated };
   }
 
-  private static extractCurationRuleChecklist(criteria: string): string[] {
-    if (!criteria.trim()) return [];
-
-    const lines = criteria
-      .split(/\n+/)
-      .flatMap((line) => line.split(/(?<=[.!;])\s+(?=(?:[-*•⛔]|Si\b|Prioriza\b|Penaliza\b|Descarta\b|Evita\b|No\b|Must\b|Reject\b))/i))
-      .map((line) => line.replace(/^[\s\-*$•\d.)]+/, '').replace(/^⛔\s*/, '').trim())
-      .filter((line) => line.length >= 10);
-
-    const unique: string[] = [];
-    for (const line of lines) {
-      if (!unique.some((u) => u.toLowerCase() === line.toLowerCase())) {
-        unique.push(line.slice(0, isLanguageRuleLine(line) ? 500 : 180));
-      }
-    }
-    return unique.slice(0, 16);
-  }
-
-  private static compressCvForCuration(markdown: string, maxChars = 900): string {
-    if (!markdown) return '';
-    const cleaned = markdown.replace(/\s+/g, ' ').trim();
-    const skillsMatch = markdown.match(/##[^\n]*(habilidades|skills|tecnolog)[^\n]*\n([\s\S]*?)(?=\n## |\n# |$)/i);
-    const skillsBlock = skillsMatch
-      ? skillsMatch[0].replace(/\s+/g, ' ').trim().slice(0, 400)
-      : '';
-    const head = cleaned.slice(0, Math.max(0, maxChars - (skillsBlock ? skillsBlock.length + 20 : 0)));
-    return skillsBlock ? `${head}\n[Skills]: ${skillsBlock}` : head;
-  }
-
-  private static compressJobDescription(
-    description: string | null | undefined,
-    title?: string | null,
-    sourceMetadata?: unknown,
-    maxChars = 900,
-  ): string | undefined {
-    const text = (description || '').replace(/\s+/g, ' ').trim();
-    const prefix = buildOfferSignalPrefix({ title, description, sourceMetadata });
-    const languageSentences = extractLanguageSentences(description);
-    if (!text && !prefix) return undefined;
-
-    const snippet = text.slice(0, maxChars);
-    const parts = [
-      prefix,
-      languageSentences ? `[idioma_jd]: ${languageSentences}` : '',
-      snippet,
-    ].filter(Boolean);
-
-    return parts.join(' ');
-  }
-
-  private static buildCurationCandidateContext(
-    userCareerProfile: any,
-    baseCvMarkdown: string,
-    hardConstraints?: HardConstraints,
-  ): string {
-    const parts: string[] = [];
-    const structured = formatCareerProfileContext(userCareerProfile, 2800);
-    if (structured) parts.push(structured);
-
-    const extractedRules = formatHardConstraintsForPrompt(hardConstraints);
-    if (extractedRules) parts.push(extractedRules);
-
-    const cvSummary = this.compressCvForCuration(baseCvMarkdown);
-    if (cvSummary) parts.push(`### CV (resumen):\n${cvSummary}`);
-
-    return parts.join('\n\n').trim() || 'Perfil general de Desarrollo de Software.';
-  }
-
-  private static buildCurationSystemPrompt(
-    userCurationRules: string,
-    ruleChecklist: string[],
-    targetThreshold: number,
-    hardConstraints?: HardConstraints,
-  ): string {
-    const checklistBlock = ruleChecklist.length
-      ? ruleChecklist.map((r, i) => `${i + 1}. ${r}`).join('\n')
-      : (userCurationRules || '(sin reglas personalizadas explícitas)');
-
-    const extractedRules = formatHardConstraintsForPrompt(hardConstraints);
-
-    return `Eres un asesor de selección de Matchply. Triage RIGUROSO de pocas ofertas frente al perfil del candidato.
-
-PROTOCOLO OBLIGATORIO POR OFERTA:
-1) HARD RULES primero: revisa CADA ítem del checklist. Si viola alguno → score ≤ 30 y decision="archive".
-2) El IDIOMA DE REDACCIÓN de la oferta es HARD RULE. Usa la señal idioma_oferta. Si el candidato rechaza o penaliza ofertas en inglés y la oferta está en inglés, DEBES incluirlo en violatedRules y NO dar scores altos aunque el stack encaje.
-3) Solo si NO viola reglas: evalúa stack, modalidad, salario, experiencia y tipo de empresa.
-4) score 0-100 entero. decision "keep" si score>=${targetThreshold}, si no "archive".
-5) fitReason: 1 frase ≤25 palabras. Si hay violación, nómbrala.
-
-⛔ CHECKLIST DE REGLAS DURAS (prioridad absoluta):
-${checklistBlock}
-${extractedRules ? `\n${extractedRules}\n` : ''}
-Responde SOLO JSON válido:
-{
-  "curated": [
-    {
-      "id": "ID",
-      "score": 85,
-      "decision": "keep",
-      "fitReason": "...",
-      "highlightSkills": ["Skill1", "Skill2"],
-      "rulesChecked": ["1", "2"],
-      "violatedRules": []
-    }
-  ]
-}
-Si violatedRules no está vacío, score DEBE ser ≤30 y decision="archive".`;
-  }
-
   private static async curateOffersMicroBatch({
     batch,
-    candidateContext,
+    candidateCard,
     systemPrompt,
     provider,
     model,
     targetThreshold,
-    hardConstraints,
+    constraints,
+    kind,
   }: {
-    batch: CurationOfferInput[];
-    candidateContext: string;
+    batch: Array<{ offer: CurationOfferInput; offerCard: MatchOfferCard; hash: string }>;
+    candidateCard: string;
     systemPrompt: string;
     provider: string;
     model: string;
     targetThreshold: number;
-    hardConstraints: HardConstraints;
+    constraints: ReturnType<typeof parseMatchConstraints>;
+    kind: MatchKind;
   }) {
-    const simplifiedOffers = batch.map((o) => {
-      const meta = o.sourceMetadata && typeof o.sourceMetadata === 'object'
-        ? o.sourceMetadata as Record<string, unknown>
-        : {};
-      return {
-        id: o.id,
-        title: o.title,
-        company: o.company,
-        platform: o.platform,
-        tldr: o.tldr ? String(o.tldr).slice(0, 220) : undefined,
-        workplaceType: typeof meta.workplaceType === 'string' ? meta.workplaceType : undefined,
-        location: typeof meta.location === 'string' ? meta.location : undefined,
-        descriptionSnippet: this.compressJobDescription(o.description, o.title, o.sourceMetadata),
-      };
+    const userPrompt = buildMatchUserPrompt({
+      candidateCard,
+      offers: batch.map((row) => row.offerCard),
     });
-
-    const userPrompt = `${candidateContext}
-
-### OFERTAS A EVALUAR (${simplifiedOffers.length}):
-${JSON.stringify(simplifiedOffers)}
-
-Evalúa PRIMERO el checklist de reglas duras (rellena rulesChecked y violatedRules).
-Si idioma_oferta es ingles y el candidato penaliza o rechaza inglés, violatedRules DEBE incluir esa regla.
-Devuelve JSON con exactamente estas ${simplifiedOffers.length} ofertas.`;
 
     let rawResponse = '';
     if (provider === 'gemini') {
@@ -1398,30 +1231,30 @@ Devuelve JSON con exactamente estas ${simplifiedOffers.length} ofertas.`;
       throw new Error('Invalid curation JSON');
     }
 
-    const resultsMap = new Map<string, any>(parsed.curated.map((c: any) => [c.id, c]));
+    const resultsMap = new Map<string, LlmMatchItem>(
+      parsed.curated.map((item: LlmMatchItem) => [String(item.id || ''), item]),
+    );
 
-    return batch.map((offer) => {
-      const evalResult = resultsMap.get(offer.id);
-      return this.normalizeCuratedItem(offer, evalResult, targetThreshold, hardConstraints);
-    });
+    return batch.map((row) => normalizeMatchItem({
+      offer: row.offer,
+      offerCard: row.offerCard,
+      candidateCard,
+      llm: resultsMap.get(row.offer.id) || null,
+      constraints,
+      targetThreshold,
+      kind,
+      model,
+    }));
   }
 
-  private static parseCurationJson(rawResponse: string): { curated?: any[] } | null {
+  private static parseCurationJson(rawResponse: string): { curated?: LlmMatchItem[] } | null {
     let cleanJson = (rawResponse || '').trim();
     if (!cleanJson) return null;
 
-    if (cleanJson.includes('```')) {
-      const start = cleanJson.indexOf('{');
-      const end = cleanJson.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
-        cleanJson = cleanJson.slice(start, end + 1);
-      }
-    } else {
-      const start = cleanJson.indexOf('{');
-      const end = cleanJson.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
-        cleanJson = cleanJson.slice(start, end + 1);
-      }
+    const start = cleanJson.indexOf('{');
+    const end = cleanJson.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      cleanJson = cleanJson.slice(start, end + 1);
     }
 
     try {
@@ -1431,98 +1264,31 @@ Devuelve JSON con exactamente estas ${simplifiedOffers.length} ofertas.`;
     }
   }
 
-  private static normalizeCuratedItem(
-    offer: CurationOfferInput,
-    evalResult: any,
+  private static fallbackMatchItem(
+    row: { offer: CurationOfferInput; offerCard: MatchOfferCard },
+    candidateCard: string,
+    constraints: ReturnType<typeof parseMatchConstraints>,
     targetThreshold: number,
-    hardConstraints: HardConstraints,
-  ): {
-    id: string;
-    title: string;
-    company: string;
-    score: number;
-    decision: 'keep' | 'archive';
-    fitReason: string;
-    highlightSkills?: string[];
-  } {
-    const rawScore = typeof evalResult?.score === 'number' && Number.isFinite(evalResult.score)
-      ? evalResult.score
+    kind: MatchKind,
+    model: string,
+  ): CuratedMatchItem {
+    const fallbackScore = isProfileMatchScore(row.offer.scoreOverall, row.offer.scoreBreakdown)
+      ? Math.round(row.offer.scoreOverall as number)
       : 50;
 
-    const violatedRules = Array.isArray(evalResult?.violatedRules)
-      ? evalResult.violatedRules.map((r: unknown) => String(r).trim()).filter(Boolean)
-      : [];
-
-    const offerLanguage = detectOfferLanguage({
-      title: offer.title,
-      description: offer.description,
-      sourceMetadata: offer.sourceMetadata,
-    });
-
-    const llmDecision =
-      evalResult?.decision === 'keep' || evalResult?.decision === 'archive'
-        ? evalResult.decision
-        : undefined;
-
-    const llmReason = typeof evalResult?.fitReason === 'string' && evalResult.fitReason.trim()
-      ? evalResult.fitReason.trim()
-      : undefined;
-
-    const enforced = enforceCurationConstraints({
-      score: rawScore,
-      decision: llmDecision,
-      fitReason: llmReason,
-      violatedRules,
-      offerLanguage,
-      constraints: hardConstraints,
+    return normalizeMatchItem({
+      offer: row.offer,
+      offerCard: row.offerCard,
+      candidateCard,
+      llm: {
+        score: fallbackScore,
+        fitReason: `Evaluación de respaldo para ${row.offer.title}.`,
+      },
+      constraints,
       targetThreshold,
+      kind,
+      model,
     });
-
-    return {
-      id: offer.id,
-      title: offer.title,
-      company: offer.company,
-      score: enforced.score,
-      decision: enforced.decision,
-      fitReason: enforced.fitReason,
-      highlightSkills: Array.isArray(evalResult?.highlightSkills)
-        ? evalResult.highlightSkills.map((s: unknown) => String(s)).filter(Boolean).slice(0, 4)
-        : [],
-    };
-  }
-
-  private static fallbackCurateItem(
-    offer: CurationOfferInput,
-    targetThreshold: number,
-    hardConstraints: HardConstraints,
-  ) {
-    const existingScore = offer.scoreOverall
-      ? (offer.scoreOverall > 5 ? Math.round(offer.scoreOverall) : Math.round(offer.scoreOverall * 20))
-      : 60;
-
-    const offerLanguage = detectOfferLanguage({
-      title: offer.title,
-      description: offer.description,
-      sourceMetadata: offer.sourceMetadata,
-    });
-
-    const enforced = enforceCurationConstraints({
-      score: existingScore,
-      offerLanguage,
-      constraints: hardConstraints,
-      targetThreshold,
-      fitReason: `Evaluación de respaldo para ${offer.title}.`,
-    });
-
-    return {
-      id: offer.id,
-      title: offer.title,
-      company: offer.company,
-      score: enforced.score,
-      decision: enforced.decision,
-      fitReason: enforced.fitReason,
-      highlightSkills: [offer.platform, offer.company].filter(Boolean).slice(0, 2),
-    };
   }
 
   public static async callGenericText({
@@ -1997,47 +1763,32 @@ DIRECTRICES:
 
     if (action === 'curate_offers') {
       const userProfile = userContext.careerProfile || {};
-      const userCurationRules = (userProfile.curationCriteria || '').trim();
-      const hardConstraints = parseHardConstraints({
+      const kind: MatchKind = payload.kind === 'deep' ? 'deep' : 'triage';
+      const targetThreshold = payload.targetThreshold || 65;
+      const constraints = parseMatchConstraints({
         curationCriteria: userProfile.curationCriteria,
         bio: userProfile.bio,
+        preferredWorkplaces: userProfile.preferredWorkplaces,
+        salaryMin: userProfile.salaryMin,
       });
-      const ruleChecklist = this.extractCurationRuleChecklist(userCurationRules);
-      const candidateContext = this.buildCurationCandidateContext(
-        userProfile,
-        payload.baseCvMarkdown || '',
-        hardConstraints,
-      );
-      const systemPrompt = this.buildCurationSystemPrompt(
-        userCurationRules,
-        ruleChecklist,
-        payload.targetThreshold || 65,
-        hardConstraints,
-      );
-
+      const candidateCard = buildCandidateCard(userProfile, payload.baseCvMarkdown || '', constraints);
       const rawOffers = Array.isArray(payload.offers) ? payload.offers : [];
-      const simplifiedOffers = rawOffers.map((o: any) => {
-        const meta = o.sourceMetadata && typeof o.sourceMetadata === 'object' ? o.sourceMetadata : {};
-        return {
-          id: o.id,
-          title: o.title,
-          company: o.company,
-          platform: o.platform,
-          tldr: o.tldr ? String(o.tldr).slice(0, 220) : undefined,
-          workplaceType: typeof meta.workplaceType === 'string' ? meta.workplaceType : undefined,
-          location: typeof meta.location === 'string' ? meta.location : undefined,
-          descriptionSnippet: this.compressJobDescription(o.description, o.title, o.sourceMetadata),
-        };
-      });
-
-      const userPrompt = `${candidateContext}\n\n### OFERTAS A EVALUAR (${simplifiedOffers.length}):\n${JSON.stringify(simplifiedOffers, null, 2)}\n\nEvalúa PRIMERO el checklist de reglas duras (rellena rulesChecked y violatedRules).\nSi idioma_oferta es ingles y el candidato penaliza o rechaza inglés, violatedRules DEBE incluir esa regla.\nDevuelve JSON con exactamente estas ${simplifiedOffers.length} ofertas.`;
+      const offerCards = rawOffers.map((offer: any) => buildOfferCard({
+        id: offer.id,
+        title: offer.title,
+        company: offer.company,
+        description: offer.description,
+        platform: offer.platform,
+        tldr: offer.tldr,
+        sourceMetadata: offer.sourceMetadata,
+      }, kind));
 
       return {
-        actionTitle: `Curar y calcular Match con IA (${simplifiedOffers.length} ofertas)`,
+        actionTitle: `Curar y calcular Match con IA (${offerCards.length} ofertas)`,
         provider,
         model,
-        systemPrompt,
-        userPrompt,
+        systemPrompt: buildMatchSystemPrompt({ kind, targetThreshold }),
+        userPrompt: buildMatchUserPrompt({ candidateCard, offers: offerCards }),
       };
     }
 

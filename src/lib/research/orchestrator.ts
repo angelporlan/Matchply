@@ -312,19 +312,7 @@ export async function runResearch(runId: string) {
     updatedAt: now,
   }).where(eq(jobResearchRuns.id, run.id));
   await db.update(jobOffers).set({
-    scoreOverall: report.score,
-    scoreBreakdown: {
-      offerFit: report.offerAnalysis.score,
-      company: report.companyAnalysis.score,
-      people: report.peopleAnalysis.score,
-      historyNews: report.historyNews.score,
-      verificationRisk: report.verificationRisk.score,
-      confidence: report.confidence,
-    },
-    tldr: report.executiveSummary,
-    redFlags: report.redFlags,
     legitimacyTier: report.recommendation,
-    rawReport: reportMarkdown(report),
     targetProofPoints: report.offerAnalysis.strengths || [],
     updatedAt: now,
   }).where(eq(jobOffers.id, offer.id));

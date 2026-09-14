@@ -7,7 +7,7 @@ import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { getOwnedApplication } from '@/lib/application-service';
 import { completeAiJob, failAiJob } from './queue';
 import { log } from '@/lib/logger';
-import { evaluationFields, parseJsonObject } from './evaluation';
+import { parseJsonObject } from './evaluation';
 import type { OfferJobPayload, OptimizeApplicationPayload } from './types';
 
 async function consumeStream(stream: ReadableStream<Uint8Array>) {

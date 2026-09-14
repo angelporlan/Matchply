@@ -1,3 +1,5 @@
+import { computeOverall, matchScoreLabel, resolveMatchBreakdown } from '@/lib/matching';
+
 export function parseJsonObject(text: string): Record<string, any> | null {
   const clean = text.trim();
   if (!clean) return null;
@@ -14,32 +16,40 @@ export function parseJsonObject(text: string): Record<string, any> | null {
   }
 }
 
+function unwrapMatchItem(parsed: Record<string, any>): Record<string, any> {
+  if (Array.isArray(parsed.curated) && parsed.curated[0] && typeof parsed.curated[0] === 'object') {
+    return parsed.curated[0];
+  }
+  return parsed;
+}
+
 export function evaluationFields(parsed: Record<string, any>) {
-  const scoreOverall = parsed.score !== undefined ? parseFloat(Number(parsed.score).toFixed(1)) : null;
-  const scoreBreakdown = Array.isArray(parsed.dimensions)
-    ? parsed.dimensions.reduce((acc: Record<string, number>, curr: any) => {
-      if (curr?.name) acc[curr.name] = parseFloat(Number(curr.percentage).toFixed(1));
-      return acc;
-    }, {})
-    : null;
-  const redFlags = parsed.redFlags ?? null;
-  const tldr = parsed.scoreReason || null;
-  const legitimacyTier = parsed.legitimacyTier || null;
+  const item = unwrapMatchItem(parsed);
+  const scoreBreakdown = resolveMatchBreakdown(item);
+  const scoreOverall = computeOverall(scoreBreakdown);
+  const scoreLabel = matchScoreLabel(scoreOverall);
+  const redFlags = item.redFlags ?? parsed.redFlags ?? null;
+  const tldr = item.fitReason || item.scoreReason || parsed.scoreReason || null;
+  const legitimacyTier = item.legitimacyTier || parsed.legitimacyTier || null;
+  const presentKeywords = item.presentKeywords || parsed.presentKeywords || [];
+  const missingKeywords = item.missingKeywords || parsed.missingKeywords || [];
+  const verdict = item.verdict || parsed.verdict || '';
+
   const rawReport = `## B) Match con CV y Gaps Técnicos\n` +
-    `- **Puntuación de compatibilidad:** ${parsed.score}/100 (${parsed.scoreLabel || 'Analizado'})\n` +
-    `- **Razón del score:** ${parsed.scoreReason || ''}\n\n` +
+    `- **Puntuación de compatibilidad:** ${scoreOverall}/100 (${scoreLabel})\n` +
+    `- **Razón del score:** ${tldr || ''}\n\n` +
     `## C) Análisis de Stack Tecnológico\n` +
     `### Tecnologías coincidentes detectadas:\n` +
-    (parsed.presentKeywords && parsed.presentKeywords.length > 0
-      ? parsed.presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
+    (presentKeywords.length > 0
+      ? presentKeywords.map((k: string) => `- ✓ **${k}**`).join('\n')
       : '- Ninguna detectada') + '\n\n' +
     `### Tecnologías requeridas ausentes (Gaps):\n` +
-    (parsed.missingKeywords && parsed.missingKeywords.length > 0
-      ? parsed.missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
+    (missingKeywords.length > 0
+      ? missingKeywords.map((k: string) => `- ⚠ **${k}**`).join('\n')
       : '- Ninguno detectado') + '\n\n' +
     `## E) Blueprint de Personalización del CV\n` +
     `Veredicto final del Reclutador:\n\n` +
-    `${parsed.verdict || ''}`;
+    `${verdict}`;
 
   return { scoreOverall, scoreBreakdown, redFlags, tldr, legitimacyTier, rawReport };
 }

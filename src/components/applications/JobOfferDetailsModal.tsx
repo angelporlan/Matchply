@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
+import { isProfileMatchScore } from '@/lib/matching/rubric';
 
 function mdToHtml(markdown: string): string {
   if (!markdown) return '<p></p>';
@@ -700,6 +702,7 @@ export default function JobOfferDetailsModal({
                               <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-2">
                                 {t('applications.modal.aiScoreTitle')}
                               </span>
+                              {isProfileMatchScore(offer.scoreOverall, offer.scoreBreakdown) ? (
                               <div className="relative flex items-center justify-center">
                                 <svg className="w-20 h-20 transform -rotate-90">
                                   <circle
@@ -714,29 +717,30 @@ export default function JobOfferDetailsModal({
                                     cy="40"
                                     r="34"
                                     className={`fill-transparent transition-all duration-1000 ${
-                                      (offer.scoreOverall ?? 0) >= (offer.scoreOverall && offer.scoreOverall > 5 ? 80.0 : 4.0)
+                                      (offer.scoreOverall ?? 0) >= 75
                                         ? 'stroke-emerald-500'
-                                        : (offer.scoreOverall ?? 0) >= (offer.scoreOverall && offer.scoreOverall > 5 ? 60.0 : 3.0)
+                                        : (offer.scoreOverall ?? 0) >= 60
                                         ? 'stroke-ai'
                                         : 'stroke-rose-500'
                                     }`}
                                     strokeWidth="6"
                                     strokeDasharray={2 * Math.PI * 34}
-                                    strokeDashoffset={2 * Math.PI * 34 - ((offer.scoreOverall ?? 0) / (offer.scoreOverall && offer.scoreOverall > 5 ? 100 : 5)) * (2 * Math.PI * 34)}
+                                    strokeDashoffset={2 * Math.PI * 34 - ((offer.scoreOverall ?? 0) / 100) * (2 * Math.PI * 34)}
                                     strokeLinecap="round"
                                   />
                                 </svg>
                                 <div className="absolute flex flex-col items-center">
                                   <span className="text-xl font-black text-text leading-none">
-                                    {offer.scoreOverall 
-                                      ? (offer.scoreOverall > 5 ? offer.scoreOverall.toFixed(0) : offer.scoreOverall.toFixed(1))
-                                      : '0.0'}
+                                    {Math.round(offer.scoreOverall || 0)}
                                   </span>
                                   <span className="text-[8px] font-bold text-text-muted dark:text-slate-550 uppercase mt-0.5">
-                                    {offer.scoreOverall && offer.scoreOverall > 5 ? 'de 100' : 'de 5'}
+                                    de 100
                                   </span>
                                 </div>
                               </div>
+                              ) : (
+                                <p className="text-[10px] text-text-muted font-sans px-2">Sin match de perfil</p>
+                              )}
                               <p className="text-[9px] text-text-muted leading-tight mt-2.5 font-sans max-w-[110px] italic">
                                 {t('applications.modal.aiScoreHelp')}
                               </p>
@@ -751,39 +755,37 @@ export default function JobOfferDetailsModal({
 
                               {(() => {
                                 const breakdown = getParsedJson(offer.scoreBreakdown) || {};
-                                const entries = Object.entries(breakdown);
-
-                                if (entries.length === 0) {
+                                if (!isProfileMatchScore(offer.scoreOverall, breakdown)) {
                                   return (
                                     <div className="text-xs font-light text-text-muted dark:text-slate-550 italic font-sans py-1">
-                                      Sin desglose detallado de puntuación.
+                                      Sin desglose de match de perfil.
                                     </div>
                                   );
                                 }
 
                                 return (
                                   <div className="space-y-2.5 max-h-[140px] overflow-y-auto scrollbar-custom pr-1">
-                                    {entries.map(([label, value]: [string, any]) => {
-                                      const valNum = parseFloat(value);
-                                      const barPercentage = Math.round((valNum / 5) * 100);
+                                    {MATCH_DIMENSION_KEYS.map((key) => {
+                                      const valNum = Number(breakdown[key]);
+                                      const safe = Number.isFinite(valNum) ? Math.round(valNum) : 0;
                                       
                                       return (
-                                        <div key={label} className="space-y-0.5 font-sans">
+                                        <div key={key} className="space-y-0.5 font-sans">
                                           <div className="flex justify-between items-center text-[11px]">
                                             <span className="font-semibold text-text-muted dark:text-slate-350 capitalize text-[10px]">
-                                              {label.replace(/_/g, ' ')}
+                                              {MATCH_DIMENSION_LABELS[key]}
                                             </span>
                                             <span className="font-bold text-text text-[10px]">
-                                              {valNum.toFixed(1)}/5
+                                              {safe}/100
                                             </span>
                                           </div>
                                           <div className="w-full bg-text/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
                                             <div
-                                              style={{ width: `${barPercentage}%` }}
+                                              style={{ width: `${safe}%` }}
                                               className={`h-full rounded-full transition-all duration-1000 ${
-                                                valNum >= 4.0
+                                                safe >= 75
                                                   ? 'bg-emerald-500'
-                                                  : valNum >= 3.0
+                                                  : safe >= 60
                                                   ? 'bg-ai-action'
                                                   : 'bg-rose-500'
                                               }`}

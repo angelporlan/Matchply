@@ -20,6 +20,8 @@ import {
 import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parseSections, parseMarkdownTable, ParsedReport } from '@/lib/ai-parser';
+import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
+import { isProfileMatchScore } from '@/lib/matching/rubric';
 import ResearchPanel from './ResearchPanel';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
@@ -375,12 +377,12 @@ export default function JobOfferDetailsPage({
   const dbQuestions = getParsedJson(offer.interviewQuestions);
   const hasDbQuestions = Array.isArray(dbQuestions) && dbQuestions.length > 0;
 
-  // Score computation values
-  const scoreVal = offer.scoreOverall !== null ? offer.scoreOverall : 0;
+  const hasProfileMatch = isProfileMatchScore(offer.scoreOverall, offer.scoreBreakdown);
+  const scoreVal = hasProfileMatch && offer.scoreOverall !== null ? Math.round(offer.scoreOverall) : 0;
   const radius = 45;
-  const circumference = 2 * Math.PI * radius; // 282.74
-  const isPercentage = scoreVal > 5;
-  const strokeDashoffset = circumference - (circumference * scoreVal) / (isPercentage ? 100 : 5);
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (circumference * scoreVal) / 100;
+  const matchBreakdown = getParsedJson(offer.scoreBreakdown) || {};
 
   return (
     <div className="space-y-6">
@@ -458,15 +460,15 @@ export default function JobOfferDetailsPage({
         {/* COLUMNA IZQUIERDA: Contexto Fijo / Sticky */}
         <div className="lg:col-span-4 bg-surface p-5 md:p-6 border border-subtle rounded-[12px] shadow-sm space-y-6 lg:sticky lg:top-6">
           
-          {/* Score Overall Gauge */}
-          {offer.scoreOverall !== null && (
-            <div className="flex flex-col items-center justify-center text-center bg-canvas/35 border border-subtle p-4 rounded-xl relative overflow-hidden">
+          <div className="flex flex-col items-center justify-center text-center bg-canvas/35 border border-subtle p-4 rounded-xl relative overflow-hidden">
               <div className="absolute top-[-30%] right-[-30%] w-32 h-32 bg-action/3 rounded-full filter blur-xl pointer-events-none" />
               
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3 font-display">
                 Compatibilidad general
               </span>
-              
+
+              {hasProfileMatch ? (
+                <>
               <div className="relative flex items-center justify-center w-28 h-28">
                 <svg className="absolute w-full h-full transform -rotate-90">
                   <circle
@@ -481,9 +483,9 @@ export default function JobOfferDetailsPage({
                     cy="56"
                     r={radius}
                     className={`fill-transparent transition-all duration-1000 ${
-                      scoreVal >= 4.0
+                      scoreVal >= 75
                         ? 'stroke-emerald-500'
-                        : scoreVal >= 3.0
+                        : scoreVal >= 60
                         ? 'stroke-ai'
                         : 'stroke-rose-500'
                     }`}
@@ -495,31 +497,35 @@ export default function JobOfferDetailsPage({
                 </svg>
                 <div className="absolute flex flex-col items-center font-display">
                   <span className="text-3xl font-black text-text leading-none">
-                    {isPercentage ? scoreVal.toFixed(0) : scoreVal.toFixed(1)}
+                    {scoreVal}
                   </span>
                   <span className="text-[9px] font-bold text-text-muted dark:text-slate-550 uppercase mt-1">
-                    {isPercentage ? 'de 100' : 'de 5'}
+                    de 100
                   </span>
                 </div>
               </div>
               
-              {!!offer.scoreBreakdown && (
-                <div className="w-full mt-4 pt-3 border-t border-subtle space-y-2">
-                  {Object.entries(getParsedJson(offer.scoreBreakdown) || {}).map(([key, val]: [string, any]) => {
-                    const parsedVal = parseFloat(val);
+              <div className="w-full mt-4 pt-3 border-t border-subtle space-y-2">
+                  {MATCH_DIMENSION_KEYS.map((key) => {
+                    const parsedVal = Number(matchBreakdown[key]);
+                    const value = Number.isFinite(parsedVal) ? Math.round(parsedVal) : null;
                     return (
                       <div key={key} className="flex justify-between items-center text-[10px] font-sans">
-                        <span className="text-text-muted capitalize font-medium">{key.replace(/_/g, ' ')}</span>
+                        <span className="text-text-muted capitalize font-medium">{MATCH_DIMENSION_LABELS[key]}</span>
                         <span className="font-bold text-text">
-                          {parsedVal.toFixed(isPercentage ? 0 : 1)}{isPercentage ? '/100' : '/5'}
+                          {value === null ? '—' : `${value}/100`}
                         </span>
                       </div>
                     );
                   })}
                 </div>
+                </>
+              ) : (
+                <p className="text-xs text-text-muted font-sans mb-2">
+                  Aún no hay un match de perfil. Calcúlalo con tu CV y preferencias.
+                </p>
               )}
 
-              {/* Botón para recalcular match con perfil actual */}
               <button
                 type="button"
                 onClick={async () => {
@@ -529,6 +535,7 @@ export default function JobOfferDetailsPage({
                     data: {
                       offerIds: [offer.id],
                       offers: [offer],
+                      kind: 'deep',
                     },
                   });
                   if (!proceed) return;
@@ -537,7 +544,12 @@ export default function JobOfferDetailsPage({
                   try {
                     const res = await evaluateSingleOfferMatchAction(offer.id);
                     if (res.success && typeof res.score === 'number') {
-                      setOffer(prev => ({ ...prev, scoreOverall: res.score }));
+                      setOffer(prev => ({
+                        ...prev,
+                        scoreOverall: res.score,
+                        scoreBreakdown: res.scoreBreakdown ?? prev.scoreBreakdown,
+                        tldr: res.tldr ?? prev.tldr,
+                      }));
                       router.refresh();
                     }
                   } finally {
@@ -552,10 +564,9 @@ export default function JobOfferDetailsPage({
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
-                <span>{evaluatingMatch ? 'Evaluando...' : '⚡ Recalcular Match con tu Perfil'}</span>
+                <span>{evaluatingMatch ? 'Evaluando...' : hasProfileMatch ? '⚡ Recalcular Match con tu Perfil' : '⚡ Calcular Match con tu Perfil'}</span>
               </button>
             </div>
-          )}
 
           {/* CV vinculado selector */}
           <div className="bg-canvas/35 border border-subtle p-4 rounded-[12px] space-y-3 font-display">

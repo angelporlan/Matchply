@@ -122,8 +122,10 @@ export async function POST(req: Request) {
             description: o.description,
             platform: o.platform,
             scoreOverall: o.scoreOverall,
+            scoreBreakdown: o.scoreBreakdown,
             tldr: o.tldr,
             sourceMetadata: o.sourceMetadata,
+            matchInputHash: o.matchInputHash,
           })),
           userSubscriptionStatus: user.subscriptionStatus,
           targetThreshold,
@@ -135,7 +137,14 @@ export async function POST(req: Request) {
               if (typeof item.score === 'number' && item.score > 0) {
                 await db
                   .update(jobOffers)
-                  .set({ scoreOverall: item.score, updatedAt: new Date() })
+                  .set({
+                    scoreOverall: item.score,
+                    scoreBreakdown: item.scoreBreakdown,
+                    tldr: item.fitReason,
+                    matchInputHash: item.inputHash,
+                    matchKind: item.kind,
+                    updatedAt: new Date(),
+                  })
                   .where(and(eq(jobOffers.id, item.id), eq(jobOffers.userId, userId)))
                   .catch(() => {});
               }

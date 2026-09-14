@@ -20,7 +20,7 @@ import {
 import { saveUserCareerProfileAction } from '@/app/dashboard/actions';
 import {
   describeHardConstraintChips,
-  parseHardConstraints,
+  parseMatchConstraints,
 } from '@/lib/curation-constraints';
 import {
   assignEntryKinds,
@@ -165,8 +165,12 @@ export default function CareerProfileForm({
   const [error, setError] = useState<string | null>(null);
 
   const constraintChips = useMemo(
-    () => describeHardConstraintChips(parseHardConstraints({ curationCriteria })),
-    [curationCriteria],
+    () => describeHardConstraintChips(parseMatchConstraints({
+      curationCriteria,
+      preferredWorkplaces,
+      salaryMin: salaryMin === '' ? null : Number(salaryMin),
+    })),
+    [curationCriteria, preferredWorkplaces, salaryMin],
   );
 
   const targetRolesArray = useMemo(

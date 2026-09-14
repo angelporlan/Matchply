@@ -130,12 +130,10 @@ export default function ApplicationCard({
                   {offer.platform}
                 </span>
 
-                {(offer as any).scoreOverall !== null && (
+                {(offer as any).scoreOverall != null && (offer as any).scoreOverall > 5 && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0 font-sans shadow-2xs">
                     <Sparkles className="w-3 h-3 text-emerald-500 stroke-[1.75] animate-pulse" />
-                    {(offer as any).scoreOverall > 5
-                      ? `${(offer as any).scoreOverall.toFixed(0)}%`
-                      : (offer as any).scoreOverall.toFixed(1)}
+                    {`${Math.round((offer as any).scoreOverall)}%`}
                   </span>
                 )}
               </div>

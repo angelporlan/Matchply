@@ -287,17 +287,28 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         description: offer.description,
         platform: offer.platform,
         scoreOverall: offer.scoreOverall,
+        scoreBreakdown: offer.scoreBreakdown,
         tldr: offer.tldr,
         sourceMetadata: offer.sourceMetadata,
+        matchInputHash: offer.matchInputHash,
       }],
       userSubscriptionStatus: user.subscriptionStatus,
       targetThreshold: 65,
+      kind: 'deep',
     });
 
     const evaluated = curated[0];
     if (evaluated && typeof evaluated.score === 'number') {
       await db.update(jobOffers)
-        .set({ scoreOverall: evaluated.score, updatedAt: new Date() })
+        .set({
+          scoreOverall: evaluated.score,
+          scoreBreakdown: evaluated.scoreBreakdown,
+          tldr: evaluated.fitReason,
+          matchInputHash: evaluated.inputHash,
+          matchKind: evaluated.kind,
+          ...(evaluated.redFlags ? { redFlags: evaluated.redFlags } : {}),
+          updatedAt: new Date(),
+        })
         .where(and(eq(jobOffers.id, offer.id), eq(jobOffers.userId, userId)));
       
       revalidatePath(`/dashboard/applications/offer/${offerId}`);
@@ -308,6 +319,8 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         score: evaluated.score,
         fitReason: evaluated.fitReason,
         decision: evaluated.decision,
+        scoreBreakdown: evaluated.scoreBreakdown,
+        tldr: evaluated.fitReason,
       };
     }
 
