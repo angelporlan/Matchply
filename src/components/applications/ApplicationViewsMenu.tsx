@@ -113,7 +113,7 @@ export default function ApplicationViewsMenu({
       </button>
 
       {isOpen && (
-        <div role="menu" className="absolute right-0 top-full z-30 mt-1.5 w-72 rounded-[12px] border border-subtle bg-surface p-2 shadow-xl animate-in fade-in duration-100">
+        <div role="menu" className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-[12px] border border-subtle bg-surface p-2 shadow-xl animate-in fade-in duration-100">
           <p className="px-2.5 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-wider text-text-muted">
             {t('applications.views.systemGroup')}
           </p>

@@ -684,30 +684,23 @@ export default function ApplicationsClient({
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between mb-5">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t('applications.board.searchPlaceholder')}
-            className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-surface-muted transition-colors"
-              aria-label={t('applications.board.clearSearch')}
-              title={t('applications.board.clearSearch')}
-            >
-              <X className="w-3.5 h-3.5 stroke-[1.75]" />
-            </button>
+      <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-5">
+        <div className="flex flex-wrap items-center gap-3">
+          {layout === 'table' && (
+            <ApplicationViewsMenu
+              views={viewOptions}
+              activeViewId={activeViewId}
+              isDirty={isDirty}
+              saving={isSavingView}
+              onSelect={handleSelectView}
+              onSave={handleSaveView}
+              onSaveAs={handleSaveViewAs}
+              onSetDefault={handleSetDefaultView}
+              onDelete={handleDeleteView}
+              onRevert={handleRevertView}
+            />
           )}
-        </div>
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center">
           {followupFilter !== 'all' && (
             <button
               type="button"
@@ -721,30 +714,6 @@ export default function ApplicationsClient({
               {t(`applications.filters.followup.${followupFilter}`)}
               <X className="w-3 h-3 stroke-[2]" />
             </button>
-          )}
-
-          {layout === 'table' && (
-            <>
-              <ApplicationViewsMenu
-                views={viewOptions}
-                activeViewId={activeViewId}
-                isDirty={isDirty}
-                saving={isSavingView}
-                onSelect={handleSelectView}
-                onSave={handleSaveView}
-                onSaveAs={handleSaveViewAs}
-                onSetDefault={handleSetDefaultView}
-                onDelete={handleDeleteView}
-                onRevert={handleRevertView}
-              />
-              <ApplicationColumnsMenu
-                visibleColumns={columns}
-                onChange={(nextColumns) => {
-                  setColumns(nextColumns);
-                  setPage(1);
-                }}
-              />
-            </>
           )}
 
           {layout === 'board' && (
@@ -775,6 +744,40 @@ export default function ApplicationsClient({
               </button>
             </div>
           )}
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          {layout === 'table' && (
+            <ApplicationColumnsMenu
+              visibleColumns={columns}
+              onChange={(nextColumns) => {
+                setColumns(nextColumns);
+                setPage(1);
+              }}
+            />
+          )}
+
+          <div className="relative flex-1 md:w-80 lg:w-96 min-w-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t('applications.board.searchPlaceholder')}
+              className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text dark:hover:text-white hover:bg-canvas dark:hover:bg-surface-muted transition-colors"
+                aria-label={t('applications.board.clearSearch')}
+                title={t('applications.board.clearSearch')}
+              >
+                <X className="w-3.5 h-3.5 stroke-[1.75]" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
