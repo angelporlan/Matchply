@@ -43,6 +43,8 @@ interface AiPreviewModalProps {
     companyPreferences: string;
     salaryMin?: number | '';
     salaryTarget?: number | '';
+    englishLevel?: string;
+    englishOverLevelPolicy?: string;
     curationCriteria: string;
     masterDocument?: string;
   };

@@ -72,6 +72,7 @@ export function buildMatchUserPrompt(input: {
     language: offer.language,
     workplace: offer.workplace,
     salaryMax: offer.salaryMax,
+    requiredEnglish: offer.requiredEnglish,
     location: offer.location,
     tldr: offer.tldr,
     signals: offer.signals,

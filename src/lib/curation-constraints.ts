@@ -1,6 +1,7 @@
 export type OfferLanguage = 'en' | 'es' | 'mixed' | 'unknown';
 export type ConstraintLanguage = 'en' | 'es';
 export type LanguagePolicy = 'reject' | 'penalize';
+export type CefrLevel = 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2' | 'native';
 
 export type OfferWorkplace = 'remote' | 'hybrid' | 'onsite' | 'unknown';
 
@@ -8,12 +9,35 @@ export type HardConstraints = {
   language?: {
     rejectOfferLanguage?: ConstraintLanguage[];
     penalizeOfferLanguage?: Array<{ lang: ConstraintLanguage; maxScore: number }>;
+    /** Highest English requirement the candidate accepts. C1 JD vs B2 here → cap. */
+    englishMaxOk?: CefrLevel;
+    englishRequirementPolicy?: LanguagePolicy;
   };
   dealBreakers?: string[];
   workplace?: {
     remoteOnly?: boolean;
   };
   salaryMin?: number;
+};
+
+export const CEFR_LEVELS: CefrLevel[] = ['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'native'];
+export const CEFR_RANK: Record<CefrLevel, number> = {
+  a1: 1,
+  a2: 2,
+  b1: 3,
+  b2: 4,
+  c1: 5,
+  c2: 6,
+  native: 7,
+};
+export const CEFR_LABELS: Record<CefrLevel, string> = {
+  a1: 'A1',
+  a2: 'A2',
+  b1: 'B1',
+  b2: 'B2',
+  c1: 'C1',
+  c2: 'C2',
+  native: 'Nativo',
 };
 
 export const LANGUAGE_REJECT_MAX_SCORE = 30;
@@ -65,6 +89,85 @@ const SOLO_ENGLISH =
 
 const LANGUAGE_RULE_LINE =
   /ingl[eé]s|english|espa[nñ]ol|spanish|castellano|idioma|language/i;
+
+const WRITING_LANGUAGE_HINT =
+  /\b(?:ofertas?|anuncios?|vacantes?|job\s+posts?|posts?)\s+(?:redactad[aos]?|escrit[aos]?|written)?\s*(?:en|in)\s+(?:ingl[eé]s|english|espa[nñ]ol|spanish)|\b(?:redactad[aos]?|escrit[aos]?|written)\s+(?:en|in)\s+(?:ingl[eé]s|english)\b/i;
+
+const ENGLISH_LEVEL_HINT =
+  /\b(c1|c2|b1|b2|a1|a2|cefr|fluent|fluidez|fluido|nativo|native|avanzado|advanced|nivel)\b/i;
+
+const ENGLISH_PLUS =
+  /\b(english\s+(?:is\s+)?(?:a\s+)?(?:plus|nice|good)\s+to\s+have|se\s+valorar[aá](?:n)?\s+(?:el\s+)?ingl[eé]s|ingl[eé]s\s+ser[aá]\s+un\s+plus)\b/i;
+
+export function parseCefrLevel(value: unknown): CefrLevel | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, '');
+  if (normalized === 'nativo' || normalized === 'bilingual' || normalized === 'bilingue' || normalized === 'bilingüe') {
+    return 'native';
+  }
+  return CEFR_LEVELS.includes(normalized as CefrLevel) ? normalized as CefrLevel : null;
+}
+
+function cefrBelow(level: CefrLevel): CefrLevel | null {
+  const rank = CEFR_RANK[level];
+  return CEFR_LEVELS.find((item) => CEFR_RANK[item] === rank - 1) || null;
+}
+
+function highestCefr(a: CefrLevel | null, b: CefrLevel | null): CefrLevel | null {
+  if (!a) return b;
+  if (!b) return a;
+  return CEFR_RANK[a] >= CEFR_RANK[b] ? a : b;
+}
+
+function lowestCefr(a: CefrLevel | null, b: CefrLevel | null): CefrLevel | null {
+  if (!a) return b;
+  if (!b) return a;
+  return CEFR_RANK[a] <= CEFR_RANK[b] ? a : b;
+}
+
+function extractCefrMentions(text: string): CefrLevel[] {
+  const found: CefrLevel[] = [];
+  const lower = text.toLowerCase();
+  if (/\b(native|nativo|mother\s*tongue|biling[uü]e)\b/i.test(lower)) found.push('native');
+  if (/\bc2\b/i.test(lower)) found.push('c2');
+  if (/\bc1\b/i.test(lower)) found.push('c1');
+  if (/\bb2\b/i.test(lower)) found.push('b2');
+  if (/\bb1\b/i.test(lower)) found.push('b1');
+  if (/\ba2\b/i.test(lower)) found.push('a2');
+  if (/\ba1\b/i.test(lower)) found.push('a1');
+  if (/\b(fluent|fluido|fluidez|avanzado|advanced)\b/i.test(lower)) found.push('c1');
+  return found;
+}
+
+export function detectRequiredEnglishLevel(text: string | null | undefined): CefrLevel | null {
+  if (!text?.trim()) return null;
+  let highest: CefrLevel | null = null;
+
+  for (const sentence of [...splitSentences(text), text.replace(/\s+/g, ' ')]) {
+    if (!EN_LANGUAGE_WORD.test(sentence)) continue;
+    if (SPANISH_AS_PLUS.test(sentence) || ENGLISH_PLUS.test(sentence)) continue;
+
+    const mentions = extractCefrMentions(sentence);
+    let level: CefrLevel | null = mentions.reduce<CefrLevel | null>(
+      (acc, item) => highestCefr(acc, item),
+      null,
+    );
+
+    if (!level && /\b(required|must|exig[eia]|requisito|mandatory|imprescindible|obligatori[oa]|essential)\b/i.test(sentence)) {
+      level = 'b2';
+    }
+    if (!level && /\b(upper[- ]intermediate|professional working proficiency)\b/i.test(sentence)) {
+      level = 'b2';
+    }
+    if (!level && /\b(intermediate|intermedio|conversational|conversacional)\b/i.test(sentence)) {
+      level = 'b1';
+    }
+
+    highest = highestCefr(highest, level);
+  }
+
+  return highest;
+}
 
 function uniquePush<T>(list: T[], value: T, equals: (a: T, b: T) => boolean) {
   if (!list.some((item) => equals(item, value))) {
@@ -129,12 +232,17 @@ export function parseHardConstraints(input: {
     );
   };
 
+  let englishMaxOk: CefrLevel | undefined;
+  let englishRequirementPolicy: LanguagePolicy | undefined;
+
   const considerSentence = (sentence: string) => {
     const mentionsEn = EN_LANGUAGE_WORD.test(sentence);
     const mentionsEs = ES_LANGUAGE_WORD.test(sentence);
     const hasPenalize = PENALIZE_HINT.test(sentence);
     const hasReject = REJECT_VERB.test(sentence);
     const noPlusLanguage = /\bno\b.{0,100}\b(ingl[eé]s|english|espa[nñ]ol|spanish|castellano)\b/i.test(sentence);
+    const isLevelRule = mentionsEn && ENGLISH_LEVEL_HINT.test(sentence);
+    const isWritingRule = WRITING_LANGUAGE_HINT.test(sentence);
 
     if (SOLO_SPANISH.test(sentence)) {
       applyLanguagePolicy('en', 'reject');
@@ -152,7 +260,16 @@ export function parseHardConstraints(input: {
     };
 
     const policy = policyForMention();
-    if (policy && mentionsEn) applyLanguagePolicy('en', policy);
+    if (policy && isLevelRule) {
+      const mentioned = extractCefrMentions(sentence);
+      const lowestBar = mentioned.reduce<CefrLevel | null>((acc, item) => lowestCefr(acc, item), null) || 'c1';
+      const maxOk = cefrBelow(lowestBar) || 'b2';
+      englishMaxOk = englishMaxOk ? (lowestCefr(englishMaxOk, maxOk) || maxOk) : maxOk;
+      if (!englishRequirementPolicy || policy === 'reject') englishRequirementPolicy = policy;
+      if (!isWritingRule) return;
+    }
+
+    if (policy && mentionsEn && (!isLevelRule || isWritingRule)) applyLanguagePolicy('en', policy);
     if (policy && mentionsEs && !mentionsEn) applyLanguagePolicy('es', policy);
 
     if (!mentionsEn && !mentionsEs && hasReject) {
@@ -166,10 +283,11 @@ export function parseHardConstraints(input: {
   considerSentence(text.replace(/\s+/g, ' '));
 
   const constraints: HardConstraints = {};
-  if (rejectOfferLanguage.length || penalizeOfferLanguage.length) {
+  if (rejectOfferLanguage.length || penalizeOfferLanguage.length || englishMaxOk) {
     constraints.language = {
       ...(rejectOfferLanguage.length ? { rejectOfferLanguage } : {}),
       ...(penalizeOfferLanguage.length ? { penalizeOfferLanguage } : {}),
+      ...(englishMaxOk ? { englishMaxOk, englishRequirementPolicy: englishRequirementPolicy || 'penalize' } : {}),
     };
   }
   if (dealBreakers.length) {
@@ -193,6 +311,8 @@ export function parseMatchConstraints(input: {
   bio?: string | null;
   preferredWorkplaces?: unknown;
   salaryMin?: unknown;
+  englishLevel?: unknown;
+  englishOverLevelPolicy?: unknown;
 }): HardConstraints {
   const constraints = parseHardConstraints({
     curationCriteria: input.curationCriteria,
@@ -208,6 +328,21 @@ export function parseMatchConstraints(input: {
     : Number(input.salaryMin);
   if (Number.isFinite(salaryMin) && salaryMin > 0) {
     constraints.salaryMin = Math.round(salaryMin);
+  }
+
+  const englishLevel = parseCefrLevel(input.englishLevel);
+  const policy = input.englishOverLevelPolicy === 'reject' ? 'reject'
+    : input.englishOverLevelPolicy === 'penalize' ? 'penalize'
+    : constraints.language?.englishRequirementPolicy;
+
+  if (englishLevel || policy) {
+    constraints.language = {
+      ...constraints.language,
+      ...(englishLevel ? { englishMaxOk: englishLevel } : {}),
+      ...(englishLevel || constraints.language?.englishMaxOk
+        ? { englishRequirementPolicy: policy || 'penalize' }
+        : {}),
+    };
   }
 
   return constraints;
@@ -290,6 +425,9 @@ export function buildOfferSignalPrefix(input: {
   else if (language === 'es') signals.unshift('idioma_oferta:espanol');
   else if (language === 'mixed') signals.unshift('idioma_oferta:mixto');
 
+  const requiredEnglish = detectRequiredEnglishLevel(text);
+  if (requiredEnglish) signals.push(`ingles_exigido:${requiredEnglish}`);
+
   return signals.length ? `[señales: ${signals.join(', ')}]` : '';
 }
 
@@ -366,6 +504,21 @@ export function getWorkplaceScoreCap(
   return null;
 }
 
+export function getEnglishRequirementCap(
+  requiredEnglish: CefrLevel | null | undefined,
+  constraints: HardConstraints | null | undefined,
+): ScoreCap | null {
+  const maxOk = constraints?.language?.englishMaxOk;
+  if (!maxOk || !requiredEnglish) return null;
+  if (CEFR_RANK[requiredEnglish] <= CEFR_RANK[maxOk]) return null;
+  const policy = constraints?.language?.englishRequirementPolicy || 'penalize';
+  return {
+    mode: policy,
+    maxScore: policy === 'reject' ? LANGUAGE_REJECT_MAX_SCORE : LANGUAGE_PENALIZE_MAX_SCORE,
+    reason: `Piden inglés ${CEFR_LABELS[requiredEnglish]} (tu tope ${CEFR_LABELS[maxOk]}).`,
+  };
+}
+
 export function getSalaryScoreCap(
   offerSalaryMax: number | null | undefined,
   constraints: HardConstraints | null | undefined,
@@ -406,6 +559,7 @@ export function enforceCurationConstraints(input: {
   offerLanguage: OfferLanguage;
   offerWorkplace?: OfferWorkplace | null;
   offerSalaryMax?: number | null;
+  offerRequiredEnglish?: CefrLevel | null;
   constraints: HardConstraints | null | undefined;
   targetThreshold: number;
 }): {
@@ -434,6 +588,12 @@ export function enforceCurationConstraints(input: {
   score = languageApplied.score;
   fitReason = languageApplied.fitReason;
   if (languageApplied.reject) forcedReject = true;
+
+  const englishReqCap = getEnglishRequirementCap(input.offerRequiredEnglish, input.constraints);
+  const englishReqApplied = applyCap(score, fitReason, englishReqCap, /ingl[eé]s|c1|c2|nivel|criterio/i);
+  score = englishReqApplied.score;
+  fitReason = englishReqApplied.fitReason;
+  if (englishReqApplied.reject) forcedReject = true;
 
   const workplaceCap = getWorkplaceScoreCap(input.offerWorkplace, input.constraints);
   const workplaceApplied = applyCap(score, fitReason, workplaceCap, /remoto|presencial|h[ií]brido|modalidad/i);
@@ -476,8 +636,14 @@ export function describeHardConstraintChips(constraints: HardConstraints | null 
     chips.push(lang === 'en' ? `Inglés: máx. ${LANGUAGE_REJECT_MAX_SCORE} pts` : `Español: máx. ${LANGUAGE_REJECT_MAX_SCORE} pts`);
   }
   for (const rule of penalize) {
-    const label = rule.lang === 'en' ? 'Inglés' : 'Español';
+    const label = rule.lang === 'en' ? 'Inglés (anuncio)' : 'Español (anuncio)';
     chips.push(`${label}: máx. ${rule.maxScore} pts`);
+  }
+  if (constraints?.language?.englishMaxOk) {
+    const max = constraints.language.englishRequirementPolicy === 'reject'
+      ? LANGUAGE_REJECT_MAX_SCORE
+      : LANGUAGE_PENALIZE_MAX_SCORE;
+    chips.push(`Inglés exigido > ${CEFR_LABELS[constraints.language.englishMaxOk]}: máx. ${max} pts`);
   }
   for (const deal of (constraints?.dealBreakers || []).slice(0, 3)) {
     chips.push(deal.length > 42 ? `${deal.slice(0, 42).trim()}…` : deal);

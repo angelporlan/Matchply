@@ -4,9 +4,11 @@ import {
   LANGUAGE_PENALIZE_MAX_SCORE,
   LANGUAGE_REJECT_MAX_SCORE,
   detectOfferLanguage,
+  detectRequiredEnglishLevel,
   describeHardConstraintChips,
   enforceCurationConstraints,
   parseHardConstraints,
+  parseMatchConstraints,
 } from '@/lib/curation-constraints';
 
 const ENGLISH_JD = `
@@ -175,4 +177,82 @@ test('exposes chips for the extracted English cap', () => {
     }),
   );
   assert.ok(chips.some((chip) => /inglés/i.test(chip)));
+});
+
+test('C1/C2 requirement text is not treated as “ads written in English”', () => {
+  const constraints = parseHardConstraints({
+    curationCriteria: 'Penaliza si en la oferta piden c1 o c2 en ingles',
+  });
+  assert.equal(constraints.language?.penalizeOfferLanguage, undefined);
+  assert.equal(constraints.language?.englishMaxOk, 'b2');
+  assert.equal(constraints.language?.englishRequirementPolicy, 'penalize');
+});
+
+test('detects required English level from the JD, not the ad language', () => {
+  assert.equal(
+    detectRequiredEnglishLevel('Buscamos desarrollador React. Requisitos: inglés C1. El puesto es remoto.'),
+    'c1',
+  );
+  assert.equal(
+    detectRequiredEnglishLevel(ENGLISH_JD),
+    null,
+  );
+  assert.equal(
+    detectRequiredEnglishLevel('Fluent English required. Spanish is a plus.'),
+    'c1',
+  );
+});
+
+test('a Spanish JD that requires C1 is capped; an English JD without a bar is not', () => {
+  const constraints = parseHardConstraints({
+    curationCriteria: 'Penaliza si en la oferta piden c1 o c2 en ingles',
+  });
+
+  const spanishC1 = enforceCurationConstraints({
+    score: 88,
+    offerLanguage: 'es',
+    offerRequiredEnglish: 'c1',
+    constraints,
+    targetThreshold: 65,
+  });
+  assert.equal(spanishC1.score, LANGUAGE_PENALIZE_MAX_SCORE);
+  assert.equal(spanishC1.decision, 'archive');
+  assert.match(spanishC1.fitReason, /C1/);
+
+  const englishNoBar = enforceCurationConstraints({
+    score: 88,
+    offerLanguage: 'en',
+    offerRequiredEnglish: null,
+    constraints,
+    targetThreshold: 65,
+  });
+  assert.equal(englishNoBar.score, 88);
+  assert.equal(englishNoBar.decision, 'keep');
+});
+
+test('structured englishLevel wins over free-text C1/C2 rule', () => {
+  const constraints = parseMatchConstraints({
+    curationCriteria: 'Penaliza si piden c1 o c2 en ingles',
+    englishLevel: 'c1',
+    englishOverLevelPolicy: 'penalize',
+  });
+  assert.equal(constraints.language?.englishMaxOk, 'c1');
+
+  const c1ok = enforceCurationConstraints({
+    score: 80,
+    offerLanguage: 'es',
+    offerRequiredEnglish: 'c1',
+    constraints,
+    targetThreshold: 65,
+  });
+  assert.equal(c1ok.score, 80);
+
+  const c2cap = enforceCurationConstraints({
+    score: 80,
+    offerLanguage: 'es',
+    offerRequiredEnglish: 'c2',
+    constraints,
+    targetThreshold: 65,
+  });
+  assert.equal(c2cap.score, LANGUAGE_PENALIZE_MAX_SCORE);
 });

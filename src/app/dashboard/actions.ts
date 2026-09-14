@@ -426,6 +426,8 @@ export async function saveUserCareerProfileAction(profileData: any) {
         bio: normalizedFields?.bio,
         preferredWorkplaces: normalizedFields?.preferredWorkplaces,
         salaryMin: normalizedFields?.salaryMin,
+        englishLevel: normalizedFields?.englishLevel,
+        englishOverLevelPolicy: normalizedFields?.englishOverLevelPolicy,
       }),
       updatedAt: new Date().toISOString(),
     };

@@ -1,6 +1,7 @@
 import {
   buildOfferSignalPrefix,
   detectOfferLanguage,
+  detectRequiredEnglishLevel,
   extractLanguageSentences,
   type OfferLanguage,
 } from '@/lib/curation-constraints';
@@ -96,6 +97,7 @@ export function buildOfferCard(
     sourceMetadata: offer.sourceMetadata,
   });
   const salaryMax = extractOfferSalaryMax(`${offer.title} ${description}`);
+  const requiredEnglish = detectRequiredEnglishLevel(`${offer.title}\n${description}`);
   const signals = buildOfferSignalPrefix({
     title: offer.title,
     description,
@@ -103,9 +105,11 @@ export function buildOfferCard(
   });
   const languageSentences = extractLanguageSentences(description);
   const requirements = extractRequirementsSection(description, maxChars);
-  const extras = [languageSentences, salaryMax ? `salario_max:${salaryMax}` : '']
-    .filter(Boolean)
-    .join(' ');
+  const extras = [
+    languageSentences,
+    salaryMax ? `salario_max:${salaryMax}` : '',
+    requiredEnglish ? `ingles_exigido:${requiredEnglish}` : '',
+  ].filter(Boolean).join(' ');
 
   const meta = offer.sourceMetadata && typeof offer.sourceMetadata === 'object'
     ? offer.sourceMetadata as Record<string, unknown>
@@ -119,6 +123,7 @@ export function buildOfferCard(
     language,
     workplace,
     salaryMax,
+    requiredEnglish,
     location: typeof meta.location === 'string' ? meta.location.slice(0, 80) : undefined,
     tldr: offer.tldr ? String(offer.tldr).slice(0, 220) : undefined,
     signals,
@@ -136,6 +141,7 @@ export function serializeOfferCard(card: MatchOfferCard): string {
     language: card.language,
     workplace: card.workplace,
     salaryMax: card.salaryMax,
+    requiredEnglish: card.requiredEnglish,
     location: card.location || '',
     tldr: card.tldr || '',
     requirementsExtract: card.requirementsExtract,

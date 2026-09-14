@@ -32,9 +32,10 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles, Download } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import ExportApplicationsModal from './ExportApplicationsModal';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
 
@@ -110,6 +111,7 @@ export default function ApplicationsClient({
   const [curateTargetOffers, setCurateTargetOffers] = useState<ApplicationSummary[] | null>(null);
   const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
 
   // Vistas guardadas, columnas y orden de la tabla
@@ -865,6 +867,14 @@ export default function ApplicationsClient({
                   <Sparkles className="w-3.5 h-3.5 stroke-[2] text-violet-200" />
                   <span>{t('applications.table.bulk.matchWithAi')}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-subtle bg-surface hover:bg-canvas hover:border-control text-text text-xs font-bold font-display shadow-xs transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <span>{t('applications.table.bulk.exportData')}</span>
+                </button>
                 <label className="sr-only" htmlFor="bulk-status">{t('applications.table.bulk.changeStatus')}</label>
                 <select
                   id="bulk-status"
@@ -1204,6 +1214,17 @@ export default function ApplicationsClient({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Modal de Exportación de Datos */}
+      {isExportModalOpen && (
+        <ExportApplicationsModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          selectedOfferIds={Array.from(selectedIds)}
+          visibleColumns={columns}
+          onToast={showToast}
+        />
       )}
 
     </div>

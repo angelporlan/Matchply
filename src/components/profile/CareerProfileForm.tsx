@@ -19,8 +19,12 @@ import {
 } from 'lucide-react';
 import { saveUserCareerProfileAction } from '@/app/dashboard/actions';
 import {
+  CEFR_LABELS,
   describeHardConstraintChips,
+  parseCefrLevel,
   parseMatchConstraints,
+  type CefrLevel,
+  type LanguagePolicy,
 } from '@/lib/curation-constraints';
 import {
   assignEntryKinds,
@@ -59,6 +63,8 @@ interface CareerProfileFormProps {
     companyPreferences?: string;
     salaryMin?: number;
     salaryTarget?: number;
+    englishLevel?: string;
+    englishOverLevelPolicy?: string;
     curationCriteria?: string;
     additionalNotes?: string;
     keyProjects?: KeyProject[];
@@ -151,6 +157,12 @@ export default function CareerProfileForm({
   );
   const [salaryMin, setSalaryMin] = useState<number | ''>(initialProfile?.salaryMin ?? '');
   const [salaryTarget, setSalaryTarget] = useState<number | ''>(initialProfile?.salaryTarget ?? '');
+  const [englishLevel, setEnglishLevel] = useState<CefrLevel | ''>(
+    parseCefrLevel(initialProfile?.englishLevel) || '',
+  );
+  const [englishOverLevelPolicy, setEnglishOverLevelPolicy] = useState<LanguagePolicy>(
+    initialProfile?.englishOverLevelPolicy === 'reject' ? 'reject' : 'penalize',
+  );
   const [keyProjects, setKeyProjects] = useState<KeyProject[]>(initialStructured.projects);
   const [skills, setSkills] = useState<ProfileSkill[]>(initialStructured.skills);
   const [classification, setClassification] = useState<any>(initialProfile?.classification || null);
@@ -169,8 +181,10 @@ export default function CareerProfileForm({
       curationCriteria,
       preferredWorkplaces,
       salaryMin: salaryMin === '' ? null : Number(salaryMin),
+      englishLevel: englishLevel || null,
+      englishOverLevelPolicy,
     })),
-    [curationCriteria, preferredWorkplaces, salaryMin],
+    [curationCriteria, preferredWorkplaces, salaryMin, englishLevel, englishOverLevelPolicy],
   );
 
   const targetRolesArray = useMemo(
@@ -212,6 +226,8 @@ export default function CareerProfileForm({
     companyPreferences,
     salaryMin: salaryMin === '' ? null : Number(salaryMin),
     salaryTarget: salaryTarget === '' ? null : Number(salaryTarget),
+    englishLevel: englishLevel || null,
+    englishOverLevelPolicy: englishLevel ? englishOverLevelPolicy : null,
     curationCriteria,
     additionalNotes: bio,
     keyProjects: keyProjects.filter((project) => project.title.trim() || project.description.trim()),
@@ -265,6 +281,10 @@ export default function CareerProfileForm({
     if (data.companyPreferences) setCompanyPreferences(data.companyPreferences);
     if (typeof data.salaryMin === 'number') setSalaryMin(data.salaryMin);
     if (typeof data.salaryTarget === 'number') setSalaryTarget(data.salaryTarget);
+    if (parseCefrLevel(data.englishLevel)) setEnglishLevel(parseCefrLevel(data.englishLevel) as CefrLevel);
+    if (data.englishOverLevelPolicy === 'reject' || data.englishOverLevelPolicy === 'penalize') {
+      setEnglishOverLevelPolicy(data.englishOverLevelPolicy);
+    }
     if (data.classification) setClassification(data.classification);
     if (data.targetTransition?.targetRole) setOptionalTarget(data.targetTransition.targetRole);
     const structured = applyStructured(data);
@@ -559,7 +579,7 @@ export default function CareerProfileForm({
                 6. Preferencias y cómo puntuar
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Idioma, modalidad, ciudad y tipo de empresa. Las reglas de idioma se aplican en código.
+                Modalidad, salario e inglés se aplican en código. El recuadro es para stack y excepciones, no para repetir el nivel de inglés.
               </p>
             </div>
           </div>
@@ -569,7 +589,7 @@ export default function CareerProfileForm({
             value={curationCriteria}
             onChange={setCurationCriteria}
             rows={5}
-            placeholder="Ej: No puntúes alto ofertas en inglés. Prioriza el stack que uso. Penaliza presencial fuera de mi ciudad."
+            placeholder="Ej: Prioriza TypeScript y producto. Si el stack encaja al 100%, mantén la oferta aunque pidan más años."
           />
           {constraintChips.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -643,6 +663,48 @@ export default function CareerProfileForm({
                 className={inputClass}
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-text mb-1.5 font-display">Tu inglés</label>
+              <select
+                value={englishLevel}
+                onChange={(e) => setEnglishLevel(parseCefrLevel(e.target.value) || '')}
+                className={inputClass}
+              >
+                <option value="">No lo indico</option>
+                {(['b1', 'b2', 'c1', 'c2', 'native'] as const).map((level) => (
+                  <option key={level} value={level}>
+                    {CEFR_LABELS[level]}{level === 'b1' ? ' — intermedio' : level === 'b2' ? ' — alto' : level === 'c1' ? ' — avanzado' : level === 'c2' ? ' — dominio' : ' / bilingüe'}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-text-muted font-sans">
+                Si la oferta exige un nivel superior (p. ej. C1/C2), el match se limita. No es el idioma del anuncio.
+              </p>
+            </div>
+            {englishLevel && (
+              <div>
+                <label className="block text-xs font-bold text-text mb-1.5 font-display">Si piden un nivel superior</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {([
+                    { id: 'penalize' as const, label: 'Penalizar (máx. 40)' },
+                    { id: 'reject' as const, label: 'Descartar (máx. 30)' },
+                  ]).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setEnglishOverLevelPolicy(item.id)}
+                      className={`text-xs font-bold min-h-11 px-3.5 rounded-[8px] border ${
+                        englishOverLevelPolicy === item.id
+                          ? 'bg-ai/10 text-ai border-ai/25'
+                          : 'bg-canvas text-slate-500 border-subtle'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario objetivo (€)</label>
               <input
@@ -746,6 +808,8 @@ export default function CareerProfileForm({
           companyPreferences,
           salaryMin,
           salaryTarget,
+          englishLevel,
+          englishOverLevelPolicy,
           curationCriteria,
           masterDocument,
         }}

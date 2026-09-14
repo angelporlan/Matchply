@@ -69,6 +69,7 @@ export function normalizeMatchItem(input: {
     offerLanguage: input.offerCard.language,
     offerWorkplace: input.offerCard.workplace,
     offerSalaryMax: input.offerCard.salaryMax,
+    offerRequiredEnglish: input.offerCard.requiredEnglish,
     constraints: input.constraints,
     targetThreshold: input.targetThreshold,
   });

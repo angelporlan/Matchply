@@ -79,6 +79,9 @@ export function buildCandidateCard(
   if (profile?.salaryMin || profile?.salaryTarget) {
     prefs.push(`Salario: min ${profile.salaryMin || 'N/D'}€, objetivo ${profile.salaryTarget || 'N/D'}€`);
   }
+  if (profile?.englishLevel) {
+    prefs.push(`Inglés del candidato: ${profile.englishLevel}`);
+  }
   if (prefs.length) parts.push(`Preferencias:\n${prefs.map((item) => `- ${item}`).join('\n')}`);
 
   const chips = describeHardConstraintChips(constraints);

@@ -889,6 +889,8 @@ export class AIService {
       bio: careerProfile?.bio,
       preferredWorkplaces: careerProfile?.preferredWorkplaces,
       salaryMin: careerProfile?.salaryMin,
+      englishLevel: careerProfile?.englishLevel,
+      englishOverLevelPolicy: careerProfile?.englishOverLevelPolicy,
     });
     const candidateCard = buildCandidateCard(careerProfile, cvMarkdown, constraints);
     const offerCard = buildOfferCard({
@@ -1098,6 +1100,8 @@ Descripción: ${jobDescription}`;
       bio: userCareerProfile?.bio,
       preferredWorkplaces: userCareerProfile?.preferredWorkplaces,
       salaryMin: userCareerProfile?.salaryMin,
+      englishLevel: userCareerProfile?.englishLevel,
+      englishOverLevelPolicy: userCareerProfile?.englishOverLevelPolicy,
     });
     const candidateCard = buildCandidateCard(userCareerProfile, baseCvMarkdown, constraints);
     const systemPrompt = buildMatchSystemPrompt({ kind, targetThreshold });
@@ -1770,6 +1774,8 @@ DIRECTRICES:
         bio: userProfile.bio,
         preferredWorkplaces: userProfile.preferredWorkplaces,
         salaryMin: userProfile.salaryMin,
+        englishLevel: userProfile.englishLevel,
+        englishOverLevelPolicy: userProfile.englishOverLevelPolicy,
       });
       const candidateCard = buildCandidateCard(userProfile, payload.baseCvMarkdown || '', constraints);
       const rawOffers = Array.isArray(payload.offers) ? payload.offers : [];

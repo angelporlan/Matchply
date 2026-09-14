@@ -1,8 +1,8 @@
-import type { OfferLanguage, OfferWorkplace } from '@/lib/curation-constraints';
+import type { CefrLevel, OfferLanguage, OfferWorkplace } from '@/lib/curation-constraints';
 
 export type { OfferWorkplace };
 
-export const MATCH_PROMPT_VERSION = '2026-09-1';
+export const MATCH_PROMPT_VERSION = '2026-09-2';
 
 export const MATCH_DIMENSION_KEYS = [
   'tech_stack',
@@ -47,6 +47,7 @@ export type MatchOfferCard = {
   language: OfferLanguage;
   workplace: OfferWorkplace;
   salaryMax: number | null;
+  requiredEnglish: CefrLevel | null;
   location?: string;
   tldr?: string;
   signals: string;
