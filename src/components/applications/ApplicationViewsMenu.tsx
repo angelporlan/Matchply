@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Loader2, Lock, Pencil, RotateCcw, Save, Star, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Copy, Loader2, Lock, Pencil, RotateCcw, Save, Star, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 export type ApplicationViewOption = {
@@ -19,6 +19,7 @@ interface ApplicationViewsMenuProps {
   onSelect: (id: string) => void;
   onSave: () => void;
   onSaveAs: (name: string) => void;
+  onRename?: (name: string) => void;
   onSetDefault: () => void;
   onDelete: () => void;
   onRevert: () => void;
@@ -32,13 +33,14 @@ export default function ApplicationViewsMenu({
   onSelect,
   onSave,
   onSaveAs,
+  onRename,
   onSetDefault,
   onDelete,
   onRevert,
 }: ApplicationViewsMenuProps) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
-  const [isNaming, setIsNaming] = useState(false);
+  const [namingMode, setNamingMode] = useState<'saveAs' | 'rename' | null>(null);
   const [name, setName] = useState('');
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -49,13 +51,13 @@ export default function ApplicationViewsMenu({
     const handlePointerDown = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setIsNaming(false);
+        setNamingMode(null);
       }
     };
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsOpen(false);
-        setIsNaming(false);
+        setNamingMode(null);
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
@@ -102,14 +104,25 @@ export default function ApplicationViewsMenu({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className={`flex items-center gap-2 px-3 py-2.5 rounded-[8px] border text-xs font-bold transition-all shadow-sm ${
-          isDirty ? 'border-ai/40 bg-ai/5 text-ai' : 'border-subtle bg-surface text-text-muted hover:text-text dark:hover:text-white'
-        }`}
+        className="group flex items-center gap-2 px-2 py-1.5 -ml-2 rounded-[8px] hover:bg-surface-muted/60 dark:hover:bg-white/5 transition-colors cursor-pointer select-none"
       >
-        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 stroke-[1.75]" />}
-        <span className="max-w-[160px] truncate">{activeView?.name || t('applications.views.label')}</span>
-        {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-ai shrink-0" title={t('applications.views.modified')} />}
-        <ChevronDown className="w-3.5 h-3.5 opacity-70 stroke-[2]" />
+        <span className="text-lg sm:text-xl font-bold text-text dark:text-white tracking-tight max-w-[240px] sm:max-w-[360px] truncate">
+          {activeView?.name || t('applications.views.label')}
+        </span>
+        {isDirty && (
+          <span className="text-ai text-lg font-bold -ml-1" title={t('applications.views.modified')}>
+            *
+          </span>
+        )}
+        {saving ? (
+          <Loader2 className="w-4 h-4 animate-spin text-ai shrink-0" />
+        ) : (
+          <ChevronDown
+            className={`w-4.5 h-4.5 text-text-muted group-hover:text-text dark:group-hover:text-white stroke-[2] transition-transform duration-200 shrink-0 ${
+              isOpen ? 'rotate-180 text-text dark:text-white' : ''
+            }`}
+          />
+        )}
       </button>
 
       {isOpen && (
@@ -129,41 +142,54 @@ export default function ApplicationViewsMenu({
           )}
 
           <div className="mt-2 pt-2 border-t border-subtle space-y-0.5">
-            {isNaming ? (
+            {namingMode ? (
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
                   const cleanName = name.trim();
                   if (!cleanName) return;
-                  onSaveAs(cleanName);
+                  if (namingMode === 'rename') {
+                    onRename?.(cleanName);
+                  } else {
+                    onSaveAs(cleanName);
+                  }
                   setName('');
-                  setIsNaming(false);
+                  setNamingMode(null);
                   setIsOpen(false);
                 }}
                 className="p-2 space-y-2"
               >
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                  {t('applications.views.saveAsTitle')}
+                  {namingMode === 'rename'
+                    ? t('applications.views.renameTitle')
+                    : t('applications.views.saveAsTitle')}
                 </label>
                 <input
                   autoFocus
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder={t('applications.views.saveAsPlaceholder')}
+                  placeholder={
+                    namingMode === 'rename'
+                      ? t('applications.views.renamePlaceholder')
+                      : t('applications.views.saveAsPlaceholder')
+                  }
                   maxLength={60}
                   className="w-full bg-canvas border border-control rounded-[8px] px-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
                 />
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsNaming(false)}
+                    onClick={() => {
+                      setNamingMode(null);
+                      setName('');
+                    }}
                     className="px-3 py-1.5 rounded-[8px] text-[11px] font-semibold text-text-muted hover:text-text transition-colors"
                   >
                     {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
-                    disabled={!name.trim() || saving}
+                    disabled={!name.trim() || saving || (namingMode === 'rename' && name.trim() === activeView?.name)}
                     className="px-3 py-1.5 rounded-[8px] text-[11px] font-bold bg-ai-action hover:bg-ai-hover text-on-ai-action disabled:opacity-50 transition-all"
                   >
                     {t('common.save')}
@@ -187,25 +213,42 @@ export default function ApplicationViewsMenu({
                 )}
 
                 {!activeView?.isSystem && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSave();
-                    }}
-                    disabled={saving}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:bg-canvas dark:hover:bg-surface-muted hover:text-text transition-colors disabled:opacity-50"
-                  >
-                    <Save className="w-3.5 h-3.5 stroke-[1.75]" />
-                    {t('applications.views.save')}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSave();
+                      }}
+                      disabled={saving}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:bg-canvas dark:hover:bg-surface-muted hover:text-text transition-colors disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5 stroke-[1.75]" />
+                      {t('applications.views.save')}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setName(activeView?.name || '');
+                        setNamingMode('rename');
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:bg-canvas dark:hover:bg-surface-muted hover:text-text transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5 stroke-[1.75]" />
+                      {t('applications.views.rename')}
+                    </button>
+                  </>
                 )}
 
                 <button
                   type="button"
-                  onClick={() => setIsNaming(true)}
+                  onClick={() => {
+                    setName('');
+                    setNamingMode('saveAs');
+                  }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:bg-canvas dark:hover:bg-surface-muted hover:text-text transition-colors"
                 >
-                  <Pencil className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <Copy className="w-3.5 h-3.5 stroke-[1.75]" />
                   {t('applications.views.saveAs')}
                 </button>
 

@@ -310,6 +310,30 @@ export default function ApplicationsClient({
     router.refresh();
   };
 
+  const handleRenameView = async (newName: string) => {
+    if (activeViewOption?.isSystem) return;
+    const cleanName = newName.trim();
+    if (!cleanName || cleanName === activeViewOption?.name) return;
+
+    setIsSavingView(true);
+    const result = await updateApplicationView(activeViewId, { name: cleanName });
+    setIsSavingView(false);
+
+    if (result.error === 'DUPLICATE_NAME') {
+      showToast(t('applications.views.toasts.duplicate'), 'info');
+      return;
+    }
+    if (result.error || !result.view) {
+      showToast(t('applications.views.toasts.error'), 'info');
+      return;
+    }
+    setSavedViews((prev) => prev.map((view) => view.id === result.view!.id
+      ? { ...view, name: result.view!.name }
+      : view));
+    showToast(t('applications.views.toasts.renamed'));
+    router.refresh();
+  };
+
   const handleSetDefaultView = async () => {
     const result = await setDefaultApplicationView(activeViewId);
     if (result.error) {
@@ -695,6 +719,7 @@ export default function ApplicationsClient({
               onSelect={handleSelectView}
               onSave={handleSaveView}
               onSaveAs={handleSaveViewAs}
+              onRename={handleRenameView}
               onSetDefault={handleSetDefaultView}
               onDelete={handleDeleteView}
               onRevert={handleRevertView}
