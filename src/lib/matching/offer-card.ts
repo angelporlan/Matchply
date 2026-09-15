@@ -2,13 +2,11 @@ import {
   buildOfferSignalPrefix,
   detectOfferLanguage,
   detectRequiredEnglishLevel,
-  extractLanguageSentences,
+  detectOfferLanguageRequirements,
   type OfferLanguage,
 } from '@/lib/curation-constraints';
 import type { MatchKind, MatchOfferCard, OfferWorkplace } from './types';
-
-const REQUIREMENTS_HEADING =
-  /(?:^|\n)\s*(?:#{1,3}\s*)?(?:requisitos|requirements|must[\s-]?haves?|qualifications|se requiere|qué pedimos|what (?:you'?ll|you will) need|you (?:should|must) have)[^\n]*\n/i;
+import { evidenceHash } from './canonical';
 
 const WORKPLACE_REMOTE = /\b(remote|remoto|teletrabajo|100%\s*remote|fully\s*remote)\b/i;
 const WORKPLACE_HYBRID = /\b(hybrid|h[ií]brido)\b/i;
@@ -53,23 +51,54 @@ export function extractOfferSalaryMax(text: string | null | undefined): number |
   return max === null ? null : Math.round(max);
 }
 
-function extractRequirementsSection(description: string, maxChars: number): string {
-  const text = description.replace(/\r/g, '').trim();
-  if (!text) return '';
+type SectionKind = 'requirements' | 'responsibilities' | 'conditions' | 'noise' | 'unknown';
+const REQUIREMENTS = /^(?:requisitos(?: indispensables| obligatorios| deseables)?|requirements|must[ -]?haves?|qualifications|preferred qualifications|minimum qualifications|what we are looking for|what (?:you.ll|you will) need|what you bring|perfil buscado|tu perfil|qu[eé] (?:pedimos|buscamos|necesitas)|se requiere|you (?:should|must) have)\b/i;
+const RESPONSIBILITIES = /^(?:responsibilities|responsabilidades|funciones|your role|the role|what you(?:.ll| will) do|qu[eé] har[aá]s|tu misi[oó]n)\b/i;
+const CONDITIONS = /^(?:salary|salario|compensation|location|ubicaci[oó]n|modalidad|working (?:hours|arrangements)|condiciones)\b/i;
+const NOISE = /^(?:benefits|perks|beneficios|qu[eé] ofrecemos|what we offer|about us|about the company|sobre nosotros|qui[eé]nes somos|equal opportunity|diversity|igualdad de oportunidades|por qu[eé] (?:trabajar|unirte))\b/i;
+const IMPORTANT = /\b(?:required|mandatory|must|indispensable|obligatori[oa]|imprescindible|requisito|years? (?:of|in)|a[nñ]os? (?:de|en)|salario|salary|compensation|remot[eo]|hybrid|h[ií]brid[oa]|presencial|c[12]|b[12]|english|ingl[eé]s|german|alem[aá]n|fran[cç][eé]s|french)\b/i;
 
-  const heading = text.match(REQUIREMENTS_HEADING);
-  if (heading && heading.index != null) {
-    const rest = text.slice(heading.index + heading[0].length);
-    const nextHeading = rest.search(/\n\s*#{1,3}\s+\S/);
-    const body = (nextHeading >= 0 ? rest.slice(0, nextHeading) : rest).replace(/\s+/g, ' ').trim();
-    if (body.length >= 40) return body.slice(0, maxChars);
-  }
+function plainDescription(value: string): string {
+  return value.replace(/<\/(?:p|li|h[1-6]|div)>/gi, '\n')
+    .replace(/<br\s*\/?\s*>/gi, '\n').replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/\r/g, '').trim();
+}
 
-  const cleaned = text.replace(/\s+/g, ' ').trim();
-  if (cleaned.length <= maxChars) return cleaned;
-  const headLen = Math.floor(maxChars * 0.35);
-  const tailLen = maxChars - headLen - 5;
-  return `${cleaned.slice(0, headLen)} […] ${cleaned.slice(-tailLen)}`;
+function sectionHeading(line: string): SectionKind | null {
+  const clean = line.replace(new RegExp('^[^\\p{L}\\p{N}]+', 'u'), '').replace(/[*_#]/g, '').trim();
+  if (clean.length > 150) return null;
+  if (REQUIREMENTS.test(clean)) return 'requirements';
+  if (RESPONSIBILITIES.test(clean)) return 'responsibilities';
+  if (CONDITIONS.test(clean)) return 'conditions';
+  if (NOISE.test(clean)) return 'noise';
+  return null;
+}
+
+/** Keep whole lines/paragraphs; requirements in the middle or following benefits are never head/tail-truncated. */
+export function extractRequirementsSection(description: string, maxChars = 14000): { text: string; complete: boolean } {
+  const lines = plainDescription(description).split('\n').map((line) => line.trim()).filter(Boolean);
+  let section: SectionKind = 'unknown';
+  const selected: Array<{ line: string; priority: number; order: number }> = [];
+  lines.forEach((line, order) => {
+    const heading = sectionHeading(line);
+    if (heading) section = heading;
+    // Conditions can occur inside a benefits block: do not lose salary, language or location evidence.
+    if (section === 'noise' && !IMPORTANT.test(line)) return;
+    const priority = IMPORTANT.test(line) ? 0 : section === 'requirements' ? 1
+      : section === 'responsibilities' || section === 'conditions' ? 2 : 3;
+    selected.push({ line, priority, order });
+  });
+  const total = selected.reduce((sum, row) => sum + row.line.length + 1, 0);
+  if (total <= maxChars) return { text: selected.map((row) => row.line).join('\n'), complete: true };
+  let used = 0;
+  const kept = selected.sort((a, b) => a.priority - b.priority || a.order - b.order)
+    .filter((row) => {
+      if (used + row.line.length + 1 > maxChars) return false;
+      used += row.line.length + 1;
+      return true;
+    }).sort((a, b) => a.order - b.order);
+  return { text: kept.map((row) => row.line).join('\n'), complete: false };
 }
 
 export function buildOfferCard(
@@ -84,7 +113,8 @@ export function buildOfferCard(
   },
   kind: MatchKind,
 ): MatchOfferCard {
-  const maxChars = kind === 'deep' ? 8000 : 1200;
+  // Scoring sees identical facts in batch and detail; only explanations differ.
+  const maxChars = 14000;
   const description = offer.description || '';
   const language: OfferLanguage = detectOfferLanguage({
     title: offer.title,
@@ -103,13 +133,9 @@ export function buildOfferCard(
     description,
     sourceMetadata: offer.sourceMetadata,
   });
-  const languageSentences = extractLanguageSentences(description);
   const requirements = extractRequirementsSection(description, maxChars);
-  const extras = [
-    languageSentences,
-    salaryMax ? `salario_max:${salaryMax}` : '',
-    requiredEnglish ? `ingles_exigido:${requiredEnglish}` : '',
-  ].filter(Boolean).join(' ');
+  const sourceText = `${offer.title}\n${plainDescription(description)}`;
+  const sourceHash = evidenceHash({ title: offer.title, company: offer.company, description, sourceMetadata: offer.sourceMetadata ?? null });
 
   const meta = offer.sourceMetadata && typeof offer.sourceMetadata === 'object'
     ? offer.sourceMetadata as Record<string, unknown>
@@ -125,11 +151,12 @@ export function buildOfferCard(
     salaryMax,
     requiredEnglish,
     location: typeof meta.location === 'string' ? meta.location.slice(0, 80) : undefined,
-    tldr: offer.tldr ? String(offer.tldr).slice(0, 220) : undefined,
     signals,
-    requirementsExtract: extras
-      ? `${requirements}${requirements ? ' ' : ''}[${extras}]`.slice(0, maxChars + 120)
-      : requirements,
+    requirementsExtract: requirements.text,
+    sourceText, sourceHash,
+    languageRequirements: detectOfferLanguageRequirements(sourceText),
+    complete: requirements.complete,
+    sufficient: description.trim().length >= 40 && requirements.text.length >= 30,
   };
 }
 
@@ -143,7 +170,8 @@ export function serializeOfferCard(card: MatchOfferCard): string {
     salaryMax: card.salaryMax,
     requiredEnglish: card.requiredEnglish,
     location: card.location || '',
-    tldr: card.tldr || '',
+    sourceHash: card.sourceHash,
+    complete: card.complete,
     requirementsExtract: card.requirementsExtract,
   });
 }

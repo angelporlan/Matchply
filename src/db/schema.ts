@@ -63,6 +63,9 @@ export const jobOffers = pgTable('job_offer', {
   scoreBreakdown: jsonb('scoreBreakdown'), // tech_stack, experience_fit, work_mode, salary_fit, career_alignment
   matchInputHash: text('matchInputHash'),
   matchKind: text('matchKind'), // 'triage' | 'deep'
+  matchEvidence: jsonb('matchEvidence'), // Versioned scoring snapshot; detail queries only
+  matchDetails: jsonb('matchDetails'), // Explanation bound to the scoring input hash
+  matchEvaluatedAt: timestamp('matchEvaluatedAt', { mode: 'date' }), // Request generation
   tldr: text('tldr'), // Resumen ejecutivo
   redFlags: jsonb('redFlags'), // Array de alertas/riesgos
   legitimacyTier: text('legitimacyTier'), // Ghost job detection tier

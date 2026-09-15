@@ -1,110 +1,56 @@
-import {
-  enforceCurationConstraints,
-  type HardConstraints,
-} from '@/lib/curation-constraints';
-import { matchInputHash } from './fingerprint';
-import { clampMatchScore, computeOverall, matchScoreLabel, resolveMatchBreakdown } from './rubric';
-import type {
-  CuratedMatchItem,
-  LlmMatchItem,
-  MatchKind,
-  MatchOfferCard,
-  MatchRedFlag,
-} from './types';
-
-function stringList(value: unknown, max = 6): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => String(item || '').trim())
-    .filter(Boolean)
-    .slice(0, max);
-}
-
-function parseRedFlags(value: unknown): MatchRedFlag[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const row = item as { title?: unknown; description?: unknown };
-      const title = String(row.title || '').trim();
-      const description = String(row.description || '').trim();
-      if (!title && !description) return null;
-      return {
-        title: (title || description).slice(0, 80),
-        description: (description || title).slice(0, 240),
-      };
-    })
-    .filter((item): item is MatchRedFlag => Boolean(item))
-    .slice(0, 3);
-}
-
-function groundedSkills(
-  proposed: string[],
-  candidateCard: string,
-  offerCard: MatchOfferCard,
-): string[] {
-  const haystack = `${candidateCard} ${offerCard.requirementsExtract} ${offerCard.title}`.toLowerCase();
-  return proposed
-    .filter((skill) => haystack.includes(skill.toLowerCase()))
-    .slice(0, 4);
-}
+import { enforceCurationConstraints, type HardConstraints } from '@/lib/curation-constraints';
+import { matchInputHash, matchSourceHash } from './fingerprint';
+import { applyEvidenceAdjustments, isMatchDetails, isMatchEvidenceSnapshot, readMatchBreakdown, validateRequirements } from './evidence';
+import { matchScoreLabel } from './rubric';
+import { evidenceHash } from './canonical';
+import { MATCH_PROMPT_VERSION, MatchValidationError, type CandidateEvidence, type CuratedMatchItem, type LlmMatchItem, type MatchDetails, type MatchEvidenceSnapshot, type MatchKind, type MatchOfferCard } from './types';
 
 export function normalizeMatchItem(input: {
   offer: { id: string; title: string; company: string; description?: string | null };
   offerCard: MatchOfferCard;
   candidateCard: string;
+  candidateEvidence?: CandidateEvidence;
   llm?: LlmMatchItem | null;
   constraints: HardConstraints;
   targetThreshold: number;
   kind: MatchKind;
   model: string;
+  provider?: string;
 }): CuratedMatchItem {
-  const llm = input.llm || {};
-  const breakdown = resolveMatchBreakdown(llm);
-  const overall = computeOverall(breakdown);
-  const enforced = enforceCurationConstraints({
-    score: overall,
-    fitReason: typeof llm.fitReason === 'string' ? llm.fitReason : undefined,
-    violatedRules: Array.isArray(llm.violatedRules) ? llm.violatedRules.map((item) => String(item)) : [],
-    offerLanguage: input.offerCard.language,
-    offerWorkplace: input.offerCard.workplace,
-    offerSalaryMax: input.offerCard.salaryMax,
-    offerRequiredEnglish: input.offerCard.requiredEnglish,
-    constraints: input.constraints,
-    targetThreshold: input.targetThreshold,
-  });
-
-  const hash = matchInputHash({
-    candidateCard: input.candidateCard,
-    offerCard: input.offerCard,
-    model: input.model,
-    kind: input.kind,
-  });
-
-  const result: CuratedMatchItem = {
-    id: input.offer.id,
-    title: input.offer.title,
-    company: input.offer.company,
-    score: enforced.score,
-    scoreLabel: matchScoreLabel(enforced.score),
-    decision: enforced.decision,
-    fitReason: enforced.fitReason,
-    highlightSkills: groundedSkills(stringList(llm.highlightSkills, 8), input.candidateCard, input.offerCard),
-    scoreBreakdown: breakdown,
-    inputHash: hash,
-    kind: input.kind,
+  const candidate = input.candidateEvidence ?? {
+    card: input.candidateCard, sourceHash: evidenceHash(input.candidateCard), sources: [{ id: 'profile', text: input.candidateCard }],
+    complete: false, sufficient: Boolean(input.candidateCard.trim()), totalExperienceYears: null,
   };
-
-  if (input.kind === 'deep') {
-    result.presentKeywords = stringList(llm.presentKeywords, 5);
-    result.missingKeywords = stringList(llm.missingKeywords, 5);
-    result.redFlags = parseRedFlags(llm.redFlags);
-    if (typeof llm.verdict === 'string' && llm.verdict.trim()) {
-      result.verdict = llm.verdict.trim().slice(0, 400);
-    }
-  }
-
-  return result;
+  if (!candidate.sufficient || !input.offerCard.sufficient || !input.offerCard.complete) throw new MatchValidationError('No hay suficiente evidencia completa para evaluar esta oferta.', 'insufficient_input');
+  if (!input.llm || input.llm.id !== input.offer.id) throw new MatchValidationError('La IA no devolvió la oferta solicitada.');
+  const baseBreakdown = readMatchBreakdown(input.llm);
+  const requirements = validateRequirements(input.llm.requirements, candidate, input.offerCard);
+  const adjusted = applyEvidenceAdjustments(baseBreakdown, requirements, input.offerCard);
+  // Only explicit rules parsed by the host can affect language scoring; LLM violatedRules is ignored.
+  const enforcementInput = {
+    score: adjusted.score, offerLanguage: input.offerCard.language,
+    offerWorkplace: input.offerCard.workplace, offerSalaryMax: input.offerCard.salaryMax,
+    offerRequiredEnglish: input.offerCard.requiredEnglish,
+    ...(input.offerCard.languageRequirements ? { offerLanguageRequirements: input.offerCard.languageRequirements } : {}),
+    constraints: input.constraints, targetThreshold: input.targetThreshold,
+  };
+  const enforced = enforceCurationConstraints(enforcementInput);
+  const rejectedByPreference = enforceCurationConstraints({ ...enforcementInput, targetThreshold: 0 }).decision === 'archive';
+  if (enforced.score < adjusted.score) adjusted.adjustments.push({ code: 'user_preference', requirementIds: [], overallCap: enforced.score, reason: enforced.fitReason });
+  const sourceHash = matchSourceHash({ candidateEvidence: candidate, offerCard: input.offerCard, constraints: input.constraints });
+  const inputHash = matchInputHash({ sourceHash, offerCard: input.offerCard, provider: input.provider, model: input.model });
+  const evidence: MatchEvidenceSnapshot = {
+    version: MATCH_PROMPT_VERSION, sourceHash, inputHash, score: enforced.score,
+    baseScore: adjusted.baseScore, baseBreakdown, scoreBreakdown: adjusted.scoreBreakdown,
+    requirements, adjustments: adjusted.adjustments, candidateComplete: candidate.complete, offerComplete: input.offerCard.complete, rejectedByPreference,
+  };
+  return {
+    id: input.offer.id, title: input.offer.title, company: input.offer.company,
+    score: enforced.score, scoreLabel: matchScoreLabel(enforced.score), decision: enforced.decision,
+    // No explanation generation in the scoring pass; these legacy fields remain empty.
+    fitReason: '', highlightSkills: [], scoreBreakdown: adjusted.scoreBreakdown,
+    inputHash, sourceHash, kind: input.kind, evidence,
+  };
 }
 
 export function cachedMatchItem(input: {
@@ -115,20 +61,17 @@ export function cachedMatchItem(input: {
   hash: string;
   kind: MatchKind;
   targetThreshold: number;
+  evidence?: unknown;
+  details?: MatchDetails;
 }): CuratedMatchItem {
-  const score = clampMatchScore(input.score, 50);
-  const decision = score >= input.targetThreshold ? 'keep' : 'archive';
+  if (!isMatchEvidenceSnapshot(input.evidence) || input.evidence.inputHash !== input.hash || input.evidence.score !== input.score) throw new MatchValidationError('La evaluación guardada no tiene evidencia válida.');
+  const evidence = input.evidence;
   return {
-    id: input.offer.id,
-    title: input.offer.title,
-    company: input.offer.company,
-    score,
-    scoreLabel: matchScoreLabel(score),
-    decision,
-    fitReason: (input.fitReason || (decision === 'keep' ? `Afinidad alta (${score}%).` : `Afinidad baja (${score}%).`)).slice(0, 180),
-    highlightSkills: [],
-    scoreBreakdown: input.scoreBreakdown,
-    inputHash: input.hash,
-    kind: input.kind,
+    id: input.offer.id, title: input.offer.title, company: input.offer.company,
+    score: evidence.score, scoreLabel: matchScoreLabel(evidence.score),
+    decision: !evidence.rejectedByPreference && evidence.score >= input.targetThreshold ? 'keep' : 'archive',
+    fitReason: '', highlightSkills: [], scoreBreakdown: evidence.scoreBreakdown,
+    inputHash: evidence.inputHash, sourceHash: evidence.sourceHash, kind: input.kind, evidence,
+    ...(input.details && isMatchDetails(input.details, evidence) ? { details: input.details } : {}),
   };
 }

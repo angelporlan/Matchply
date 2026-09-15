@@ -12,6 +12,12 @@ async function processRun() {
 
   log({ event: 'ai_job_claimed', jobId: job.id, kind: job.kind, attempt: job.attempt });
   try {
+    // Batches renew their lease and bound individual LLM requests. A timer must
+    // not requeue a still-running batch after it has saved partial results.
+    if (job.kind === 'match_batch') {
+      await processAiJob(job);
+      return true;
+    }
     await Promise.race([
       processAiJob(job),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('AI_JOB_TIMEOUT')), JOB_TIMEOUT_MS)),
