@@ -1,3 +1,5 @@
+import { CEFR_LABELS, normalizeScoringPreferences, parseCefrLevel } from '@/lib/curation-constraints';
+
 export type SkillProficiency = 'used' | 'solid' | 'core';
 export type SkillCategory =
   | 'frontend'
@@ -599,6 +601,8 @@ export function formatCareerProfileContext(profile: any, maxChars = 3200): strin
   if (profile.salaryMin || profile.salaryTarget) {
     prefs.push(`Salario: min ${profile.salaryMin || 'N/D'}€, objetivo ${profile.salaryTarget || 'N/D'}€`);
   }
+  const englishLevel = parseCefrLevel(profile.englishLevel);
+  if (englishLevel) prefs.push(`Inglés declarado: ${CEFR_LABELS[englishLevel]} (dato del perfil; no es una regla de descarte)`);
   if (prefs.length) chunks.push(`Preferencias:\n${prefs.map((item) => `- ${item}`).join('\n')}`);
 
   if (asString(profile.curationCriteria, 1500)) {
@@ -622,6 +626,7 @@ export function normalizeCareerProfileFields(profile: Record<string, any>): Reco
   );
   return {
     ...profile,
+    scoringPreferences: normalizeScoringPreferences(profile),
     skills,
     keyProjects,
     techStack: techStackFromSkills(skills),

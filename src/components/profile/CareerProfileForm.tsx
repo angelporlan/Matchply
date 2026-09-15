@@ -20,11 +20,16 @@ import {
 import { saveUserCareerProfileAction } from '@/app/dashboard/actions';
 import {
   CEFR_LABELS,
+  CEFR_LEVELS,
+  LANGUAGE_LABELS,
   describeHardConstraintChips,
+  normalizeScoringPreferences,
   parseCefrLevel,
   parseMatchConstraints,
   type CefrLevel,
   type LanguagePolicy,
+  type LanguageScoringRule,
+  type ScoringPreferences,
 } from '@/lib/curation-constraints';
 import {
   assignEntryKinds,
@@ -65,6 +70,7 @@ interface CareerProfileFormProps {
     salaryTarget?: number;
     englishLevel?: string;
     englishOverLevelPolicy?: string;
+    scoringPreferences?: ScoringPreferences;
     curationCriteria?: string;
     additionalNotes?: string;
     keyProjects?: KeyProject[];
@@ -160,9 +166,13 @@ export default function CareerProfileForm({
   const [englishLevel, setEnglishLevel] = useState<CefrLevel | ''>(
     parseCefrLevel(initialProfile?.englishLevel) || '',
   );
-  const [englishOverLevelPolicy, setEnglishOverLevelPolicy] = useState<LanguagePolicy>(
-    initialProfile?.englishOverLevelPolicy === 'reject' ? 'reject' : 'penalize',
+  const [savedScoringPreferences, setSavedScoringPreferences] = useState<ScoringPreferences>(
+    () => normalizeScoringPreferences(initialProfile || {}),
   );
+  const [ruleLanguage, setRuleLanguage] = useState('en');
+  const [ruleCondition, setRuleCondition] = useState<LanguageScoringRule['condition']>('minimum_level');
+  const [ruleMinimumLevel, setRuleMinimumLevel] = useState<CefrLevel>('c1');
+  const [ruleAction, setRuleAction] = useState<LanguagePolicy | 'none'>('none');
   const [keyProjects, setKeyProjects] = useState<KeyProject[]>(initialStructured.projects);
   const [skills, setSkills] = useState<ProfileSkill[]>(initialStructured.skills);
   const [classification, setClassification] = useState<any>(initialProfile?.classification || null);
@@ -176,15 +186,19 @@ export default function CareerProfileForm({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const scoringPreferences = useMemo(
+    () => normalizeScoringPreferences({ scoringPreferences: savedScoringPreferences, curationCriteria }),
+    [savedScoringPreferences, curationCriteria],
+  );
   const constraintChips = useMemo(
     () => describeHardConstraintChips(parseMatchConstraints({
       curationCriteria,
       preferredWorkplaces,
       salaryMin: salaryMin === '' ? null : Number(salaryMin),
       englishLevel: englishLevel || null,
-      englishOverLevelPolicy,
+      scoringPreferences,
     })),
-    [curationCriteria, preferredWorkplaces, salaryMin, englishLevel, englishOverLevelPolicy],
+    [curationCriteria, preferredWorkplaces, salaryMin, englishLevel, scoringPreferences],
   );
 
   const targetRolesArray = useMemo(
@@ -227,7 +241,8 @@ export default function CareerProfileForm({
     salaryMin: salaryMin === '' ? null : Number(salaryMin),
     salaryTarget: salaryTarget === '' ? null : Number(salaryTarget),
     englishLevel: englishLevel || null,
-    englishOverLevelPolicy: englishLevel ? englishOverLevelPolicy : null,
+    englishOverLevelPolicy: null,
+    scoringPreferences,
     curationCriteria,
     additionalNotes: bio,
     keyProjects: keyProjects.filter((project) => project.title.trim() || project.description.trim()),
@@ -282,9 +297,6 @@ export default function CareerProfileForm({
     if (typeof data.salaryMin === 'number') setSalaryMin(data.salaryMin);
     if (typeof data.salaryTarget === 'number') setSalaryTarget(data.salaryTarget);
     if (parseCefrLevel(data.englishLevel)) setEnglishLevel(parseCefrLevel(data.englishLevel) as CefrLevel);
-    if (data.englishOverLevelPolicy === 'reject' || data.englishOverLevelPolicy === 'penalize') {
-      setEnglishOverLevelPolicy(data.englishOverLevelPolicy);
-    }
     if (data.classification) setClassification(data.classification);
     if (data.targetTransition?.targetRole) setOptionalTarget(data.targetTransition.targetRole);
     const structured = applyStructured(data);
@@ -579,7 +591,7 @@ export default function CareerProfileForm({
                 6. Preferencias y cómo puntuar
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Modalidad, salario e inglés se aplican en código. El recuadro es para stack y excepciones, no para repetir el nivel de inglés.
+                Tu experiencia e idiomas describen tu perfil. Solo las condiciones que eliges aquí limitan la puntuación por preferencias.
               </p>
             </div>
           </div>
@@ -591,6 +603,103 @@ export default function CareerProfileForm({
             rows={5}
             placeholder="Ej: Prioriza TypeScript y producto. Si el stack encaja al 100%, mantén la oferta aunque pidan más años."
           />
+          <fieldset className="space-y-4 rounded-xl border border-subtle p-4">
+            <legend className="px-1 text-sm font-bold text-text">Reglas de idioma</legend>
+            <p className="text-xs text-text-muted">
+              Sin reglas por defecto. El idioma de redacción del anuncio nunca reduce la puntuación.
+              Una regla solo se aplica a un idioma exigido por el puesto.
+            </p>
+            {scoringPreferences.languageRules.length === 0 && (
+              <p className="text-sm text-text">Sin límites de puntuación por idioma.</p>
+            )}
+            {scoringPreferences.languageRules.map((rule) => (
+              <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle pb-3">
+                <p className="text-xs text-text">
+                  {LANGUAGE_LABELS[rule.language] || rule.language}: {rule.condition === 'required' ? 'si es obligatorio' : `si exigen ${CEFR_LABELS[rule.minimumLevel!]} o superior`}
+                  {' · '}{rule.action === 'reject' ? 'Descartar, máximo 30' : 'Penalizar, máximo 40'}
+                  {rule.source === 'criteria' && <span className="block text-text-muted">Extraída de tus reglas de búsqueda. Modifica ese texto para cambiarla.</span>}
+                </p>
+                {rule.source === 'explicit' && (
+                  <Button type="button" variant="secondary" onClick={() => setSavedScoringPreferences((current) => ({
+                    ...current, languageRules: current.languageRules.filter((item) => item.id !== rule.id),
+                  }))} aria-label={`Eliminar regla de ${LANGUAGE_LABELS[rule.language] || rule.language}`}>
+                    Eliminar
+                  </Button>
+                )}
+              </div>
+            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="text-xs font-bold text-text" htmlFor="language-rule-language">
+                Idioma
+                <select id="language-rule-language" value={ruleLanguage} onChange={(event) => setRuleLanguage(event.target.value)} className={`${inputClass} mt-1.5`}>
+                  {Object.entries(LANGUAGE_LABELS).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-bold text-text" htmlFor="language-rule-condition">
+                Condición
+                <select id="language-rule-condition" value={ruleCondition} onChange={(event) => setRuleCondition(event.target.value as LanguageScoringRule['condition'])} className={`${inputClass} mt-1.5`}>
+                  <option value="minimum_level">Exigen este nivel o superior</option>
+                  <option value="required">Exigen el idioma, con cualquier nivel</option>
+                </select>
+              </label>
+              {ruleCondition === 'minimum_level' && (
+                <label className="text-xs font-bold text-text" htmlFor="language-rule-level">
+                  Nivel a partir del que aplicar la regla
+                  <select id="language-rule-level" value={ruleMinimumLevel} onChange={(event) => setRuleMinimumLevel(event.target.value as CefrLevel)} className={`${inputClass} mt-1.5`}>
+                    {CEFR_LEVELS.map((level) => <option key={level} value={level}>{CEFR_LABELS[level]}</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="text-xs font-bold text-text" htmlFor="language-rule-action">
+                Acción
+                <select id="language-rule-action" value={ruleAction} onChange={(event) => setRuleAction(event.target.value as LanguagePolicy | 'none')} className={`${inputClass} mt-1.5`}>
+                  <option value="none">Sin penalización</option>
+                  <option value="penalize">Penalizar: máximo 40 puntos</option>
+                  <option value="reject">Descartar: máximo 30 puntos</option>
+                </select>
+              </label>
+            </div>
+            {ruleAction !== 'none' && (
+              <p className="text-xs text-text" role="status">
+                Al añadir y guardar: si el puesto exige {LANGUAGE_LABELS[ruleLanguage].toLowerCase()}
+                {ruleCondition === 'minimum_level' ? ` ${CEFR_LABELS[ruleMinimumLevel]} o superior` : ''},
+                {' '}la puntuación será como máximo {ruleAction === 'reject' ? '30 y se recomendará descartar' : '40'}.
+              </p>
+            )}
+            <Button type="button" variant="secondary" disabled={ruleAction === 'none'} onClick={() => {
+              if (ruleAction === 'none') return;
+              setSavedScoringPreferences((current) => ({
+                ...current,
+                languageRules: [...current.languageRules, {
+                  id: `explicit:${ruleLanguage}:${ruleCondition}:${ruleCondition === 'minimum_level' ? ruleMinimumLevel : 'any'}:${ruleAction}`,
+                  language: ruleLanguage, condition: ruleCondition,
+                  ...(ruleCondition === 'minimum_level' ? { minimumLevel: ruleMinimumLevel } : {}),
+                  action: ruleAction, source: 'explicit',
+                }],
+                reviewRequired: current.reviewRequired.filter((text) => !text.startsWith('La regla antigua')),
+              }));
+              setRuleAction('none');
+            }}>
+              Añadir regla al perfil
+            </Button>
+            <p className="text-xs text-text-muted">Los cambios se aplicarán al pulsar Guardar. Puedes revisarlos en «Cómo te ve la IA».</p>
+          </fieldset>
+          {scoringPreferences.reviewRequired.length > 0 && (
+            <div className="rounded-xl border border-subtle bg-surface-muted p-4 text-xs text-text" role="status">
+              <p className="font-bold">Criterios pendientes de aclarar — inactivos</p>
+              <ul className="mt-2 list-disc pl-4 space-y-1">
+                {scoringPreferences.reviewRequired.map((text) => <li key={text}>{text}</li>)}
+              </ul>
+              <p className="mt-2">Aclara la condición en tus reglas de búsqueda o añade una regla de idioma. Estos textos no generan topes.</p>
+              {scoringPreferences.reviewRequired.some((text) => text.startsWith('La regla antigua')) && (
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setSavedScoringPreferences((current) => ({
+                  ...current, reviewRequired: current.reviewRequired.filter((text) => !text.startsWith('La regla antigua')),
+                }))}>
+                  Mantener desactivada la regla antigua
+                </Button>
+              )}
+            </div>
+          )}
           {constraintChips.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {constraintChips.map((chip) => (
@@ -671,40 +780,16 @@ export default function CareerProfileForm({
                 className={inputClass}
               >
                 <option value="">No lo indico</option>
-                {(['b1', 'b2', 'c1', 'c2', 'native'] as const).map((level) => (
+                {CEFR_LEVELS.map((level) => (
                   <option key={level} value={level}>
-                    {CEFR_LABELS[level]}{level === 'b1' ? ' — intermedio' : level === 'b2' ? ' — alto' : level === 'c1' ? ' — avanzado' : level === 'c2' ? ' — dominio' : ' / bilingüe'}
+                    {CEFR_LABELS[level]}
                   </option>
                 ))}
               </select>
               <p className="mt-1 text-[11px] text-text-muted font-sans">
-                Si la oferta exige un nivel superior (p. ej. C1/C2), el match se limita. No es el idioma del anuncio.
+                Este dato informa a la evaluación; no activa penalizaciones. Las reglas de idioma se configuran por separado.
               </p>
             </div>
-            {englishLevel && (
-              <div>
-                <label className="block text-xs font-bold text-text mb-1.5 font-display">Si piden un nivel superior</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {([
-                    { id: 'penalize' as const, label: 'Penalizar (máx. 40)' },
-                    { id: 'reject' as const, label: 'Descartar (máx. 30)' },
-                  ]).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setEnglishOverLevelPolicy(item.id)}
-                      className={`text-xs font-bold min-h-11 px-3.5 rounded-[8px] border ${
-                        englishOverLevelPolicy === item.id
-                          ? 'bg-ai/10 text-ai border-ai/25'
-                          : 'bg-canvas text-slate-500 border-subtle'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             <div>
               <label className="block text-xs font-bold text-text mb-1.5 font-display">Salario objetivo (€)</label>
               <input
@@ -809,7 +894,7 @@ export default function CareerProfileForm({
           salaryMin,
           salaryTarget,
           englishLevel,
-          englishOverLevelPolicy,
+          scoringPreferences,
           curationCriteria,
           masterDocument,
         }}

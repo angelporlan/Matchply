@@ -47,6 +47,25 @@ Fundé y desarrollé en solitario Matchply, una plataforma SaaS de optimización
 * Mención de honor.
 `;
 
+test('profile normalization preserves explicit scoring rules across unrelated profile edits', () => {
+  const saved = normalizeCareerProfileFields({
+    bio: 'Trayectoria inicial', englishLevel: 'b2', curationCriteria: 'Prioriza equipos de producto.',
+    scoringPreferences: { version: 1, reviewRequired: [], languageRules: [{
+      id: 'german-required', language: 'de', condition: 'required', action: 'reject', source: 'explicit',
+    }] },
+  });
+  const updated = normalizeCareerProfileFields({ ...saved, bio: 'Trayectoria actualizada', englishLevel: 'c1' });
+  assert.deepEqual(updated.scoringPreferences, saved.scoringPreferences);
+  assert.equal(updated.englishLevel, 'c1');
+});
+
+test('profile normalization never turns its factual English level into a preference', () => {
+  const profile = normalizeCareerProfileFields({ englishLevel: 'b2', englishOverLevelPolicy: 'penalize' });
+  assert.deepEqual(profile.scoringPreferences.languageRules, []);
+  assert.equal(profile.englishLevel, 'b2');
+  assert.ok(profile.scoringPreferences.reviewRequired.length > 0);
+});
+
 test('extracts real stack from a fullstack dump and does not invent Java', () => {
   const skills = extractSkillsFromText(BIO);
   const names = skills.map((skill) => skill.name);
