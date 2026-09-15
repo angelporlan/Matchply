@@ -19,7 +19,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
-import { isProfileMatchScore } from '@/lib/matching/rubric';
+import { currentMatchEvidence } from '@/lib/match-display';
 
 function mdToHtml(markdown: string): string {
   if (!markdown) return '<p></p>';
@@ -702,7 +702,7 @@ export default function JobOfferDetailsModal({
                               <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-2">
                                 {t('applications.modal.aiScoreTitle')}
                               </span>
-                              {isProfileMatchScore(offer.scoreOverall, offer.scoreBreakdown) ? (
+                              {Boolean(currentMatchEvidence(offer)) ? (
                               <div className="relative flex items-center justify-center">
                                 <svg className="w-20 h-20 transform -rotate-90">
                                   <circle
@@ -755,7 +755,7 @@ export default function JobOfferDetailsModal({
 
                               {(() => {
                                 const breakdown = getParsedJson(offer.scoreBreakdown) || {};
-                                if (!isProfileMatchScore(offer.scoreOverall, breakdown)) {
+                                if (!currentMatchEvidence(offer)) {
                                   return (
                                     <div className="text-xs font-light text-text-muted dark:text-slate-550 italic font-sans py-1">
                                       Sin desglose de match de perfil.

@@ -142,8 +142,11 @@ test('paginate clamps page and returns boundaries', () => {
   assert.equal(empty.totalPages, 1);
 });
 
-test('score helpers normalize legacy five point scores', () => {
-  assert.equal(scoreToPercent(4.5), 90);
+test('score helpers preserve the canonical 0–100 scale including low and zero scores', () => {
+  assert.equal(scoreToPercent(4.5), 5);
+  assert.equal(scoreToPercent(0), 0);
+  assert.equal(scoreToPercent(1), 1);
+  assert.equal(scoreToPercent(101), null);
   assert.equal(scoreToPercent(88), 88);
   assert.equal(scoreToPercent(null), null);
   assert.equal(formatApplicationTimestamp(null), '');
@@ -266,7 +269,7 @@ test('filterApplications applies score presets and score range filters', () => {
     offer({ id: 'top', scoreOverall: 95 }),
     offer({ id: 'high', scoreOverall: 82 }),
     offer({ id: 'good', scoreOverall: 75 }),
-    offer({ id: 'legacy', scoreOverall: 4.5 }), // legacy 5-point scale -> 90%
+    offer({ id: 'tiny', scoreOverall: 4.5 }), // already on the 0–100 scale
     offer({ id: 'mid', scoreOverall: 55 }),
     offer({ id: 'low', scoreOverall: 30 }),
     offer({ id: 'none', scoreOverall: null }),
@@ -274,23 +277,23 @@ test('filterApplications applies score presets and score range filters', () => {
 
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte90', value: '' }] }).map(o => o.id),
-    ['top', 'legacy'],
+    ['top'],
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte80', value: '' }] }).map(o => o.id),
-    ['top', 'high', 'legacy'],
+    ['top', 'high'],
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte75', value: '' }] }).map(o => o.id),
-    ['top', 'high', 'good', 'legacy'],
+    ['top', 'high', 'good'],
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte60', value: '' }] }).map(o => o.id),
-    ['top', 'high', 'good', 'legacy'],
+    ['top', 'high', 'good'],
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'gte50', value: '' }] }).map(o => o.id),
-    ['top', 'high', 'good', 'legacy', 'mid'],
+    ['top', 'high', 'good', 'mid'],
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'scoreRange', value: '', minScore: 50, maxScore: 80 }] }).map(o => o.id),
@@ -302,7 +305,7 @@ test('filterApplications applies score presets and score range filters', () => {
   );
   assert.deepEqual(
     filterApplications(offers, { columnFilters: [{ column: 'score', operator: 'isNotEmpty', value: '' }] }).map(o => o.id),
-    ['top', 'high', 'good', 'legacy', 'mid', 'low'],
+    ['top', 'high', 'good', 'tiny', 'mid', 'low'],
   );
 });
 

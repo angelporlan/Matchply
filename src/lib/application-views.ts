@@ -445,8 +445,9 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
 }
 
 export function scoreToPercent(score: number | null | undefined): number | null {
-  if (score === null || score === undefined || !Number.isFinite(score)) return null;
-  return score > 5 ? Math.round(score) : Math.round(score * 20);
+  if (score === null || score === undefined || !Number.isFinite(score) || score < 0 || score > 100) return null;
+  // List queries already exclude legacy research scores. Every value is 0–100.
+  return Math.round(score);
 }
 
 function dayStart(value: Date) {

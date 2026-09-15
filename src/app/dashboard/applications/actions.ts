@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { requireUserFeature } from "@/lib/permissions";
 import { log } from "@/lib/logger";
+import { persistMatchResult } from "@/lib/match-persistence";
 import { baseCvForAiColumns, curateOfferColumns } from "@/lib/job-offer-queries";
 
 export async function getOwnedJobOffer(offerId: string) {
@@ -274,10 +275,10 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
       .select(baseCvForAiColumns)
       .from(cvs)
       .where(eq(cvs.userId, userId))
-      .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))
+      .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id))
       .limit(1);
 
-    const { curated } = await AIService.curateOffersBatch({
+    const { curated, errors } = await AIService.curateOffersBatch({
       baseCvMarkdown: baseCv?.content || "",
       userCareerProfile: user.careerProfile,
       offers: [{
@@ -291,6 +292,8 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         tldr: offer.tldr,
         sourceMetadata: offer.sourceMetadata,
         matchInputHash: offer.matchInputHash,
+        matchEvidence: offer.matchEvidence,
+        matchDetails: offer.matchDetails,
       }],
       userSubscriptionStatus: user.subscriptionStatus,
       targetThreshold: 65,
@@ -299,18 +302,10 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
 
     const evaluated = curated[0];
     if (evaluated && typeof evaluated.score === 'number') {
-      await db.update(jobOffers)
-        .set({
-          scoreOverall: evaluated.score,
-          scoreBreakdown: evaluated.scoreBreakdown,
-          tldr: evaluated.fitReason,
-          matchInputHash: evaluated.inputHash,
-          matchKind: evaluated.kind,
-          ...(evaluated.redFlags ? { redFlags: evaluated.redFlags } : {}),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(jobOffers.id, offer.id), eq(jobOffers.userId, userId)));
-      
+      if (!await persistMatchResult(userId, evaluated)) {
+        return { error: "El perfil o la oferta han cambiado durante el análisis. Vuelve a calcular el match." };
+      }
+
       revalidatePath(`/dashboard/applications/offer/${offerId}`);
       revalidatePath("/dashboard/applications");
 
@@ -320,11 +315,13 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         fitReason: evaluated.fitReason,
         decision: evaluated.decision,
         scoreBreakdown: evaluated.scoreBreakdown,
-        tldr: evaluated.fitReason,
+        matchInputHash: evaluated.inputHash,
+        matchEvidence: evaluated.evidence,
+        matchDetails: evaluated.details,
       };
     }
 
-    return { error: "No se pudo calcular la afinidad" };
+    return { error: errors[0]?.message || "No se pudo calcular la afinidad" };
   } catch (error: any) {
     log({ event: 'offer_match_evaluate_failed', level: 'error', error });
     return { error: error.message || "Failed to evaluate match" };

@@ -21,8 +21,9 @@ import { formatDate } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parseSections, parseMarkdownTable, ParsedReport } from '@/lib/ai-parser';
 import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
-import { isProfileMatchScore } from '@/lib/matching/rubric';
 import ResearchPanel from './ResearchPanel';
+import MatchAnalysisDetails from './MatchAnalysisDetails';
+import { currentMatchEvidence, currentMatchDetails } from '@/lib/match-display';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 // Markdown-to-HTML parser function locally
@@ -377,7 +378,9 @@ export default function JobOfferDetailsPage({
   const dbQuestions = getParsedJson(offer.interviewQuestions);
   const hasDbQuestions = Array.isArray(dbQuestions) && dbQuestions.length > 0;
 
-  const hasProfileMatch = isProfileMatchScore(offer.scoreOverall, offer.scoreBreakdown);
+  const matchEvidence = currentMatchEvidence(offer);
+  const matchDetails = currentMatchDetails(offer.matchDetails, matchEvidence);
+  const hasProfileMatch = Boolean(matchEvidence);
   const scoreVal = hasProfileMatch && offer.scoreOverall !== null ? Math.round(offer.scoreOverall) : 0;
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
@@ -541,6 +544,7 @@ export default function JobOfferDetailsPage({
                   if (!proceed) return;
 
                   setEvaluatingMatch(true);
+                  setError(null);
                   try {
                     const res = await evaluateSingleOfferMatchAction(offer.id);
                     if (res.success && typeof res.score === 'number') {
@@ -548,23 +552,29 @@ export default function JobOfferDetailsPage({
                         ...prev,
                         scoreOverall: res.score,
                         scoreBreakdown: res.scoreBreakdown ?? prev.scoreBreakdown,
-                        tldr: res.tldr ?? prev.tldr,
+                        matchInputHash: res.matchInputHash,
+                        matchEvidence: res.matchEvidence,
+                        matchDetails: res.matchDetails ?? null,
                       }));
+                      setActiveTab('ai_eval');
                       router.refresh();
-                    }
+                    } else setError(res.error || 'No se pudo actualizar el match.');
+                  } catch {
+                    setError('No se pudo actualizar el match. Vuelve a intentarlo.');
                   } finally {
                     setEvaluatingMatch(false);
                   }
                 }}
                 disabled={evaluatingMatch}
-                className="mt-3 w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-ai/10 to-ai-action/10 hover:from-ai/20 hover:to-ai-action/20 text-ai border border-ai/25 text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 font-display"
+                aria-busy={evaluatingMatch}
+                className="mt-3 min-h-11 w-full px-3 rounded-[8px] bg-ai-action text-on-ai-action border border-ai-action text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 {evaluatingMatch ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
-                <span>{evaluatingMatch ? 'Evaluando...' : hasProfileMatch ? '⚡ Recalcular Match con tu Perfil' : '⚡ Calcular Match con tu Perfil'}</span>
+                <span>{evaluatingMatch ? 'Analizando…' : 'Analizar match'}</span>
               </button>
             </div>
 
@@ -632,11 +642,11 @@ export default function JobOfferDetailsPage({
           </div>
 
           {/* TL;DR */}
-          {offer.tldr && (
+          {offer.tldr && !matchEvidence && (
             <div className="space-y-1.5 font-display">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-ai stroke-[1.75]" />
-                Resumen de IA
+                Análisis anterior · pendiente de actualizar
               </span>
               <div className="relative bg-ai/5 dark:bg-ai/10 border border-ai/20 rounded-xl p-3.5 pl-6">
                 <div className="absolute top-1 left-2 text-ai/25 font-serif text-3xl leading-none">“</div>
@@ -650,12 +660,12 @@ export default function JobOfferDetailsPage({
           {/* Red Flags */}
           {(() => {
             const flags = getParsedJson(offer.redFlags);
-            if (!flags || !Array.isArray(flags) || flags.length === 0) return null;
+            if (matchEvidence || !flags || !Array.isArray(flags) || flags.length === 0) return null;
             return (
               <div className="space-y-2 font-display">
                 <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 stroke-[1.75]" />
-                  Alertas detectadas ({flags.length})
+                  Alertas anteriores · pendientes de revisar ({flags.length})
                 </span>
                 <div className="space-y-2">
                   {flags.map((flag: any, idx: number) => {
@@ -754,7 +764,7 @@ export default function JobOfferDetailsPage({
             >
               ✦ Investigación
             </button>
-            {offer.rawReport && (
+            {(hasProfileMatch || offer.rawReport) && (
               <button
                 type="button"
                 onClick={() => setActiveTab('ai_eval')}
@@ -798,10 +808,11 @@ export default function JobOfferDetailsPage({
             )}
             
             {/* PESTAÑA: EVALUACIÓN IA */}
-            {activeTab === 'ai_eval' && offer.rawReport && (
+            {activeTab === 'ai_eval' && <MatchAnalysisDetails evidence={matchEvidence} details={matchDetails} />}
+            {activeTab === 'ai_eval' && offer.rawReport && !matchEvidence && (
               <div className="space-y-4 animate-fadeIn">
                 <h3 className="text-sm font-bold text-text uppercase tracking-wider font-display border-b border-subtle pb-2">
-                  Informe Detallado de IA
+                  Informe anterior · pendiente de actualizar
                 </h3>
                 
                 {/* Accordions */}

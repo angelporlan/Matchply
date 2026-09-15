@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils';
 import AlertModal from '../ui/AlertModal';
 import { Draggable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import ApplicationScoreBadge from './ApplicationScoreBadge';
 
 interface ApplicationCardProps {
   offer: ApplicationSummary;
@@ -130,12 +131,7 @@ export default function ApplicationCard({
                   {offer.platform}
                 </span>
 
-                {(offer as any).scoreOverall != null && (offer as any).scoreOverall > 5 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0 font-sans shadow-2xs">
-                    <Sparkles className="w-3 h-3 text-emerald-500 stroke-[1.75] animate-pulse" />
-                    {`${Math.round((offer as any).scoreOverall)}%`}
-                  </span>
-                )}
+                <ApplicationScoreBadge score={offer.scoreOverall} />
               </div>
               <h4 className={`font-bold text-text leading-snug group-hover:text-ai dark:group-hover:text-violet-400 transition-colors break-words font-display ${
                 isCompact ? 'text-[13px] mt-1.5' : 'text-sm mt-2'

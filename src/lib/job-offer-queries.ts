@@ -1,4 +1,13 @@
 import { cvs, jobOffers, users } from '@/db/schema';
+import { sql } from 'drizzle-orm';
+import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
+
+// Only a current, versioned match is presented as a percentage. Keep stale
+// values stored for recovery, without shipping evidence into list payloads.
+export const currentMatchScore = sql<number | null>`case when ${jobOffers.matchInputHash} is not null
+  and ${jobOffers.matchEvidence}->>'version' = ${MATCH_PROMPT_VERSION}
+  and ${jobOffers.matchEvidence}->>'inputHash' = ${jobOffers.matchInputHash}
+  then ${jobOffers.scoreOverall} else null end`;
 
 export const applicationSummaryColumns = {
   id: jobOffers.id,
@@ -9,7 +18,7 @@ export const applicationSummaryColumns = {
   url: jobOffers.url,
   platform: jobOffers.platform,
   status: jobOffers.status,
-  scoreOverall: jobOffers.scoreOverall,
+  scoreOverall: currentMatchScore,
   tldr: jobOffers.tldr,
   legitimacyTier: jobOffers.legitimacyTier,
   livenessStatus: jobOffers.livenessStatus,
@@ -51,7 +60,7 @@ export const cvTargetColumns = {
   cvId: jobOffers.cvId,
   title: jobOffers.title,
   company: jobOffers.company,
-  scoreOverall: jobOffers.scoreOverall,
+  scoreOverall: currentMatchScore,
 };
 
 export const curateOfferColumns = {
@@ -66,6 +75,9 @@ export const curateOfferColumns = {
   sourceMetadata: jobOffers.sourceMetadata,
   matchInputHash: jobOffers.matchInputHash,
   matchKind: jobOffers.matchKind,
+  matchEvidence: jobOffers.matchEvidence,
+  matchDetails: jobOffers.matchDetails,
+  matchEvaluatedAt: jobOffers.matchEvaluatedAt,
 };
 
 export type ApplicationSummary = {

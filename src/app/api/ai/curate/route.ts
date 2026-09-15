@@ -1,193 +1,136 @@
+import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, jobOffers, users } from '@/db/schema';
-import { AIService } from '@/lib/ai-service';
-import { createAuditLog } from '@/lib/audit';
+import { jobOffers } from '@/db/schema';
 import { requireUserFeature } from '@/lib/permissions';
-import { revalidatePath } from 'next/cache';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
-import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
+import { enqueueMatchBatchJob, getAiJobForUser, isTerminalAiJob } from '@/lib/ai-jobs/queue';
+import { matchBatchCounts } from '@/lib/ai-jobs/match-batch-state';
+import { log } from '@/lib/logger';
+import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type CuratedStreamItem = {
-  id: string;
-  title: string;
-  company: string;
-  score: number;
-  decision: 'keep' | 'archive';
-  fitReason: string;
-  highlightSkills?: string[];
-};
-
-function encodeLine(payload: unknown) {
-  return `${JSON.stringify(payload)}\n`;
-}
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const OBSERVER_WINDOW_MS = 50_000;
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
+  const userId = session?.user?.id;
+  if (!userId) return new NextResponse('Unauthorized', { status: 401 });
 
-  let targetThreshold = 65;
-  let offerIds: string[] | undefined;
-  try {
-    const body = await req.json().catch(() => ({}));
-    if (typeof body?.targetThreshold === 'number' && Number.isFinite(body.targetThreshold)) {
-      targetThreshold = Math.max(0, Math.min(100, Math.round(body.targetThreshold)));
-    }
-    if (Array.isArray(body?.offerIds) && body.offerIds.length > 0) {
-      offerIds = body.offerIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0);
-    }
-  } catch {
-    // body opcional
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return new NextResponse('Invalid request', { status: 400 });
   }
-
-  const userId = session.user.id;
+  if (body.offerIds !== undefined && (!Array.isArray(body.offerIds)
+    || body.offerIds.some((id: unknown) => typeof id !== 'string' || !UUID_PATTERN.test(id)))) {
+    return new NextResponse('Invalid offer IDs', { status: 400 });
+  }
+  if (body.requestId !== undefined && (typeof body.requestId !== 'string' || !UUID_PATTERN.test(body.requestId))) {
+    return new NextResponse('Invalid request ID', { status: 400 });
+  }
+  const requestedIds: string[] | undefined = body.offerIds === undefined ? undefined : Array.from(new Set<string>(body.offerIds));
+  const targetThreshold = typeof body.targetThreshold === 'number' && Number.isFinite(body.targetThreshold)
+    ? Math.max(0, Math.min(100, Math.round(body.targetThreshold))) : 65;
 
   try {
     await requireUserFeature(userId, 'applications');
   } catch {
     return new NextResponse('Forbidden', { status: 403 });
   }
-
   try {
     consumeRateLimit(`ai:curate:${userId}`, 10, 10 * 60_000);
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return new NextResponse(error.message, { status: 429 });
-    }
+    if (error instanceof RateLimitError) return new NextResponse(error.message, { status: 429 });
     throw error;
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (!user) {
-    return new NextResponse('User not found', { status: 404 });
-  }
-
-  const [baseCv] = await db
-    .select(baseCvForAiColumns)
-    .from(cvs)
-    .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt))
-    .limit(1);
-
-  const conditions = [eq(jobOffers.userId, userId)];
-  if (offerIds && offerIds.length > 0) {
-    conditions.push(inArray(jobOffers.id, offerIds));
-  } else {
-    conditions.push(eq(jobOffers.status, 'interested'));
-  }
-
-  const interestedOffers = await db
-    .select(curateOfferColumns)
-    .from(jobOffers)
-    .where(and(...conditions))
+  // The producer selects IDs only. The worker loads descriptions once it owns the job lease.
+  const offers = requestedIds?.length === 0 ? [] : await db.select({ id: jobOffers.id }).from(jobOffers)
+    .where(and(eq(jobOffers.userId, userId), requestedIds
+      ? inArray(jobOffers.id, requestedIds) : eq(jobOffers.status, 'interested')))
     .orderBy(desc(jobOffers.createdAt));
+  if (requestedIds && offers.length !== requestedIds.length) {
+    return new NextResponse('One or more offers are unavailable', { status: 404 });
+  }
+  const job = await enqueueMatchBatchJob(userId, {
+    offerIds: offers.map(offer => offer.id), targetThreshold,
+    requestId: body.requestId || randomUUID(),
+  });
 
   const encoder = new TextEncoder();
+  let cancelled = false;
+  let stopWait: (() => void) | undefined;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (payload: unknown) => {
-        controller.enqueue(encoder.encode(encodeLine(payload)));
+      const send = (event: unknown) => {
+        if (!cancelled) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
-
+      const stop = () => { cancelled = true; stopWait?.(); };
+      req.signal.addEventListener('abort', stop, { once: true });
+      if (req.signal.aborted) stop();
+      const delivered = new Set<string>();
+      const deliveredErrors = new Map<string, string>();
+      const started = Date.now();
+      let previousStatus = '';
       try {
-        if (interestedOffers.length === 0) {
-          send({ type: 'done', total: 0, kept: 0, archived: 0, results: [] });
-          controller.close();
-          return;
-        }
-
-        send({
-          type: 'start',
-          total: interestedOffers.length,
-          baseCvName: baseCv?.title || 'CV Principal',
-        });
-
-        const allResults: CuratedStreamItem[] = [];
-        const userProfile = (user.careerProfile as any) || {};
-
-        await AIService.curateOffersBatch({
-          baseCvMarkdown: baseCv?.content || '',
-          userCareerProfile: userProfile,
-          offers: interestedOffers.map((o) => ({
-            id: o.id,
-            title: o.title,
-            company: o.company,
-            description: o.description,
-            platform: o.platform,
-            scoreOverall: o.scoreOverall,
-            scoreBreakdown: o.scoreBreakdown,
-            tldr: o.tldr,
-            sourceMetadata: o.sourceMetadata,
-            matchInputHash: o.matchInputHash,
-          })),
-          userSubscriptionStatus: user.subscriptionStatus,
-          targetThreshold,
-          onBatchComplete: async (items) => {
-            for (const item of items) {
-              allResults.push(item);
-              send({ type: 'item', item });
-
-              if (typeof item.score === 'number' && item.score > 0) {
-                await db
-                  .update(jobOffers)
-                  .set({
-                    scoreOverall: item.score,
-                    scoreBreakdown: item.scoreBreakdown,
-                    tldr: item.fitReason,
-                    matchInputHash: item.inputHash,
-                    matchKind: item.kind,
-                    updatedAt: new Date(),
-                  })
-                  .where(and(eq(jobOffers.id, item.id), eq(jobOffers.userId, userId)))
-                  .catch(() => {});
-              }
+        send({ type: 'start', jobId: job.id, total: offers.length });
+        while (!cancelled && Date.now() - started < OBSERVER_WINDOW_MS) {
+          const current = await getAiJobForUser(userId, job.id);
+          if (!current) throw new Error('No se pudo recuperar el cálculo.');
+          const result = await readCurrentMatchBatchResult(current);
+          for (const item of result.items) {
+            if (!delivered.has(item.id)) {
+              send({ id: item.id, score: item.score });
+              delivered.add(item.id);
+              deliveredErrors.delete(item.id);
             }
-          },
-        });
-
-        const kept = allResults.filter((r) => r.decision === 'keep').length;
-        const archived = allResults.filter((r) => r.decision === 'archive').length;
-
-        await createAuditLog('job_offers_ai_curate_preview', userId, user.email || null, {
-          totalEvaluated: interestedOffers.length,
-          keptCount: kept,
-          archivedCount: archived,
-          streamed: true,
-          offerIds: offerIds ?? null,
-        });
-
-        revalidatePath('/dashboard/applications');
-
-        send({
-          type: 'done',
-          total: allResults.length,
-          kept,
-          archived,
-          results: allResults,
-        });
-      } catch (error: any) {
-        send({
-          type: 'error',
-          message: error?.message || 'Failed to curate offers',
-        });
+          }
+          for (const error of result.errors) {
+            if (deliveredErrors.get(error.id) !== error.message) {
+              send({ type: 'offer_error', ...error });
+              if (error.code === 'outdated') delivered.delete(error.id);
+              deliveredErrors.set(error.id, error.message);
+            }
+          }
+          if (current.status !== previousStatus) {
+            send({ type: 'progress', status: current.status, evaluated: result.items.length, total: result.total });
+            previousStatus = current.status;
+          }
+          if (isTerminalAiJob(current)) {
+            send({ type: 'done', status: current.status, ...matchBatchCounts(result, targetThreshold) });
+            return;
+          }
+          await new Promise<void>(resolve => {
+            const timer = setTimeout(() => { stopWait = undefined; resolve(); }, 1_500);
+            stopWait = () => { clearTimeout(timer); stopWait = undefined; resolve(); };
+            if (cancelled) stopWait();
+          });
+        }
+        if (!cancelled) send({ type: 'pending', jobId: job.id });
+      } catch (error) {
+        log({ event: 'match_batch_observer_failed', level: 'warn', userId, jobId: job.id });
+        send({ type: 'error', message: 'Se interrumpió la conexión. El cálculo continúa y puede recuperarse.', jobId: job.id });
       } finally {
-        controller.close();
+        req.signal.removeEventListener('abort', stop);
+        if (!cancelled) controller.close();
       }
+    },
+    cancel() {
+      cancelled = true;
+      stopWait?.();
     },
   });
 
   return new Response(stream, {
     headers: {
       'Content-Type': 'application/x-ndjson; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
+      'Cache-Control': 'no-store, no-transform',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

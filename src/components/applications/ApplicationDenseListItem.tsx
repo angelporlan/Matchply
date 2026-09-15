@@ -5,6 +5,7 @@ import { Draggable } from '@hello-pangea/dnd';
 import { ApplicationSummary } from '@/lib/job-offer-queries';
 import { Sparkles, ExternalLink, Send, GripVertical } from 'lucide-react';
 import { updateJobOfferStatus } from '@/app/dashboard/applications/actions';
+import { scoreToPercent } from '@/lib/application-views';
 
 interface ApplicationDenseListItemProps {
   offer: ApplicationSummary;
@@ -21,9 +22,7 @@ export default function ApplicationDenseListItem({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   const rawScore = offer.scoreOverall;
-  const scoreVal = rawScore !== null && rawScore !== undefined && rawScore > 5
-    ? Math.round(rawScore)
-    : null;
+  const scoreVal = scoreToPercent(rawScore);
 
   const getScoreBadge = () => {
     if (scoreVal === null) {

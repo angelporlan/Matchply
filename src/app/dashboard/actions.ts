@@ -416,19 +416,12 @@ export async function saveUserCareerProfileAction(profileData: any) {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     const currentProfile = (user?.careerProfile as any) || {};
     const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
-    const normalizedFields = normalizeCareerProfileFields(profileFields || {});
+    const normalizedFields = normalizeCareerProfileFields({ ...currentProfile, ...profileFields });
 
     const updatedProfile = {
       ...currentProfile,
       ...normalizedFields,
-      hardConstraints: parseMatchConstraints({
-        curationCriteria: normalizedFields?.curationCriteria,
-        bio: normalizedFields?.bio,
-        preferredWorkplaces: normalizedFields?.preferredWorkplaces,
-        salaryMin: normalizedFields?.salaryMin,
-        englishLevel: normalizedFields?.englishLevel,
-        englishOverLevelPolicy: normalizedFields?.englishOverLevelPolicy,
-      }),
+      hardConstraints: parseMatchConstraints(normalizedFields),
       updatedAt: new Date().toISOString(),
     };
 
@@ -509,4 +502,3 @@ export async function updateUserNameAction(name: string) {
     return { error: error.message || "Failed to update name" };
   }
 }
-

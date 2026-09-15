@@ -13,21 +13,27 @@ import {
 import { canAccessFeature } from './subscription';
 import { getBuiltInPrompt, type BuiltInPromptKey } from './prompt-defaults';
 import { parseMatchConstraints } from './curation-constraints';
+import { log } from './logger';
 import {
   buildCandidateCard,
+  buildCandidateEvidence,
+  buildMatchExplanationPrompt,
+  normalizeMatchDetails,
+  isMatchDetails,
+  isMatchEvidenceSnapshot,
+  matchSourceHash,
+  MATCH_PROMPT_VERSION,
+  MatchValidationError,
   buildMatchSystemPrompt,
   buildMatchUserPrompt,
   buildOfferCard,
   cachedMatchItem,
   canReuseCachedMatch,
   isCanonicalMatchBreakdown,
-  isProfileMatchScore,
   matchInputHash,
   normalizeMatchItem,
   type CuratedMatchItem,
-  type LlmMatchItem,
   type MatchKind,
-  type MatchOfferCard,
 } from './matching';
 
 import {
@@ -51,6 +57,8 @@ type CurationOfferInput = {
   tldr?: string | null;
   sourceMetadata?: unknown;
   matchInputHash?: string | null;
+  matchEvidence?: unknown;
+  matchDetails?: unknown;
 };
 
 
@@ -436,6 +444,7 @@ export class AIService {
       if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
         throw new Error("La respuesta recibida de OpenRouter no tiene el formato esperado.");
       }
+      log({ event: 'ai_usage', provider: 'openrouter', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
       console.error("OpenRouter error:", e);
@@ -487,6 +496,7 @@ export class AIService {
       if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
         throw new Error("La respuesta recibida de DeepSeek no tiene el formato esperado.");
       }
+      log({ event: 'ai_usage', provider: 'deepseek', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
       console.error("DeepSeek error:", e);
@@ -539,6 +549,7 @@ export class AIService {
       }
 
       const data = await response.json();
+      log({ event: 'ai_usage', provider: 'gemini', model, inputTokens: data.usageMetadata?.promptTokenCount, outputTokens: data.usageMetadata?.candidatesTokenCount });
       const text = this.extractGeminiText(data);
       if (!text.trim()) {
         const finishReason = data?.candidates?.[0]?.finishReason || 'unknown';
@@ -861,57 +872,21 @@ export class AIService {
     return false;
   }
 
-  static async analyzeSTARStream({
-    cvMarkdown,
-    jobDescription,
-    company,
-    userSubscriptionStatus,
-    careerProfile
-  }: {
-    cvMarkdown: string;
-    jobDescription: string;
-    company: string;
-    userSubscriptionStatus: string;
-    careerProfile?: any;
+  /** Compatibility adapter for previously queued evaluations; uses the same scorer. */
+  static async analyzeSTARStream({ cvMarkdown, jobDescription, company, jobTitle = '', userSubscriptionStatus, careerProfile }: {
+    cvMarkdown: string; jobDescription: string; company: string; jobTitle?: string;
+    userSubscriptionStatus: string; careerProfile?: any;
   }): Promise<ReadableStream<Uint8Array>> {
-    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
-
-    const constraints = parseMatchConstraints({
-      curationCriteria: careerProfile?.curationCriteria,
-      bio: careerProfile?.bio,
-      preferredWorkplaces: careerProfile?.preferredWorkplaces,
-      salaryMin: careerProfile?.salaryMin,
-      englishLevel: careerProfile?.englishLevel,
-      englishOverLevelPolicy: careerProfile?.englishOverLevelPolicy,
+    const result = await this.curateOffersBatch({
+      baseCvMarkdown: cvMarkdown, userCareerProfile: careerProfile, userSubscriptionStatus,
+      offers: [{ id: 'offer', title: jobTitle, company, description: jobDescription, platform: 'other' }], kind: 'deep',
     });
-    const candidateCard = buildCandidateCard(careerProfile, cvMarkdown, constraints);
-    const offerCard = buildOfferCard({
-      id: 'offer',
-      title: company,
-      company,
-      description: jobDescription,
-    }, 'deep');
-    const systemPrompt = buildMatchSystemPrompt({ kind: 'deep', targetThreshold: 65 });
-    const userPrompt = buildMatchUserPrompt({
-      candidateCard,
-      offers: [offerCard],
-    });
-
-    if (provider === 'gemini') {
-      return await this.streamGeminiOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    } else if (provider === 'deepseek') {
-      return await this.streamDeepSeekOficial(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    } else {
-      return await this.streamOpenRouter(cvMarkdown, jobDescription, model, systemPrompt, userPrompt);
-    }
+    if (!result.curated[0]) throw new Error(result.errors[0]?.message || 'No se pudo calcular el match');
+    const encoder = new TextEncoder();
+    return new ReadableStream({ start(controller) {
+      controller.enqueue(encoder.encode(JSON.stringify({ curated: result.curated })));
+      controller.close();
+    } });
   }
 
   private static getMockCvResponse(cv: string, job: string, providerName: string): string {
@@ -1062,237 +1037,127 @@ Descripción: ${jobDescription}`;
    * - Cache por hash en la fila
    */
   static async curateOffersBatch({
-    baseCvMarkdown,
-    userCareerProfile,
-    offers,
-    userSubscriptionStatus,
-    targetThreshold = 65,
-    kind = 'triage',
-    onBatchComplete,
+    baseCvMarkdown, userCareerProfile, offers, userSubscriptionStatus,
+    targetThreshold = 65, kind = 'triage', onBatchComplete, onItemError,
+    evaluationStartedAt = new Date().toISOString(),
   }: {
-    baseCvMarkdown: string;
-    userCareerProfile?: any;
-    offers: CurationOfferInput[];
-    userSubscriptionStatus: string;
-    targetThreshold?: number;
-    kind?: MatchKind;
+    baseCvMarkdown: string; userCareerProfile?: any; offers: CurationOfferInput[];
+    userSubscriptionStatus: string; targetThreshold?: number; kind?: MatchKind;
+    evaluationStartedAt?: string;
     onBatchComplete?: (items: CuratedMatchItem[]) => void | Promise<void>;
-  }): Promise<{ curated: CuratedMatchItem[] }> {
-    if (!offers || offers.length === 0) {
-      return { curated: [] };
-    }
-
-    const MICRO_BATCH_SIZE = 2;
-    const MAX_CONCURRENCY = 4;
-
+    onItemError?: (error: { id: string; message: string }) => void | Promise<void>;
+  }): Promise<{ curated: CuratedMatchItem[]; errors: Array<{ id: string; message: string }> }> {
+    const started = Date.now();
+    if (!offers.length) return { curated: [], errors: [] };
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    const provider = await this.getSetting(
-      isPro ? 'pro_provider' : 'free_provider',
-      isPro ? DEFAULT_PRO_PROVIDER : DEFAULT_FREE_PROVIDER,
-    );
-    const model = await this.getSetting(
-      isPro ? 'pro_model' : 'free_model',
-      getDefaultModelForProvider(isPro ? 'pro' : 'free', provider),
-    );
-
-    const constraints = parseMatchConstraints({
-      curationCriteria: userCareerProfile?.curationCriteria,
-      bio: userCareerProfile?.bio,
-      preferredWorkplaces: userCareerProfile?.preferredWorkplaces,
-      salaryMin: userCareerProfile?.salaryMin,
-      englishLevel: userCareerProfile?.englishLevel,
-      englishOverLevelPolicy: userCareerProfile?.englishOverLevelPolicy,
-    });
-    const candidateCard = buildCandidateCard(userCareerProfile, baseCvMarkdown, constraints);
-    const systemPrompt = buildMatchSystemPrompt({ kind, targetThreshold });
-
-    type Prepared = {
-      offer: CurationOfferInput;
-      offerCard: MatchOfferCard;
-      hash: string;
+    const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_PRO_PROVIDER : DEFAULT_FREE_PROVIDER);
+    const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
+    const constraints = parseMatchConstraints(userCareerProfile || {});
+    const candidateEvidence = buildCandidateEvidence(userCareerProfile, baseCvMarkdown, constraints);
+    const systemPrompt = buildMatchSystemPrompt({ kind: 'triage', targetThreshold });
+    const errors: Array<{ id: string; message: string }> = [];
+    const results = new Map<string, CuratedMatchItem>();
+    const reportError = async (id: string, error: unknown) => {
+      const message = error instanceof MatchValidationError ? error.message : 'No se pudo actualizar el match. Vuelve a intentarlo.';
+      const item = { id, message };
+      errors.push(item);
+      log({ event: 'match_item_failed', offerId: id, version: MATCH_PROMPT_VERSION,
+        reason: error instanceof MatchValidationError ? error.code : 'evaluation_failed' });
+      await onItemError?.(item);
     };
-
-    const prepared: Prepared[] = offers.map((offer) => {
-      const offerCard = buildOfferCard(offer, kind);
-      return {
-        offer,
-        offerCard,
-        hash: matchInputHash({ candidateCard, offerCard, model, kind }),
-      };
+    const prepared = offers.map(offer => {
+      const offerCard = buildOfferCard(offer, 'triage');
+      const sourceHash = matchSourceHash({ candidateEvidence, offerCard, constraints });
+      return { offer, offerCard, sourceHash, hash: matchInputHash({ candidateEvidence, offerCard, constraints, provider, model }) };
     });
-
-    const resultsMap = new Map<string, CuratedMatchItem>();
+    type Prepared = (typeof prepared)[number];
     const pending: Prepared[] = [];
-
+    const finish = async (row: Prepared, item: CuratedMatchItem) => {
+      item.evaluationStartedAt = evaluationStartedAt;
+      if (kind === 'deep') {
+        if (isMatchDetails(row.offer.matchDetails, item.evidence)) {
+          item.details = row.offer.matchDetails;
+        } else {
+          const prompts = buildMatchExplanationPrompt(item.evidence);
+          const raw = await this.callMatchText(provider, model, prompts.systemPrompt, prompts.userPrompt);
+          const parsed = this.parseMatchJson(raw);
+          item.details = normalizeMatchDetails(parsed, item.evidence);
+        }
+        item.kind = 'deep';
+        item.fitReason = item.details.summary;
+      }
+      return item;
+    };
     for (const row of prepared) {
-      if (canReuseCachedMatch({
-        hash: row.hash,
-        cachedHash: row.offer.matchInputHash,
-        scoreOverall: row.offer.scoreOverall,
-        scoreBreakdown: row.offer.scoreBreakdown,
-        hasDescription: Boolean((row.offer.description || '').trim()),
-        canonicalBreakdown: isCanonicalMatchBreakdown(row.offer.scoreBreakdown),
-      })) {
-        const cached = cachedMatchItem({
-          offer: row.offer,
-          score: row.offer.scoreOverall as number,
-          scoreBreakdown: row.offer.scoreBreakdown as CuratedMatchItem['scoreBreakdown'],
-          fitReason: row.offer.tldr,
-          hash: row.hash,
-          kind,
-          targetThreshold,
-        });
-        resultsMap.set(row.offer.id, cached);
-      } else {
-        pending.push(row);
+      if (!candidateEvidence.sufficient || !row.offerCard.sufficient || !row.offerCard.complete) {
+        await reportError(row.offer.id, new MatchValidationError('Faltan datos suficientes del perfil o de la oferta para calcular el match.', 'insufficient_input'));
+        continue;
       }
+      if (canReuseCachedMatch({ hash: row.hash, cachedHash: row.offer.matchInputHash,
+        scoreOverall: row.offer.scoreOverall, scoreBreakdown: row.offer.scoreBreakdown,
+        hasDescription: !!row.offer.description?.trim(), canonicalBreakdown: isCanonicalMatchBreakdown(row.offer.scoreBreakdown),
+        evidence: row.offer.matchEvidence }) && isMatchEvidenceSnapshot(row.offer.matchEvidence)) {
+        let cached: CuratedMatchItem;
+        try {
+          cached = await finish(row, cachedMatchItem({ offer: row.offer, score: row.offer.scoreOverall!,
+            scoreBreakdown: row.offer.matchEvidence.scoreBreakdown, hash: row.hash, kind: 'triage', targetThreshold,
+            evidence: row.offer.matchEvidence }));
+        } catch (error) { await reportError(row.offer.id, error); continue; }
+        // Persistence failures must propagate, never be converted to successful AI results.
+        await onBatchComplete?.([cached]);
+        results.set(cached.id, cached);
+        log({ event: 'match_cache_hit', offerId: cached.id, kind, version: MATCH_PROMPT_VERSION });
+      } else pending.push(row);
     }
-
-    const cachedItems = prepared
-      .map((row) => resultsMap.get(row.offer.id))
-      .filter((item): item is CuratedMatchItem => Boolean(item));
-    if (cachedItems.length && onBatchComplete) {
-      await onBatchComplete(cachedItems);
-    }
-
     const batches: Prepared[][] = [];
-    for (let i = 0; i < pending.length; i += MICRO_BATCH_SIZE) {
-      batches.push(pending.slice(i, i + MICRO_BATCH_SIZE));
-    }
-
-    const batchResults = await this.mapWithConcurrency(batches, MAX_CONCURRENCY, async (batch) => {
-      let curatedBatch: CuratedMatchItem[];
+    for (let i = 0; i < pending.length; i += 2) batches.push(pending.slice(i, i + 2));
+    await this.mapWithConcurrency(batches, 4, async batch => {
+      let parsed: any;
       try {
-        curatedBatch = await this.curateOffersMicroBatch({
-          batch,
-          candidateCard,
-          systemPrompt,
-          provider,
-          model,
-          targetThreshold,
-          constraints,
-          kind,
-        });
-      } catch (err) {
-        console.warn('[AIService.curateOffersBatch] Micro-batch failed, using fallback for batch:', err);
-        curatedBatch = batch.map((row) => this.fallbackMatchItem(row, candidateCard, constraints, targetThreshold, kind, model));
+        const userPrompt = buildMatchUserPrompt({ candidateCard: candidateEvidence.card, offers: batch.map(row => row.offerCard) });
+        parsed = this.parseMatchJson(await this.callMatchText(provider, model, systemPrompt, userPrompt));
+        if (!parsed || !Array.isArray(parsed.curated)) throw new MatchValidationError('La IA no devolvió un cálculo válido.');
+      } catch (error) {
+        for (const row of batch) await reportError(row.offer.id, error);
+        return;
       }
-
-      if (onBatchComplete) {
-        await onBatchComplete(curatedBatch);
+      for (const row of batch) {
+        let item: CuratedMatchItem;
+        try {
+          const matches = parsed.curated.filter((value: any) => value && value.id === row.offer.id);
+          if (matches.length !== 1) throw new MatchValidationError('La respuesta no contiene un único resultado para esta oferta.');
+          item = normalizeMatchItem({ offer: row.offer, offerCard: row.offerCard, candidateCard: candidateEvidence.card,
+            candidateEvidence, llm: matches[0], constraints, targetThreshold, kind: 'triage', model, provider });
+          item = await finish(row, item);
+        } catch (error) { await reportError(row.offer.id, error); continue; }
+        await onBatchComplete?.([item]);
+        results.set(item.id, item);
+        log({ event: 'match_calculated', offerId: item.id, kind, version: MATCH_PROMPT_VERSION,
+          adjustmentCodes: item.evidence.adjustments.map(adjustment => adjustment.code) });
       }
-      return curatedBatch;
     });
-
-    for (const batch of batchResults) {
-      for (const item of batch) {
-        resultsMap.set(item.id, item);
-      }
-    }
-
-    const curated = prepared.map((row) =>
-      resultsMap.get(row.offer.id) || this.fallbackMatchItem(row, candidateCard, constraints, targetThreshold, kind, model)
-    );
-
-    return { curated };
+    log({ event: 'match_batch_finished', version: MATCH_PROMPT_VERSION, provider, model,
+      durationMs: Date.now() - started, succeeded: results.size, failed: errors.length });
+    return { curated: offers.flatMap(offer => results.has(offer.id) ? [results.get(offer.id)!] : []), errors };
   }
 
-  private static async curateOffersMicroBatch({
-    batch,
-    candidateCard,
-    systemPrompt,
-    provider,
-    model,
-    targetThreshold,
-    constraints,
-    kind,
-  }: {
-    batch: Array<{ offer: CurationOfferInput; offerCard: MatchOfferCard; hash: string }>;
-    candidateCard: string;
-    systemPrompt: string;
-    provider: string;
-    model: string;
-    targetThreshold: number;
-    constraints: ReturnType<typeof parseMatchConstraints>;
-    kind: MatchKind;
-  }) {
-    const userPrompt = buildMatchUserPrompt({
-      candidateCard,
-      offers: batch.map((row) => row.offerCard),
-    });
-
-    let rawResponse = '';
-    if (provider === 'gemini') {
-      rawResponse = await this.callGeminiOficial('', '', model, systemPrompt, userPrompt);
-    } else if (provider === 'deepseek') {
-      rawResponse = await this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt);
-    } else {
-      rawResponse = await this.callOpenRouter('', '', model, systemPrompt, userPrompt);
-    }
-
-    const parsed = this.parseCurationJson(rawResponse);
-    if (!parsed || !Array.isArray(parsed.curated)) {
-      throw new Error('Invalid curation JSON');
-    }
-
-    const resultsMap = new Map<string, LlmMatchItem>(
-      parsed.curated.map((item: LlmMatchItem) => [String(item.id || ''), item]),
-    );
-
-    return batch.map((row) => normalizeMatchItem({
-      offer: row.offer,
-      offerCard: row.offerCard,
-      candidateCard,
-      llm: resultsMap.get(row.offer.id) || null,
-      constraints,
-      targetThreshold,
-      kind,
-      model,
-    }));
+  private static parseMatchJson(raw: string): any {
+    const text = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    try { return JSON.parse(text); } catch { throw new MatchValidationError('La IA devolvió JSON incompleto o inválido.'); }
   }
 
-  private static parseCurationJson(rawResponse: string): { curated?: LlmMatchItem[] } | null {
-    let cleanJson = (rawResponse || '').trim();
-    if (!cleanJson) return null;
-
-    const start = cleanJson.indexOf('{');
-    const end = cleanJson.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
-      cleanJson = cleanJson.slice(start, end + 1);
-    }
-
-    try {
-      return JSON.parse(cleanJson);
-    } catch {
-      return null;
-    }
-  }
-
-  private static fallbackMatchItem(
-    row: { offer: CurationOfferInput; offerCard: MatchOfferCard },
-    candidateCard: string,
-    constraints: ReturnType<typeof parseMatchConstraints>,
-    targetThreshold: number,
-    kind: MatchKind,
-    model: string,
-  ): CuratedMatchItem {
-    const fallbackScore = isProfileMatchScore(row.offer.scoreOverall, row.offer.scoreBreakdown)
-      ? Math.round(row.offer.scoreOverall as number)
-      : 50;
-
-    return normalizeMatchItem({
-      offer: row.offer,
-      offerCard: row.offerCard,
-      candidateCard,
-      llm: {
-        score: fallbackScore,
-        fitReason: `Evaluación de respaldo para ${row.offer.title}.`,
-      },
-      constraints,
-      targetThreshold,
-      kind,
-      model,
-    });
+  private static async callMatchText(provider: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+    const envName = provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'OPENROUTER_API_KEY';
+    if (!this.resolveProviderApiKey(envName, provider)) throw new Error('AI_PROVIDER_NOT_CONFIGURED');
+    const started = Date.now();
+    const result = provider === 'gemini'
+      ? await this.callGeminiOficial('', '', model, systemPrompt, userPrompt)
+      : provider === 'deepseek'
+        ? await this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt)
+        : await this.callOpenRouter('', '', model, systemPrompt, userPrompt);
+    log({ event: 'match_llm_finished', provider, model, durationMs: Date.now() - started,
+      inputCharacters: systemPrompt.length + userPrompt.length, outputCharacters: result.length });
+    return result;
   }
 
   public static async callGenericText({
@@ -1769,14 +1634,7 @@ DIRECTRICES:
       const userProfile = userContext.careerProfile || {};
       const kind: MatchKind = payload.kind === 'deep' ? 'deep' : 'triage';
       const targetThreshold = payload.targetThreshold || 65;
-      const constraints = parseMatchConstraints({
-        curationCriteria: userProfile.curationCriteria,
-        bio: userProfile.bio,
-        preferredWorkplaces: userProfile.preferredWorkplaces,
-        salaryMin: userProfile.salaryMin,
-        englishLevel: userProfile.englishLevel,
-        englishOverLevelPolicy: userProfile.englishOverLevelPolicy,
-      });
+      const constraints = parseMatchConstraints(userProfile);
       const candidateCard = buildCandidateCard(userProfile, payload.baseCvMarkdown || '', constraints);
       const rawOffers = Array.isArray(payload.offers) ? payload.offers : [];
       const offerCards = rawOffers.map((offer: any) => buildOfferCard({

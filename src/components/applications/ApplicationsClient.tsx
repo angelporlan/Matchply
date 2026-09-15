@@ -1175,8 +1175,8 @@ export default function ApplicationsClient({
           if (summary) {
             const count = summary.total;
             const message = count === 1
-              ? `🎉 ¡1 candidatura puntuada con éxito! (${summary.kept} apta, ${summary.archived} suspensa)`
-              : `🎉 ¡${count} candidaturas puntuadas con éxito! (${summary.kept} aptas, ${summary.archived} suspensas)`;
+              ? `1 candidatura actualizada.`
+              : `${count} candidaturas actualizadas.`;
             setCurationToast({
               message,
               type: 'success',
@@ -1192,6 +1192,12 @@ export default function ApplicationsClient({
               return updatedScore !== undefined ? { ...o, scoreOverall: updatedScore } : o;
             })
           );
+        }}
+        onScoresInvalidated={(ids) => {
+          const outdated = new Set(ids);
+          setLocalOffers((previous) => previous.map((offer) =>
+            outdated.has(offer.id) ? { ...offer, scoreOverall: null } : offer,
+          ));
         }}
         offersCount={(curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')).length}
         offers={curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')}

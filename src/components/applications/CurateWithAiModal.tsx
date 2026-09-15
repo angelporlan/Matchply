@@ -1,689 +1,306 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, X, Check, Loader2, Building2 } from 'lucide-react';
-import { ApplicationSummary } from '@/lib/job-offer-queries';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, Loader2, Sparkles, X } from 'lucide-react';
+import type { ApplicationSummary } from '@/lib/job-offer-queries';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { readMatchBatchResult, type MatchBatchScore, type MatchBatchError } from '@/lib/ai-jobs/match-batch-state';
 
-export interface CuratedItem {
-  id: string;
-  title: string;
-  company: string;
-  score: number;
-  decision: 'keep' | 'archive';
-  fitReason: string;
-  highlightSkills?: string[];
-}
+export type CuratedItem = MatchBatchScore;
 
 interface CurateWithAiModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (summary?: { total: number; kept: number; archived: number }) => void;
   onScoresUpdated?: (results: CuratedItem[]) => void;
+  onScoresInvalidated?: (offerIds: string[]) => void;
   offersCount: number;
   offers?: ApplicationSummary[];
   isSimulation?: boolean;
   skipDebugPrompt?: boolean;
 }
 
-interface PendingCard {
-  id: string;
-  title: string;
-  company: string;
-  score: number | null;
-  decision: 'keep' | 'archive' | null;
-  fitReason: string | null;
-  resolved: boolean;
-}
+type SavedRequest = { requestId: string; jobId?: string };
+type Phase = 'starting' | 'queued' | 'running' | 'completed' | 'failed' | 'disconnected';
 
-type Phase = 'revealing' | 'done';
-type CardState = 'entering' | 'revealing' | 'waiting' | 'stamping' | 'exiting';
-
-export default function CurateWithAiModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  onScoresUpdated,
-  offersCount,
-  offers = [],
-  isSimulation = false,
-  skipDebugPrompt = false,
-}: CurateWithAiModalProps) {
-  const [phase, setPhase] = useState<Phase>('revealing');
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  const [cards, setCards] = useState<PendingCard[]>([]);
-  const [cardState, setCardState] = useState<CardState>('waiting');
-  const [aiFinished, setAiFinished] = useState(false);
-  const [resolvedCount, setResolvedCount] = useState(0);
-  const [shownCount, setShownCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+export default function CurateWithAiModal(props: CurateWithAiModalProps) {
+  const { isOpen, offers = [], offersCount, isSimulation = false } = props;
+  const [phase, setPhase] = useState<Phase>('starting');
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
+  const [errors, setErrors] = useState<Map<string, string>>(new Map());
+  const [outdatedScores, setOutdatedScores] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState<string | null>(null);
+  const [displayOffers, setDisplayOffers] = useState<ApplicationSummary[]>([]);
+  const [reconnect, setReconnect] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const latestProps = useRef(props);
+  latestProps.current = props;
   const { inspectOrExecutePrompt } = useAiPromptDebug();
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sleepResolveRef = useRef<(() => void) | null>(null);
-  const resultsMapRef = useRef<Map<string, CuratedItem>>(new Map());
-  const waitResolversRef = useRef<Map<string, () => void>>(new Map());
-  const abortedRef = useRef(false);
-  const cardsRef = useRef<PendingCard[]>([]);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const aiFinishedRef = useRef(false);
-  const currentIndexRef = useRef(-1);
-  const finishingRef = useRef(false);
-
-  const clearTimer = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const wakeSleep = () => {
-    clearTimer();
-    const resolve = sleepResolveRef.current;
-    sleepResolveRef.current = null;
-    resolve?.();
-  };
-
-  const sleep = (ms: number) =>
-    new Promise<void>((resolve) => {
-      sleepResolveRef.current = resolve;
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        sleepResolveRef.current = null;
-        resolve();
-      }, ms);
-    });
-
-  const waitForScore = (offerId: string) => {
-    if (resultsMapRef.current.has(offerId)) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      waitResolversRef.current.set(offerId, resolve);
-    });
-  };
-
-  const ingestResults = useCallback((items: CuratedItem[]) => {
-    if (!items.length) return;
-
-    const map = resultsMapRef.current;
-    for (const item of items) {
-      map.set(item.id, item);
-      const resolver = waitResolversRef.current.get(item.id);
-      if (resolver) {
-        waitResolversRef.current.delete(item.id);
-        resolver();
-      }
-    }
-
-    setResolvedCount(map.size);
-    setCards((prev) => {
-      const next = prev.map((card) => {
-        const result = map.get(card.id);
-        if (!result) return card;
-        return {
-          ...card,
-          score: result.score,
-          decision: result.decision,
-          fitReason: result.fitReason,
-          resolved: true,
-        };
-      });
-      cardsRef.current = next;
-      return next;
-    });
-
-    if (onScoresUpdated) onScoresUpdated(items);
-  }, [onScoresUpdated]);
-
-  const finishSequence = useCallback(() => {
-    if (finishingRef.current) return;
-    finishingRef.current = true;
-    abortedRef.current = true;
-    wakeSleep();
-    Array.from(waitResolversRef.current.values()).forEach((resolver) => resolver());
-    waitResolversRef.current.clear();
-
-    setPhase('done');
-    const map = resultsMapRef.current;
-    const keptCount = Array.from(map.values()).filter((i) => i.decision === 'keep').length;
-    const archivedCount = Array.from(map.values()).filter((i) => i.decision === 'archive').length;
-
-    setTimeout(() => {
-      onSuccess({
-        total: map.size || offers.length,
-        kept: keptCount,
-        archived: archivedCount,
-      });
-      onClose();
-    }, 1000);
-  }, [offers.length, onClose, onSuccess]);
-
-  const markAiFinishedAndMaybeSummarize = useCallback((forceSummaryIfBehind: boolean) => {
-    aiFinishedRef.current = true;
-    setAiFinished(true);
-
-    if (!forceSummaryIfBehind || finishingRef.current || abortedRef.current) return;
-
-    const total = cardsRef.current.length;
-    const shown = currentIndexRef.current + 1;
-    // Si la IA terminó y aún quedan cartas por enseñar → resumen directo
-    if (total > 0 && shown < total) {
-      finishSequence();
-    }
-  }, [finishSequence]);
+  const inspectorRef = useRef(inspectOrExecutePrompt);
+  inspectorRef.current = inspectOrExecutePrompt;
 
   useEffect(() => {
-    if (!isOpen) {
-      clearTimer();
-      sleepResolveRef.current = null;
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = null;
-      setPhase('revealing');
-      setCurrentIndex(-1);
-      currentIndexRef.current = -1;
-      setCards([]);
-      cardsRef.current = [];
-      setAiFinished(false);
-      setResolvedCount(0);
-      setShownCount(0);
-      setError(null);
-      setCardState('waiting');
-      resultsMapRef.current = new Map();
-      waitResolversRef.current = new Map();
-      abortedRef.current = false;
-      aiFinishedRef.current = false;
-      finishingRef.current = false;
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && offers.length > 0) {
-      startFlow();
-    }
-    return () => {
-      clearTimer();
-      abortControllerRef.current?.abort();
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') latestProps.current.onClose();
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    document.addEventListener('keydown', handleKeyDown);
+    return () => { document.removeEventListener('keydown', handleKeyDown); previousFocus?.focus(); };
   }, [isOpen]);
 
-  const advanceToCard = useCallback(async (allCards: PendingCard[], index: number) => {
-    if (abortedRef.current || finishingRef.current) return;
-
-    // IA ya terminó y esta carta aún no se había mostrado → resumen
-    if (aiFinishedRef.current && index > 0 && index < allCards.length) {
-      // Si llegamos aquí tras completar una carta y ya había terminado la IA, cerrar
-      finishSequence();
-      return;
-    }
-
-    if (index >= allCards.length) {
-      finishSequence();
-      return;
-    }
-
-    const card = allCards[index];
-    currentIndexRef.current = index;
-    setCurrentIndex(index);
-    setShownCount(index + 1);
-    setCardState('entering');
-
-    await sleep(180);
-    if (abortedRef.current || finishingRef.current) return;
-
-    setCardState('revealing');
-    await sleep(220);
-    if (abortedRef.current || finishingRef.current) return;
-
-    if (!resultsMapRef.current.has(card.id)) {
-      setCardState('waiting');
-      await waitForScore(card.id);
-      if (abortedRef.current || finishingRef.current) return;
-
-      // Si mientras esperábamos terminó la IA y hay más cartas, sellamos esta y saltamos al resumen
-      if (aiFinishedRef.current && index + 1 < allCards.length) {
-        setCardState('stamping');
-        await sleep(280);
-        if (abortedRef.current || finishingRef.current) return;
-        finishSequence();
-        return;
-      }
-    }
-
-    if (aiFinishedRef.current && index + 1 < allCards.length && resultsMapRef.current.has(card.id)) {
-      // Score ya estaba (lote completo llegó de golpe): sella la actual y va a resumen
-      setCardState('stamping');
-      await sleep(280);
-      if (abortedRef.current || finishingRef.current) return;
-      finishSequence();
-      return;
-    }
-
-    setCardState('stamping');
-    await sleep(340);
-    if (abortedRef.current || finishingRef.current) return;
-
-    setCardState('exiting');
-    await sleep(200);
-    if (abortedRef.current || finishingRef.current) return;
-
-    if (aiFinishedRef.current && index + 1 < allCards.length) {
-      finishSequence();
-      return;
-    }
-
-    return advanceToCard(cardsRef.current.length ? cardsRef.current : allCards, index + 1);
-  }, [finishSequence]);
-
-  const fillMissingResults = () => {
-    const missing: CuratedItem[] = [];
-    for (const card of cardsRef.current) {
-      if (resultsMapRef.current.has(card.id)) continue;
-      missing.push({
-        id: card.id,
-        title: card.title,
-        company: card.company,
-        score: 50,
-        decision: 'archive',
-        fitReason: 'Sin evaluación completa de la IA.',
-        highlightSkills: [],
-      });
-    }
-    if (missing.length) ingestResults(missing);
-  };
-
-  const launchRealCurationStream = async () => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const selectedOffers = latestProps.current.offers || [];
     const controller = new AbortController();
-    abortControllerRef.current = controller;
-
+    let stopped = false;
+    let wakeWait: (() => void) | undefined;
+    let completed = false;
+    const savedScores = new Map<string, number>();
+    const invalidatedScores = new Set<string>();
+    const storageKey = `matchply:match-batch:${selectedOffers[0]?.userId || 'user'}:${selectedOffers.map(offer => offer.id).sort().join(',')}`;
+    let request: SavedRequest;
     try {
-      const res = await fetch('/api/ai/curate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetThreshold: 65,
-          offerIds: offers && offers.length > 0 ? offers.map((o) => o.id) : undefined,
-        }),
-        signal: controller.signal,
+      const value = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      request = value && typeof value.requestId === 'string'
+        ? { requestId: value.requestId, jobId: typeof value.jobId === 'string' ? value.jobId : undefined }
+        : { requestId: crypto.randomUUID() };
+    } catch { request = { requestId: crypto.randomUUID() }; }
+    const remember = () => {
+      try { localStorage.setItem(storageKey, JSON.stringify(request)); } catch { /* Private browsing can disable storage. */ }
+    };
+    const forget = () => {
+      try { localStorage.removeItem(storageKey); } catch { /* Storage is optional. */ }
+    };
+
+    setDisplayOffers(selectedOffers);
+    setScores(new Map());
+    setErrors(new Map());
+    setOutdatedScores(new Set());
+    setMessage(null);
+    setPhase('starting');
+
+    const ingest = (items: MatchBatchScore[]) => {
+      if (stopped) return;
+      const changed = items.filter(item => savedScores.get(item.id) !== item.score);
+      for (const item of changed) { savedScores.set(item.id, item.score); invalidatedScores.delete(item.id); }
+      if (!changed.length) return;
+      setScores(new Map(savedScores));
+      setOutdatedScores(new Set(invalidatedScores));
+      setErrors(previous => {
+        const next = new Map(previous);
+        for (const item of changed) next.delete(item.id);
+        return next;
       });
-
-      if (!res.ok || !res.body) {
-        throw new Error(res.status === 401 ? 'No autorizado' : 'No se pudo iniciar la curación');
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (abortedRef.current) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          let event: any;
-          try {
-            event = JSON.parse(trimmed);
-          } catch {
-            continue;
-          }
-
-          if (event.type === 'item' && event.item) {
-            ingestResults([event.item as CuratedItem]);
-          } else if (event.type === 'done') {
-            if (Array.isArray(event.results) && event.results.length) {
-              ingestResults(event.results as CuratedItem[]);
-            }
-            fillMissingResults();
-            markAiFinishedAndMaybeSummarize(true);
-          } else if (event.type === 'error') {
-            throw new Error(event.message || 'Error en la curación');
-          }
+      latestProps.current.onScoresUpdated?.(changed);
+    };
+    const ingestErrors = (items: MatchBatchError[]) => {
+      if (stopped) return;
+      const newlyOutdated: string[] = [];
+      for (const error of items) {
+        if (error.code === 'outdated' && !invalidatedScores.has(error.id)) {
+          savedScores.delete(error.id);
+          invalidatedScores.add(error.id);
+          newlyOutdated.push(error.id);
         }
       }
-
-      if (!aiFinishedRef.current) {
-        fillMissingResults();
-        markAiFinishedAndMaybeSummarize(true);
+      if (newlyOutdated.length) {
+        setScores(new Map(savedScores));
+        setOutdatedScores(new Set(invalidatedScores));
+        latestProps.current.onScoresInvalidated?.(newlyOutdated);
       }
-    } catch (err: any) {
-      if (abortedRef.current || err?.name === 'AbortError') return;
-      setError(err.message || 'Error al conectar con la IA.');
-      fillMissingResults();
-      Array.from(waitResolversRef.current.values()).forEach((resolver) => resolver());
-      waitResolversRef.current.clear();
-    }
-  };
-
-  const launchSimulation = async (pendingCards: PendingCard[]) => {
-    for (let idx = 0; idx < pendingCards.length; idx++) {
-      if (abortedRef.current || finishingRef.current) return;
-      await sleep(520 + (idx % 3) * 100);
-      if (abortedRef.current || finishingRef.current) return;
-
-      const card = pendingCards[idx];
-      const isEnglish =
-        card.title.toLowerCase().includes('engineer') ||
-        card.title.toLowerCase().includes('internship') ||
-        card.title.toLowerCase().includes('english');
-      const isJavaOrIos =
-        card.title.toLowerCase().includes('java') ||
-        card.title.toLowerCase().includes('ios') ||
-        card.title.toLowerCase().includes('.net');
-      const isStackMatch =
-        card.title.toLowerCase().includes('typescript') ||
-        card.title.toLowerCase().includes('react') ||
-        card.title.toLowerCase().includes('python') ||
-        card.title.toLowerCase().includes('ai') ||
-        card.title.toLowerCase().includes('ia');
-
-      let score = 70;
-      let fitReason = 'Afinidad media con tu perfil. Modalidad compatible.';
-      let decision: 'keep' | 'archive' = 'keep';
-
-      if (isEnglish && (isJavaOrIos || idx % 2 === 0)) {
-        score = Math.floor(Math.random() * 15) + 15;
-        decision = 'archive';
-        fitReason = '⛔ Penalizada: oferta redactada en inglés según tus reglas.';
-      } else if (isJavaOrIos) {
-        score = Math.floor(Math.random() * 20) + 20;
-        decision = 'archive';
-        fitReason = '⛔ Stack alejado: exige Java/iOS nativo, tu perfil es Full Stack JS.';
-      } else if (isStackMatch) {
-        score = Math.floor(Math.random() * 15) + 85;
-        decision = 'keep';
-        fitReason = '💡 Gran compatibilidad con TypeScript/React y perfil Full Stack.';
-      } else {
-        score = Math.floor(Math.random() * 30) + 50;
-        decision = score >= 65 ? 'keep' : 'archive';
-        fitReason = `Afinidad media (${score}%). Modalidad compatible.`;
-      }
-
-      ingestResults([{
-        id: card.id,
-        title: card.title,
-        company: card.company,
-        score,
-        decision,
-        fitReason,
-        highlightSkills: ['TypeScript', 'React', 'Node.js'].slice(0, 3),
-      }]);
-    }
-
-    markAiFinishedAndMaybeSummarize(true);
-  };
-
-  const startFlow = async () => {
-    abortedRef.current = false;
-    aiFinishedRef.current = false;
-    finishingRef.current = false;
-    currentIndexRef.current = -1;
-    setError(null);
-    setResolvedCount(0);
-    setShownCount(0);
-    resultsMapRef.current = new Map();
-    waitResolversRef.current = new Map();
-
-    const pendingCards: PendingCard[] = offers.map((o) => ({
-      id: o.id,
-      title: o.title,
-      company: o.company,
-      score: null,
-      decision: null,
-      fitReason: null,
-      resolved: false,
-    }));
-
-    if (!isSimulation && !skipDebugPrompt) {
-      const proceed = await inspectOrExecutePrompt({
-        action: 'curate_offers',
-        title: `Curar y calcular Match con IA (${pendingCards.length} ofertas)`,
-        data: {
-          targetThreshold: 65,
-          offerIds: offers.map((o) => o.id),
-          offers,
-        },
+      setErrors(previous => {
+        const next = new Map(previous);
+        for (const error of items) if (!savedScores.has(error.id)) next.set(error.id, error.message);
+        return next;
       });
-      if (!proceed) {
-        onClose();
+    };
+    const finish = (jobStatus: string, failures = 0) => {
+      const status = failures > 0 || invalidatedScores.size > 0 ? 'failed' : jobStatus;
+      if (stopped || completed) return;
+      completed = true;
+      forget();
+      setPhase(status === 'completed' ? 'completed' : 'failed');
+      if (status === 'completed') {
+        const kept = Array.from(savedScores.values()).filter(score => score >= 65).length;
+        latestProps.current.onSuccess({ total: savedScores.size, kept, archived: savedScores.size - kept });
+      } else {
+        setMessage('Algunas ofertas no se han actualizado. Se conservan sus puntuaciones anteriores.');
+      }
+    };
+    const waitForPoll = () => new Promise<void>(resolve => {
+      const timer = setTimeout(() => { wakeWait = undefined; resolve(); }, 2_000);
+      wakeWait = () => { clearTimeout(timer); wakeWait = undefined; resolve(); };
+    });
+    const observeJob = async () => {
+      while (!stopped && !completed && request.jobId) {
+        const response = await fetch(`/api/ai/jobs/${encodeURIComponent(request.jobId)}`, {
+          cache: 'no-store', signal: controller.signal,
+        });
+        if (!response.ok) {
+          if ([401, 403, 404].includes(response.status)) forget();
+          throw new Error(response.status === 401 ? 'Inicia sesión para recuperar el cálculo.' : 'No se pudo recuperar el progreso.');
+        }
+        const job = await response.json();
+        if (stopped) return;
+        if (job.kind !== 'match_batch') { forget(); throw new Error('El cálculo guardado no está disponible.'); }
+        const result = readMatchBatchResult(job.result);
+        ingest(result.items);
+        ingestErrors(result.errors);
+        if (job.status === 'completed' || job.status === 'failed') { finish(job.status, result.errors.length); return; }
+        setPhase(job.status === 'running' ? 'running' : 'queued');
+        await waitForPoll();
+      }
+    };
+    const handleEvent = (line: string) => {
+      if (!line.trim() || stopped) return;
+      let event: Record<string, any>;
+      try { event = JSON.parse(line); } catch { return; }
+      if (!event || typeof event !== 'object') return;
+      if (typeof event.id === 'string' && typeof event.score === 'number' && Number.isFinite(event.score)
+        && event.score >= 0 && event.score <= 100 && event.type === undefined) {
+        ingest([{ id: event.id, score: event.score }]);
+      } else if (event.type === 'start' && typeof event.jobId === 'string') {
+        request.jobId = event.jobId;
+        remember();
+        setPhase('queued');
+      } else if (event.type === 'offer_error' && typeof event.id === 'string' && typeof event.message === 'string') {
+        ingestErrors([{ id: event.id, message: event.message, ...(event.code === 'outdated' ? { code: 'outdated' as const } : {}) }]);
+      } else if (event.type === 'progress') {
+        setPhase(event.status === 'running' ? 'running' : 'queued');
+      } else if (event.type === 'done') {
+        finish(event.status, typeof event.failed === 'number' ? event.failed : 0);
+      }
+      // pending/error control events only end the observer; the durable job is recovered through GET.
+    };
+    const start = async () => {
+      if (latestProps.current.isSimulation) {
+        // Demo mode displays its existing fixture data without inventing scores or touching real results.
+        const existing = selectedOffers.filter(offer => typeof offer.scoreOverall === 'number');
+        setScores(new Map(existing.map(offer => [offer.id, offer.scoreOverall as number])));
+        setPhase('completed');
         return;
       }
-    }
-
-    setPhase('revealing');
-    setAiFinished(false);
-    setCards(pendingCards);
-    cardsRef.current = pendingCards;
-
-    void advanceToCard(pendingCards, 0);
-
-    if (isSimulation) {
-      void launchSimulation(pendingCards);
-    } else {
-      void launchRealCurationStream();
-    }
-  };
+      if (!selectedOffers.length) { setPhase('completed'); return; }
+      if (request.jobId) { await observeJob(); return; }
+      if (!latestProps.current.skipDebugPrompt) {
+        const proceed = await inspectorRef.current({
+          action: 'curate_offers', title: `Calcular match (${selectedOffers.length} ofertas)`,
+          data: { targetThreshold: 65, offerIds: selectedOffers.map(offer => offer.id), offers: selectedOffers },
+        });
+        if (!proceed || stopped) { if (!stopped) latestProps.current.onClose(); return; }
+      }
+      remember();
+      const response = await fetch('/api/ai/curate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        body: JSON.stringify({ targetThreshold: 65, offerIds: selectedOffers.map(offer => offer.id), requestId: request.requestId }),
+      });
+      if (!response.ok || !response.body) {
+        if ([400, 401, 403, 404].includes(response.status)) forget();
+        throw new Error(response.status === 401 ? 'Inicia sesión para calcular el match.'
+          : response.status === 429 ? 'Has alcanzado el límite temporal. Recupera el cálculo dentro de unos minutos.'
+            : 'No se pudo iniciar el cálculo.');
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        while (!stopped) {
+          const { done, value } = await reader.read();
+          if (done) { buffer += decoder.decode(); break; }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) handleEvent(line);
+        }
+        if (buffer.trim()) handleEvent(buffer);
+      } finally { reader.releaseLock(); }
+      if (!stopped && !completed) {
+        if (!request.jobId) throw new Error('No se recibió el progreso. Puedes recuperar el cálculo.');
+        await observeJob();
+      }
+    };
+    void start().catch(error => {
+      if (stopped || error?.name === 'AbortError') return;
+      setPhase('disconnected');
+      setMessage(error instanceof Error ? error.message : 'Se interrumpió la conexión.');
+    });
+    return () => { stopped = true; wakeWait?.(); controller.abort(); };
+  }, [isOpen, reconnect]);
 
   if (!isOpen) return null;
-
-  const currentCard = cards[currentIndex];
-  const resolvedCard = currentCard ? resultsMapRef.current.get(currentCard.id) : null;
-  const displayScore = resolvedCard?.score ?? currentCard?.score;
-  const displayReason = resolvedCard?.fitReason ?? currentCard?.fitReason;
-  const isResolved = displayScore !== null && displayScore !== undefined;
-  const isSuspended = isResolved && displayScore < 50;
-  const isPassing = isResolved && displayScore >= 50;
-  const isWaitingScore = !isResolved || cardState === 'waiting';
-
-  const nextCard1 = cards[currentIndex + 1];
-  const nextCard2 = cards[currentIndex + 2];
-  const totalCards = cards.length || offersCount;
-  const progressPercent = totalCards > 0
-    ? Math.round((Math.max(resolvedCount, shownCount) / totalCards) * 100)
-    : 0;
-
-  const map = resultsMapRef.current;
-  const keptPreview = Array.from(map.values()).filter((i) => i.decision === 'keep').length;
-  const archivedPreview = Array.from(map.values()).filter((i) => i.decision === 'archive').length;
+  const total = displayOffers.length || offers.length || offersCount;
+  const progress = total > 0 ? Math.min(100, Math.round(scores.size / total * 100)) : 0;
+  const inProgress = phase === 'starting' || phase === 'queued' || phase === 'running';
+  const title = isSimulation ? 'Demostración del match' : phase === 'completed' ? 'Match calculado'
+    : phase === 'failed' ? 'Cálculo terminado con incidencias' : phase === 'disconnected' ? 'Conexión interrumpida' : 'Calculando match';
 
   return (
-    <div className="fixed inset-0 bg-canvas/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div
-        className="w-full max-w-md bg-canvas border border-control rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center p-6 relative animate-in zoom-in-95 fade-in duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-full flex items-center justify-between pb-3 border-b border-subtle">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`w-2.5 h-2.5 rounded-full inline-block shrink-0 ${
-                phase === 'done' || aiFinished
-                  ? 'bg-action'
-                  : 'bg-ai-action animate-pulse shadow-[0_0_10px_rgba(139,92,246,0.55)]'
-              }`}
-            />
-            <span className="text-xs font-bold text-text font-display truncate">
-              {error
-                ? 'Error en la curación'
-                : isSimulation
-                  ? 'Simulación (0 Tokens)'
-                  : phase === 'done'
-                    ? 'Curación lista'
-                    : aiFinished
-                      ? 'IA completada'
-                      : 'Evaluando con IA en directo...'}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              abortedRef.current = true;
-              wakeSleep();
-              abortControllerRef.current?.abort();
-              onClose();
-            }}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-surface-muted dark:hover:bg-white/10 transition-colors"
-          >
-            <X className="w-4 h-4 stroke-[1.75]" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="match-batch-title" aria-describedby="match-batch-help"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-control bg-surface shadow-xl">
+        <div className="flex items-center justify-between gap-3 border-b border-subtle px-5 py-4">
+          <h2 id="match-batch-title" className="flex items-center gap-2 font-display text-lg font-bold text-text">
+            {phase === 'completed' ? <Check aria-hidden="true" className="h-5 w-5 text-success-text" />
+              : <Sparkles aria-hidden="true" className="h-5 w-5 text-ai-text" />}
+            {title}
+          </h2>
+          <button ref={closeRef} type="button" aria-label="Cerrar cálculo de match" onClick={() => latestProps.current.onClose()}
+            className="rounded-lg p-2 text-text-muted hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
-
-        <div className="w-full my-4 space-y-1.5">
-          <div className="flex items-center justify-between text-[11px] font-bold text-text-muted">
-            <span>
-              {phase === 'done'
-                ? `${totalCards} evaluadas`
-                : `${Math.max(shownCount, 0)} de ${totalCards}`}
-            </span>
-            <span className="text-ai font-display tabular-nums">
-              {Math.min(100, progressPercent)}%
-            </span>
+        <div className="space-y-3 px-5 py-4">
+          <p id="match-batch-help" className="text-sm text-text-muted">
+            {isSimulation ? 'Se muestran las puntuaciones guardadas del ejemplo.'
+              : inProgress ? 'Puedes cerrar esta ventana. El cálculo continúa y los resultados se guardan al completarse.'
+                : 'El porcentaje mide la afinidad con tu perfil y tus preferencias.'}
+          </p>
+          <div className="flex items-center justify-between text-sm text-text-muted" role="status" aria-live="polite">
+            <span>{scores.size} de {total} ofertas actualizadas</span>
+            {inProgress && <span className="flex items-center gap-1.5"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />{phase === 'queued' ? 'En cola' : 'Calculando'}</span>}
           </div>
-          <div className="w-full h-1.5 rounded-full bg-surface-muted dark:bg-surface overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-ai via-ai to-action transition-[width] duration-300 ease-out rounded-full"
-              style={{ width: `${Math.min(100, progressPercent)}%` }}
-            />
+          <div role="progressbar" aria-label="Ofertas actualizadas" aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={scores.size}
+            className="h-2 overflow-hidden rounded-full bg-surface-muted">
+            <div className="h-full rounded-full bg-ai-action" style={{ width: `${progress}%` }} />
           </div>
+          {message && <p role="alert" className="rounded-lg bg-warning-surface p-3 text-sm text-warning-text">{message}</p>}
         </div>
-
-        <div className="relative w-full h-[300px] flex items-center justify-center my-2 select-none">
-          {error ? (
-            <div className="flex flex-col items-center justify-center space-y-3 text-center px-4 animate-in fade-in zoom-in-95 duration-200">
-              <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center">
-                <X className="w-6 h-6 stroke-[1.75]" />
-              </div>
-              <p className="text-xs font-bold text-rose-500">{error}</p>
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-surface-muted dark:bg-white/10 text-text"
-              >
-                Cerrar
-              </button>
-            </div>
-          ) : phase === 'done' ? (
-            <div className="flex flex-col items-center justify-center space-y-3 animate-in zoom-in-90 fade-in duration-300">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                <Check className="w-7 h-7 stroke-[2.5]" />
-              </div>
-              <h4 className="text-base font-extrabold text-text font-display">
-                ¡Candidaturas puntuadas!
-              </h4>
-              <p className="text-xs text-slate-400 font-sans">
-                {keptPreview} aptas · {archivedPreview} descartadas
-              </p>
-            </div>
-          ) : currentCard ? (
-            <>
-              {nextCard2 && !aiFinished && (
-                <div className="absolute w-[88%] h-[250px] bg-surface-muted dark:bg-surface border border-subtle rounded-2xl shadow-sm transform translate-y-5 scale-[0.88] opacity-30 pointer-events-none z-10" />
-              )}
-              {nextCard1 && !aiFinished && (
-                <div className="absolute w-[94%] h-[250px] bg-surface-muted dark:bg-surface-muted border border-text/8 dark:border-white/8 rounded-2xl shadow-md transform translate-y-2.5 scale-[0.94] opacity-60 pointer-events-none z-20" />
-              )}
-
-              <div
-                className={`absolute w-full h-[260px] bg-white dark:bg-surface border rounded-2xl p-5 shadow-2xl flex flex-col justify-between z-30 overflow-hidden
-                  ${cardState === 'entering' ? 'animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-150' : ''}
-                  ${cardState === 'exiting' && isPassing ? 'transition-all duration-200 translate-x-[130%] rotate-12 opacity-0' : ''}
-                  ${cardState === 'exiting' && isSuspended ? 'transition-all duration-200 -translate-x-[130%] -rotate-12 opacity-0' : ''}
-                  ${cardState === 'exiting' && isWaitingScore ? 'transition-all duration-200 translate-y-[100%] opacity-0' : ''}
-                  ${isWaitingScore
-                    ? 'border-ai/25 shadow-ai/10'
-                    : isSuspended
-                      ? 'border-rose-500/30 shadow-rose-500/10'
-                      : 'border-emerald-500/30 shadow-emerald-500/10'}
-                `}
-              >
-                {isWaitingScore && (
-                  <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-ai/12 to-transparent curate-scan-shimmer" />
-                  </div>
-                )}
-
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-surface-muted dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-xs shrink-0">
-                        {currentCard.company?.charAt(0) || <Building2 className="w-3.5 h-3.5 stroke-[1.75]" />}
-                      </div>
-                      <span className="text-xs font-bold text-text-muted truncate">
-                        {currentCard.company}
-                      </span>
-                    </div>
-
-                    {isResolved ? (
-                      <span
-                        className={`text-sm font-black px-2.5 py-0.5 rounded-lg font-display border shadow-xs animate-in zoom-in-110 duration-150 ${
-                          isPassing
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                        }`}
-                      >
-                        {displayScore}%
-                      </span>
-                    ) : (
-                      <span className="text-sm font-black px-2.5 py-1 rounded-lg font-display border border-ai/20 bg-ai/5 text-ai">
-                        <Loader2 className="w-4 h-4 animate-spin inline stroke-[1.75]" />
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-sm font-extrabold text-text mt-2 font-display line-clamp-2 leading-snug">
-                    {currentCard.title}
-                  </h3>
+        <ul className="min-h-0 divide-y divide-subtle overflow-y-auto border-y border-subtle">
+          {displayOffers.map(offer => {
+            const score = scores.get(offer.id);
+            const failure = errors.get(offer.id);
+            return (
+              <li key={offer.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text" title={offer.title}>{offer.title}</p>
+                  <p className="truncate text-xs text-text-muted">{offer.company}</p>
+                  {failure && score === undefined && <p className="mt-1 text-xs text-warning-text">{outdatedScores.has(offer.id) ? 'Datos modificados · Pendiente de recalcular' : `Sin actualizar${inProgress ? ' · Se reintentará' : ''}`}</p>}
                 </div>
-
-                <div className="relative py-2 flex items-center justify-center min-h-[44px]">
-                  {isWaitingScore ? (
-                    <div className="inline-flex items-center gap-2 text-ai font-bold text-xs px-3 py-1 rounded-xl border border-ai/20 bg-ai/5 font-display">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin stroke-[1.75]" />
-                      Esperando veredicto…
-                    </div>
-                  ) : cardState === 'stamping' || cardState === 'exiting' ? (
-                    isSuspended ? (
-                      <div className="inline-block border-[3px] border-rose-500 text-rose-500 font-black text-xl px-4 py-1 rounded-xl uppercase tracking-widest transform -rotate-12 animate-in zoom-in-125 duration-150 shadow-lg shadow-rose-500/20 font-display bg-rose-500/5">
-                        SUSPENSO
-                      </div>
-                    ) : (
-                      <div className="inline-block border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-extrabold text-sm px-3.5 py-1 rounded-xl uppercase tracking-wider transform rotate-3 animate-in zoom-in-110 duration-150 shadow-md shadow-emerald-500/15 font-display bg-emerald-500/5">
-                        ✓ APTO · MATCH
-                      </div>
-                    )
-                  ) : (
-                    <div className="inline-flex items-center gap-2 text-ai font-bold text-xs px-3 py-1 rounded-xl border border-ai/15 bg-ai/5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 stroke-[1.75] animate-pulse" />
-                      Analizando veredicto…
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative pt-2 border-t border-slate-100 dark:border-white/5">
-                  {displayReason ? (
-                    <p className="text-[11.5px] text-text-muted dark:text-slate-300 font-sans leading-relaxed line-clamp-2">
-                      {displayReason}
-                    </p>
-                  ) : (
-                    <div className="flex items-center gap-2 text-[11.5px] text-ai/70 font-sans">
-                      <Sparkles className="w-3.5 h-3.5 animate-pulse stroke-[1.75]" />
-                      <span>La IA está evaluando esta candidatura...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 text-ai">
-              <Loader2 className="w-6 h-6 animate-spin stroke-[1.75]" />
-              <p className="text-xs font-bold font-display">Preparando curación…</p>
-            </div>
-          )}
+                <span className="shrink-0 font-display text-lg font-bold tabular-nums text-text">
+                  {score !== undefined ? `${score}%` : failure && !outdatedScores.has(offer.id) && offer.scoreOverall !== null ? `${offer.scoreOverall}%`
+                    : <span className="text-sm font-normal text-text-muted">{failure || !inProgress ? 'Sin resultado' : 'Pendiente'}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex justify-end gap-2 px-5 py-4">
+          {phase === 'disconnected' && <button type="button" onClick={() => setReconnect(value => value + 1)} className="btn-raised btn-raised--ai px-4 py-2 text-sm">Recuperar progreso</button>}
+          <button type="button" onClick={() => latestProps.current.onClose()} className="rounded-lg border border-control bg-surface px-4 py-2 text-sm font-semibold text-text hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+            {inProgress ? 'Continuar en segundo plano' : 'Cerrar'}
+          </button>
         </div>
       </div>
     </div>
