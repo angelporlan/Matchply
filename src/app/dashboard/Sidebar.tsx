@@ -74,11 +74,6 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       icon: Kanban,
       children: [
         {
-          name: t('sidebar.menu.applicationsAll'),
-          href: '/dashboard/applications',
-          isActive: isApplicationsListPath,
-        },
-        {
           name: t('sidebar.menu.companies'),
           href: '/dashboard/applications/companies',
           isActive: isCompaniesPath,
@@ -92,6 +87,9 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === '/dashboard';
+    }
+    if (href === '/dashboard/applications') {
+      return isApplicationsListPath(pathname);
     }
     return pathname.startsWith(href);
   };
@@ -144,8 +142,8 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
           <nav className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const childActive = item.children?.some((child) => child.isActive(pathname));
-              const active = item.children ? Boolean(childActive) : isActive(item.href);
+              const childActive = Boolean(item.children?.some((child) => child.isActive(pathname)));
+              const active = isActive(item.href);
               if (!item.children) {
                 return (
                   <Link
@@ -175,17 +173,20 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
                     className={`flex items-center rounded-[8px] text-sm font-semibold transition-colors ${
                       active
                         ? 'bg-surface-muted text-text shadow-sm'
+                        : childActive
+                        ? 'text-text hover:bg-surface-muted'
                         : 'text-text-muted hover:text-text hover:bg-surface-muted'
                     }`}
                   >
                     <Link
                       href={item.href}
                       onClick={() => setIsOpen(false)}
+                      aria-current={active ? 'page' : undefined}
                       className="flex flex-1 items-center gap-3 px-4 py-3 min-w-0"
                     >
                       <Icon
                         className={`w-4 h-4 stroke-[1.75] ${
-                          active ? 'text-text' : 'text-text-muted'
+                          active || childActive ? 'text-text' : 'text-text-muted'
                         }`}
                       />
                       <span className="truncate">{item.name}</span>
