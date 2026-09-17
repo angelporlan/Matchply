@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
+import { findOrCreateCompany } from '@/lib/company-service';
 import { requireUserFeature } from '@/lib/permissions';
 
 export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
@@ -96,6 +97,7 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
   const data = {
     title: input.title.trim(),
     company: input.company.trim(),
+    companyId: null as string | null,
     url: input.url?.trim() || null,
     platform: input.platform || 'other',
     description: input.description || null,
@@ -122,6 +124,10 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
     rejectionPatternTags: input.rejectionPatternTags ?? null,
     updatedAt: new Date(),
   };
+
+  const companyRecord = await findOrCreateCompany(userId, data.company);
+  data.company = companyRecord?.name ?? data.company;
+  data.companyId = companyRecord?.id ?? null;
 
   if (existing) {
     const [updated] = await db.update(jobOffers).set(data).where(eq(jobOffers.id, existing.id)).returning();

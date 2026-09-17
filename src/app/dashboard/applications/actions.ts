@@ -7,10 +7,19 @@ import { eq, and, inArray, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
+import { findOrCreateCompany } from "@/lib/company-service";
 import { requireUserFeature } from "@/lib/permissions";
 import { log } from "@/lib/logger";
 import { persistMatchResult } from "@/lib/match-persistence";
 import { baseCvForAiColumns, curateOfferColumns } from "@/lib/job-offer-queries";
+
+function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
+  revalidatePath("/dashboard/applications");
+  revalidatePath("/dashboard/applications/companies");
+  for (const companyId of companyIds) {
+    if (companyId) revalidatePath(`/dashboard/applications/companies/${companyId}`);
+  }
+}
 
 export async function getOwnedJobOffer(offerId: string) {
   try {
@@ -146,7 +155,7 @@ export async function deleteJobOffer(offerId: string) {
       company: offer.company
     });
 
-    revalidatePath("/dashboard/applications");
+    revalidateApplicationPaths(offer.companyId);
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -169,12 +178,16 @@ export async function createJobOffer(offerData: {
     }
     await requireUserFeature(session.user.id, "applications");
 
+    const companyRecord = await findOrCreateCompany(session.user.id, offerData.company);
+    const companyName = companyRecord?.name ?? offerData.company.trim();
+
     const [newOffer] = (await db
       .insert(jobOffers)
       .values({
         userId: session.user.id,
         title: offerData.title,
-        company: offerData.company,
+        company: companyName,
+        companyId: companyRecord?.id ?? null,
         url: offerData.url || null,
         platform: offerData.platform || "other",
         description: offerData.description || null,
@@ -190,7 +203,7 @@ export async function createJobOffer(offerData: {
       platform: newOffer.platform
     });
 
-    revalidatePath("/dashboard/applications");
+    revalidateApplicationPaths(companyRecord?.id);
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -226,11 +239,15 @@ export async function updateJobOfferDetails(
       throw new Error("Forbidden or Offer not found");
     }
 
+    const companyRecord = await findOrCreateCompany(session.user.id, offerData.company);
+    const companyName = companyRecord?.name ?? offerData.company.trim();
+
     await db
       .update(jobOffers)
       .set({
         title: offerData.title,
-        company: offerData.company,
+        company: companyName,
+        companyId: companyRecord?.id ?? null,
         url: offerData.url || null,
         platform: offerData.platform || "other",
         description: offerData.description || null,
@@ -246,7 +263,7 @@ export async function updateJobOfferDetails(
       updatedData: offerData
     });
 
-    revalidatePath("/dashboard/applications");
+    revalidateApplicationPaths(offer.companyId, companyRecord?.id);
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {

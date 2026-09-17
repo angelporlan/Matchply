@@ -14,6 +14,7 @@ import {
 import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
+import { findOrCreateCompany } from '@/lib/company-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -202,11 +203,13 @@ export async function POST(req: NextRequest) {
               .limit(1);
 
             if (!existingOffer) {
+              const companyRecord = await findOrCreateCompany(userId, company);
               await db.insert(jobOffers).values({
                 userId: userId,
                 cvId: optimizedCvId,
                 title: jobTitle,
-                company: company,
+                company: companyRecord?.name ?? company,
+                companyId: companyRecord?.id ?? null,
                 url: url || null,
                 platform: platform || 'other',
                 description: jobDescription,
