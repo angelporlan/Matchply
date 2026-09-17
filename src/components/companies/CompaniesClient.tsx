@@ -1,13 +1,16 @@
-'use client';
+"use client";
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import NextLink from 'next/link';
 import {
   Building2,
-  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  MapPin,
   Plus,
   Search,
+  Tag,
   Trash2,
   X,
 } from 'lucide-react';
@@ -15,14 +18,31 @@ import type { CompanyListRow } from '@/lib/job-offer-queries';
 import {
   createCompanyAction,
   deleteCompanyAction,
+  deleteCompaniesAction,
 } from '@/app/dashboard/applications/companies/actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { formatDate } from '@/lib/utils';
+import CompaniesTable from './CompaniesTable';
+import type {
+  CompanyColumnFilter,
+  CompanyColumnId,
+  CompanyColumnWidth,
+  CompanyColumnWidths,
+  CompanySortDirection,
+  CompanySortKey,
+  CompanySortState,
+} from './CompanyColumnHeaderMenu';
 
-type SortKey = 'name' | 'applicationCount' | 'noteCount' | 'updatedAt';
-type SortDirection = 'asc' | 'desc';
+const DEFAULT_COLUMNS: CompanyColumnId[] = [
+  'name',
+  'location',
+  'sector',
+  'website',
+  'applicationCount',
+  'noteCount',
+  'updatedAt',
+];
 
 interface CompaniesClientProps {
   companies: CompanyListRow[];
@@ -38,54 +58,178 @@ function errorMessage(t: (key: string) => string, error?: string) {
 export default function CompaniesClient({ companies: initialCompanies }: CompaniesClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
+
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [columns, setColumns] = useState<CompanyColumnId[]>(DEFAULT_COLUMNS);
+  const [sort, setSort] = useState<CompanySortState>({ key: 'name', direction: 'asc' });
+  const [columnFilters, setColumnFilters] = useState<CompanyColumnFilter[]>([]);
+  const [columnWidths, setColumnWidths] = useState<CompanyColumnWidths>({});
+  const [actionsIndex, setActionsIndex] = useState<number | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', website: '', location: '', sector: '' });
+
   const [deleteTarget, setDeleteTarget] = useState<CompanyListRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const [toast, setToast] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const rows = needle
-      ? initialCompanies.filter((company) => (
-        [company.name, company.location, company.sector, company.website]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(needle)
-      ))
-      : [...initialCompanies];
-
-    rows.sort((a, b) => {
-      const direction = sortDirection === 'asc' ? 1 : -1;
-      if (sortKey === 'name') return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }) * direction;
-      if (sortKey === 'applicationCount') return (a.applicationCount - b.applicationCount) * direction;
-      if (sortKey === 'noteCount') return (a.noteCount - b.noteCount) * direction;
-      return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * direction;
-    });
-    return rows;
-  }, [initialCompanies, search, sortKey, sortDirection]);
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    else {
-      setSortKey(key);
-      setSortDirection(key === 'name' ? 'asc' : 'desc');
-    }
-  };
-
-  const sortLabel = (key: SortKey) => (
-    sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'
-  ) as 'ascending' | 'descending' | 'none';
 
   const showToast = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 4000);
+  };
+
+  const filtered = useMemo(() => {
+    let rows = [...initialCompanies];
+
+    const needle = search.trim().toLowerCase();
+    if (needle) {
+      rows = rows.filter((company) =>
+        [company.name, company.location, company.sector, company.website]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(needle),
+      );
+    }
+
+    if (columnFilters.length > 0) {
+      rows = rows.filter((company) =>
+        columnFilters.every((filter) => {
+          const val = (() => {
+            switch (filter.column) {
+              case 'name':
+                return company.name;
+              case 'location':
+                return company.location ?? '';
+              case 'sector':
+                return company.sector ?? '';
+              case 'website':
+                return company.website ?? '';
+              case 'applicationCount':
+                return String(company.applicationCount);
+              case 'noteCount':
+                return String(company.noteCount);
+              case 'updatedAt':
+                return new Date(company.updatedAt).toISOString();
+              default:
+                return '';
+            }
+          })().toLowerCase();
+
+          const target = filter.value.toLowerCase();
+          if (filter.operator === 'equals') {
+            return val === target;
+          }
+          return val.includes(target);
+        }),
+      );
+    }
+
+    rows.sort((a, b) => {
+      const direction = sort.direction === 'asc' ? 1 : -1;
+      switch (sort.key) {
+        case 'name':
+          return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }) * direction;
+        case 'location':
+          return (a.location || '').localeCompare(b.location || '', 'es', { sensitivity: 'base' }) * direction;
+        case 'sector':
+          return (a.sector || '').localeCompare(b.sector || '', 'es', { sensitivity: 'base' }) * direction;
+        case 'website':
+          return (a.website || '').localeCompare(b.website || '', 'es', { sensitivity: 'base' }) * direction;
+        case 'applicationCount':
+          return (a.applicationCount - b.applicationCount) * direction;
+        case 'noteCount':
+          return (a.noteCount - b.noteCount) * direction;
+        case 'updatedAt':
+          return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * direction;
+        default:
+          return 0;
+      }
+    });
+
+    return rows;
+  }, [initialCompanies, search, columnFilters, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIdx = (safePage - 1) * pageSize;
+  const endIdx = Math.min(filtered.length, startIdx + pageSize);
+  const paginatedCompanies = filtered.slice(startIdx, endIdx);
+
+  const handleSetSort = (key: CompanySortKey, direction: CompanySortDirection) => {
+    setSort({ key, direction });
+    setPage(1);
+  };
+
+  const handleSetColumnFilter = (column: CompanyColumnId, filter: CompanyColumnFilter | null) => {
+    setColumnFilters((prev) => {
+      const next = prev.filter((f) => f.column !== column);
+      if (filter) next.push(filter);
+      return next;
+    });
+    setPage(1);
+  };
+
+  const handleSetColumnWidth = (column: CompanyColumnId | 'actions', width: CompanyColumnWidth) => {
+    setColumnWidths((prev) => ({ ...prev, [column]: width }));
+  };
+
+  const handleMoveColumn = (column: CompanyColumnId, direction: -1 | 1) => {
+    setColumns((prev) => {
+      const idx = prev.indexOf(column);
+      if (idx === -1) return prev;
+      const target = idx + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(idx, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+  };
+
+  const handleMoveActions = (direction: -1 | 1) => {
+    setActionsIndex((prev) => {
+      const current = prev === null ? columns.length : prev;
+      const next = Math.max(0, Math.min(columns.length, current + direction));
+      return next;
+    });
+  };
+
+  const handleToggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleAll = (ids: string[], checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        ids.forEach((id) => next.add(id));
+      } else {
+        ids.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setColumnFilters([]);
+    setPage(1);
   };
 
   const handleCreate = async (event: React.FormEvent) => {
@@ -113,7 +257,7 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
     router.refresh();
   };
 
-  const handleDelete = async () => {
+  const handleDeleteSingle = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     const result = await deleteCompanyAction(deleteTarget.id);
@@ -131,220 +275,324 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
       return;
     }
     setDeleteTarget(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(deleteTarget.id);
+      return next;
+    });
     showToast(t('companies.toasts.deleted'));
     router.refresh();
   };
 
-  const headerButton = (key: SortKey, label: string) => (
-    <button
-      type="button"
-      onClick={() => toggleSort(key)}
-      className="inline-flex items-center gap-1 hover:text-text transition-colors"
-    >
-      {label}
-    </button>
-  );
+  const handleDeleteBulk = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selectedIds);
+    const result = await deleteCompaniesAction(ids);
+    setBulkDeleting(false);
+    setIsBulkDeleteOpen(false);
+    if ('error' in result) {
+      showToast(errorMessage(t, result.error));
+      return;
+    }
+
+    setSelectedIds(new Set());
+    if (result.skippedCount > 0) {
+      showToast(
+        t('companies.table.bulk.deletedSummary')
+          .replace('{deleted}', String(result.deletedCount))
+          .replace('{skipped}', String(result.skippedCount)),
+      );
+    } else {
+      showToast(t('companies.toasts.deleted'));
+    }
+    router.refresh();
+  };
+
+  const hasActiveFilters = Boolean(search.trim() || columnFilters.length > 0);
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
+    <div className="w-full md:flex md:flex-col md:flex-1 md:min-h-0">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-[10px] bg-text text-canvas dark:bg-white dark:text-canvas px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">
+          {toast}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 shrink-0">
         <div>
-          <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
+          <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2.5 font-display">
             <Building2 className="w-6 h-6 text-ai stroke-[1.75]" />
-            {t('companies.title')}
+            <span>{t('companies.title')}</span>
           </h2>
           <p className="text-text-muted text-sm mt-1 font-sans">{t('companies.subtitle')}</p>
         </div>
         <Button type="button" onClick={() => { setError(null); setModalOpen(true); }}>
           <Plus className="w-4 h-4 stroke-[1.75]" />
-          {t('companies.newBtn')}
+          <span>{t('companies.newBtn')}</span>
         </Button>
       </div>
 
-      <div className="mb-4">
+      {/* Search Bar */}
+      <div className="mb-4 shrink-0">
         <label className="sr-only" htmlFor="companies-search">{t('companies.searchPlaceholder')}</label>
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted stroke-[1.75]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted stroke-[1.75]" />
           <input
             id="companies-search"
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
             placeholder={t('companies.searchPlaceholder')}
-            className="w-full bg-surface border border-control rounded-[8px] pl-9 pr-3 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai font-sans"
+            className="w-full bg-canvas border border-control rounded-[8px] pl-10 pr-10 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setPage(1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-[8px] text-text-muted hover:text-text hover:bg-surface-muted transition-colors"
+              aria-label={t('companies.table.clearFilters')}
+            >
+              <X className="w-3.5 h-3.5 stroke-[1.75]" />
+            </button>
+          )}
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="rounded-[12px] border border-dashed border-subtle bg-surface/50 p-12 text-center">
-          <Building2 className="w-8 h-8 mx-auto mb-3 text-text-muted opacity-60 stroke-[1.75]" />
-          <p className="text-sm font-bold text-text font-display">
-            {search.trim() ? t('companies.empty.searchTitle') : t('companies.empty.title')}
-          </p>
-          <p className="text-xs text-text-muted font-sans mt-1">
-            {search.trim() ? t('companies.empty.searchDesc') : t('companies.empty.desc')}
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="hidden md:block border border-subtle bg-surface shadow-sm rounded-[12px] overflow-hidden">
-            <div className="overflow-x-auto scrollbar-custom">
-              <table className="min-w-full text-left text-xs font-sans">
-                <caption className="sr-only">{t('companies.table.caption')}</caption>
-                <thead className="bg-surface-muted/70 dark:bg-canvas/40 text-[10px] uppercase tracking-wider text-text-muted font-display">
-                  <tr>
-                    <th scope="col" className="px-3 py-3" aria-sort={sortLabel('name')}>{headerButton('name', t('companies.table.name'))}</th>
-                    <th scope="col" className="px-3 py-3">{t('companies.table.location')}</th>
-                    <th scope="col" className="px-3 py-3">{t('companies.table.sector')}</th>
-                    <th scope="col" className="px-3 py-3">{t('companies.table.website')}</th>
-                    <th scope="col" className="px-3 py-3" aria-sort={sortLabel('applicationCount')}>{headerButton('applicationCount', t('companies.table.applications'))}</th>
-                    <th scope="col" className="px-3 py-3" aria-sort={sortLabel('noteCount')}>{headerButton('noteCount', t('companies.table.notes'))}</th>
-                    <th scope="col" className="px-3 py-3" aria-sort={sortLabel('updatedAt')}>{headerButton('updatedAt', t('companies.table.updatedAt'))}</th>
-                    <th scope="col" className="px-3 py-3 text-right">{t('companies.table.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-subtle dark:divide-white/5">
-                  {filtered.map((company) => (
-                    <tr
-                      key={company.id}
-                      onClick={() => router.push(`/dashboard/applications/companies/${company.id}`)}
-                      className="cursor-pointer hover:bg-canvas/70 dark:hover:bg-canvas/20 transition-colors"
-                    >
-                      <td className="px-3 py-2.5 font-display font-bold text-text">{company.name}</td>
-                      <td className="px-3 py-2.5 text-text-muted">{company.location || '—'}</td>
-                      <td className="px-3 py-2.5 text-text-muted">{company.sector || '—'}</td>
-                      <td className="px-3 py-2.5">
-                        {company.website ? (
-                          <a
-                            href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(event) => event.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-ai hover:underline"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
-                            {t('companies.table.openWebsite')}
-                          </a>
-                        ) : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-text">{company.applicationCount}</td>
-                      <td className="px-3 py-2.5 text-text">{company.noteCount}</td>
-                      <td className="px-3 py-2.5 text-text-muted whitespace-nowrap">{formatDate(company.updatedAt)}</td>
-                      <td className="px-3 py-2.5 text-right" onClick={(event) => event.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(company)}
-                          className="p-1.5 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                          aria-label={t('companies.table.delete')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="md:hidden space-y-2.5">
-            {filtered.map((company) => (
-              <NextLink
-                key={company.id}
-                href={`/dashboard/applications/companies/${company.id}`}
-                className="block rounded-[12px] border border-subtle bg-surface p-3.5 hover:border-ai/30 transition-colors"
+      {/* Bulk Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-text font-display">
+              {selectedIds.size === filtered.length
+                ? t('companies.table.bulk.allSelected').replace('{count}', String(filtered.length))
+                : t('companies.table.bulk.selected').replace('{count}', String(selectedIds.size))}
+            </span>
+            {selectedIds.size < filtered.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set(filtered.map((c) => c.id)))}
+                className="text-xs font-bold text-ai hover:underline underline-offset-2 ml-1 cursor-pointer"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-display font-bold text-sm text-text truncate">{company.name}</p>
-                    <p className="text-xs text-text-muted mt-0.5 truncate">
-                      {[company.location, company.sector].filter(Boolean).join(' · ') || t('companies.table.noMeta')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setDeleteTarget(company);
-                    }}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-rose-500"
-                    aria-label={t('companies.table.delete')}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                  </button>
-                </div>
-                <p className="text-[11px] text-text-muted mt-2">
-                  {t('companies.table.counts')
-                    .replace('{applications}', String(company.applicationCount))
-                    .replace('{notes}', String(company.noteCount))}
-                </p>
-              </NextLink>
-            ))}
+                {t('companies.table.bulk.selectAllCount').replace('{count}', String(filtered.length))}
+              </button>
+            )}
           </div>
-        </>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold font-display transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>{t('companies.table.bulk.deleteSelected')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:text-text transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>{t('companies.table.bulk.clear')}</span>
+            </button>
+          </div>
+        </div>
       )}
 
+      {/* Main Table Component */}
+      <CompaniesTable
+        companies={paginatedCompanies}
+        allSelectableIds={filtered.map((c) => c.id)}
+        columns={columns}
+        sort={sort}
+        onSetSort={handleSetSort}
+        columnFilters={columnFilters}
+        onSetColumnFilter={handleSetColumnFilter}
+        columnWidths={columnWidths}
+        onSetColumnWidth={handleSetColumnWidth}
+        onMoveColumn={handleMoveColumn}
+        actionsIndex={actionsIndex}
+        onMoveActions={handleMoveActions}
+        selectedIds={selectedIds}
+        onToggleRow={handleToggleRow}
+        onToggleAll={handleToggleAll}
+        onOpenDetails={(company) => router.push(`/dashboard/applications/companies/${company.id}`)}
+        onDelete={(company) => setDeleteTarget(company)}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={handleClearFilters}
+        onNewCompany={() => {
+          setError(null);
+          setModalOpen(true);
+        }}
+        attachedFooter={filtered.length > 0}
+      />
+
+      {/* Attached Footer with Pagination */}
+      {filtered.length > 0 && (
+        <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:static md:mt-0 md:shrink-0">
+          <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm md:rounded-t-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-display">
+            <p className="text-xs text-text-muted">
+              {t('companies.table.pagination.showing')
+                .replace('{start}', String(filtered.length === 0 ? 0 : startIdx + 1))
+                .replace('{end}', String(endIdx))
+                .replace('{total}', String(filtered.length))}
+            </p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="companies-page-size" className="sr-only">
+                {t('companies.table.pagination.perPage')}
+              </label>
+              <select
+                id="companies-page-size"
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="bg-surface border border-subtle rounded-[8px] px-2.5 py-2 text-xs font-semibold text-text-muted focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
+              >
+                {[10, 25, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size} {t('companies.table.pagination.perPageSuffix')}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={safePage <= 1}
+                aria-label={t('companies.table.pagination.previous')}
+                className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
+              </button>
+              <span className="text-xs font-semibold text-text-muted">
+                {t('companies.table.pagination.page')
+                  .replace('{page}', String(safePage))
+                  .replace('{total}', String(totalPages))}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={safePage >= totalPages}
+                aria-label={t('companies.table.pagination.next')}
+                className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4 stroke-[1.75]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nueva Empresa */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-[#1e1b4b]/40 dark:bg-black/60 backdrop-blur-xs" onClick={() => setModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-[12px] p-6 shadow-xl">
-            <div className="flex items-start justify-between mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+          <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
+
+            <div className="flex justify-between items-start mb-6 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-text font-display">{t('companies.form.createTitle')}</h3>
-                <p className="text-xs text-text-muted mt-1">{t('companies.form.createDesc')}</p>
+                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                  <Building2 className="w-5 h-5 text-ai stroke-[1.75]" />
+                  <span>{t('companies.form.createTitle')}</span>
+                </h3>
+                <p className="text-xs text-text-muted mt-1 font-sans">
+                  {t('companies.form.createDesc')}
+                </p>
               </div>
-              <button type="button" onClick={() => setModalOpen(false)} className="p-1 text-text-muted hover:text-text">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all"
+              >
                 <X className="w-5 h-5 stroke-[1.75]" />
               </button>
             </div>
+
             {error && (
-              <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px]">
+              <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px] font-medium font-sans relative z-10">
                 {error}
               </div>
             )}
-            <form onSubmit={handleCreate} className="space-y-4">
-              <Field label={t('companies.form.name')} required>
+
+            <form onSubmit={handleCreate} className="space-y-4 relative z-10">
+              <div>
+                <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display mb-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
+                  <span>{t('companies.form.name')}</span> *
+                </label>
                 <input
+                  type="text"
                   required
                   value={form.name}
-                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   placeholder={t('companies.form.namePlaceholder')}
-                  className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
+                  className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
                 />
-              </Field>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label={t('companies.form.website')}>
-                  <input
-                    value={form.website}
-                    onChange={(event) => setForm((prev) => ({ ...prev, website: event.target.value }))}
-                    placeholder="https://..."
-                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-                  />
-                </Field>
-                <Field label={t('companies.form.location')}>
-                  <input
-                    value={form.location}
-                    onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                    placeholder={t('companies.form.locationPlaceholder')}
-                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-                  />
-                </Field>
               </div>
-              <Field label={t('companies.form.sector')}>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display mb-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
+                    <span>{t('companies.form.location')}</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.location}
+                    onChange={(event) => setForm({ ...form, location: event.target.value })}
+                    placeholder={t('companies.form.locationPlaceholder')}
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display mb-1.5">
+                    <Tag className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
+                    <span>{t('companies.form.sector')}</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.sector}
+                    onChange={(event) => setForm({ ...form, sector: event.target.value })}
+                    placeholder={t('companies.form.sectorPlaceholder')}
+                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display mb-1.5">
+                  <Globe className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
+                  <span>{t('companies.form.website')}</span>
+                </label>
                 <input
-                  value={form.sector}
-                  onChange={(event) => setForm((prev) => ({ ...prev, sector: event.target.value }))}
-                  placeholder={t('companies.form.sectorPlaceholder')}
-                  className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
+                  type="url"
+                  value={form.website}
+                  onChange={(event) => setForm({ ...form, website: event.target.value })}
+                  placeholder="https://ejemplo.com"
+                  className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
                 />
-              </Field>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button type="submit" loading={saving}>
-                  {t('companies.form.save')}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-subtle">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2.5 text-xs font-bold text-text-muted hover:text-text rounded-[8px] transition-colors font-display"
+                >
+                  {t('editor.cancel')}
+                </button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? t('editor.saving') : t('companies.form.save')}
                 </Button>
               </div>
             </form>
@@ -352,42 +600,31 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
         </div>
       )}
 
+      {/* AlertModal para Borrado Individual */}
       <AlertModal
         isOpen={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
-        type="danger"
+        onConfirm={handleDeleteSingle}
         title={t('companies.delete.title')}
         message={t('companies.delete.message').replace('{name}', deleteTarget?.name || '')}
         confirmLabel={t('companies.delete.confirm')}
-        cancelLabel={t('common.cancel')}
-        onConfirm={handleDelete}
+        cancelLabel={t('editor.cancel')}
+        type="danger"
         isPending={deleting}
       />
 
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-[8px] bg-text text-canvas px-4 py-2.5 text-xs font-semibold shadow-lg">
-          {toast}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-text-muted font-display">
-        {label}{required ? ' *' : ''}
-      </label>
-      {children}
+      {/* AlertModal para Borrado Múltiple */}
+      <AlertModal
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onConfirm={handleDeleteBulk}
+        title={t('companies.table.bulk.deleteConfirmTitle').replace('{count}', String(selectedIds.size))}
+        message={t('companies.table.bulk.deleteConfirmMessage')}
+        confirmLabel={t('companies.table.bulk.deleteSelected')}
+        cancelLabel={t('editor.cancel')}
+        type="danger"
+        isPending={bulkDeleting}
+      />
     </div>
   );
 }
