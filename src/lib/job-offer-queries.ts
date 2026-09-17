@@ -1,4 +1,4 @@
-import { cvs, jobOffers, users } from '@/db/schema';
+import { companies, companyNotes, cvs, jobOffers, users } from '@/db/schema';
 import { sql } from 'drizzle-orm';
 import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
 
@@ -15,6 +15,7 @@ export const applicationSummaryColumns = {
   cvId: jobOffers.cvId,
   title: jobOffers.title,
   company: jobOffers.company,
+  companyId: jobOffers.companyId,
   url: jobOffers.url,
   platform: jobOffers.platform,
   status: jobOffers.status,
@@ -80,12 +81,37 @@ export const curateOfferColumns = {
   matchEvaluatedAt: jobOffers.matchEvaluatedAt,
 };
 
+export const companyListColumns = {
+  id: companies.id,
+  userId: companies.userId,
+  name: companies.name,
+  website: companies.website,
+  location: companies.location,
+  sector: companies.sector,
+  createdAt: companies.createdAt,
+  updatedAt: companies.updatedAt,
+};
+
+export const companyLookupColumns = {
+  id: companies.id,
+  name: companies.name,
+};
+
+export const companyNoteColumns = {
+  id: companyNotes.id,
+  companyId: companyNotes.companyId,
+  content: companyNotes.content,
+  createdAt: companyNotes.createdAt,
+  updatedAt: companyNotes.updatedAt,
+};
+
 export type ApplicationSummary = {
   id: string;
   userId: string;
   cvId: string | null;
   title: string;
   company: string;
+  companyId: string | null;
   url: string | null;
   platform: string;
   status: string;
@@ -115,4 +141,33 @@ export type CvTargetSummary = {
   title: string;
   company: string;
   scoreOverall: number | null;
+};
+
+export type CompanyListItem = {
+  id: string;
+  userId: string;
+  name: string;
+  website: string | null;
+  location: string | null;
+  sector: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CompanyLookupItem = {
+  id: string;
+  name: string;
+};
+
+export type CompanyNoteItem = {
+  id: string;
+  companyId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type CompanyListRow = CompanyListItem & {
+  applicationCount: number;
+  noteCount: number;
 };

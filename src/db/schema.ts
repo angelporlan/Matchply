@@ -39,13 +39,30 @@ export const cvs = pgTable('cv', {
   userIdIdx: index('cv_user_id_idx').on(table.userId),
 }));
 
+// Empresas del usuario (CRM de candidaturas). El nombre visible se denormaliza en job_offer.company.
+export const companies = pgTable('company', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  nameNormalized: text('nameNormalized').notNull(),
+  website: text('website'),
+  location: text('location'),
+  sector: text('sector'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
+}, (table) => ({
+  userIdx: index('company_user_id_idx').on(table.userId),
+  userNameIdx: uniqueIndex('company_user_name_idx').on(table.userId, table.nameNormalized),
+}));
+
 // Tabla de Ofertas de Trabajo y Seguimiento (Candidaturas)
 export const jobOffers = pgTable('job_offer', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   cvId: uuid('cvId').references(() => cvs.id, { onDelete: 'set null' }), // CV enlazado a esta oferta
   title: text('title').notNull(), // Puesto: ej. Frontend Developer
-  company: text('company').notNull(), // Empresa: ej. Stripe
+  company: text('company').notNull(), // Empresa: ej. Stripe (denormalizado desde company.name)
+  companyId: uuid('companyId').references(() => companies.id, { onDelete: 'set null' }),
   url: text('url'), // URL de la oferta
   platform: text('platform').default('linkedin').notNull(), // 'linkedin', 'infojobs', 'indeed', 'other'
   description: text('description'), // Descripción completa copiada de la oferta para optimización
@@ -90,6 +107,19 @@ export const jobOffers = pgTable('job_offer', {
     .on(table.userId, table.externalSource, table.externalId),
   userUpdatedIdx: index('job_offer_user_updated_idx').on(table.userId, table.updatedAt),
   userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
+  userCompanyIdx: index('job_offer_user_company_id_idx').on(table.userId, table.companyId),
+}));
+
+export const companyNotes = pgTable('company_note', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  companyId: uuid('companyId').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
+}, (table) => ({
+  companyCreatedIdx: index('company_note_company_created_idx').on(table.companyId, table.createdAt),
+  userIdx: index('company_note_user_id_idx').on(table.userId),
 }));
 
 // Códigos de un solo uso para vincular la extensión de Chrome.
@@ -274,6 +304,8 @@ export const aiJobs = pgTable('ai_job', {
 // Definición de Relaciones para Drizzle
 export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
+  companies: many(companies),
+  companyNotes: many(companyNotes),
   jobOffers: many(jobOffers),
   auditLogs: many(auditLogs),
   extensionPairingCodes: many(extensionPairingCodes),
@@ -289,9 +321,21 @@ export const cvsRelations = relations(cvs, ({ one, many }) => ({
   jobOffers: many(jobOffers),
 }));
 
+export const companiesRelations = relations(companies, ({ one, many }) => ({
+  user: one(users, { fields: [companies.userId], references: [users.id] }),
+  jobOffers: many(jobOffers),
+  notes: many(companyNotes),
+}));
+
+export const companyNotesRelations = relations(companyNotes, ({ one }) => ({
+  company: one(companies, { fields: [companyNotes.companyId], references: [companies.id] }),
+  user: one(users, { fields: [companyNotes.userId], references: [users.id] }),
+}));
+
 export const jobOffersRelations = relations(jobOffers, ({ one }) => ({
   user: one(users, { fields: [jobOffers.userId], references: [users.id] }),
   cv: one(cvs, { fields: [jobOffers.cvId], references: [cvs.id] }),
+  companyRecord: one(companies, { fields: [jobOffers.companyId], references: [companies.id] }),
 }));
 
 export const extensionPairingCodesRelations = relations(extensionPairingCodes, ({ one }) => ({
@@ -337,6 +381,8 @@ export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
 
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
+export type Company = typeof companies.$inferSelect;
+export type CompanyNote = typeof companyNotes.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
 export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;
 export type ExtensionInstallation = typeof extensionInstallations.$inferSelect;
