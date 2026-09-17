@@ -7,10 +7,11 @@ import { eq, desc, asc } from 'drizzle-orm';
 import ApplicationsClient from '@/components/applications/ApplicationsClient';
 import { isProSubscription } from '@/lib/subscription';
 import { cvListColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
+import { listCompanyLookups } from '@/lib/company-service';
 import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
 
 interface ApplicationsPageProps {
-  searchParams?: { layout?: string; view?: string };
+  searchParams?: { layout?: string; view?: string; company?: string };
 }
 
 export default async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
@@ -36,7 +37,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   }
 
   // 2. Cargar currículums, postulaciones y vistas guardadas
-  const [userCvs, rawOffers, viewRows] = await Promise.all([
+  const [userCvs, rawOffers, viewRows, companies] = await Promise.all([
     db
       .select(cvListColumns)
       .from(cvs)
@@ -57,6 +58,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
       .from(applicationViews)
       .where(eq(applicationViews.userId, userId))
       .orderBy(desc(applicationViews.isDefault), asc(applicationViews.name)),
+    listCompanyLookups(userId),
   ]);
 
   const offers = rawOffers.map((offer) => ({
@@ -96,9 +98,11 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
         <ApplicationsClient
           offers={offers}
           userCvs={userCvs}
+          companies={companies}
           savedViews={savedViews}
           initialLayout={initialLayout}
           initialViewId={initialViewId}
+          initialCompanyId={searchParams?.company}
         />
       </main>
     </div>

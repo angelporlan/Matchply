@@ -126,9 +126,19 @@ export default function ApplicationDenseListItem({
 
           {/* Subtítulo: Empresa y Plataforma */}
           <div className="flex items-center justify-between gap-2 mt-0.5 pl-5">
-            <p className="text-[11px] text-text-muted font-medium truncate font-sans">
-              {offer.company}
-            </p>
+            {offer.companyId ? (
+              <a
+                href={`/dashboard/applications/companies/${offer.companyId}`}
+                onClick={(event) => event.stopPropagation()}
+                className="text-[11px] text-text-muted font-medium truncate font-sans hover:text-ai hover:underline"
+              >
+                {offer.company}
+              </a>
+            ) : (
+              <p className="text-[11px] text-text-muted font-medium truncate font-sans">
+                {offer.company}
+              </p>
+            )}
             {offer.platform && (
               <span className="text-[8.5px] font-semibold text-slate-400 dark:text-text-muted uppercase tracking-wider shrink-0">
                 {offer.platform}

@@ -76,6 +76,7 @@ interface ApplicationColumnHeaderMenuProps {
   onSetColumnFilter: (filter: ApplicationColumnFilter | null) => void;
   onSetWidth: (width: ApplicationColumnWidth) => void;
   onMove: (direction: -1 | 1) => void;
+  lookupOptions?: { id: string; name: string }[];
 }
 
 function MenuItem({
@@ -155,6 +156,7 @@ export default function ApplicationColumnHeaderMenu({
   onSetColumnFilter,
   onSetWidth,
   onMove,
+  lookupOptions,
 }: ApplicationColumnHeaderMenuProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -167,6 +169,7 @@ export default function ApplicationColumnHeaderMenu({
   const [draftEndDate, setDraftEndDate] = useState('');
   const [draftMinScore, setDraftMinScore] = useState('');
   const [draftMaxScore, setDraftMaxScore] = useState('');
+  const [lookupQuery, setLookupQuery] = useState('');
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -265,6 +268,7 @@ export default function ApplicationColumnHeaderMenu({
       setDraftOperator(columnFilter?.operator ?? (isDateColumn ? 'today' : 'contains'));
       setDraftValue(columnFilter?.value ?? '');
       setDraftValues(columnFilter?.operator === 'in' ? columnFilter.values ?? [] : []);
+      setLookupQuery('');
       setDraftStartDate(columnFilter?.startDate ?? '');
       setDraftEndDate(columnFilter?.endDate ?? '');
     }
@@ -378,6 +382,82 @@ export default function ApplicationColumnHeaderMenu({
     }
 
     if (panel === 'filter') {
+      if (column === 'company') {
+        const options = lookupOptions ?? [];
+        const needle = lookupQuery.trim().toLowerCase();
+        const visible = needle
+          ? options.filter((option) => option.name.toLowerCase().includes(needle))
+          : options;
+        return (
+          <div>
+            <PanelHeader
+              title={t('applications.columns.headerMenu.filterBy')}
+              onBack={() => setPanel('root')}
+            />
+            <div className="px-1.5 pb-2">
+              <input
+                type="search"
+                value={lookupQuery}
+                onChange={(event) => setLookupQuery(event.target.value)}
+                placeholder={t('applications.columns.headerMenu.filterPlaceholder')}
+                className="w-full bg-canvas border border-control rounded-[6px] px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-ai font-sans"
+              />
+            </div>
+            <div className="max-h-52 overflow-y-auto scrollbar-custom space-y-0.5">
+              {visible.length === 0 ? (
+                <p className="px-2.5 py-2 text-[11px] text-text-muted">{t('companies.empty.searchTitle')}</p>
+              ) : visible.map((option) => {
+                const checked = draftValues.includes(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={checked}
+                    onClick={() => setDraftValues((prev) => (
+                      checked ? prev.filter((item) => item !== option.id) : [...prev, option.id]
+                    ))}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-left text-xs font-semibold text-text hover:bg-canvas dark:hover:bg-surface-muted transition-colors"
+                  >
+                    <span
+                      className={cn(
+                        'w-4 h-4 rounded border flex items-center justify-center shrink-0',
+                        checked ? 'bg-ai-action border-ai-action' : 'border-control',
+                      )}
+                    >
+                      {checked && <Check className="w-3 h-3 text-on-ai-action stroke-[3]" />}
+                    </span>
+                    <span className="flex-1 truncate">{option.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5 px-1.5 pt-2">
+              <button
+                type="button"
+                onClick={applyStatusFilter}
+                disabled={draftValues.length === 0}
+                className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+              >
+                {t('applications.columns.headerMenu.apply')}
+              </button>
+              {columnFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetColumnFilter(null);
+                    close(true);
+                  }}
+                  className="px-3 py-1.5 rounded-[6px] border border-subtle text-text-muted hover:text-text text-[10px] font-bold uppercase tracking-wider transition-colors"
+                >
+                  {t('applications.columns.headerMenu.removeFilter')}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
+
       if (column === 'status') {
         return (
           <div>

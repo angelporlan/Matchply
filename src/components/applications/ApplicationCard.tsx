@@ -138,7 +138,17 @@ export default function ApplicationCard({
               }`}>
                 {offer.title}
               </h4>
-              <p className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans">{offer.company}</p>
+              {offer.companyId ? (
+                <a
+                  href={`/dashboard/applications/companies/${offer.companyId}`}
+                  onClick={(event) => event.stopPropagation()}
+                  className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans hover:text-ai hover:underline"
+                >
+                  {offer.company}
+                </a>
+              ) : (
+                <p className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans">{offer.company}</p>
+              )}
             </div>
 
             {offer.url && (

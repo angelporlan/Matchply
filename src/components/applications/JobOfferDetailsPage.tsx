@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { JobOffer } from '@/db/schema';
-import { CvListItem } from '@/lib/job-offer-queries';
+import { CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
+import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
+import NextLink from 'next/link';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv, 
@@ -74,6 +76,7 @@ function getParsedJson(field: any): any {
 interface JobOfferDetailsPageProps {
   initialOffer: JobOffer;
   userCvs: CvListItem[];
+  companies?: CompanyLookupItem[];
   isPremium: boolean;
   initialResearch?: any;
 }
@@ -81,6 +84,7 @@ interface JobOfferDetailsPageProps {
 export default function JobOfferDetailsPage({
   initialOffer,
   userCvs,
+  companies = [],
   isPremium,
   initialResearch = null,
 }: JobOfferDetailsPageProps) {
@@ -732,7 +736,14 @@ export default function JobOfferDetailsPage({
               </h1>
               <p className="text-text-muted dark:text-slate-300 text-base font-bold flex items-center gap-1.5 font-display">
                 <Building2 className="w-5 h-5 text-text-muted shrink-0 stroke-[1.75]" />
-                {offer.company}
+                {offer.companyId ? (
+                  <NextLink
+                    href={`/dashboard/applications/companies/${offer.companyId}`}
+                    className="hover:text-ai hover:underline"
+                  >
+                    {offer.company}
+                  </NextLink>
+                ) : offer.company}
               </p>
             </div>
 
@@ -1159,13 +1170,12 @@ export default function JobOfferDetailsPage({
                           <Building2 className="w-3.5 h-3.5 text-text-muted" />
                           Empresa *
                         </label>
-                        <input
-                          type="text"
+                        <CompanyLookupInput
                           name="company"
                           required
                           value={formData.company}
-                          onChange={handleInputChange}
-                          className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai transition-all font-sans"
+                          companies={companies}
+                          onChange={(company) => setFormData((prev) => ({ ...prev, company }))}
                         />
                       </div>
                     </div>

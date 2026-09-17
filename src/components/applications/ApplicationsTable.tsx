@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import type { ApplicationSummary, CvListItem } from '@/lib/job-offer-queries';
+import type { ApplicationSummary, CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
 import type {
   ApplicationColumnFilter,
   ApplicationColumnId,
@@ -49,6 +49,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 interface ApplicationsTableProps {
   offers: ApplicationSummary[];
   allSelectableIds?: string[];
+  companies?: CompanyLookupItem[];
   userCvs: CvListItem[];
   columns: ApplicationColumnId[];
   sort: ApplicationSortState;
@@ -110,6 +111,7 @@ function SelectionCheckbox({
 export default function ApplicationsTable({
   offers,
   allSelectableIds,
+  companies = [],
   userCvs,
   columns,
   sort,
@@ -192,6 +194,11 @@ export default function ApplicationsTable({
         ? t('applications.table.livenessExpired')
         : t('applications.table.livenessActive');
     }
+    if (grouping.column === 'company') {
+      return companies.find((company) => company.id === key)?.name
+        || offers.find((offer) => offer.companyId === key)?.company
+        || key;
+    }
     if (grouping.column === 'cv') return cvTitles.get(key) ?? key;
     if (grouping.column === 'createdAt' || grouping.column === 'updatedAt' || grouping.column === 'followup') {
       return formatDate(new Date(`${key}T00:00:00`));
@@ -225,6 +232,18 @@ export default function ApplicationsTable({
           </div>
         );
       case 'company':
+        if (offer.companyId) {
+          return (
+            <NextLink
+              href={`/dashboard/applications/companies/${offer.companyId}`}
+              onClick={(event) => event.stopPropagation()}
+              className="text-ai hover:underline truncate max-w-[200px] inline-block align-bottom"
+              title={offer.company}
+            >
+              {offer.company}
+            </NextLink>
+          );
+        }
         return (
           <span className="text-text-muted dark:text-slate-300 truncate max-w-[200px]" title={offer.company}>
             {offer.company}
@@ -475,6 +494,7 @@ export default function ApplicationsTable({
                         onSetColumnFilter={(filter) => onSetColumnFilter(item, filter)}
                         onSetWidth={(width) => onSetColumnWidth(item, width)}
                         onMove={(direction) => onMoveColumn(item, direction)}
+                        lookupOptions={item === 'company' ? companies : undefined}
                       />
                     </th>
                   );
@@ -535,7 +555,17 @@ export default function ApplicationsTable({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-display font-bold text-sm text-text truncate">{offer.title}</p>
-                      <p className="text-xs text-text-muted mt-0.5 truncate">{offer.company}</p>
+                      {offer.companyId ? (
+                        <NextLink
+                          href={`/dashboard/applications/companies/${offer.companyId}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="text-xs text-ai hover:underline mt-0.5 truncate inline-block"
+                        >
+                          {offer.company}
+                        </NextLink>
+                      ) : (
+                        <p className="text-xs text-text-muted mt-0.5 truncate">{offer.company}</p>
+                      )}
                     </div>
                     <ApplicationScoreBadge score={offer.scoreOverall} />
                   </div>

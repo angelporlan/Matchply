@@ -7,6 +7,7 @@ import { isProSubscription } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
 import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
+import { listCompanyLookups } from '@/lib/company-service';
 
 interface OfferPageProps {
   params: {
@@ -53,11 +54,14 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
   }
 
   // 3. Fetch user CVs
-  const userCvs = await db
-    .select(cvListColumns)
-    .from(cvs)
-    .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.createdAt));
+  const [userCvs, companies] = await Promise.all([
+    db
+      .select(cvListColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.createdAt)),
+    listCompanyLookups(userId),
+  ]);
 
   const initialResearch = await getResearchRunForUser(userId, offerId);
 
@@ -71,6 +75,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
         <JobOfferDetailsPage
           initialOffer={offer}
           userCvs={userCvs}
+          companies={companies}
           isPremium={isPremium}
           initialResearch={initialResearch}
         />

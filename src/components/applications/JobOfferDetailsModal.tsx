@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { JobOffer } from '@/db/schema';
-import { CvListItem } from '@/lib/job-offer-queries';
+import { CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
+import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv
@@ -69,6 +70,7 @@ interface JobOfferDetailsModalProps {
   onClose: () => void;
   offer: JobOffer;
   userCvs: CvListItem[];
+  companies?: CompanyLookupItem[];
 }
 
 export default function JobOfferDetailsModal({
@@ -76,6 +78,7 @@ export default function JobOfferDetailsModal({
   onClose,
   offer,
   userCvs,
+  companies = [],
 }: JobOfferDetailsModalProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
@@ -384,7 +387,15 @@ export default function JobOfferDetailsModal({
                   </h3>
                   <p className="text-text-muted dark:text-slate-300 text-sm font-semibold flex items-center gap-1.5 font-display">
                     <Building2 className="w-4 h-4 text-text-muted dark:text-slate-550 shrink-0 stroke-[1.75]" />
-                    {offer.company}
+                    {offer.companyId ? (
+                      <a
+                        href={`/dashboard/applications/companies/${offer.companyId}`}
+                        className="hover:text-ai hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {offer.company}
+                      </a>
+                    ) : offer.company}
                   </p>
                 </div>
               </div>
@@ -1063,14 +1074,13 @@ export default function JobOfferDetailsModal({
                     <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                     {t('applications.modal.companyField')}
                   </label>
-                  <input
-                    type="text"
+                  <CompanyLookupInput
                     name="company"
                     required
                     value={formData.company}
-                    onChange={handleInputChange}
+                    companies={companies}
                     placeholder={t('applications.modal.companyPlaceholder')}
-                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai focus:ring-1 focus:ring-ai transition-all font-sans"
+                    onChange={(company) => setFormData((prev) => ({ ...prev, company }))}
                   />
                 </div>
               </div>

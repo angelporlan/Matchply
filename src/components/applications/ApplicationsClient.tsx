@@ -4,7 +4,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
-import { CvListItem, ApplicationSummary } from '@/lib/job-offer-queries';
+import { CvListItem, ApplicationSummary, CompanyLookupItem } from '@/lib/job-offer-queries';
+import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import CurateWithAiModal from './CurateWithAiModal';
 import JobOfferDetailsModal from './JobOfferDetailsModal';
 import ApplicationsTable from './ApplicationsTable';
@@ -51,17 +52,21 @@ type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejecte
 interface ApplicationsClientProps {
   offers: ApplicationSummary[];
   userCvs: CvListItem[];
+  companies: CompanyLookupItem[];
   savedViews: SavedApplicationView[];
   initialLayout: 'table' | 'board';
   initialViewId: string;
+  initialCompanyId?: string;
 }
 
 export default function ApplicationsClient({
   offers,
   userCvs,
+  companies,
   savedViews: initialSavedViews,
   initialLayout,
   initialViewId,
+  initialCompanyId,
 }: ApplicationsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -82,7 +87,14 @@ export default function ApplicationsClient({
   const [columns, setColumns] = useState<ApplicationColumnId[]>(initialConfig.columns);
   const [sort, setSort] = useState<ApplicationSortState>(initialConfig.sort);
   const [grouping, setGrouping] = useState<ApplicationGrouping | null>(initialConfig.grouping);
-  const [columnFilters, setColumnFilters] = useState<ApplicationColumnFilter[]>(initialConfig.filters.columnFilters ?? []);
+  const [columnFilters, setColumnFilters] = useState<ApplicationColumnFilter[]>(() => {
+    const filters = initialConfig.filters.columnFilters ?? [];
+    if (!initialCompanyId) return filters;
+    return [
+      ...filters.filter((filter) => filter.column !== 'company'),
+      { column: 'company', operator: 'in', value: '', values: [initialCompanyId] },
+    ];
+  });
   const [columnWidths, setColumnWidths] = useState<ApplicationColumnWidths>(initialConfig.columnWidths);
   const [actionsIndex, setActionsIndex] = useState<number | null>(initialConfig.actionsIndex);
   const [pageSize, setPageSize] = useState(initialConfig.pageSize);
@@ -907,6 +919,7 @@ export default function ApplicationsClient({
           <ApplicationsTable
             offers={pagination.items}
             allSelectableIds={filteredOffers.map((o) => o.id)}
+            companies={companies}
             userCvs={userCvs}
             columns={columns}
             sort={sort}
@@ -1042,14 +1055,13 @@ export default function ApplicationsClient({
                     <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
                     {t('applications.modal.companyField')}
                   </label>
-                  <input
-                    type="text"
+                  <CompanyLookupInput
                     name="company"
                     required
                     value={formData.company}
-                    onChange={handleInputChange}
+                    companies={companies}
                     placeholder={t('applications.modal.companyPlaceholder')}
-                    className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all font-sans"
+                    onChange={(company) => setFormData((prev) => ({ ...prev, company }))}
                   />
                 </div>
               </div>
@@ -1142,6 +1154,7 @@ export default function ApplicationsClient({
           onClose={() => setSelectedOfferForDetails(null)}
           offer={selectedOfferForDetails}
           userCvs={userCvs}
+          companies={companies}
         />
       )}
 
