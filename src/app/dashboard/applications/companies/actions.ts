@@ -107,6 +107,38 @@ export async function deleteCompanyAction(companyId: string) {
   }
 }
 
+export async function deleteCompaniesAction(companyIds: string[]) {
+  try {
+    const session = await requireCompanyUser();
+    let deletedCount = 0;
+    let skippedCount = 0;
+    for (const companyId of companyIds) {
+      try {
+        await deleteCompany(session.user.id, companyId);
+        deletedCount++;
+      } catch (err: unknown) {
+        if (err instanceof CompanyHasApplicationsError) {
+          skippedCount++;
+        } else {
+          throw err;
+        }
+      }
+    }
+    await createAuditLog('company_bulk_delete', session.user.id, session.user.email || null, {
+      totalRequested: companyIds.length,
+      deletedCount,
+      skippedCount,
+    });
+    revalidateCompanies();
+    return { success: true as const, deletedCount, skippedCount };
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return { error: 'Unauthorized' };
+    }
+    return mapCompanyError(error);
+  }
+}
+
 export async function createCompanyNoteAction(companyId: string, content: string) {
   try {
     const session = await requireCompanyUser();
