@@ -576,6 +576,10 @@ export function matchesColumnFilter(
   if (isApplicationMultiFilterOperator(filter.operator)) {
     const values = filter.values ?? [];
     if (values.length === 0) return true;
+    if (filter.column === 'company') {
+      const companyId = offer.companyId || '';
+      return values.includes(companyId);
+    }
     return values.some((entry) => entry.toLowerCase() === value.toLowerCase());
   }
 
@@ -715,6 +719,9 @@ export type ApplicationGroup = {
 };
 
 export function getApplicationGroupKey(offer: ApplicationSummary, column: ApplicationColumnId): string {
+  if (column === 'company') {
+    return offer.companyId || offer.company || '';
+  }
   const value = getApplicationColumnValue(offer, column);
   if (value === null) return '';
   if (column === 'createdAt' || column === 'updatedAt' || column === 'followup') {
@@ -744,10 +751,15 @@ export function groupApplications(
 
   const direction = grouping.direction === 'asc' ? 1 : -1;
   return Array.from(groups.entries())
-    .sort(([keyA], [keyB]) => {
+    .sort(([keyA, offersA], [keyB, offersB]) => {
       if (!keyA && !keyB) return 0;
       if (!keyA) return 1;
       if (!keyB) return -1;
+      if (grouping.column === 'company') {
+        const nameA = offersA[0]?.company || '';
+        const nameB = offersB[0]?.company || '';
+        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' }) * direction;
+      }
       return compareGroupKeys(keyA, keyB, grouping.column) * direction;
     })
     .map(([key, bucket]) => ({ key, offers: bucket }));

@@ -21,6 +21,7 @@ function offer(overrides: Partial<ApplicationSummary> = {}): ApplicationSummary 
     cvId: null,
     title: 'Frontend Engineer',
     company: 'Acme',
+    companyId: null,
     url: null,
     platform: 'linkedin',
     status: 'interested',
@@ -415,6 +416,25 @@ test('groupApplications groups rows and keeps empty keys last', () => {
     { column: 'createdAt', direction: 'desc' },
   );
   assert.deepEqual(byDay.map(group => group.key), ['2026-09-12', '2026-09-01']);
+});
+
+test('company lookup filters by companyId and groups linked rows together', () => {
+  const offers = [
+    offer({ id: 'a', company: 'Acme', companyId: 'co-1' }),
+    offer({ id: 'b', company: 'Globex', companyId: 'co-2' }),
+    offer({ id: 'c', company: 'Acme', companyId: 'co-1' }),
+  ];
+
+  assert.deepEqual(
+    filterApplications(offers, {
+      columnFilters: [{ column: 'company', operator: 'in', value: '', values: ['co-1'] }],
+    }).map((row) => row.id),
+    ['a', 'c'],
+  );
+
+  const grouped = groupApplications(offers, { column: 'company', direction: 'asc' });
+  assert.deepEqual(grouped.map((group) => group.key), ['co-1', 'co-2']);
+  assert.deepEqual(grouped[0].offers.map((row) => row.id), ['a', 'c']);
 });
 
 test('filterApplications excludes archived unless status is explicitly filtered', () => {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
+import { Building2, ChevronDown, Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -21,16 +21,40 @@ interface SidebarProps {
   isGuest?: boolean;
 }
 
+type SidebarChildItem = {
+  name: string;
+  href: string;
+  isActive: (pathname: string) => boolean;
+};
+
 type SidebarMenuItem = {
   name: string;
   href: string;
   icon: any;
+  children?: SidebarChildItem[];
 };
+
+function isApplicationsListPath(pathname: string) {
+  return pathname === '/dashboard/applications' || pathname.startsWith('/dashboard/applications/offer');
+}
+
+function isCompaniesPath(pathname: string) {
+  return pathname.startsWith('/dashboard/applications/companies');
+}
 
 export default function Sidebar({ user, isPremium, isGuest = false }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [applicationsOpen, setApplicationsOpen] = useState(
+    isApplicationsListPath(pathname) || isCompaniesPath(pathname),
+  );
   const { t, language } = useLanguage();
+
+  useEffect(() => {
+    if (isApplicationsListPath(pathname) || isCompaniesPath(pathname)) {
+      setApplicationsOpen(true);
+    }
+  }, [pathname]);
 
   const menuItems: SidebarMenuItem[] = isGuest ? [
     {
@@ -48,6 +72,18 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
       name: t('sidebar.menu.applications'),
       href: '/dashboard/applications',
       icon: Kanban,
+      children: [
+        {
+          name: t('sidebar.menu.applicationsAll'),
+          href: '/dashboard/applications',
+          isActive: isApplicationsListPath,
+        },
+        {
+          name: t('sidebar.menu.companies'),
+          href: '/dashboard/applications/companies',
+          isActive: isCompaniesPath,
+        },
+      ],
     },
   ];
 
@@ -108,26 +144,89 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
           <nav className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-colors ${
-                    active
-                      ? 'bg-surface-muted text-text shadow-sm'
-                      : 'text-text-muted hover:text-text hover:bg-surface-muted'
-                  }`}
-                >
-                  <Icon
-                    className={`w-4 h-4 stroke-[1.75] ${
-                      active ? 'text-text' : 'text-text-muted'
+              const childActive = item.children?.some((child) => child.isActive(pathname));
+              const active = item.children ? Boolean(childActive) : isActive(item.href);
+              if (!item.children) {
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-colors ${
+                      active
+                        ? 'bg-surface-muted text-text shadow-sm'
+                        : 'text-text-muted hover:text-text hover:bg-surface-muted'
                     }`}
-                  />
-                  <span>{item.name}</span>
-                </Link>
+                  >
+                    <Icon
+                      className={`w-4 h-4 stroke-[1.75] ${
+                        active ? 'text-text' : 'text-text-muted'
+                      }`}
+                    />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={item.name} className="space-y-1">
+                  <div
+                    className={`flex items-center rounded-[8px] text-sm font-semibold transition-colors ${
+                      active
+                        ? 'bg-surface-muted text-text shadow-sm'
+                        : 'text-text-muted hover:text-text hover:bg-surface-muted'
+                    }`}
+                  >
+                    <Link
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className="flex flex-1 items-center gap-3 px-4 py-3 min-w-0"
+                    >
+                      <Icon
+                        className={`w-4 h-4 stroke-[1.75] ${
+                          active ? 'text-text' : 'text-text-muted'
+                        }`}
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setApplicationsOpen((open) => !open)}
+                      aria-expanded={applicationsOpen}
+                      aria-label={t('sidebar.menu.toggleApplications')}
+                      className="p-3 text-text-muted hover:text-text"
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 stroke-[1.75] transition-transform ${applicationsOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  </div>
+                  {applicationsOpen && (
+                    <div className="ml-4 pl-3 border-l border-subtle space-y-1">
+                      {item.children.map((child) => {
+                        const childIsActive = child.isActive(pathname);
+                        const ChildIcon = child.href.endsWith('/companies') ? Building2 : Kanban;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={() => setIsOpen(false)}
+                            aria-current={childIsActive ? 'page' : undefined}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors ${
+                              childIsActive
+                                ? 'bg-surface-muted text-text'
+                                : 'text-text-muted hover:text-text hover:bg-surface-muted'
+                            }`}
+                          >
+                            <ChildIcon className="w-3.5 h-3.5 stroke-[1.75]" />
+                            <span>{child.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>
