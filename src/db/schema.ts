@@ -37,6 +37,10 @@ export const cvs = pgTable('cv', {
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
   userIdIdx: index('cv_user_id_idx').on(table.userId),
+  // Dashboard listing: ORDER BY isPrincipal DESC, updatedAt DESC per user.
+  userUpdatedIdx: index('cv_user_updated_idx').on(table.userId, table.updatedAt),
+  // Base CV lookup for AI: ORDER BY isBase DESC, isPrincipal DESC LIMIT 1 per user.
+  userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
 
 // Empresas del usuario (CRM de candidaturas). El nombre visible se denormaliza en job_offer.company.
@@ -108,6 +112,11 @@ export const jobOffers = pgTable('job_offer', {
   userUpdatedIdx: index('job_offer_user_updated_idx').on(table.userId, table.updatedAt),
   userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
   userCompanyIdx: index('job_offer_user_company_id_idx').on(table.userId, table.companyId),
+  // Dedupe on upsert from the extension / import (findExisting by URL).
+  userUrlIdx: index('job_offer_user_url_idx').on(table.userId, table.url),
+  // Dedupe fallback by title + company, and dashboard "latest offer per CV".
+  userTitleCompanyIdx: index('job_offer_user_title_company_idx').on(table.userId, table.title, table.company),
+  cvIdx: index('job_offer_cv_id_idx').on(table.cvId),
 }));
 
 export const companyNotes = pgTable('company_note', {
@@ -263,7 +272,9 @@ export const prompts = pgTable('prompt', {
   isStrict: boolean('isStrict').default(false).notNull(), // Regra superestricta para formato .MD
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
-});
+}, (table) => ({
+  keyArchivedIdx: index('prompt_key_archived_idx').on(table.key, table.isArchived),
+}));
 
 // Tabla de Auditoría (Logs de Actividad)
 export const auditLogs = pgTable('audit_log', {
@@ -279,6 +290,8 @@ export const auditLogs = pgTable('audit_log', {
   userIdIdx: index('audit_log_user_id_idx').on(table.userId),
   actionIdx: index('audit_log_action_idx').on(table.action),
   createdAtIdx: index('audit_log_created_at_idx').on(table.createdAt),
+  // Admin "today" counters: WHERE action = ? AND createdAt >= ?
+  actionCreatedIdx: index('audit_log_action_created_idx').on(table.action, table.createdAt),
 }));
 
 export const aiJobs = pgTable('ai_job', {
