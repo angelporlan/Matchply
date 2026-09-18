@@ -1,6 +1,7 @@
 import { processAiJob } from '@/lib/ai-jobs/process';
 import { claimNextAiJob, failAiJob, getAiJob } from '@/lib/ai-jobs/queue';
 import { log } from '@/lib/logger';
+import { createIdleBackoff, createWorkerShutdown } from '@/lib/worker-idle';
 
 const GLOBAL_CONCURRENCY = Math.max(1, Number(process.env.AI_GLOBAL_CONCURRENCY || 2));
 const JOB_TIMEOUT_MS = Math.max(30_000, Number(process.env.AI_JOB_TIMEOUT_MS || 120_000));
@@ -32,15 +33,21 @@ async function processRun() {
   return true;
 }
 
+const shutdown = createWorkerShutdown();
+
 async function workerLoop(slot: number) {
-  while (true) {
+  const idle = createIdleBackoff();
+  while (!shutdown.stopping) {
     try {
       const worked = await processRun();
-      if (worked) continue;
+      if (worked) {
+        idle.reset();
+        continue;
+      }
     } catch (error) {
       log({ event: 'ai_worker_loop_error', level: 'error', slot, error });
     }
-    await new Promise(resolve => setTimeout(resolve, 2_000));
+    await idle.wait();
   }
 }
 
@@ -49,7 +56,7 @@ log({ event: 'ai_worker_started', concurrency: GLOBAL_CONCURRENCY });
 async function main() {
   if (!ENABLED) {
     log({ event: 'ai_worker_disabled' });
-    await new Promise<void>(() => undefined);
+    await shutdown.waitUntilSignal();
     return;
   }
   await Promise.all(Array.from({ length: GLOBAL_CONCURRENCY }, (_, index) => workerLoop(index + 1)));
