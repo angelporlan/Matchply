@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: ['pdfkit'],
+    optimizePackageImports: ['lucide-react'],
   },
   env: {
     AI_PROMPTS_DEBUG: process.env.AI_PROMPTS_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG || '',

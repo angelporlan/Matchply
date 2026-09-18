@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Servicio de la Base de Datos PostgreSQL
   db:
     image: postgres:15-alpine
     container_name: nextprof_postgres_prod
@@ -9,8 +8,14 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: nextprof_secure_pwd
       POSTGRES_DB: nextprof_db
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c max_connections=100
     ports:
-      # Binding a 127.0.0.1 por seguridad, para que no sea accesible desde internet públicamente
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
@@ -19,21 +24,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 1g
     restart: always
 
-  # Servicio de la Aplicación Web Next.js
   web:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: web
     container_name: nextprof_web_prod
     ports:
-      - "127.0.0.1:3000:3000" # Exponer localmente, se conectará con Nginx/Caddy en el puerto 80/443
+      - "127.0.0.1:3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=15000
+      - NODE_OPTIONS=--max-old-space-size=768
+      - PDF_WORKER_POOL_SIZE=2
     env_file:
       - .env
     depends_on:
@@ -45,13 +53,14 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    mem_limit: 1g
     restart: always
 
-  # Worker interno: comparte imagen y base de datos, sin puertos públicos.
   research_worker:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: worker
     container_name: nextprof_research_worker_prod
     command: npm run research:worker
     environment:
@@ -59,17 +68,20 @@ services:
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
+      - NODE_OPTIONS=--max-old-space-size=384
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
+    mem_limit: 512m
     restart: always
 
   ai_worker:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: worker
     container_name: nextprof_ai_worker_prod
     command: npm run ai:worker
     environment:
@@ -78,11 +90,14 @@ services:
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
       - AI_WORKER_ENABLED=true
+      - AI_GLOBAL_CONCURRENCY=2
+      - NODE_OPTIONS=--max-old-space-size=512
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
+    mem_limit: 768m
     restart: always
 
 volumes:

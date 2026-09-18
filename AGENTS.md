@@ -67,7 +67,8 @@ docker-compose up --build
 
 ### B. Entorno de Producción (`docker-compose.prod.yml` & `Dockerfile.prod`)
 1. **Base de Datos (`nextprof_postgres_prod`):** PostgreSQL 15 expuesto únicamente de forma interna en `127.0.0.1:5432` por seguridad.
-2. **Aplicación Web (`nextprof_web_prod`):** Next.js compilado en producción (`npm run build` y `npm run start`). Expuesta en `127.0.0.1:3000` lista para conectarse detrás de un proxy reverso como **Nginx** o **Caddy**.
+2. **Aplicación Web (`nextprof_web_prod`):** Next.js compilado en producción (`output: 'standalone'`, stage `web` de `Dockerfile.prod`). Expuesta en `127.0.0.1:3000` lista para conectarse detrás de un proxy reverso como **Nginx** o **Caddy**.
+3. **Workers (`research_worker` / `ai_worker`):** stage `worker` de la misma imagen (tsx + `src`/`scripts`). Sin puertos públicos.
 
 ---
 
@@ -176,8 +177,10 @@ El producto cabe en un monolito Next.js + Postgres + workers Docker. El fallo ha
 
 ### Infra
 - Pool acotado: `DATABASE_POOL_MAX`, `DATABASE_STATEMENT_TIMEOUT_MS` (web ~15s, workers ~180s).
+- Concurrencia IA: `AI_GLOBAL_CONCURRENCY`, `AI_WORKER_ENABLED`.
+- PDF: `PDF_WORKER_POOL_SIZE` (hilos `worker_threads` en el proceso web; 0 desactiva y renderiza en proceso).
 - Índices por `userId` (y `(userId, updatedAt)` / `(userId, status)` en `job_offer`) al añadir tablas de usuario.
-- Compose: `web` + `db` + `research_worker` + `ai_worker`. Health: `GET /api/health`.
+- Compose: `web` + `db` + `research_worker` + `ai_worker`. Health: `GET /api/health`. Imagen prod: `Dockerfile.prod` stages `web` (standalone) y `worker`.
 - Tras cambiar `schema.ts`: `npm run db:generate` y `npm run db:migrate`. No `db:push` en producción.
 
 ### Cómo comprobar un cambio de listado
