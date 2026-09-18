@@ -2,13 +2,63 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cvs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { generatePdfBuffer } from '@/lib/pdf-engine';
+import { renderPdf } from '@/lib/pdf-render';
 import { createAuditLog } from '@/lib/audit';
 import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
 import { log } from '@/lib/logger';
+
+// Only what the renderer needs; `cv` also stores markdown history-sized content,
+// so we never pull columns we do not use.
+const pdfCvColumns = {
+  id: cvs.id,
+  userId: cvs.userId,
+  title: cvs.title,
+  content: cvs.content,
+  templateName: cvs.templateName,
+  accentColor: cvs.accentColor,
+  fontFamily: cvs.fontFamily,
+  pageMargin: cvs.pageMargin,
+  scale: cvs.scale,
+};
+
+type PdfOptions = {
+  template: string;
+  accentColor: string | null;
+  fontFamily: string;
+  pageMargin: number;
+  fontSize: number;
+  showIcons: boolean;
+};
+
+async function renderWithCache(content: string, pdfOptions: PdfOptions) {
+  const cacheKey = pdfCacheKey({
+    content,
+    template: pdfOptions.template,
+    accentColor: pdfOptions.accentColor,
+    fontFamily: pdfOptions.fontFamily,
+    pageMargin: pdfOptions.pageMargin,
+    fontSize: pdfOptions.fontSize,
+  });
+  let buffer = getCachedPdf(cacheKey);
+  const cacheHit = Boolean(buffer);
+  if (!buffer) {
+    buffer = await renderPdf(content, pdfOptions);
+    setCachedPdf(cacheKey, buffer);
+  }
+  return { buffer, cacheKey, cacheHit };
+}
+
+function pdfResponse(buffer: Buffer, headers: Record<string, string>) {
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      ...headers,
+    },
+  });
+}
 
 export async function GET(req: NextRequest) {
   const started = Date.now();
@@ -35,7 +85,7 @@ export async function GET(req: NextRequest) {
     }
 
     const [cv] = await db
-      .select()
+      .select(pdfCvColumns)
       .from(cvs)
       .where(eq(cvs.id, cvId))
       .limit(1);
@@ -62,7 +112,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const pdfOptions = {
+    const pdfOptions: PdfOptions = {
       template: getAllowedCvTemplate(actor.subscriptionStatus, cv.templateName, {
         isGuest: actor.kind === 'guest',
       }),
@@ -72,19 +122,22 @@ export async function GET(req: NextRequest) {
       fontSize: (cv.scale ?? 1.0) * 12.5, // back-converting scale to fontSize
       showIcons: true
     };
-    const cacheKey = pdfCacheKey({
-      content: cv.content,
-      template: pdfOptions.template,
-      accentColor: pdfOptions.accentColor,
-      fontFamily: pdfOptions.fontFamily,
-      pageMargin: pdfOptions.pageMargin,
-      fontSize: pdfOptions.fontSize,
-    });
-    let buffer = getCachedPdf(cacheKey);
-    const cacheHit = Boolean(buffer);
-    if (!buffer) {
-      buffer = await generatePdfBuffer(cv.content, pdfOptions);
-      setCachedPdf(cacheKey, buffer);
+
+    const { buffer, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
+    const etag = `"${cacheKey.slice(0, 32)}"`;
+
+    // Thumbnails and the editor preview pass `v=<updatedAt>`: the URL changes whenever the CV
+    // changes, so the browser may keep that exact URL for a long time. Downloads stay uncached.
+    const versioned = searchParams.has('v') && !isDownload;
+    const cacheControl = isDownload
+      ? 'no-store, max-age=0'
+      : versioned
+        ? 'private, max-age=31536000, immutable'
+        : 'private, no-cache';
+
+    if (!isDownload && req.headers.get('if-none-match') === etag) {
+      log({ event: 'pdf_render', route: '/api/pdf', userId: actor.userId, cacheHit, notModified: true, durationMs: Date.now() - started });
+      return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': cacheControl } });
     }
 
     log({
@@ -100,12 +153,11 @@ export async function GET(req: NextRequest) {
     const filename = `CV ${safeName}.pdf`;
     const encodedFilename = encodeURIComponent(filename);
 
-    return new Response(new Uint8Array(buffer), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
-        'Cache-Control': 'no-store, max-age=0'
-      }
+    return pdfResponse(buffer, {
+      'Content-Disposition': `inline; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
+      'Cache-Control': cacheControl,
+      ETag: etag,
+      Vary: 'Cookie',
     });
   } catch (error: any) {
     log({ event: 'pdf_render', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
@@ -137,7 +189,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Missing content', { status: 400 });
     }
 
-    const pdfOptions = {
+    const pdfOptions: PdfOptions = {
       template: getAllowedCvTemplate(actor.subscriptionStatus, template, {
         isGuest: actor.kind === 'guest',
       }),
@@ -147,20 +199,7 @@ export async function POST(req: NextRequest) {
       fontSize: (scale || 1.0) * 12.5,
       showIcons: true
     };
-    const cacheKey = pdfCacheKey({
-      content,
-      template: pdfOptions.template,
-      accentColor: pdfOptions.accentColor,
-      fontFamily: pdfOptions.fontFamily,
-      pageMargin: pdfOptions.pageMargin,
-      fontSize: pdfOptions.fontSize,
-    });
-    let buffer = getCachedPdf(cacheKey);
-    const cacheHit = Boolean(buffer);
-    if (!buffer) {
-      buffer = await generatePdfBuffer(content, pdfOptions);
-      setCachedPdf(cacheKey, buffer);
-    }
+    const { buffer, cacheHit } = await renderWithCache(content, pdfOptions);
 
     log({
       event: 'pdf_preview',
@@ -170,12 +209,9 @@ export async function POST(req: NextRequest) {
       durationMs: Date.now() - started,
     });
 
-    return new Response(new Uint8Array(buffer), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline; filename="preview.pdf"',
-        'Cache-Control': 'no-store, max-age=0'
-      }
+    return pdfResponse(buffer, {
+      'Content-Disposition': 'inline; filename="preview.pdf"',
+      'Cache-Control': 'no-store, max-age=0',
     });
   } catch (error: any) {
     log({ event: 'pdf_preview', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
