@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
@@ -50,23 +50,39 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    // 1. Obtener usuario para comprobar suscripción
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    // 1. Usuario (suscripción + perfil profesional) y 2. CV base, en paralelo y con columnas acotadas
+    const [[user], [baseCv]] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          subscriptionStatus: users.subscriptionStatus,
+          isGuest: users.isGuest,
+          careerProfile: users.careerProfile,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
+      db
+        .select({
+          id: cvs.id,
+          userId: cvs.userId,
+          content: cvs.content,
+          templateName: cvs.templateName,
+          accentColor: cvs.accentColor,
+          fontFamily: cvs.fontFamily,
+          pageMargin: cvs.pageMargin,
+          scale: cvs.scale,
+        })
+        .from(cvs)
+        .where(eq(cvs.id, baseCvId))
+        .limit(1),
+    ]);
 
     if (!user) {
       return new NextResponse('User not found', { status: 404 });
     }
-
-    // 2. Obtener CV Base
-    const [baseCv] = await db
-      .select()
-      .from(cvs)
-      .where(eq(cvs.id, baseCvId))
-      .limit(1);
 
     if (!baseCv) {
       return new NextResponse('Base CV not found', { status: 404 });
@@ -78,12 +94,12 @@ export async function POST(req: NextRequest) {
 
     let targetCvId = requestedTargetCvId as string | null | undefined;
     if (!targetCvId) {
-      const existingCvs = await db
-        .select({ id: cvs.id })
+      const [{ count: existingCvCount }] = await db
+        .select({ count: sql<number>`cast(count(*) as int)` })
         .from(cvs)
         .where(eq(cvs.userId, userId));
 
-      if (!canCreateCv(user.subscriptionStatus, existingCvs.length, { isGuest: user.isGuest })) {
+      if (!canCreateCv(user.subscriptionStatus, Number(existingCvCount) || 0, { isGuest: user.isGuest })) {
         if (user.isGuest) {
           return new NextResponse('Guest CV limit reached', { status: 403 });
         }
@@ -133,26 +149,29 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         let accumulatedContent = '';
         let lastWriteTime = Date.now();
+        // Guardados parciales sin bloquear el stream: como mucho una escritura en vuelo.
+        let partialWrite: Promise<unknown> | null = null;
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            const text = decoder.decode(value);
+            const text = decoder.decode(value, { stream: true });
             accumulatedContent += text;
             controller.enqueue(value);
 
-            // Guardar parcialmente en la base de datos de manera no bloqueante cada 3 segundos
             const now = Date.now();
-            if (now - lastWriteTime > 3000) {
+            if (now - lastWriteTime > 3000 && targetCvId && shouldSavePartialResult && !partialWrite) {
               lastWriteTime = now;
-              if (targetCvId && shouldSavePartialResult) {
-                await db.update(cvs)
-                  .set({ content: accumulatedContent })
-                  .where(eq(cvs.id, targetCvId))
-                  .catch(err => console.error("[Optimize API] Error saving partial stream to DB:", err));
-              }
+              partialWrite = db.update(cvs)
+                .set({ content: accumulatedContent })
+                .where(eq(cvs.id, targetCvId))
+                .catch((error) => log({ event: 'cv_optimize_partial_save_failed', level: 'warn', route: '/api/ai/optimize', userId, error }))
+                .finally(() => { partialWrite = null; });
             }
           }
+          accumulatedContent += decoder.decode();
+          // No pisar la escritura final con un parcial rezagado.
+          if (partialWrite) await partialWrite;
 
           // 4. Guardar CV Optimizado
           let optimizedCvId = '';
@@ -197,7 +216,7 @@ export async function POST(req: NextRequest) {
           // 5. Guardar candidatura en postulaciones
           if (shouldAddToApplications) {
             const [existingOffer] = await db
-              .select()
+              .select({ id: jobOffers.id })
               .from(jobOffers)
               .where(eq(jobOffers.cvId, optimizedCvId))
               .limit(1);

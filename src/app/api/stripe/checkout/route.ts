@@ -21,7 +21,14 @@ export async function GET(req: NextRequest) {
 
     // 1. Obtener datos del usuario
     const [user] = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        stripeCustomerId: users.stripeCustomerId,
+        stripeSubscriptionId: users.stripeSubscriptionId,
+        subscriptionStatus: users.subscriptionStatus,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);

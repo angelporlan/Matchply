@@ -34,7 +34,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           throw error;
         }
 
-        const [user] = await db.select().from(users).where(eq(users.email, emailStr)).limit(1);
+        const [user] = await db.select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          image: users.image,
+          role: users.role,
+          passwordHash: users.passwordHash,
+        }).from(users).where(eq(users.email, emailStr)).limit(1);
         if (!user || !user.passwordHash) return null;
         
         const isValid = await bcrypt.compare(passwordStr, user.passwordHash);
@@ -56,7 +63,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         if (!user.email) return false;
         try {
           const [existingUser] = await db
-            .select()
+            .select({ id: users.id, role: users.role })
             .from(users)
             .where(eq(users.email, user.email))
             .limit(1);

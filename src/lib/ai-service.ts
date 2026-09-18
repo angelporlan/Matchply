@@ -1,7 +1,5 @@
-import { db } from '@/db';
-import { prompts } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
 import { getAiSetting } from '@/lib/ai-settings';
+import { resolveAiPrompt } from '@/lib/ai-prompts';
 import { AI_FETCH_TIMEOUT_MS, AI_STREAM_CONNECT_TIMEOUT_MS, fetchWithTimeout } from '@/lib/http';
 import {
   DEFAULT_FREE_PROVIDER,
@@ -11,7 +9,7 @@ import {
   getDefaultModelForProvider
 } from './models';
 import { canAccessFeature } from './subscription';
-import { getBuiltInPrompt, type BuiltInPromptKey } from './prompt-defaults';
+import type { BuiltInPromptKey } from './prompt-defaults';
 import { parseMatchConstraints } from './curation-constraints';
 import { log } from './logger';
 import {
@@ -162,35 +160,7 @@ export class AIService {
    * siguen usando el prompt versionado en la aplicación.
    */
   private static async resolvePrompt(key: BuiltInPromptKey, promptId?: string) {
-    const builtInPrompt = getBuiltInPrompt(key);
-
-    try {
-      const [dbPrompt] = await db
-        .select()
-        .from(prompts)
-        .where(
-          promptId
-            ? eq(prompts.id, promptId)
-            : and(eq(prompts.key, key), eq(prompts.isActive, true))
-        )
-        .limit(1);
-
-      // No aceptamos una fila incompleta como prompt operativo. Así, incluso
-      // si existe un registro vacío o antiguo, el flujo conserva un fallback
-      // válido y totalmente versionado en código.
-      if (dbPrompt?.systemPrompt?.trim() && dbPrompt.userPrompt?.trim()) {
-        return {
-          ...builtInPrompt,
-          systemPrompt: dbPrompt.systemPrompt,
-          userPrompt: dbPrompt.userPrompt,
-          isStrict: dbPrompt.isStrict,
-        };
-      }
-    } catch (err) {
-      console.error(`[AIService] Error al obtener prompt "${key}" de la DB. Usando prompt integrado:`, err);
-    }
-
-    return builtInPrompt;
+    return resolveAiPrompt(key, promptId);
   }
 
   static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<string> {

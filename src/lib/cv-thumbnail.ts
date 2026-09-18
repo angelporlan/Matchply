@@ -1,7 +1,18 @@
 const THUMB_CACHE = new Map<string, string>();
+const THUMB_CACHE_MAX = 80; // data URLs (~50-150 KB each); bound memory in long sessions
 const PENDING: Array<() => void> = [];
 const MAX_CONCURRENT = 2;
 let activeCount = 0;
+
+function rememberThumbnail(key: string, dataUrl: string) {
+  THUMB_CACHE.delete(key);
+  THUMB_CACHE.set(key, dataUrl);
+  while (THUMB_CACHE.size > THUMB_CACHE_MAX) {
+    const oldest = THUMB_CACHE.keys().next().value;
+    if (oldest === undefined) break;
+    THUMB_CACHE.delete(oldest);
+  }
+}
 
 export function cvThumbnailKey(cvId: string, version: string | number) {
   return `${cvId}:${version}`;
@@ -52,7 +63,7 @@ export function renderCvThumbnail(
 
         await page.render({ canvas, canvasContext: context, viewport }).promise;
         const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-        THUMB_CACHE.set(key, dataUrl);
+        rememberThumbnail(key, dataUrl);
         return dataUrl;
       } finally {
         doc.cleanup();

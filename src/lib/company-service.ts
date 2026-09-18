@@ -192,27 +192,31 @@ export async function updateCompany(
   const nameNormalized = companyNameKey(name);
 
   try {
-    const [updated] = await db
-      .update(companies)
-      .set({
-        name,
-        nameNormalized,
-        website: optionalField(input.website),
-        location: optionalField(input.location),
-        sector: optionalField(input.sector),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
-      .returning(companyListColumns);
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(companies)
+        .set({
+          name,
+          nameNormalized,
+          website: optionalField(input.website),
+          location: optionalField(input.location),
+          sector: optionalField(input.sector),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+        .returning(companyListColumns);
 
-    if (!updated) throw new CompanyNotFoundError();
+      if (!row) throw new CompanyNotFoundError();
 
-    if (existing.name !== name) {
-      await db
-        .update(jobOffers)
-        .set({ company: name, updatedAt: new Date() })
-        .where(and(eq(jobOffers.userId, userId), eq(jobOffers.companyId, companyId)));
-    }
+      if (existing.name !== name) {
+        await tx
+          .update(jobOffers)
+          .set({ company: name, updatedAt: new Date() })
+          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.companyId, companyId)));
+      }
+
+      return row;
+    });
 
     return updated;
   } catch (error) {

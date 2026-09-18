@@ -103,7 +103,11 @@ export async function POST(req: NextRequest) {
 
     // 3. Obtener el usuario para validar su estado de suscripción
     const [user] = await db
-      .select()
+      .select({
+        email: users.email,
+        name: users.name,
+        subscriptionStatus: users.subscriptionStatus,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);

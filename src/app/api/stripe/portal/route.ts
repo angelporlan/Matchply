@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
     }
 
     const [user] = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        stripeCustomerId: users.stripeCustomerId,
+      })
       .from(users)
       .where(eq(users.id, session.user.id))
       .limit(1);

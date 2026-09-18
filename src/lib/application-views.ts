@@ -400,6 +400,43 @@ function normalizeExcludedStatuses(input: unknown): ApplicationStatus[] {
   return statuses;
 }
 
+function sameStringList(a: string[] | undefined, b: string[] | undefined) {
+  const left = a || [];
+  const right = b || [];
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function viewConfigsEqual(a: ApplicationViewConfig, b: ApplicationViewConfig) {
+  if (a.pageSize !== b.pageSize || a.grouping !== b.grouping || a.actionsIndex !== b.actionsIndex) return false;
+  if (a.sort.key !== b.sort.key || a.sort.direction !== b.sort.direction) return false;
+  if (!sameStringList(a.columns, b.columns)) return false;
+  const af = a.filters;
+  const bf = b.filters;
+  if (
+    (af.search || '') !== (bf.search || '')
+    || af.status !== bf.status
+    || af.cv !== bf.cv
+    || af.date !== bf.date
+    || (af.startDate || '') !== (bf.startDate || '')
+    || (af.endDate || '') !== (bf.endDate || '')
+    || af.followup !== bf.followup
+    || !sameStringList(af.excludedStatuses, bf.excludedStatuses)
+  ) {
+    return false;
+  }
+  const aFilters = af.columnFilters || [];
+  const bFilters = bf.columnFilters || [];
+  if (aFilters.length !== bFilters.length) return false;
+  if (aFilters.some((filter, index) => {
+    const other = bFilters[index];
+    return filter.column !== other.column || filter.operator !== other.operator || filter.value !== other.value;
+  })) return false;
+  const aWidthKeys = Object.keys(a.columnWidths);
+  const bWidthKeys = Object.keys(b.columnWidths);
+  if (aWidthKeys.length !== bWidthKeys.length) return false;
+  return aWidthKeys.every((key) => a.columnWidths[key as keyof ApplicationColumnWidths] === b.columnWidths[key as keyof ApplicationColumnWidths]);
+}
+
 export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
   const raw = (input && typeof input === 'object' ? input : {}) as Partial<ApplicationViewConfig>;
   const rawFilters = (raw.filters && typeof raw.filters === 'object' ? raw.filters : {}) as ApplicationViewFilters;

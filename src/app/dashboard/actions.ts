@@ -13,6 +13,7 @@ import {
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
+import { cvMetaColumns } from "@/lib/job-offer-queries";
 import { parseMatchConstraints } from "@/lib/curation-constraints";
 import { normalizeCareerProfileFields } from "@/lib/career-profile";
 
@@ -32,7 +33,7 @@ export async function setPrincipalCv(cvId: string) {
     const userId = actor.userId;
 
     // 1. Comprobar que el CV existe y pertenece al usuario
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -119,7 +120,7 @@ export async function deleteCv(cvId: string) {
     const userId = actor.userId;
 
     // Comprobar pertenencia
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -131,7 +132,7 @@ export async function deleteCv(cvId: string) {
       // Si el CV que acabamos de borrar era el principal, elegir otro
       if (cv.isPrincipal) {
         const [nextBaseCv] = await tx
-          .select()
+          .select({ id: cvs.id })
           .from(cvs)
           .where(eq(cvs.userId, userId))
           .orderBy(desc(cvs.createdAt))
@@ -180,7 +181,7 @@ export async function updateCvStyling(
     }
 
     // Comprobar pertenencia
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -213,7 +214,7 @@ export async function saveCvContent(cvId: string, content: string) {
       throw new Error("Unauthorized");
     }
 
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden");
     }
@@ -245,7 +246,7 @@ export async function renameCv(cvId: string, title: string) {
       throw new Error("TITLE_TOO_LONG");
     }
 
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -284,7 +285,11 @@ export async function duplicateCv(cvId: string) {
 
     const userId = actor.userId;
 
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db
+      .select({ ...cvMetaColumns, content: cvs.content })
+      .from(cvs)
+      .where(eq(cvs.id, cvId))
+      .limit(1);
     if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -372,7 +377,7 @@ export async function createCvPlaceholder(updates: {
 
       // Obtener el estilo del currículum principal actual (para copiar el estilo)
       const [principalCv] = await tx
-        .select()
+        .select(cvMetaColumns)
         .from(cvs)
         .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
         .limit(1);
@@ -413,7 +418,11 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
     const userId = session.user.id;
 
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await db
+      .select({ careerProfile: users.careerProfile })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
     const currentProfile = (user?.careerProfile as any) || {};
     const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
     const normalizedFields = normalizeCareerProfileFields({ ...currentProfile, ...profileFields });

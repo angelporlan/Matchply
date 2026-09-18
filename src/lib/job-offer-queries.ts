@@ -29,6 +29,39 @@ export const applicationSummaryColumns = {
   updatedAt: jobOffers.updatedAt,
 };
 
+// Ownership / mutation checks on job_offer: never pull description, rawReport,
+// cover letters or JSONB just to verify the owner or log an audit entry.
+export const jobOfferOwnershipColumns = {
+  id: jobOffers.id,
+  userId: jobOffers.userId,
+  cvId: jobOffers.cvId,
+  title: jobOffers.title,
+  company: jobOffers.company,
+  companyId: jobOffers.companyId,
+  status: jobOffers.status,
+  url: jobOffers.url,
+  externalSource: jobOffers.externalSource,
+  externalId: jobOffers.externalId,
+  sourceMetadata: jobOffers.sourceMetadata,
+  nextFollowupDate: jobOffers.nextFollowupDate,
+};
+
+// CV metadata for rename/style/delete/principal flows (no markdown content).
+export const cvMetaColumns = {
+  id: cvs.id,
+  userId: cvs.userId,
+  title: cvs.title,
+  isBase: cvs.isBase,
+  isPrincipal: cvs.isPrincipal,
+  templateName: cvs.templateName,
+  accentColor: cvs.accentColor,
+  fontFamily: cvs.fontFamily,
+  pageMargin: cvs.pageMargin,
+  scale: cvs.scale,
+  createdAt: cvs.createdAt,
+  updatedAt: cvs.updatedAt,
+};
+
 export const sessionUserColumns = {
   id: users.id,
   name: users.name,

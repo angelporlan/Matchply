@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { requireUserFeature } from '@/lib/permissions';
+import { jobOfferOwnershipColumns } from '@/lib/job-offer-queries';
 
 export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
@@ -66,7 +67,7 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
   const match = applicationMatchStrategy(input);
   if (!match) return null;
   if (match.strategy === 'external') {
-    const [offer] = await db.select().from(jobOffers).where(and(
+    const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
       eq(jobOffers.userId, userId),
       eq(jobOffers.externalSource, match.externalSource),
       eq(jobOffers.externalId, match.externalId),
@@ -74,13 +75,13 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
     return offer || null;
   }
   if (match.strategy === 'url') {
-    const [offer] = await db.select().from(jobOffers).where(and(
+    const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
       eq(jobOffers.userId, userId),
       eq(jobOffers.url, match.url),
     )).limit(1);
     return offer || null;
   }
-  const [offer] = await db.select().from(jobOffers).where(and(
+  const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
     eq(jobOffers.userId, userId),
     eq(jobOffers.title, match.title),
     eq(jobOffers.company, match.company),

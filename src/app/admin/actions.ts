@@ -6,7 +6,9 @@ import { users, cvs, jobOffers, settings, prompts, auditLogs } from '@/db/schema
 import { eq, and, not, sql, desc, gte, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { clearAiSettingsCache } from '@/lib/ai-settings';
+import { clearAiPromptsCache } from '@/lib/ai-prompts';
 import { CustomModelConfig, getDefaultModelCatalog } from '@/lib/models';
+import { applicationSummaryColumns, cvMetaColumns, sessionUserColumns } from '@/lib/job-offer-queries';
 
 // Helper de seguridad para asegurar que solo los admins llaman a estas acciones
 async function verifyAdmin() {
@@ -85,7 +87,7 @@ export async function getUserDetails(targetUserId: string) {
 
   try {
     const [userProfile] = await db
-      .select()
+      .select({ ...sessionUserColumns, createdAt: users.createdAt })
       .from(users)
       .where(eq(users.id, targetUserId))
       .limit(1);
@@ -94,19 +96,18 @@ export async function getUserDetails(targetUserId: string) {
       return { success: false, error: 'Usuario no encontrado' };
     }
 
-    // Obtener CVs del usuario
-    const userCvs = await db
-      .select()
-      .from(cvs)
-      .where(eq(cvs.userId, targetUserId))
-      .orderBy(sql`${cvs.createdAt} DESC`);
-
-    // Obtener candidaturas (ofertas de trabajo)
-    const userOffers = await db
-      .select()
-      .from(jobOffers)
-      .where(eq(jobOffers.userId, targetUserId))
-      .orderBy(sql`${jobOffers.createdAt} DESC`);
+    const [userCvs, userOffers] = await Promise.all([
+      db
+        .select(cvMetaColumns)
+        .from(cvs)
+        .where(eq(cvs.userId, targetUserId))
+        .orderBy(sql`${cvs.createdAt} DESC`),
+      db
+        .select(applicationSummaryColumns)
+        .from(jobOffers)
+        .where(eq(jobOffers.userId, targetUserId))
+        .orderBy(sql`${jobOffers.createdAt} DESC`),
+    ]);
 
     return {
       success: true,
@@ -245,54 +246,56 @@ export async function savePrompt(data: {
 
     let targetId = data.id;
 
-    if (isCreating) {
-      const [inserted] = await db
-        .insert(prompts)
-        .values({
-          name: data.name,
-          nameEn: data.nameEn || null,
-          key: data.key,
-          description: data.description || null,
-          descriptionEn: data.descriptionEn || null,
-          color: data.color || null,
-          systemPrompt: data.systemPrompt,
-          userPrompt: data.userPrompt,
-          isActive: data.isActive,
-          isArchived: isArchivedVal,
-          isStrict: isStrictVal,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-      targetId = inserted.id;
-    } else {
-      await db
-        .update(prompts)
-        .set({
-          name: data.name,
-          nameEn: data.nameEn || null,
-          key: data.key,
-          description: data.description || null,
-          descriptionEn: data.descriptionEn || null,
-          color: data.color || null,
-          systemPrompt: data.systemPrompt,
-          userPrompt: data.userPrompt,
-          isActive: data.isActive,
-          isArchived: isArchivedVal,
-          isStrict: isStrictVal,
-          updatedAt: now,
-        })
-        .where(eq(prompts.id, data.id!));
-    }
+    await db.transaction(async (tx) => {
+      if (isCreating) {
+        const [inserted] = await tx
+          .insert(prompts)
+          .values({
+            name: data.name,
+            nameEn: data.nameEn || null,
+            key: data.key,
+            description: data.description || null,
+            descriptionEn: data.descriptionEn || null,
+            color: data.color || null,
+            systemPrompt: data.systemPrompt,
+            userPrompt: data.userPrompt,
+            isActive: data.isActive,
+            isArchived: isArchivedVal,
+            isStrict: isStrictVal,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning();
+        targetId = inserted.id;
+      } else {
+        await tx
+          .update(prompts)
+          .set({
+            name: data.name,
+            nameEn: data.nameEn || null,
+            key: data.key,
+            description: data.description || null,
+            descriptionEn: data.descriptionEn || null,
+            color: data.color || null,
+            systemPrompt: data.systemPrompt,
+            userPrompt: data.userPrompt,
+            isActive: data.isActive,
+            isArchived: isArchivedVal,
+            isStrict: isStrictVal,
+            updatedAt: now,
+          })
+          .where(eq(prompts.id, data.id!));
+      }
 
-    // Si se marcó como activo, desactivamos todos los demás prompts de la misma función/key
-    if (data.isActive && targetId) {
-      await db
-        .update(prompts)
-        .set({ isActive: false })
-        .where(and(eq(prompts.key, data.key), not(eq(prompts.id, targetId))));
-    }
+      if (data.isActive && targetId) {
+        await tx
+          .update(prompts)
+          .set({ isActive: false })
+          .where(and(eq(prompts.key, data.key), not(eq(prompts.id, targetId))));
+      }
+    });
 
+    clearAiPromptsCache();
     revalidatePath('/admin');
     return { success: true };
   } catch (error: any) {
@@ -313,6 +316,7 @@ export async function deletePrompt(id: string) {
     }
 
     await db.delete(prompts).where(eq(prompts.id, id));
+    clearAiPromptsCache();
     revalidatePath('/admin');
     return { success: true };
   } catch (error: any) {
@@ -326,18 +330,19 @@ export async function togglePromptActive(id: string, key: string) {
   await verifyAdmin();
 
   try {
-    // Poner el prompt objetivo como activo
-    await db
-      .update(prompts)
-      .set({ isActive: true, updatedAt: new Date() })
-      .where(eq(prompts.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(prompts)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(prompts.id, id));
 
-    // Desactivar todos los demás prompts para la misma función/key
-    await db
-      .update(prompts)
-      .set({ isActive: false })
-      .where(and(eq(prompts.key, key), not(eq(prompts.id, id))));
+      await tx
+        .update(prompts)
+        .set({ isActive: false })
+        .where(and(eq(prompts.key, key), not(eq(prompts.id, id))));
+    });
 
+    clearAiPromptsCache();
     revalidatePath('/admin');
     return { success: true };
   } catch (error: any) {

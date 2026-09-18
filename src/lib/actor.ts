@@ -1,10 +1,11 @@
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { GUEST_MAX_CVS } from '@/lib/subscription';
+import { getSession } from '@/lib/session';
+import { getEntitlementUser } from '@/lib/permissions';
 
 export { GUEST_MAX_CVS } from '@/lib/subscription';
 
@@ -49,7 +50,14 @@ async function getGuestActorFromCookie(): Promise<RequestActor | null> {
   if (!token) return null;
 
   const [guest] = await db
-    .select()
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      subscriptionStatus: users.subscriptionStatus,
+      guestExpiresAt: users.guestExpiresAt,
+    })
     .from(users)
     .where(and(eq(users.guestTokenHash, hashGuestToken(token)), eq(users.isGuest, true)))
     .limit(1);
@@ -85,13 +93,9 @@ async function deleteExpiredGuestFromCookie() {
 }
 
 export async function getActor(options: { allowGuest?: boolean } = {}): Promise<RequestActor | null> {
-  const session = await auth();
+  const session = await getSession();
   if (session?.user?.id) {
-    const [dbUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
+    const dbUser = await getEntitlementUser(session.user.id);
 
     if (dbUser && !dbUser.isGuest) {
       return {
@@ -144,12 +148,12 @@ export async function getOrCreateGuestActor(): Promise<RequestActor> {
 }
 
 export async function getGuestCvCount(userId: string) {
-  const rows = await db
-    .select({ id: cvs.id })
+  const [row] = await db
+    .select({ count: sql<number>`cast(count(*) as int)` })
     .from(cvs)
     .where(eq(cvs.userId, userId));
 
-  return rows.length;
+  return Number(row?.count) || 0;
 }
 
 export async function claimGuestDataForUser(userId: string) {
@@ -157,7 +161,7 @@ export async function claimGuestDataForUser(userId: string) {
   if (!token) return { claimed: false, cvCount: 0 };
 
   const [guest] = await db
-    .select()
+    .select({ id: users.id, guestExpiresAt: users.guestExpiresAt })
     .from(users)
     .where(and(eq(users.guestTokenHash, hashGuestToken(token)), eq(users.isGuest, true)))
     .limit(1);
@@ -179,7 +183,7 @@ export async function claimGuestDataForUser(userId: string) {
   }
 
   const guestCvs = await db
-    .select()
+    .select({ id: cvs.id, isPrincipal: cvs.isPrincipal })
     .from(cvs)
     .where(eq(cvs.userId, guest.id))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { jobOffers, cvs } from "@/db/schema";
+import { jobOffers, cvs, users } from "@/db/schema";
 import { AIService } from "@/lib/ai-service";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -11,7 +11,7 @@ import { findOrCreateCompany } from "@/lib/company-service";
 import { requireUserFeature } from "@/lib/permissions";
 import { log } from "@/lib/logger";
 import { persistMatchResult } from "@/lib/match-persistence";
-import { baseCvForAiColumns, curateOfferColumns } from "@/lib/job-offer-queries";
+import { baseCvForAiColumns, curateOfferColumns, jobOfferOwnershipColumns } from "@/lib/job-offer-queries";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
   revalidatePath("/dashboard/applications");
@@ -29,6 +29,7 @@ export async function getOwnedJobOffer(offerId: string) {
     }
     await requireUserFeature(session.user.id, "applications");
 
+    // Detalle completo (tabla ancha): solo se lee al abrir la oferta.
     const [offer] = await db
       .select()
       .from(jobOffers)
@@ -60,7 +61,7 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
     await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
-      .select()
+      .select(jobOfferOwnershipColumns)
       .from(jobOffers)
       .where(eq(jobOffers.id, offerId))
       .limit(1);
@@ -103,7 +104,7 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
     await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
-      .select()
+      .select(jobOfferOwnershipColumns)
       .from(jobOffers)
       .where(eq(jobOffers.id, offerId))
       .limit(1);
@@ -121,6 +122,8 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
       .where(eq(jobOffers.id, offerId));
 
     revalidatePath("/dashboard/applications");
+    // El dashboard muestra la oferta más reciente vinculada a cada CV.
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating offer CV:", error);
@@ -137,7 +140,7 @@ export async function deleteJobOffer(offerId: string) {
     await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
-      .select()
+      .select(jobOfferOwnershipColumns)
       .from(jobOffers)
       .where(eq(jobOffers.id, offerId))
       .limit(1);
@@ -156,7 +159,7 @@ export async function deleteJobOffer(offerId: string) {
     });
 
     revalidateApplicationPaths(offer.companyId);
-    revalidatePath("/dashboard");
+    if (offer.cvId) revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting offer:", error);
@@ -203,8 +206,8 @@ export async function createJobOffer(offerData: {
       platform: newOffer.platform
     });
 
+    // Una oferta nueva no tiene CV vinculado: el dashboard no cambia.
     revalidateApplicationPaths(companyRecord?.id);
-    revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Error creating manual job offer:", error);
@@ -230,7 +233,7 @@ export async function updateJobOfferDetails(
     await requireUserFeature(session.user.id, "applications");
 
     const [offer] = await db
-      .select()
+      .select(jobOfferOwnershipColumns)
       .from(jobOffers)
       .where(eq(jobOffers.id, offerId))
       .limit(1);
@@ -264,7 +267,7 @@ export async function updateJobOfferDetails(
     });
 
     revalidateApplicationPaths(offer.companyId, companyRecord?.id);
-    revalidatePath("/dashboard");
+    if (offer.cvId) revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating offer details:", error);
@@ -281,23 +284,29 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
     const userId = session.user.id;
     const user = await requireUserFeature(userId, "applications");
 
-    const [offer] = await db
-      .select(curateOfferColumns)
-      .from(jobOffers)
-      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
-      .limit(1);
+    const [[offer], [baseCv], [profileRow]] = await Promise.all([
+      db
+        .select(curateOfferColumns)
+        .from(jobOffers)
+        .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
+        .limit(1),
+      db
+        .select(baseCvForAiColumns)
+        .from(cvs)
+        .where(eq(cvs.userId, userId))
+        .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id))
+        .limit(1),
+      db
+        .select({ careerProfile: users.careerProfile })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
+    ]);
     if (!offer) throw new Error("Job offer not found");
-
-    const [baseCv] = await db
-      .select(baseCvForAiColumns)
-      .from(cvs)
-      .where(eq(cvs.userId, userId))
-      .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id))
-      .limit(1);
 
     const { curated, errors } = await AIService.curateOffersBatch({
       baseCvMarkdown: baseCv?.content || "",
-      userCareerProfile: user.careerProfile,
+      userCareerProfile: profileRow?.careerProfile ?? null,
       offers: [{
         id: offer.id,
         title: offer.title,
