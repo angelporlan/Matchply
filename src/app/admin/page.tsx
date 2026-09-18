@@ -1,21 +1,23 @@
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { getSessionUser } from '@/lib/session';
 import { getAdminStats, getAIConfig, getAdminAuditLogs, getAdminAuditStats } from './actions';
 import AdminClient from './AdminClient';
 
 export default async function AdminPage() {
-  const session = await auth();
+  const user = await getSessionUser();
 
-  // Validar rol de administrador en el servidor
-  if (!session || !session.user || (session.user as any).role !== 'admin') {
+  // Validar rol de administrador en el servidor (rol fresco de BD, compartido con el layout)
+  if (!user || user.role !== 'admin') {
     redirect('/dashboard');
   }
 
   // Obtener datos iniciales para hidratar el cliente
-  const statsRes = await getAdminStats();
-  const aiConfigRes = await getAIConfig();
-  const auditLogsRes = await getAdminAuditLogs();
-  const auditStatsRes = await getAdminAuditStats();
+  const [statsRes, aiConfigRes, auditLogsRes, auditStatsRes] = await Promise.all([
+    getAdminStats(),
+    getAIConfig(),
+    getAdminAuditLogs(),
+    getAdminAuditStats(),
+  ]);
 
   if (!statsRes.success || !aiConfigRes.success) {
     return (

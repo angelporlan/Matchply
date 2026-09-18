@@ -254,7 +254,6 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
     setModalOpen(false);
     setForm({ name: '', website: '', location: '', sector: '' });
     router.push(`/dashboard/applications/companies/${result.company.id}`);
-    router.refresh();
   };
 
   const handleDeleteSingle = async () => {
@@ -281,7 +280,6 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
       return next;
     });
     showToast(t('companies.toasts.deleted'));
-    router.refresh();
   };
 
   const handleDeleteBulk = async () => {
@@ -306,7 +304,6 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
     } else {
       showToast(t('companies.toasts.deleted'));
     }
-    router.refresh();
   };
 
   const hasActiveFilters = Boolean(search.trim() || columnFilters.length > 0);

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, LazyMotion, m, domAnimation } from 'framer-motion';
 import {
   ChevronUp,
   CreditCard,
@@ -146,9 +146,10 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
         />
       </button>
 
+      <LazyMotion features={domAnimation}>
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             role="menu"
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -273,9 +274,10 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                 </button>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
+      </LazyMotion>
     </div>
   );
 }

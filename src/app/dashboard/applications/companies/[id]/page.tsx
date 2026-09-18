@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { db } from '@/db';
-import { jobOffers, users } from '@/db/schema';
+import { jobOffers } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
+import { getSessionUser } from '@/lib/session';
 import {
   CompanyNotFoundError,
   getOwnedCompany,
@@ -17,19 +17,13 @@ interface CompanyPageProps {
 }
 
 export default async function CompanyDetailPage({ params }: CompanyPageProps) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
-  const [dbUser] = await db
-    .select({ subscriptionStatus: users.subscriptionStatus })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!isProSubscription(dbUser?.subscriptionStatus || 'none')) {
+  const userId = dbUser.id;
+  if (!isProSubscription(dbUser.subscriptionStatus)) {
     redirect('/dashboard/subscription');
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from 'react';
 import {
   Archive,
   ArrowUpDown,
@@ -61,6 +62,8 @@ export default function ApplicationsBoardView({
   onDelete,
 }: ApplicationsBoardViewProps) {
   const { t } = useLanguage();
+  const [visibleByColumn, setVisibleByColumn] = useState<Partial<Record<Column['id'], number>>>({});
+  const COLUMN_CAP = 50;
 
   const columns: Column[] = [
     { id: 'interested', title: t('applications.columns.interested.title'), shortTitle: t('applications.columns.interested.shortTitle'), description: t('applications.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20' },
@@ -113,13 +116,16 @@ export default function ApplicationsBoardView({
             }
 
             const isInterested = column.id === 'interested';
+            const visibleLimit = visibleByColumn[column.id] ?? COLUMN_CAP;
+            const hiddenCount = Math.max(0, columnOffers.length - visibleLimit);
+            const visibleOffers = columnOffers.slice(0, visibleLimit);
 
             return (
               <div
                 key={column.id}
                 aria-label={`Columna ${column.title}`}
                 className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-surface rounded-[12px] border relative overflow-hidden transition-all duration-300 ${
-                  draggingOfferId && !columnOffers.some(o => o.id === draggingOfferId)
+                  draggingOfferId && !visibleOffers.some(o => o.id === draggingOfferId)
                     ? 'shadow-sm border-subtle'
                     : `${column.borderColor} shadow-sm hover:shadow-md`
                 }`}
@@ -214,7 +220,7 @@ export default function ApplicationsBoardView({
                           : ''
                       }`}
                     >
-                      {columnOffers.length === 0 ? (
+                      {visibleOffers.length === 0 ? (
                         <div className="h-full min-h-[260px] flex flex-col items-center justify-center border-2 border-dashed border-subtle rounded-[12px] p-6 text-center text-text-muted">
                           {hasActiveFilters ? (
                             <>
@@ -229,7 +235,7 @@ export default function ApplicationsBoardView({
                           )}
                         </div>
                       ) : isInterested ? (
-                        columnOffers.map((offer, index) => (
+                        visibleOffers.map((offer, index) => (
                           <ApplicationDenseListItem
                             key={offer.id}
                             offer={offer}
@@ -239,7 +245,7 @@ export default function ApplicationsBoardView({
                           />
                         ))
                       ) : (
-                        columnOffers.map((offer, index) => (
+                        visibleOffers.map((offer, index) => (
                           <ApplicationCard
                             key={offer.id}
                             offer={offer}
@@ -250,6 +256,18 @@ export default function ApplicationsBoardView({
                             onDelete={onDelete}
                           />
                         ))
+                      )}
+                      {hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setVisibleByColumn((prev) => ({
+                            ...prev,
+                            [column.id]: visibleLimit + COLUMN_CAP,
+                          }))}
+                          className="w-full mt-1 py-2 text-[11px] font-bold uppercase tracking-wider text-ai hover:bg-ai/8 rounded-[8px] font-display"
+                        >
+                          {t('applications.board.loadMore')} ({hiddenCount})
+                        </button>
                       )}
                       {provided.placeholder}
                     </div>

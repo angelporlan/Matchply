@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { db } from '@/db';
-import { jobOffers, cvs, users } from '@/db/schema';
+import { jobOffers, cvs } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
-import { cvListColumns, sessionUserColumns } from '@/lib/job-offer-queries';
+import { cvListColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
+import { getSessionUser } from '@/lib/session';
 
 interface OfferPageProps {
   params: {
@@ -16,54 +16,38 @@ interface OfferPageProps {
 }
 
 export default async function OfferDetailsPage({ params }: OfferPageProps) {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
+  const userId = dbUser.id;
   const offerId = params.id;
-
-  // 1. Fetch updated user status
-  const [dbUser] = await db
-    .select(sessionUserColumns)
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!dbUser) {
-    redirect('/dashboard');
-  }
-
-  const subscriptionStatus = dbUser.subscriptionStatus || 'none';
-  const isPremium = isProSubscription(subscriptionStatus);
+  const isPremium = isProSubscription(dbUser.subscriptionStatus);
 
   if (!isPremium) {
     redirect('/dashboard/subscription');
   }
 
-  // 2. Fetch job offer
-  const [offer] = await db
-    .select()
-    .from(jobOffers)
-    .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
-    .limit(1);
-
-  if (!offer) {
-    redirect('/dashboard/applications');
-  }
-
-  // 3. Fetch user CVs
-  const [userCvs, companies] = await Promise.all([
+  // Detalle completo de la oferta (tabla ancha: solo aquí), CVs, empresas e investigación en paralelo.
+  const [[offer], userCvs, companies, initialResearch] = await Promise.all([
+    db
+      .select()
+      .from(jobOffers)
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
+      .limit(1),
     db
       .select(cvListColumns)
       .from(cvs)
       .where(eq(cvs.userId, userId))
       .orderBy(desc(cvs.createdAt)),
     listCompanyLookups(userId),
+    getResearchRunForUser(userId, offerId),
   ]);
 
-  const initialResearch = await getResearchRunForUser(userId, offerId);
+  if (!offer) {
+    redirect('/dashboard/applications');
+  }
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">

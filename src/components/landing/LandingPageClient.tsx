@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, useReducedMotion } from 'framer-motion';
+import { LazyMotion, m, domAnimation, useReducedMotion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Sparkles, FileText, CheckCircle, ArrowRight, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -232,7 +232,7 @@ function FeatureDescription({ text }: { text: string }) {
   }
 
   return (
-    <motion.span
+    <m.span
       variants={containerVariants}
       initial="hidden"
       whileInView="visible"
@@ -241,16 +241,16 @@ function FeatureDescription({ text }: { text: string }) {
       aria-label={text}
     >
       {words.map((word, wordIdx) => (
-        <motion.span
+        <m.span
           key={wordIdx}
           variants={wordVariants}
           className="inline-block whitespace-nowrap mr-[0.25em]"
           aria-hidden="true"
         >
           {word}
-        </motion.span>
+        </m.span>
       ))}
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -535,7 +535,7 @@ export function MiniEditorMockup() {
             <div className="text-indigo-600 dark:text-ai font-bold min-h-[12px] flex items-center">
               <span>{typedLines[0]}</span>
               {activeLineIdx === 0 && (
-                <motion.span
+                <m.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
                   className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
@@ -547,7 +547,7 @@ export function MiniEditorMockup() {
             <div className="text-slate-700 dark:text-slate-300 font-semibold min-h-[12px] flex items-center">
               <span>{typedLines[1]}</span>
               {activeLineIdx === 1 && (
-                <motion.span
+                <m.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
                   className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
@@ -559,7 +559,7 @@ export function MiniEditorMockup() {
             <div className="text-slate-600 dark:text-emerald-400 font-medium min-h-[12px] flex items-center">
               <span>{typedLines[2]}</span>
               {activeLineIdx === 2 && (
-                <motion.span
+                <m.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
                   className="w-1 h-3 bg-indigo-500 dark:bg-emerald-400 ml-0.5"
@@ -571,7 +571,7 @@ export function MiniEditorMockup() {
             <div className="text-slate-500 dark:text-text-muted pl-2 min-h-[12px] flex items-center">
               <span>{typedLines[3]}</span>
               {activeLineIdx === 3 && (
-                <motion.span
+                <m.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
                   className="w-1 h-3 bg-indigo-500 dark:bg-emerald-400 ml-0.5"
@@ -582,7 +582,7 @@ export function MiniEditorMockup() {
             {/* Cursor on next lines */}
             {activeLineIdx >= 4 && (
               <div className="min-h-[12px] flex items-center">
-                <motion.span
+                <m.span
                   animate={{ opacity: [1, 0, 1] }}
                   transition={{ repeat: Infinity, duration: 0.8 }}
                   className="w-1 h-3 bg-indigo-500 dark:bg-ai-action ml-0.5"
@@ -597,7 +597,7 @@ export function MiniEditorMockup() {
           <div className="w-[86px] h-[96px] sm:w-[125px] sm:h-[135px] bg-white text-slate-800 rounded-md shadow-md border border-slate-200/60 p-1.5 sm:p-2.5 flex flex-col gap-1 sm:gap-1.5 relative overflow-hidden select-none">
             {/* Header Element */}
             {pdfVisibleCount >= 1 ? (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 3 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -609,7 +609,7 @@ export function MiniEditorMockup() {
                 <div className="text-[4px] text-slate-400 leading-none">
                   fernando@email.com • Madrid, ES
                 </div>
-              </motion.div>
+              </m.div>
             ) : (
               <div className="h-6 flex items-center justify-center border border-dashed border-slate-100 rounded text-[6px] text-slate-300">
                 Esperando cabecera...
@@ -618,7 +618,7 @@ export function MiniEditorMockup() {
 
             {/* Experience Title Element */}
             {pdfVisibleCount >= 2 && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 3 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -627,12 +627,12 @@ export function MiniEditorMockup() {
                 <div className="text-[4.5px] font-bold text-slate-500 tracking-wider uppercase leading-none">
                   Experiencia Profesional
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {/* Job Title Line */}
             {pdfVisibleCount >= 3 && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 3 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -644,12 +644,12 @@ export function MiniEditorMockup() {
                 <div className="text-[4px] text-slate-400 leading-none">
                   ABC Consulting SA • 2022 - Presente
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {/* AI optimized achievement Bullet Highlight */}
             {pdfVisibleCount >= 4 && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 15 }}
@@ -661,12 +661,12 @@ export function MiniEditorMockup() {
                 </div>
                 Reduje un 12% en costes operativos automatizando conciliaciones bancarias.
                 {/* Glowing light shimmer */}
-                <motion.div
+                <m.div
                   animate={{ x: ['-100%', '100%'] }}
                   transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none"
                 />
-              </motion.div>
+              </m.div>
             )}
           </div>
         </div>
@@ -796,6 +796,7 @@ export default function LandingPageClient({ session }: { session: any }) {
   };
 
   return (
+    <LazyMotion features={domAnimation} strict>
     <div className="relative min-h-screen overflow-x-hidden bg-canvas pt-16 text-text font-sans transition-colors duration-300">
       {/* Background radial glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-ai/4 dark:bg-ai/6 blur-[120px] pointer-events-none z-0" />
@@ -820,14 +821,14 @@ export default function LandingPageClient({ session }: { session: any }) {
         </div>
 
         {/* 1. Centered Logo at the top */}
-        <motion.div 
+        <m.div 
           className="mb-10 select-none flex items-center justify-center"
           initial={{ opacity: 0, y: -25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
           <Logo iconSize="md" textSize="lg" className="scale-125 sm:scale-150 transform origin-center" />
-        </motion.div>
+        </m.div>
 
         {/* 2. Header Container */}
         <div className="max-w-4xl mx-auto mb-8">
@@ -844,7 +845,7 @@ export default function LandingPageClient({ session }: { session: any }) {
         </div>
 
         {/* 4. Welcome CTA Row */}
-        <motion.div
+        <m.div
           className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -864,7 +865,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           >
             {t('landing.hero.secondaryCta')}
           </a>
-        </motion.div>
+        </m.div>
       </section>
 
 
@@ -888,7 +889,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                 </div>
                 <div className="grid-col col-xs-4 col-md-offset-2 col-md-6">
                   <div className="feature-media">
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: 35 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: '-100px' }}
@@ -897,7 +898,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                       <FeatureCard className="bg-surface-muted/30 p-3 sm:p-8 rounded-xl sm:rounded-2xl border border-text/8 dark:border-white/5 shadow-md overflow-hidden relative">
                         <MiniEditorMockup />
                       </FeatureCard>
-                    </motion.div>
+                    </m.div>
                   </div>
                 </div>
               </div>
@@ -916,7 +917,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                 </div>
                 <div className="grid-col col-xs-4 col-md-6 order-2 md:order-1 md:col-start-1">
                   <div className="feature-media">
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: 35 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: '-100px' }}
@@ -940,7 +941,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                             ].map((line, idx) => (
                               <g key={idx}>
                                 <path d={line.d} stroke={line.color} strokeWidth="1" strokeOpacity="0.12" />
-                                <motion.path
+                                <m.path
                                   d={line.d}
                                   stroke={line.color}
                                   strokeWidth="1.2"
@@ -955,16 +956,16 @@ export default function LandingPageClient({ session }: { session: any }) {
 
                           {/* Center: CV + Match Badge */}
                           <div className="flex flex-col items-center z-10">
-                            <motion.div
+                            <m.div
                               animate={{ y: [0, -3, 0] }}
                               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                               className="bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[8.5px] font-black px-2.5 py-0.5 rounded-full mb-2.5 flex items-center gap-0.5 shadow-sm shadow-emerald-500/5"
                             >
                               <Sparkles className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
                               <span>98% ATS Match</span>
-                            </motion.div>
+                            </m.div>
 
-                            <motion.div
+                            <m.div
                               whileHover={{ scale: 1.05, y: -2 }}
                               className="w-14 h-18 bg-white dark:bg-canvas rounded-lg shadow-xl border border-ai/25 dark:border-ai/35 flex flex-col p-2 gap-1.5 relative overflow-hidden"
                             >
@@ -985,66 +986,66 @@ export default function LandingPageClient({ session }: { session: any }) {
                               </div>
 
                               <div className="h-2 w-full bg-emerald-500/15 rounded border border-emerald-500/25 overflow-hidden relative flex items-center justify-center mt-auto">
-                                <motion.div
+                                <m.div
                                   animate={{ x: ['-100%', '100%'] }}
                                   transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
                                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
                                 />
                               </div>
-                            </motion.div>
+                            </m.div>
                           </div>
 
                           {/* Keywords */}
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
                             className="absolute left-[10%] top-[12%] bg-ai/8 hover:bg-ai/15 border border-ai/20 text-ai text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Logros
-                          </motion.div>
+                          </m.div>
 
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.5 }}
                             className="absolute right-[10%] top-[12%] bg-emerald-500/8 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Keywords
-                          </motion.div>
+                          </m.div>
 
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, 4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.4, ease: "easeInOut", delay: 1 }}
                             className="absolute left-[4%] top-[45%] bg-indigo-500/8 hover:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             ATS
-                          </motion.div>
+                          </m.div>
 
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, 4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.1, ease: "easeInOut", delay: 1.5 }}
                             className="absolute right-[4%] top-[45%] bg-action/8 hover:bg-action/15 border border-action/20 text-success-text dark:text-emerald-400 text-[8px] font-bold px-2.5 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Impacto
-                          </motion.div>
+                          </m.div>
 
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 2 }}
                             className="absolute left-[10%] bottom-[12%] bg-violet-500/8 hover:bg-violet-500/15 border border-violet-500/20 text-violet-600 dark:text-ai text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Logros
-                          </motion.div>
+                          </m.div>
 
-                          <motion.div
+                          <m.div
                             animate={{ y: [0, -4, 0] }}
                             transition={{ repeat: Infinity, duration: 3.3, ease: "easeInOut", delay: 2.5 }}
                             className="absolute right-[10%] bottom-[12%] bg-purple-500/8 hover:bg-purple-500/15 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm cursor-default"
                           >
                             Skills
-                          </motion.div>
+                          </m.div>
                         </div>
                       </FeatureCard>
-                    </motion.div>
+                    </m.div>
                   </div>
                 </div>
               </div>
@@ -1063,7 +1064,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                 </div>
                 <div className="grid-col col-xs-4 col-md-offset-2 col-md-6">
                   <div className="feature-media">
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: 35 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true, margin: '-100px' }}
@@ -1098,7 +1099,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                                 
                                 <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-none pr-0.5">
                                   {colCards.map(card => (
-                                    <motion.div
+                                    <m.div
                                       key={card.id}
                                       layout
                                       draggable
@@ -1118,7 +1119,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                                       {card.accepted && (
                                         <div className="text-[6.5px] text-emerald-500 font-extrabold mt-0.5 animate-bounce leading-none">🎉 ¡Aceptada!</div>
                                       )}
-                                    </motion.div>
+                                    </m.div>
                                   ))}
                                   {colCards.length === 0 && (
                                     <div className="flex-1 flex items-center justify-center border border-dashed border-slate-200 dark:border-white/5 rounded-xl py-6 text-center text-[7px] text-slate-400">
@@ -1131,7 +1132,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                           })}
                         </div>
                       </FeatureCard>
-                    </motion.div>
+                    </m.div>
                   </div>
                 </div>
               </div>
@@ -1273,5 +1274,6 @@ export default function LandingPageClient({ session }: { session: any }) {
         <div className="mx-auto mt-10 max-w-7xl border-t border-text/8 px-4 pt-6 text-xs text-text-muted dark:border-white/8 dark:text-text-muted">© {new Date().getFullYear()} Matchply. {t('landing.footer.tagline')}</div>
       </footer>
     </div>
+    </LazyMotion>
   );
 }

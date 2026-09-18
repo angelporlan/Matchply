@@ -6,7 +6,8 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface PdfViewerProps {
   cvId: string;
-  version: number;
+  /** Content version: changes whenever the PDF must be re-fetched (e.g. `${updatedAt}-${saveCount}`). */
+  version: number | string;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
   liveContent?: string;

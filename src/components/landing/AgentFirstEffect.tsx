@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { useReducedMotion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 
 // Exact y-axis wave offsets from the user's design
@@ -164,12 +163,20 @@ function PlatformIcon({ id }: { id: string }) {
 
 export default function AgentFirstEffect() {
   const { t } = useLanguage();
-  const shouldReduceMotion = useReducedMotion();
   const textToType = t('landing.agentEffect.text');
   const [displayedText, setDisplayedText] = useState('');
   const [ref, inView] = useInView({ threshold: 0.1 });
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasTypedRef = useRef(false);
+  const [shouldReduceMotion, setShouldReduceMotion] = useState(true);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setShouldReduceMotion(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     if (shouldReduceMotion) {
@@ -213,7 +220,7 @@ export default function AgentFirstEffect() {
       {/* 3D Wave Icon Marquee */}
       <div className="w-full overflow-hidden relative select-none pb-16 pt-24 mask-fade-edges">
         <ul className={`${inView && !shouldReduceMotion ? 'animate-wave-marquee' : ''} flex items-center gap-6 md:gap-8 list-none m-0 p-0 w-max`}>
-          {marqueeItems.map((platform, idx) => {
+          {(shouldReduceMotion ? platforms : marqueeItems).map((platform, idx) => {
             const offsetIndex = idx % waveOffsets.length;
             const offsetY = waveOffsets[offsetIndex];
 

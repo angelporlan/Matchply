@@ -1,26 +1,17 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import { isProSubscription } from '@/lib/subscription';
 import { listCompaniesForUser } from '@/lib/company-service';
+import { getSessionUser } from '@/lib/session';
 import CompaniesClient from '@/components/companies/CompaniesClient';
 
 export default async function CompaniesPage() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
-  const [dbUser] = await db
-    .select({ subscriptionStatus: users.subscriptionStatus })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!isProSubscription(dbUser?.subscriptionStatus || 'none')) {
+  const userId = dbUser.id;
+  if (!isProSubscription(dbUser.subscriptionStatus)) {
     redirect('/dashboard/subscription');
   }
 

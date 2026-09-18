@@ -1,36 +1,27 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { auth } from '@/auth';
 import { db } from '@/db';
-import { applicationViews, cvs, jobOffers, users } from '@/db/schema';
+import { applicationViews, cvs, jobOffers } from '@/db/schema';
 import { eq, desc, asc } from 'drizzle-orm';
 import ApplicationsClient from '@/components/applications/ApplicationsClient';
 import { isProSubscription } from '@/lib/subscription';
 import { cvListColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
 import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
+import { getSessionUser } from '@/lib/session';
 
 interface ApplicationsPageProps {
   searchParams?: { layout?: string; view?: string; company?: string };
 }
 
 export default async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
-
-  // 1. Obtener información actualizada del usuario de la base de datos
-  const [dbUser] = await db
-    .select({ subscriptionStatus: users.subscriptionStatus })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = isProSubscription(subscriptionStatus);
+  const userId = dbUser.id;
+  const isPremium = isProSubscription(dbUser.subscriptionStatus);
 
   if (!isPremium) {
     redirect('/dashboard/subscription');

@@ -51,10 +51,8 @@ export default function ApplicationCard({
 
   const handleStatusChange = async (newStatus: string) => {
     setLoading(true);
-    const result = await updateJobOfferStatus(offer.id, newStatus);
-    if (result.success) {
-      router.refresh();
-    }
+    // La Server Action ya revalida /dashboard/applications; no hace falta un segundo refetch.
+    await updateJobOfferStatus(offer.id, newStatus);
     setLoading(false);
   };
 
@@ -62,10 +60,7 @@ export default function ApplicationCard({
     const cvId = e.target.value;
     setSelectedCv(cvId);
     setLoading(true);
-    const result = await updateJobOfferCv(offer.id, cvId === '' ? null : cvId);
-    if (result.success) {
-      router.refresh();
-    }
+    await updateJobOfferCv(offer.id, cvId === '' ? null : cvId);
     setLoading(false);
   };
 

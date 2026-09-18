@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, prompts, jobOffers } from '@/db/schema';
+import { cvs, prompts, jobOffers } from '@/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
-import { cvListColumns, cvTargetColumns, sessionUserColumns } from '@/lib/job-offer-queries';
+import { cvListColumns, cvTargetColumns } from '@/lib/job-offer-queries';
 import { CreditCard, Crown } from 'lucide-react';
 import { isProSubscription } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
+import { getSessionUser } from '@/lib/session';
 import DashboardClient from './DashboardClient';
 import { getServerTranslations } from '@/lib/i18n/server';
 
@@ -19,13 +19,15 @@ interface DashboardPageProps {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
+  const userId = dbUser.id;
   const { t } = getServerTranslations();
+
+  let subscriptionStatus = dbUser.subscriptionStatus || 'none';
 
   if (searchParams?.checkout === 'success' && searchParams.session_id) {
     const checkoutSession = await stripe.checkout.sessions.retrieve(searchParams.session_id);
@@ -35,52 +37,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ) {
       const subscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
       await syncStripeSubscription(subscription);
+      subscriptionStatus = subscription.status;
     }
   }
 
-  // 1. Obtener información actualizada del usuario de la base de datos
-  const [dbUser] = await db
-    .select(sessionUserColumns)
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
   const isPremium = isProSubscription(subscriptionStatus);
 
-  // 2. Obtener lista de currículums del usuario (Principal primero, luego más recientes)
-  const userCvs = await db
-    .select(cvListColumns)
-    .from(cvs)
-    .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.isPrincipal), desc(cvs.updatedAt));
-
-  // 2b. Oferta más reciente vinculada a cada CV (target y encaje)
-  const cvTargets = await db
-    .selectDistinctOn([jobOffers.cvId], cvTargetColumns)
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt));
-
-  // 3. Obtener prompts no archivados para optimización de CV
-  const availablePrompts = await db
-    .select({
-      id: prompts.id,
-      name: prompts.name,
-      nameEn: prompts.nameEn,
-      isActive: prompts.isActive,
-      description: prompts.description,
-      descriptionEn: prompts.descriptionEn,
-      color: prompts.color,
-    })
-    .from(prompts)
-    .where(
-      and(
-        eq(prompts.key, 'optimize_cv'),
-        eq(prompts.isArchived, false)
+  // Currículums (Principal primero), oferta más reciente por CV y modos de optimización, en paralelo.
+  const [userCvs, cvTargets, availablePrompts] = await Promise.all([
+    db
+      .select(cvListColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.isPrincipal), desc(cvs.updatedAt)),
+    db
+      .selectDistinctOn([jobOffers.cvId], cvTargetColumns)
+      .from(jobOffers)
+      .where(eq(jobOffers.userId, userId))
+      .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt)),
+    db
+      .select({
+        id: prompts.id,
+        name: prompts.name,
+        nameEn: prompts.nameEn,
+        isActive: prompts.isActive,
+        description: prompts.description,
+        descriptionEn: prompts.descriptionEn,
+        color: prompts.color,
+      })
+      .from(prompts)
+      .where(
+        and(
+          eq(prompts.key, 'optimize_cv'),
+          eq(prompts.isArchived, false)
+        )
       )
-    )
-    .orderBy(prompts.name);
+      .orderBy(prompts.name),
+  ]);
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -97,7 +90,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
               <div>
                 <h2 className="text-xl font-bold font-display text-text flex items-center gap-2">
-                  {t('dashboard.banner.title', { name: dbUser?.name || session.user.name || t('sidebar.profile.candidate') })}
+                  {t('dashboard.banner.title', { name: dbUser.name || t('sidebar.profile.candidate') })}
                 </h2>
                 <p className="text-text-muted text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
                   {t('dashboard.banner.desc')}

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import NextLink from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Building2,
@@ -43,7 +42,6 @@ export default function CompanyDetailClient({
   statusCounts,
 }: CompanyDetailClientProps) {
   const { t } = useLanguage();
-  const router = useRouter();
   const [form, setForm] = useState({
     name: company.name,
     website: company.website || '',
@@ -74,7 +72,6 @@ export default function CompanyDetailClient({
       return;
     }
     showToast(t('companies.toasts.saved'));
-    router.refresh();
   };
 
   const handleAddNote = async (event: React.FormEvent) => {
@@ -89,7 +86,6 @@ export default function CompanyDetailClient({
     }
     setNoteContent('');
     showToast(t('companies.toasts.noteAdded'));
-    router.refresh();
   };
 
   const handleDeleteNote = async () => {
@@ -103,7 +99,6 @@ export default function CompanyDetailClient({
       return;
     }
     showToast(t('companies.toasts.noteDeleted'));
-    router.refresh();
   };
 
   const websiteHref = form.website

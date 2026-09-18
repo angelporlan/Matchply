@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useDeferredValue } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   FileEdit, Bold, Italic, List, Heading1, Heading2, Heading3, Eraser, Code, Eye,
@@ -288,6 +288,7 @@ const loadingTipsEn = [
 export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep }: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
+  const deferredContent = useDeferredValue(content);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>('visual');
   const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
@@ -692,7 +693,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
             <div
               ref={overlayRef}
               className="absolute inset-0 p-6 font-mono text-sm leading-relaxed overflow-auto pointer-events-none whitespace-pre-wrap break-words text-text editor-scrollbar select-none"
-              dangerouslySetInnerHTML={{ __html: highlightMarkdown(content) }}
+              dangerouslySetInnerHTML={{ __html: highlightMarkdown(deferredContent) }}
             />
             
             {/* Transparent textarea on top */}

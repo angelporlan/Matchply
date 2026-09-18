@@ -121,10 +121,10 @@ export default function DashboardClient({
     return map;
   }, [cvTargets]);
 
-  // Refresh dashboard data on mount to ensure it's always fresh and shows newly created CVs
+  // Sincronizar el estado local cuando el servidor envíe una lista nueva (tras revalidatePath / router.refresh).
   useEffect(() => {
-    router.refresh();
-  }, [router]);
+    setUserCvs(initialCvs);
+  }, [initialCvs]);
 
   // Estados de control de modals
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -290,11 +290,6 @@ export default function DashboardClient({
 
   // Buscar el CV principal actual
   const principalCv = userCvs.find(cv => cv.isPrincipal);
-
-  // Sincronizar estado local con props de entrada cuando cambien
-  if (JSON.stringify(initialCvs) !== JSON.stringify(userCvs)) {
-    setUserCvs(initialCvs);
-  }
 
   // Manejar creación rápida
   const handleCreateQuick = async (e: React.FormEvent) => {

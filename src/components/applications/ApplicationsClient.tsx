@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useDeferredValue } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
@@ -21,6 +21,7 @@ import {
   normalizeViewConfig,
   paginate,
   sortApplications,
+  viewConfigsEqual,
   type ApplicationColumnFilter,
   type ApplicationColumnId,
   type ApplicationColumnWidth,
@@ -113,6 +114,7 @@ export default function ApplicationsClient({
   const [selectedOfferForDetails, setSelectedOfferForDetails] = useState<JobOffer | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialConfig.filters.search || '');
+  const deferredSearch = useDeferredValue(searchQuery);
   const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>(initialConfig.filters.cv || 'all');
   const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>(initialConfig.filters.date || 'all');
@@ -141,7 +143,7 @@ export default function ApplicationsClient({
   const activeViewOption = viewOptions.find((view) => view.id === activeViewId);
 
   const viewFilters = useMemo<ApplicationViewFilters>(() => ({
-    search: searchQuery,
+    search: deferredSearch,
     status: statusFilter,
     cv: cvFilter,
     date: dateFilter,
@@ -150,7 +152,7 @@ export default function ApplicationsClient({
     followup: followupFilter,
     columnFilters,
     excludedStatuses,
-  }), [searchQuery, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters, excludedStatuses]);
+  }), [deferredSearch, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters, excludedStatuses]);
 
   const currentConfig = useMemo<ApplicationViewConfig>(() => normalizeViewConfig({
     columns,
@@ -163,7 +165,7 @@ export default function ApplicationsClient({
   }), [columns, viewFilters, sort, pageSize, grouping, columnWidths, actionsIndex]);
 
   const isDirty = useMemo(
-    () => JSON.stringify(currentConfig) !== JSON.stringify(normalizeViewConfig(activeViewConfig)),
+    () => !viewConfigsEqual(currentConfig, normalizeViewConfig(activeViewConfig)),
     [currentConfig, activeViewConfig],
   );
 
@@ -292,7 +294,6 @@ export default function ApplicationsClient({
       ? { ...view, name: result.view!.name, config: normalizeViewConfig(result.view!.config) }
       : view));
     showToast(t('applications.views.toasts.saved'));
-    router.refresh();
   };
 
   const handleSaveViewAs = async (name: string) => {
@@ -321,7 +322,6 @@ export default function ApplicationsClient({
     } catch {}
     syncUrl({ view: created.id });
     showToast(t('applications.views.toasts.saved'));
-    router.refresh();
   };
 
   const handleRenameView = async (newName: string) => {
@@ -345,7 +345,6 @@ export default function ApplicationsClient({
       ? { ...view, name: result.view!.name }
       : view));
     showToast(t('applications.views.toasts.renamed'));
-    router.refresh();
   };
 
   const handleSetDefaultView = async () => {
@@ -360,7 +359,6 @@ export default function ApplicationsClient({
       document.cookie = `applications_view=${activeViewId}; path=/; max-age=31536000; SameSite=Lax`;
     } catch {}
     showToast(t('applications.views.toasts.defaultUpdated'));
-    router.refresh();
   };
 
   const handleDeleteView = async () => {
@@ -377,7 +375,6 @@ export default function ApplicationsClient({
     } catch {}
     handleSelectView('active');
     showToast(t('applications.views.toasts.deleted'));
-    router.refresh();
   };
 
   const handleRevertView = () => {
@@ -478,7 +475,6 @@ export default function ApplicationsClient({
       return;
     }
     showToast(t('applications.table.statusUpdated'));
-    router.refresh();
   };
 
   const handleConfirmDeleteOffer = async () => {
@@ -493,7 +489,6 @@ export default function ApplicationsClient({
     setLocalOffers((prev) => prev.filter((item) => item.id !== offerToDelete.id));
     setOfferToDelete(null);
     showToast(t('applications.table.deleted'));
-    router.refresh();
   };
 
   const handleBulkStatusChange = async (status: string) => {
@@ -509,7 +504,6 @@ export default function ApplicationsClient({
       showToast(t('applications.table.bulkStatusUpdated').replace('{count}', String(ids.length)));
     }
     setSelectedIds(new Set());
-    router.refresh();
   };
 
   const handleCurateSelected = async () => {
@@ -595,8 +589,6 @@ export default function ApplicationsClient({
     if (actionResult.error) {
       // Revert if db update fails
       setLocalOffers(previousOffers);
-    } else {
-      router.refresh();
     }
   };
 
@@ -656,7 +648,6 @@ export default function ApplicationsClient({
         platform: 'linkedin',
         description: '',
       });
-      router.refresh();
     }
   };
 

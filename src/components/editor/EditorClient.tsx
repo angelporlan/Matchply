@@ -43,6 +43,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const { t, language } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [pdfVersion, setPdfVersion] = useState(0);
+  // Epoch estable durante la sesión: junto con pdfVersion forma la URL versionada (cacheable) del PDF.
+  const [contentEpoch] = useState(() => new Date(cv.updatedAt).getTime());
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
@@ -204,9 +206,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           setStreamingStep(t('editor.aiModal.steps.generate'));
         }
 
-        // Recargar PDF cada 3 segundos si ya hay contenido razonable
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
         const now = Date.now();
-        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -215,6 +217,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
+      router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
       }, 2000);
@@ -288,9 +292,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         setCvContent(accumulatedText);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
 
-        // Recargar PDF cada 3 segundos si ya hay contenido razonable
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
         const now = Date.now();
-        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -299,6 +303,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
       }, 2000);
@@ -661,7 +666,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           >
             <PdfViewer
               cvId={cv.id}
-              version={pdfVersion}
+              version={`${contentEpoch}-${pdfVersion}`}
               isFullScreen={fullscreenPanel === 'pdf'}
               onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'pdf' ? 'none' : 'pdf')}
               liveContent={cvContent}
