@@ -5,9 +5,15 @@ import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { CvListItem } from '@/lib/job-offer-queries';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { A4PageSkeleton } from '@/components/skeletons';
 
 const PdfViewer = dynamic(() => import('@/components/editor/PdfViewer'), {
   ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center p-4">
+      <A4PageSkeleton className="max-h-full" />
+    </div>
+  ),
 });
 
 interface CvQuickPreviewModalProps {

@@ -12,6 +12,7 @@ import CareerProfileForm from '@/components/profile/CareerProfileForm';
 import SettingsTabs from '@/components/profile/SettingsTabs';
 import AccountSettings from '@/components/profile/AccountSettings';
 import IntegrationsPanel from '@/components/subscription/IntegrationsPanel';
+import { ProfileTabsSkeleton } from '@/components/skeletons';
 import { Sparkles } from 'lucide-react';
 
 export default async function ProfileSettingsPage() {
@@ -75,11 +76,7 @@ export default async function ProfileSettingsPage() {
         </div>
 
         {/* Pestañas unificadas: Perfil & Criterios · Integraciones · Cuenta */}
-        <Suspense
-          fallback={
-            <div className="h-24 rounded-[12px] border border-dashed border-subtle" />
-          }
-        >
+        <Suspense fallback={<ProfileTabsSkeleton />}>
           <SettingsTabs
             defaultTab="profile"
             profile={

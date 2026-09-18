@@ -38,8 +38,12 @@ import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw,
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import ExportApplicationsModal from './ExportApplicationsModal';
+import { ApplicationsBoardSkeleton, ApplicationsSkeleton, OfferDetailsModalSkeleton } from '@/components/skeletons';
 
-const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), { ssr: false });
+const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), {
+  ssr: false,
+  loading: () => <ApplicationsBoardSkeleton />,
+});
 
 interface SavedApplicationView {
   id: string;
@@ -72,7 +76,7 @@ export default function ApplicationsClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   const initialConfig = (() => {
@@ -652,12 +656,7 @@ export default function ApplicationsClient({
   };
 
   if (!hasMounted) {
-    return (
-      <div className="w-full min-h-[500px] flex flex-col items-center justify-center py-20 font-display">
-        <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
-        <p className="text-xs text-text-muted mt-3 font-sans">{t('applications.board.loading')}</p>
-      </div>
-    );
+    return <ApplicationsSkeleton layout={layout} />;
   }
 
   return (
@@ -1131,13 +1130,7 @@ export default function ApplicationsClient({
         </div>
       )}
 
-      {detailsLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="rounded-xl bg-surface px-4 py-3 text-sm text-text shadow-lg">
-            {language === 'es' ? 'Cargando oferta…' : 'Loading offer…'}
-          </div>
-        </div>
-      )}
+      {detailsLoading && <OfferDetailsModalSkeleton />}
 
       {selectedOfferForDetails && (
         <JobOfferDetailsModal

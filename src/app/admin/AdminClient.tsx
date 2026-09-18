@@ -52,6 +52,8 @@ import {
   getOpenRouterKeyInfo
 } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
+import { AdminUserDetailsSkeleton } from '@/components/skeletons';
+import { Bone, times } from '@/components/ui/Skeleton';
 
 import {
   type CustomModelConfig,
@@ -1452,9 +1454,13 @@ export default function AdminClient({
                   </div>
 
                   {loadingKeyInfo ? (
-                    <div className="flex items-center justify-center py-4 gap-2 text-text-muted text-xs font-sans animate-pulse">
-                      <RefreshCw className="w-4 h-4 animate-spin text-ai" />
-                      <span>Obteniendo límites de la API de OpenRouter...</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" aria-busy="true">
+                      {times(4).map((index) => (
+                        <div key={index} className="bg-surface border border-subtle p-3 rounded-[8px] space-y-2">
+                          <Bone className="h-2.5 w-20" />
+                          <Bone className="h-5 w-16" />
+                        </div>
+                      ))}
                     </div>
                   ) : keyInfoError ? (
                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-[11px] rounded-[8px] flex items-start gap-2.5 font-sans">
@@ -2129,10 +2135,7 @@ export default function AdminClient({
 
               {/* Dynamic user stats details */}
               {loadingDetails ? (
-                <div className="text-center py-12 text-text-muted text-xs font-light flex items-center justify-center gap-2 font-sans">
-                  <RefreshCw className="w-4 h-4 animate-spin text-ai stroke-[1.75]" />
-                  <span>Cargando currículums y candidaturas en la base de datos...</span>
-                </div>
+                <AdminUserDetailsSkeleton />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   

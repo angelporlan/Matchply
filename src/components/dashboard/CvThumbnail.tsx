@@ -9,6 +9,7 @@ import {
   getCachedCvThumbnail,
   renderCvThumbnail,
 } from '@/lib/cv-thumbnail';
+import { A4DocumentSkeleton } from '@/components/skeletons';
 
 interface CvThumbnailProps {
   cvId: string;
@@ -73,19 +74,8 @@ export default function CvThumbnail({ cvId, version, className }: CvThumbnailPro
   }
 
   return (
-    <div
-      ref={ref}
-      className={`w-full h-full bg-white flex flex-col gap-1.5 p-2.5 ${className ?? ''}`}
-      aria-hidden="true"
-    >
-      <div className="h-1.5 w-2/5 rounded bg-surface-muted" />
-      <div className="h-1 w-3/5 rounded bg-surface-muted" />
-      <div className="mt-1.5 h-1 w-full rounded bg-surface-muted" />
-      <div className="h-1 w-11/12 rounded bg-surface-muted" />
-      <div className="h-1 w-4/5 rounded bg-surface-muted" />
-      <div className="mt-2 h-1 w-1/3 rounded bg-surface-muted" />
-      <div className="h-1 w-full rounded bg-surface-muted" />
-      <div className="h-1 w-10/12 rounded bg-surface-muted" />
+    <div ref={ref} className={`w-full h-full ${className ?? ''}`} aria-busy="true">
+      <A4DocumentSkeleton compact className="w-full h-full" />
     </div>
   );
 }

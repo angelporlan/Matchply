@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Eye, Download, Loader2, AlertTriangle, RefreshCw, Minus, Plus, Maximize2, Minimize2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { A4PageSkeleton } from '@/components/skeletons';
 
 interface PdfViewerProps {
   cvId: string;
@@ -233,9 +234,9 @@ export default function PdfViewer({
             </div>
           </div>
         ) : loading && !pdfBlobUrl ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-canvas/60 backdrop-blur-xs z-10 gap-3 transition-all">
-            <Loader2 className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
-            <p className="text-text-muted text-xs font-semibold tracking-wide uppercase font-display">{t('editor.pdf.loading')}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-canvas/80 dark:bg-canvas/70 z-10 p-4 transition-all">
+            <A4PageSkeleton className="max-h-[90%]" />
+            <p className="sr-only">{t('editor.pdf.loading')}</p>
           </div>
         ) : null}
         
