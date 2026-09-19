@@ -116,11 +116,11 @@ export const curateOfferColumns = {
 
 export const companyListColumns = {
   id: companies.id,
-  userId: companies.userId,
   name: companies.name,
   website: companies.website,
   location: companies.location,
   sector: companies.sector,
+  iconHash: companies.iconHash,
   createdAt: companies.createdAt,
   updatedAt: companies.updatedAt,
 };
@@ -128,6 +128,7 @@ export const companyListColumns = {
 export const companyLookupColumns = {
   id: companies.id,
   name: companies.name,
+  iconHash: companies.iconHash,
 };
 
 export const companyNoteColumns = {
@@ -145,6 +146,7 @@ export type ApplicationSummary = {
   title: string;
   company: string;
   companyId: string | null;
+  companyIconHash?: string | null;
   url: string | null;
   platform: string;
   status: string;
@@ -178,11 +180,11 @@ export type CvTargetSummary = {
 
 export type CompanyListItem = {
   id: string;
-  userId: string;
   name: string;
   website: string | null;
   location: string | null;
   sector: string | null;
+  iconHash: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -190,6 +192,7 @@ export type CompanyListItem = {
 export type CompanyLookupItem = {
   id: string;
   name: string;
+  iconHash: string | null;
 };
 
 export type CompanyNoteItem = {

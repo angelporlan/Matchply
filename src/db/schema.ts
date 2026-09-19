@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer, primaryKey } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -43,21 +43,40 @@ export const cvs = pgTable('cv', {
   userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
 
-// Empresas del usuario (CRM de candidaturas). El nombre visible se denormaliza en job_offer.company.
+// Catálogo compartido de empresas. Nombre, web, ubicación, sector e icono son comunes a todos los usuarios.
+// El nombre visible también se denormaliza en job_offer.company. Notas y postulaciones siguen siendo por usuario.
 export const companies = pgTable('company', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   name: text('name').notNull(),
   nameNormalized: text('nameNormalized').notNull(),
   website: text('website'),
   location: text('location'),
   sector: text('sector'),
+  iconHash: text('iconHash'),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
-  userIdx: index('company_user_id_idx').on(table.userId),
-  userNameIdx: uniqueIndex('company_user_name_idx').on(table.userId, table.nameNormalized),
+  nameIdx: uniqueIndex('company_name_normalized_idx').on(table.nameNormalized),
 }));
+
+// Relación usuario ↔ empresa (CRM personal). Borrar aquí no borra la ficha compartida.
+export const userCompanies = pgTable('user_company', {
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  companyId: uuid('companyId').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.companyId] }),
+  companyIdx: index('user_company_company_id_idx').on(table.companyId),
+}));
+
+// Icono pequeño (PNG/WebP/ICO, ≤ 8 KB). No seleccionar en listados; servir con iconHash.
+export const companyIcons = pgTable('company_icon', {
+  companyId: uuid('companyId').primaryKey().references(() => companies.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytes: text('bytes').notNull(), // base64
+  byteSize: integer('byteSize').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 // Tabla de Ofertas de Trabajo y Seguimiento (Candidaturas)
 export const jobOffers = pgTable('job_offer', {
@@ -317,7 +336,7 @@ export const aiJobs = pgTable('ai_job', {
 // Definición de Relaciones para Drizzle
 export const usersRelations = relations(users, ({ many }) => ({
   cvs: many(cvs),
-  companies: many(companies),
+  userCompanies: many(userCompanies),
   companyNotes: many(companyNotes),
   jobOffers: many(jobOffers),
   auditLogs: many(auditLogs),
@@ -335,9 +354,19 @@ export const cvsRelations = relations(cvs, ({ one, many }) => ({
 }));
 
 export const companiesRelations = relations(companies, ({ one, many }) => ({
-  user: one(users, { fields: [companies.userId], references: [users.id] }),
   jobOffers: many(jobOffers),
   notes: many(companyNotes),
+  memberships: many(userCompanies),
+  icon: one(companyIcons, { fields: [companies.id], references: [companyIcons.companyId] }),
+}));
+
+export const userCompaniesRelations = relations(userCompanies, ({ one }) => ({
+  user: one(users, { fields: [userCompanies.userId], references: [users.id] }),
+  company: one(companies, { fields: [userCompanies.companyId], references: [companies.id] }),
+}));
+
+export const companyIconsRelations = relations(companyIcons, ({ one }) => ({
+  company: one(companies, { fields: [companyIcons.companyId], references: [companies.id] }),
 }));
 
 export const companyNotesRelations = relations(companyNotes, ({ one }) => ({
@@ -395,6 +424,8 @@ export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
 export type Company = typeof companies.$inferSelect;
+export type UserCompany = typeof userCompanies.$inferSelect;
+export type CompanyIcon = typeof companyIcons.$inferSelect;
 export type CompanyNote = typeof companyNotes.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
 export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;

@@ -79,7 +79,9 @@ La base de datos PostgreSQL se gestiona de forma interactiva con **Drizzle ORM**
 - `user`: Perfil, roles (`user`, `admin`), Stripe (`stripeCustomerId`, `stripeSubscriptionId`, `subscriptionStatus`) y `careerProfile` (JSONB).
 - `cv`: Markdown del currículum, diseño (`templateName`, `accentColor`, `fontFamily`, `scale`, `pageMargin`) e indicadores (`isBase`, `isPrincipal`).
 - `job_offer`: Postulaciones del tablero. Tabla ancha: no seleccionar `description`/`rawReport` en listados. `company` es el nombre denormalizado; `companyId` apunta a `company`.
-- `company` / `company_note`: ficha CRM de empresa por usuario y notas de seguimiento. Listados con `companyListColumns` y conteos agregados; las notas se leen en el detalle.
+- `company`: catálogo compartido (nombre, web, ubicación, sector, `iconHash`). Todos los usuarios reutilizan la misma ficha. Listados con `companyListColumns`; el binario está en `company_icon` y no se selecciona en listados.
+- `user_company`: membresía del CRM personal. El listado de empresas de un usuario sale de aquí, con conteos de *sus* postulaciones y notas.
+- `company_note`: notas de seguimiento por usuario. Se leen en el detalle.
 - `job_research_run` / `ai_job`: colas Postgres (`SKIP LOCKED`) para research y jobs de IA.
 - `setting` / `prompt`: proveedor/modelo de IA y prompts dinámicos.
 - `audit_log`: auditoría (escritura no bloqueante).

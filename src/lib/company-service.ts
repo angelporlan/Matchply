@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { companies, companyNotes, jobOffers } from '@/db/schema';
+import { companies, companyIcons, companyNotes, jobOffers, userCompanies } from '@/db/schema';
 import {
   companyListColumns,
   companyLookupColumns,
@@ -9,10 +9,13 @@ import {
   type CompanyLookupItem,
   type CompanyNoteItem,
 } from '@/lib/job-offer-queries';
+import { assertCompanyIcon, hashIconBytes } from '@/lib/company-icon';
 
 export const COMPANY_NAME_MAX = 120;
 export const COMPANY_FIELD_MAX = 160;
 export const COMPANY_NOTE_MAX = 4000;
+
+export type CompanyMissingField = 'website' | 'location' | 'sector' | 'icon';
 
 export class CompanyNotFoundError extends Error {
   constructor() {
@@ -77,32 +80,61 @@ function isUniqueViolation(error: unknown) {
   return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '23505');
 }
 
+export function missingCompanyFields(row: {
+  website: string | null;
+  location: string | null;
+  sector: string | null;
+  iconHash: string | null;
+}): CompanyMissingField[] {
+  const missing: CompanyMissingField[] = [];
+  if (!row.website) missing.push('website');
+  if (!row.location) missing.push('location');
+  if (!row.sector) missing.push('sector');
+  if (!row.iconHash) missing.push('icon');
+  return missing;
+}
+
+async function ensureUserCompany(userId: string, companyId: string) {
+  await db
+    .insert(userCompanies)
+    .values({ userId, companyId })
+    .onConflictDoNothing();
+}
+
+async function findCompanyByNormalizedName(nameNormalized: string) {
+  const [existing] = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.nameNormalized, nameNormalized))
+    .limit(1);
+  return existing ?? null;
+}
+
 export async function findOrCreateCompany(userId: string, rawName: string) {
   const name = normalizeCompanyName(rawName);
   if (!name) return null;
   const nameNormalized = companyNameKey(name);
 
-  const [existing] = await db
-    .select()
-    .from(companies)
-    .where(and(eq(companies.userId, userId), eq(companies.nameNormalized, nameNormalized)))
-    .limit(1);
-  if (existing) return existing;
+  const existing = await findCompanyByNormalizedName(nameNormalized);
+  if (existing) {
+    await ensureUserCompany(userId, existing.id);
+    return existing;
+  }
 
   try {
     const [created] = await db
       .insert(companies)
-      .values({ userId, name, nameNormalized })
+      .values({ name, nameNormalized })
       .returning();
+    await ensureUserCompany(userId, created.id);
     return created;
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
-    const [again] = await db
-      .select()
-      .from(companies)
-      .where(and(eq(companies.userId, userId), eq(companies.nameNormalized, nameNormalized)))
-      .limit(1);
-    if (again) return again;
+    const again = await findCompanyByNormalizedName(nameNormalized);
+    if (again) {
+      await ensureUserCompany(userId, again.id);
+      return again;
+    }
     throw error;
   }
 }
@@ -110,8 +142,9 @@ export async function findOrCreateCompany(userId: string, rawName: string) {
 export async function listCompanyLookups(userId: string): Promise<CompanyLookupItem[]> {
   return db
     .select(companyLookupColumns)
-    .from(companies)
-    .where(eq(companies.userId, userId))
+    .from(userCompanies)
+    .innerJoin(companies, eq(companies.id, userCompanies.companyId))
+    .where(eq(userCompanies.userId, userId))
     .orderBy(asc(companies.name));
 }
 
@@ -122,10 +155,11 @@ export async function listCompaniesForUser(userId: string): Promise<CompanyListR
       applicationCount: sql<number>`cast(count(distinct ${jobOffers.id}) as int)`,
       noteCount: sql<number>`cast(count(distinct ${companyNotes.id}) as int)`,
     })
-    .from(companies)
-    .leftJoin(jobOffers, eq(jobOffers.companyId, companies.id))
-    .leftJoin(companyNotes, eq(companyNotes.companyId, companies.id))
-    .where(eq(companies.userId, userId))
+    .from(userCompanies)
+    .innerJoin(companies, eq(companies.id, userCompanies.companyId))
+    .leftJoin(jobOffers, and(eq(jobOffers.companyId, companies.id), eq(jobOffers.userId, userId)))
+    .leftJoin(companyNotes, and(eq(companyNotes.companyId, companies.id), eq(companyNotes.userId, userId)))
+    .where(eq(userCompanies.userId, userId))
     .groupBy(companies.id)
     .orderBy(asc(companies.name));
 
@@ -139,8 +173,9 @@ export async function listCompaniesForUser(userId: string): Promise<CompanyListR
 export async function getOwnedCompany(userId: string, companyId: string) {
   const [company] = await db
     .select(companyListColumns)
-    .from(companies)
-    .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+    .from(userCompanies)
+    .innerJoin(companies, eq(companies.id, userCompanies.companyId))
+    .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId)))
     .limit(1);
   if (!company) throw new CompanyNotFoundError();
   return company;
@@ -154,6 +189,32 @@ export async function countCompanyApplications(userId: string, companyId: string
   return Number(row?.count) || 0;
 }
 
+async function fillEmptyCompanyFields(
+  companyId: string,
+  input: { website?: string | null; location?: string | null; sector?: string | null },
+) {
+  const [existing] = await db
+    .select(companyListColumns)
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!existing) return null;
+
+  const website = existing.website ?? optionalField(input.website);
+  const location = existing.location ?? optionalField(input.location);
+  const sector = existing.sector ?? optionalField(input.sector);
+  if (website === existing.website && location === existing.location && sector === existing.sector) {
+    return existing;
+  }
+
+  const [updated] = await db
+    .update(companies)
+    .set({ website, location, sector, updatedAt: new Date() })
+    .where(eq(companies.id, companyId))
+    .returning(companyListColumns);
+  return updated ?? existing;
+}
+
 export async function createCompany(
   userId: string,
   input: { name: string; website?: string | null; location?: string | null; sector?: string | null },
@@ -162,11 +223,22 @@ export async function createCompany(
   if (!name) throw new CompanyValidationError('COMPANY_NAME_REQUIRED');
   const nameNormalized = companyNameKey(name);
 
+  const existing = await findCompanyByNormalizedName(nameNormalized);
+  if (existing) {
+    const [membership] = await db
+      .select({ companyId: userCompanies.companyId })
+      .from(userCompanies)
+      .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, existing.id)))
+      .limit(1);
+    if (membership) throw new CompanyNameConflictError();
+    await ensureUserCompany(userId, existing.id);
+    return (await fillEmptyCompanyFields(existing.id, input)) ?? existing;
+  }
+
   try {
     const [created] = await db
       .insert(companies)
       .values({
-        userId,
         name,
         nameNormalized,
         website: optionalField(input.website),
@@ -174,10 +246,20 @@ export async function createCompany(
         sector: optionalField(input.sector),
       })
       .returning(companyListColumns);
+    await ensureUserCompany(userId, created.id);
     return created;
   } catch (error) {
-    if (isUniqueViolation(error)) throw new CompanyNameConflictError();
-    throw error;
+    if (!isUniqueViolation(error)) throw error;
+    const raced = await findCompanyByNormalizedName(nameNormalized);
+    if (!raced) throw error;
+    const [membership] = await db
+      .select({ companyId: userCompanies.companyId })
+      .from(userCompanies)
+      .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, raced.id)))
+      .limit(1);
+    if (membership) throw new CompanyNameConflictError();
+    await ensureUserCompany(userId, raced.id);
+    return (await fillEmptyCompanyFields(raced.id, input)) ?? raced;
   }
 }
 
@@ -203,7 +285,7 @@ export async function updateCompany(
           sector: optionalField(input.sector),
           updatedAt: new Date(),
         })
-        .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+        .where(eq(companies.id, companyId))
         .returning(companyListColumns);
 
       if (!row) throw new CompanyNotFoundError();
@@ -212,7 +294,7 @@ export async function updateCompany(
         await tx
           .update(jobOffers)
           .set({ company: name, updatedAt: new Date() })
-          .where(and(eq(jobOffers.userId, userId), eq(jobOffers.companyId, companyId)));
+          .where(eq(jobOffers.companyId, companyId));
       }
 
       return row;
@@ -233,7 +315,22 @@ export async function deleteCompany(userId: string, companyId: string) {
     throw new CompanyHasApplicationsError(applicationCount);
   }
 
-  await db.delete(companies).where(and(eq(companies.id, companyId), eq(companies.userId, userId)));
+  await db
+    .delete(companyNotes)
+    .where(and(eq(companyNotes.companyId, companyId), eq(companyNotes.userId, userId)));
+  await db
+    .delete(userCompanies)
+    .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId)));
+
+  const [[memberships], [offers], [notes]] = await Promise.all([
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(userCompanies).where(eq(userCompanies.companyId, companyId)),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(jobOffers).where(eq(jobOffers.companyId, companyId)),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(companyNotes).where(eq(companyNotes.companyId, companyId)),
+  ]);
+
+  if ((Number(memberships?.count) || 0) === 0 && (Number(offers?.count) || 0) === 0 && (Number(notes?.count) || 0) === 0) {
+    await db.delete(companies).where(eq(companies.id, companyId));
+  }
 }
 
 export async function listCompanyNotes(userId: string, companyId: string): Promise<CompanyNoteItem[]> {
@@ -279,4 +376,114 @@ export async function deleteCompanyNote(userId: string, noteId: string) {
     .where(eq(companies.id, note.companyId));
 
   return note;
+}
+
+export async function listIncompleteCompanies(limit = 100) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 500));
+  const rows = await db
+    .select(companyListColumns)
+    .from(companies)
+    .where(sql`coalesce(${companies.website}, '') = '' or coalesce(${companies.location}, '') = '' or coalesce(${companies.sector}, '') = '' or ${companies.iconHash} is null`)
+    .orderBy(asc(companies.name))
+    .limit(safeLimit);
+
+  return rows.map((row) => ({
+    ...row,
+    missing: missingCompanyFields(row),
+  }));
+}
+
+export async function applyCompanyEnrichment(
+  companyId: string,
+  input: { website?: string | null; location?: string | null; sector?: string | null },
+  options: { overwrite?: boolean } = {},
+) {
+  const [existing] = await db
+    .select(companyListColumns)
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!existing) throw new CompanyNotFoundError();
+
+  const overwrite = Boolean(options.overwrite);
+  const patch: {
+    website?: string | null;
+    location?: string | null;
+    sector?: string | null;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+
+  if (input.website !== undefined && (overwrite || !existing.website)) {
+    patch.website = optionalField(input.website);
+  }
+  if (input.location !== undefined && (overwrite || !existing.location)) {
+    patch.location = optionalField(input.location);
+  }
+  if (input.sector !== undefined && (overwrite || !existing.sector)) {
+    patch.sector = optionalField(input.sector);
+  }
+
+  const [updated] = await db
+    .update(companies)
+    .set(patch)
+    .where(eq(companies.id, companyId))
+    .returning(companyListColumns);
+
+  return updated ?? existing;
+}
+
+export async function saveCompanyIcon(companyId: string, bytes: Buffer, mime?: string | null, options: { overwrite?: boolean } = {}) {
+  const [existing] = await db
+    .select(companyListColumns)
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!existing) throw new CompanyNotFoundError();
+  if (existing.iconHash && !options.overwrite) return existing;
+
+  const resolvedMime = assertCompanyIcon(bytes, mime);
+  const iconHash = hashIconBytes(bytes);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(companyIcons)
+      .values({
+        companyId,
+        mime: resolvedMime,
+        bytes: bytes.toString('base64'),
+        byteSize: bytes.length,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: companyIcons.companyId,
+        set: {
+          mime: resolvedMime,
+          bytes: bytes.toString('base64'),
+          byteSize: bytes.length,
+          updatedAt: new Date(),
+        },
+      });
+
+    await tx
+      .update(companies)
+      .set({ iconHash, updatedAt: new Date() })
+      .where(eq(companies.id, companyId));
+  });
+
+  return { ...existing, iconHash };
+}
+
+export async function getCompanyIcon(companyId: string) {
+  const [row] = await db
+    .select({
+      mime: companyIcons.mime,
+      bytes: companyIcons.bytes,
+      byteSize: companyIcons.byteSize,
+      iconHash: companies.iconHash,
+    })
+    .from(companyIcons)
+    .innerJoin(companies, eq(companies.id, companyIcons.companyId))
+    .where(eq(companyIcons.companyId, companyId))
+    .limit(1);
+  return row ?? null;
 }
