@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Outfit } from 'next/font/google';
 import { cookies } from 'next/headers';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
-import type { Language, TranslationDict } from '@/lib/i18n/types';
+import type { Language } from '@/lib/i18n/types';
 import { AiPromptDebugProvider } from '@/components/ai/AiPromptDebugContext';
 import './globals.css';
 
@@ -36,10 +36,6 @@ export default async function RootLayout({
     process.env.AI_PROMPTS_DEBUG === 'true' ||
     process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG === 'true';
 
-  const dictionary = (initialLanguage === 'en'
-    ? (await import('@/lib/i18n/en')).default
-    : (await import('@/lib/i18n/es')).default) as unknown as TranslationDict;
-
   return (
     <html lang={initialLanguage} className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <head>
@@ -59,7 +55,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="bg-canvas text-text min-h-screen">
-        <LanguageProvider initialLanguage={initialLanguage} initialDictionary={dictionary}>
+        <LanguageProvider initialLanguage={initialLanguage}>
           <AiPromptDebugProvider initialDebugEnabled={isDebugEnabled}>
             {children}
           </AiPromptDebugProvider>

@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Language, TranslationDict } from './types';
+import en from './en';
+import es from './es';
 
 interface LanguageContextType {
   language: Language;
@@ -12,12 +14,10 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-async function loadDictionary(lang: Language): Promise<TranslationDict> {
-  if (lang === 'en') {
-    return (await import('./en')).default as unknown as TranslationDict;
-  }
-  return (await import('./es')).default as unknown as TranslationDict;
-}
+const dictionaries: Record<Language, TranslationDict> = {
+  en: en as unknown as TranslationDict,
+  es: es as unknown as TranslationDict,
+};
 
 function lookup(dictionary: TranslationDict | null | undefined, key: string): string | undefined {
   if (!dictionary) return undefined;
@@ -36,37 +36,23 @@ function lookup(dictionary: TranslationDict | null | undefined, key: string): st
 export function LanguageProvider({
   children,
   initialLanguage = 'es',
-  initialDictionary,
 }: {
   children: React.ReactNode;
   initialLanguage?: Language;
-  initialDictionary: TranslationDict;
 }) {
   const router = useRouter();
   const [language, setLanguageState] = useState<Language>(initialLanguage);
-  const [dictionary, setDictionary] = useState<TranslationDict>(initialDictionary);
-  const [fallbackEs, setFallbackEs] = useState<TranslationDict | null>(
-    initialLanguage === 'es' ? initialDictionary : null,
-  );
 
   const setLanguage = (lang: Language) => {
-    void (async () => {
-      const next = await loadDictionary(lang);
-      setDictionary(next);
-      if (lang === 'es') setFallbackEs(next);
-      else if (!fallbackEs) {
-        setFallbackEs(await loadDictionary('es'));
-      }
-      setLanguageState(lang);
-      localStorage.setItem('lang', lang);
-      document.cookie = `lang=${lang}; path=/; max-age=31536000`;
-      router.refresh();
-    })();
+    setLanguageState(lang);
+    localStorage.setItem('lang', lang);
+    document.cookie = `lang=${lang}; path=/; max-age=31536000`;
+    router.refresh();
   };
 
   const t = (key: string, replacements?: Record<string, string | number>): string => {
-    let value = lookup(dictionary, key);
-    if (value === undefined) value = lookup(fallbackEs, key);
+    let value = lookup(dictionaries[language], key);
+    if (value === undefined && language !== 'es') value = lookup(dictionaries.es, key);
     if (value === undefined) return key;
 
     let result = value;
