@@ -48,13 +48,13 @@ const es = {
         register: 'Registrarse',
       },
       hero: {
-        badge: 'IA que lee la oferta y reescribe tu CV para pasar el ATS',
-        titleBefore: 'Tu ',
-        titleHighlight: 'CV perfecto',
-        titleAfter: ' para cada oferta, en segundos',
-        subtitle: 'Genera versiones personalizadas de tu currículum adaptadas exactamente a cada puesto. Redacción Harvard profesional, editor interactivo en tiempo real y visor PDF inteligente.',
-        primaryCta: 'Optimizar Mi CV Ahora',
-        secondaryCta: 'Explorar Plantillas',
+        badge: 'En 60 segundos. Sin inventar experiencia.',
+        titleBefore: 'Tu CV ',
+        titleHighlight: 'para esa oferta',
+        titleAfter: '',
+        subtitle: 'Si no adaptas el CV al lenguaje de cada vacante, el filtro te descarta antes de leerte. Matchply genera una versión para esa oferta concreta, con tu trayectoria real.',
+        primaryCta: 'Probar con mi última oferta',
+        secondaryCta: 'Ver cómo funciona',
       },
       features: {
         title: 'Una suite potente de optimización profesional',
@@ -66,6 +66,7 @@ const es = {
         ai: {
           title: 'Deja de ser ignorado por los filtros ATS',
           desc: 'La IA analiza cada oferta y reescribe tu CV con las palabras clave exactas que buscan los reclutadores.',
+          mockBadge: 'Keywords de la oferta',
         },
         applications: {
           title: 'Nunca pierdas el hilo de tus candidaturas',
@@ -205,7 +206,7 @@ const es = {
         skill2: '- Conciliación bancaria',
       },
       agentEffect: {
-        text: 'Matchply es nuestra plataforma inteligente de optimización de CVs, permitiendo a cualquiera destacar en la era de la IA.',
+        text: 'Pega la oferta. Matchply adapta tu CV a ese puesto, con tu experiencia real.',
       },
     },
     sidebar: {

@@ -236,6 +236,8 @@ export default function ApplicationsTable({
           return (
             <NextLink
               href={`/dashboard/applications/companies/${offer.companyId}`}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={(event) => event.stopPropagation()}
               className="text-ai hover:underline truncate max-w-[200px] inline-block align-bottom"
               title={offer.company}
@@ -558,6 +560,8 @@ export default function ApplicationsTable({
                       {offer.companyId ? (
                         <NextLink
                           href={`/dashboard/applications/companies/${offer.companyId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           onClick={(event) => event.stopPropagation()}
                           className="text-xs text-ai hover:underline mt-0.5 truncate inline-block"
                         >

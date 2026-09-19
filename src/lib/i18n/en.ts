@@ -48,13 +48,13 @@ const en = {
         register: 'Sign Up',
       },
       hero: {
-        badge: 'AI that reads the job offer and rewrites your CV to pass the ATS',
-        titleBefore: 'Your ',
-        titleHighlight: 'perfect CV',
-        titleAfter: ' for every job offer, in seconds',
-        subtitle: 'Generate tailored versions of your resume for every role. Professional Harvard-style writing, a real-time interactive editor, and a smart PDF preview.',
-        primaryCta: 'Optimize My CV Now',
-        secondaryCta: 'Explore Templates',
+        badge: 'In 60 seconds. Does not invent experience.',
+        titleBefore: 'Your CV ',
+        titleHighlight: 'for that job',
+        titleAfter: '',
+        subtitle: 'If you do not match the language of each posting, the first filter drops you before anyone reads you. Matchply produces a version for that specific job, using your real history.',
+        primaryCta: 'Try it with my latest job',
+        secondaryCta: 'See how it works',
       },
       features: {
         title: 'A powerful suite for professional optimization',
@@ -66,6 +66,7 @@ const en = {
         ai: {
           title: 'Stop being ignored by ATS filters',
           desc: 'AI analyzes each job offer and rewrites your CV with the exact keywords recruiters are looking for.',
+          mockBadge: 'Job-post keywords',
         },
         applications: {
           title: 'Never lose track of your applications',
@@ -157,7 +158,7 @@ const en = {
         skill2: '- Bank reconciliation',
       },
       agentEffect: {
-        text: 'Matchply is our intelligent resume optimization platform, allowing anyone to stand out in the AI era.',
+        text: 'Paste the job post. Matchply adapts your CV to that role, using your real experience.',
       },
     },
     sidebar: {

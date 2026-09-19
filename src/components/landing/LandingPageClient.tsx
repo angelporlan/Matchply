@@ -814,7 +814,7 @@ export default function LandingPageClient({ session }: { session: any }) {
       />
 
       {/* Centered Welcome Section (adapted from Google Antigravity) */}
-      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-4rem)] z-10 flex flex-col items-center justify-center text-center py-16">
+      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 flex flex-col items-center justify-center text-center py-20 sm:py-28">
         {/* Particle matching mesh underneath Hero */}
         <div className="absolute inset-0 w-full h-full -z-10 overflow-hidden">
           <ParticlesCanvas disabled={shouldUseLightMotion} />
@@ -832,7 +832,10 @@ export default function LandingPageClient({ session }: { session: any }) {
 
         {/* 2. Header Container */}
         <div className="max-w-4xl mx-auto mb-8">
-          <h1 className="font-display font-black text-4xl sm:text-6xl tracking-tight leading-[1.15] text-text min-h-[5.5rem] sm:min-h-[7rem]">
+          <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-ai">
+            {t('landing.hero.badge')}
+          </p>
+          <h1 className="mx-auto max-w-3xl font-display font-black text-4xl sm:text-5xl tracking-tight leading-[1.15] text-text">
             <span>{visiblePart1}</span>
             <span className="bg-gradient-to-r from-ai to-action dark:to-emerald-400 bg-clip-text text-transparent">
               {visiblePart2}
@@ -842,6 +845,9 @@ export default function LandingPageClient({ session }: { session: any }) {
               <span className="inline-block w-[3px] h-[0.85em] bg-ai-action dark:bg-action ml-1 rounded-sm align-middle animate-blink" />
             )}
           </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-text-muted sm:text-lg">
+            {t('landing.hero.subtitle')}
+          </p>
         </div>
 
         {/* 4. Welcome CTA Row */}
@@ -849,7 +855,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.0, duration: 0.8 }}
+          transition={{ delay: 0.15, duration: 0.45 }}
         >
           <ButtonLink
             href={session ? "/dashboard" : "/try"}
@@ -860,7 +866,7 @@ export default function LandingPageClient({ session }: { session: any }) {
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform stroke-[1.75]" />
           </ButtonLink>
           <a
-            href="#templates"
+            href="#features"
             className="w-full sm:w-auto bg-surface border border-subtle text-text-muted dark:text-text hover:bg-canvas dark:hover:bg-surface-muted/80 hover:text-text dark:hover:text-white px-8 py-4 rounded-[8px] font-semibold transition-all flex items-center justify-center gap-2 text-base font-display shadow-sm"
           >
             {t('landing.hero.secondaryCta')}
@@ -962,7 +968,7 @@ export default function LandingPageClient({ session }: { session: any }) {
                               className="bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[8.5px] font-black px-2.5 py-0.5 rounded-full mb-2.5 flex items-center gap-0.5 shadow-sm shadow-emerald-500/5"
                             >
                               <Sparkles className="w-2.5 h-2.5 animate-pulse text-emerald-500" />
-                              <span>98% ATS Match</span>
+                              <span>{t('landing.features.ai.mockBadge')}</span>
                             </m.div>
 
                             <m.div
