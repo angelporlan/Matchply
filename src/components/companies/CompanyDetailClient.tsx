@@ -15,6 +15,7 @@ import {
   deleteCompanyNoteAction,
   updateCompanyAction,
 } from '@/app/dashboard/applications/companies/actions';
+import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationScoreBadge from '@/components/applications/ApplicationScoreBadge';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
@@ -127,7 +128,11 @@ export default function CompanyDetailClient({
 
       <div className="bg-surface p-6 border border-subtle rounded-[12px] shadow-sm space-y-2">
         <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight font-display flex items-center gap-2">
-          <Building2 className="w-6 h-6 text-ai shrink-0 stroke-[1.75]" />
+          {company.iconHash ? (
+            <CompanyIcon companyId={company.id} iconHash={company.iconHash} name={company.name} size="md" />
+          ) : (
+            <Building2 className="w-6 h-6 text-ai shrink-0 stroke-[1.75]" />
+          )}
           {company.name}
         </h1>
         <p className="text-sm text-text-muted">
@@ -151,7 +156,8 @@ export default function CompanyDetailClient({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section className="lg:col-span-5 bg-surface border border-subtle rounded-[12px] p-6 shadow-sm">
-          <h2 className="text-sm font-bold font-display text-text mb-4">{t('companies.form.editTitle')}</h2>
+          <h2 className="text-sm font-bold font-display text-text mb-1">{t('companies.form.editTitle')}</h2>
+          <p className="text-xs text-text-muted mb-4">{t('companies.form.sharedHint')}</p>
           {error && (
             <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px]">
               {error}

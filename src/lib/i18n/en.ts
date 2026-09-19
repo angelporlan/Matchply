@@ -650,7 +650,7 @@ const en = {
     },
     companies: {
       title: 'Companies',
-      subtitle: 'Group applications and keep follow-up notes by company.',
+      subtitle: 'Group applications and keep follow-up notes by company. Company profile data is shared.',
       newBtn: 'New company',
       searchPlaceholder: 'Search by name, location, or sector...',
       lookup: {
@@ -682,7 +682,7 @@ const en = {
           deleteSelected: 'Delete selected',
           clear: 'Clear selection',
           deleteConfirmTitle: 'Delete {count} companies?',
-          deleteConfirmMessage: 'Selected companies and their notes will be deleted. Companies with linked applications will not be deleted.',
+          deleteConfirmMessage: 'They will be removed from your list and your notes will be deleted. Companies with linked applications cannot be removed. The shared company profile is kept if other users still use it.',
           deletedSummary: '{deleted} companies deleted ({skipped} skipped because of linked applications).',
         },
         columns: {
@@ -719,6 +719,7 @@ const en = {
       form: {
         createTitle: 'New company',
         createDesc: 'Create a record to group applications and follow-up notes.',
+        sharedHint: 'Name, website, location, sector and icon are shared across all users. Notes and applications stay private to you.',
         editTitle: 'Company details',
         name: 'Name',
         namePlaceholder: 'e.g. Stripe',
@@ -754,7 +755,7 @@ const en = {
       },
       delete: {
         title: 'Delete company?',
-        message: '“{name}” and its notes will be deleted. Applications are kept.',
+        message: '“{name}” will be removed from your list and your notes will be deleted. Applications are kept. The shared company profile is kept if other users still use it.',
         confirm: 'Yes, delete',
       },
       toasts: {

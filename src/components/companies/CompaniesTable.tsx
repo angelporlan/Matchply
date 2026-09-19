@@ -22,6 +22,7 @@ import {
   type CompanySortState,
 } from './CompanyColumnHeaderMenu';
 import CompanyColumnHeaderMenu from './CompanyColumnHeaderMenu';
+import CompanyIcon from './CompanyIcon';
 import { formatDate, cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -147,6 +148,7 @@ export default function CompaniesTable({
       case 'name':
         return (
           <div className="flex items-center gap-2 min-w-0">
+            <CompanyIcon companyId={company.id} iconHash={company.iconHash} name={company.name} />
             <span className="font-display font-bold text-text truncate max-w-[260px]" title={company.name}>
               {company.name}
             </span>
@@ -397,7 +399,10 @@ export default function CompaniesTable({
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-display font-bold text-sm text-text truncate">{company.name}</p>
+                    <p className="font-display font-bold text-sm text-text truncate flex items-center gap-2">
+                      <CompanyIcon companyId={company.id} iconHash={company.iconHash} name={company.name} />
+                      <span className="truncate">{company.name}</span>
+                    </p>
                     <p className="text-xs text-text-muted mt-0.5 truncate">
                       {[company.location, company.sector].filter(Boolean).join(' · ') || t('companies.table.noMeta')}
                     </p>

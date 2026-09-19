@@ -30,6 +30,7 @@ import {
 } from '@/lib/application-views';
 import { formatDate, cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
 import ApplicationStatusSelect from './ApplicationStatusSelect';
@@ -239,10 +240,11 @@ export default function ApplicationsTable({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(event) => event.stopPropagation()}
-              className="text-ai hover:underline truncate max-w-[200px] inline-block align-bottom"
+              className="text-ai hover:underline truncate max-w-[200px] inline-flex items-center gap-1.5 align-bottom"
               title={offer.company}
             >
-              {offer.company}
+              <CompanyIcon companyId={offer.companyId} iconHash={offer.companyIconHash} name={offer.company} />
+              <span className="truncate">{offer.company}</span>
             </NextLink>
           );
         }
@@ -563,9 +565,10 @@ export default function ApplicationsTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(event) => event.stopPropagation()}
-                          className="text-xs text-ai hover:underline mt-0.5 truncate inline-block"
+                          className="text-xs text-ai hover:underline mt-0.5 truncate inline-flex items-center gap-1.5 max-w-full"
                         >
-                          {offer.company}
+                          <CompanyIcon companyId={offer.companyId} iconHash={offer.companyIconHash} name={offer.company} />
+                          <span className="truncate">{offer.company}</span>
                         </NextLink>
                       ) : (
                         <p className="text-xs text-text-muted mt-0.5 truncate">{offer.company}</p>

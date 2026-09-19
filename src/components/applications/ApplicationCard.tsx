@@ -10,6 +10,7 @@ import AlertModal from '../ui/AlertModal';
 import { Draggable } from '@hello-pangea/dnd';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
+import CompanyIcon from '@/components/companies/CompanyIcon';
 
 interface ApplicationCardProps {
   offer: ApplicationSummary;
@@ -137,9 +138,10 @@ export default function ApplicationCard({
                 <a
                   href={`/dashboard/applications/companies/${offer.companyId}`}
                   onClick={(event) => event.stopPropagation()}
-                  className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans hover:text-ai hover:underline"
+                  className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans hover:text-ai hover:underline inline-flex items-center gap-1.5 max-w-full"
                 >
-                  {offer.company}
+                  <CompanyIcon companyId={offer.companyId} iconHash={offer.companyIconHash} name={offer.company} />
+                  <span className="truncate">{offer.company}</span>
                 </a>
               ) : (
                 <p className="text-text-muted text-xs font-medium mt-0.5 truncate font-sans">{offer.company}</p>

@@ -698,7 +698,7 @@ const es = {
     },
     companies: {
       title: 'Empresas',
-      subtitle: 'Agrupa tus postulaciones y deja notas de seguimiento por empresa.',
+      subtitle: 'Agrupa tus postulaciones y deja notas de seguimiento por empresa. Los datos de la ficha son compartidos.',
       newBtn: 'Nueva empresa',
       searchPlaceholder: 'Buscar por nombre, ubicación o sector...',
       lookup: {
@@ -730,7 +730,7 @@ const es = {
           deleteSelected: 'Eliminar seleccionadas',
           clear: 'Limpiar selección',
           deleteConfirmTitle: '¿Borrar {count} empresas?',
-          deleteConfirmMessage: 'Se borrarán las empresas seleccionadas y sus notas. Las empresas que tengan postulaciones asociadas no se podrán eliminar.',
+          deleteConfirmMessage: 'Se quitarán de tu lista y se borrarán tus notas. Las que tengan postulaciones asociadas no se podrán eliminar. La ficha compartida se conserva si otros usuarios la usan.',
           deletedSummary: 'Se han eliminado {deleted} empresas ({skipped} omitidas por tener postulaciones asociadas).',
         },
         columns: {
@@ -767,6 +767,7 @@ const es = {
       form: {
         createTitle: 'Nueva empresa',
         createDesc: 'Crea una ficha para agrupar postulaciones y notas de seguimiento.',
+        sharedHint: 'El nombre, la web, la ubicación, el sector y el icono son comunes a todos los usuarios. Las notas y postulaciones son solo tuyas.',
         editTitle: 'Datos de la empresa',
         name: 'Nombre',
         namePlaceholder: 'Ej. Stripe',
@@ -802,7 +803,7 @@ const es = {
       },
       delete: {
         title: '¿Borrar empresa?',
-        message: 'Se borrará «{name}» y sus notas. Las postulaciones no se eliminan.',
+        message: 'Se quitará «{name}» de tu lista y se borrarán tus notas. Las postulaciones no se eliminan. La ficha compartida se conserva si otros usuarios la usan.',
         confirm: 'Sí, borrar',
       },
       toasts: {

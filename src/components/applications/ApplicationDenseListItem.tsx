@@ -6,6 +6,7 @@ import { ApplicationSummary } from '@/lib/job-offer-queries';
 import { Sparkles, ExternalLink, Send, GripVertical } from 'lucide-react';
 import { updateJobOfferStatus } from '@/app/dashboard/applications/actions';
 import { scoreToPercent } from '@/lib/application-views';
+import CompanyIcon from '@/components/companies/CompanyIcon';
 
 interface ApplicationDenseListItemProps {
   offer: ApplicationSummary;
@@ -130,9 +131,10 @@ export default function ApplicationDenseListItem({
               <a
                 href={`/dashboard/applications/companies/${offer.companyId}`}
                 onClick={(event) => event.stopPropagation()}
-                className="text-[11px] text-text-muted font-medium truncate font-sans hover:text-ai hover:underline"
+                className="text-[11px] text-text-muted font-medium truncate font-sans hover:text-ai hover:underline inline-flex items-center gap-1.5 min-w-0"
               >
-                {offer.company}
+                <CompanyIcon companyId={offer.companyId} iconHash={offer.companyIconHash} name={offer.company} />
+                <span className="truncate">{offer.company}</span>
               </a>
             ) : (
               <p className="text-[11px] text-text-muted font-medium truncate font-sans">

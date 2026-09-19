@@ -65,7 +65,7 @@ interface ApplicationsClientProps {
 }
 
 export default function ApplicationsClient({
-  offers,
+  offers: rawOffers,
   userCvs,
   companies,
   savedViews: initialSavedViews,
@@ -78,6 +78,13 @@ export default function ApplicationsClient({
   const searchParams = useSearchParams();
   const { t } = useLanguage();
   const { inspectOrExecutePrompt } = useAiPromptDebug();
+  const offers = useMemo(() => {
+    const icons = new Map(companies.map((company) => [company.id, company.iconHash]));
+    return rawOffers.map((offer) => ({
+      ...offer,
+      companyIconHash: offer.companyId ? icons.get(offer.companyId) ?? null : null,
+    }));
+  }, [rawOffers, companies]);
 
   const initialConfig = (() => {
     const saved = initialSavedViews.find((view) => view.id === initialViewId);

@@ -505,6 +505,9 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
                 <p className="text-xs text-text-muted mt-1 font-sans">
                   {t('companies.form.createDesc')}
                 </p>
+                <p className="text-xs text-text-muted mt-1 font-sans">
+                  {t('companies.form.sharedHint')}
+                </p>
               </div>
               <button
                 type="button"
