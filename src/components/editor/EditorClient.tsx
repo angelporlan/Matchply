@@ -36,9 +36,10 @@ interface EditorClientProps {
     role?: string | null;
   };
   isGuest?: boolean;
+  guestCanDownloadPdf?: boolean;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false }: EditorClientProps) {
+export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [isPending, startTransition] = useTransition();
@@ -48,6 +49,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
 
   // Dynamic Prompt Configs Mapper
   const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
@@ -677,6 +679,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               scale={scale}
               isAiStreaming={isStreaming}
               isGuest={isGuest}
+              guestCanDownload={guestCanDownload}
+              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
             />
           </div>
         )}
@@ -953,7 +957,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           {saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 stroke-[1.75]" />
-              {t('editor.footer.saved')}
+              {t(isGuest ? 'editor.footer.savedGuest' : 'editor.footer.saved')}
             </span>
           )}
           {saveStatus === 'saving' && (

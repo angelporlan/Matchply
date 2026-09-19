@@ -31,6 +31,8 @@ interface CvCardProps {
   onRename: (cvId: string, title: string) => void;
   onDuplicate: (cvId: string) => void;
   onDelete: (cvId: string) => void;
+  guestCanDownload?: boolean;
+  onGuestDownloadConsumed?: () => void;
 }
 
 function matchScoreClass(percent: number) {
@@ -49,6 +51,8 @@ export default function CvCard({
   onRename,
   onDuplicate,
   onDelete,
+  guestCanDownload = false,
+  onGuestDownloadConsumed,
 }: CvCardProps) {
   const { t, language } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
@@ -92,7 +96,29 @@ export default function CvCard({
       icon: <Download className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />,
       onSelect: () => {
         if (isGuest) {
-          window.location.href = '/register';
+          void (async () => {
+            if (!guestCanDownload) {
+              window.location.href = '/register?source=guest-pdf';
+              return;
+            }
+            const response = await fetch(`/api/pdf?cvId=${cv.id}&download=true`);
+            if (response.status === 403) {
+              onGuestDownloadConsumed?.();
+              window.location.href = '/register?source=guest-pdf';
+              return;
+            }
+            if (!response.ok) return;
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = `${cv.title || 'CV'}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(objectUrl);
+            onGuestDownloadConsumed?.();
+          })();
           return;
         }
         window.open(`/api/pdf?cvId=${cv.id}&download=true`, '_blank', 'noopener,noreferrer');

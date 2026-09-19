@@ -9,6 +9,7 @@ import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
 import { log } from '@/lib/logger';
+import { guestHasPdfDownloadRemaining, recordGuestPdfDownload } from '@/lib/guest-pdf';
 
 // Only what the renderer needs; `cv` also stores markdown history-sized content,
 // so we never pull columns we do not use.
@@ -102,10 +103,16 @@ export async function GET(req: NextRequest) {
     // Log de auditoría para descarga de PDF
     const isDownload = searchParams.get('download') === 'true';
     if (isDownload && actor.kind === 'guest') {
-      return new NextResponse('Signup required to download', { status: 403 });
+      const remaining = await guestHasPdfDownloadRemaining(actor.userId);
+      if (!remaining) {
+        return NextResponse.json(
+          { error: 'GUEST_DOWNLOAD_LIMIT' },
+          { status: 403 },
+        );
+      }
     }
 
-    if (isDownload) {
+    if (isDownload && actor.kind !== 'guest') {
       await createAuditLog('cv_download_pdf', actor.userId, actor.email, {
         cvId: cv.id,
         title: cv.title
@@ -148,13 +155,20 @@ export async function GET(req: NextRequest) {
       durationMs: Date.now() - started,
     });
 
-    const userName = actor.name || 'User';
+    const userName = actor.kind === 'guest' ? (cv.title || 'CV') : (actor.name || 'User');
     const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
     const filename = `CV ${safeName}.pdf`;
     const encodedFilename = encodeURIComponent(filename);
 
+    if (isDownload && actor.kind === 'guest') {
+      await recordGuestPdfDownload(actor.userId, actor.email, {
+        cvId: cv.id,
+        title: cv.title,
+      });
+    }
+
     return pdfResponse(buffer, {
-      'Content-Disposition': `inline; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
+      'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       'Cache-Control': cacheControl,
       ETag: etag,
       Vary: 'Cookie',

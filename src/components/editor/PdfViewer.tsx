@@ -19,6 +19,8 @@ interface PdfViewerProps {
   scale?: number;
   isAiStreaming?: boolean;
   isGuest?: boolean;
+  guestCanDownload?: boolean;
+  onGuestDownloadConsumed?: () => void;
 }
 
 export default function PdfViewer({ 
@@ -33,7 +35,9 @@ export default function PdfViewer({
   pageMargin = 36,
   scale = 1.0,
   isAiStreaming = false,
-  isGuest = false
+  isGuest = false,
+  guestCanDownload = false,
+  onGuestDownloadConsumed,
 }: PdfViewerProps) {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -119,12 +123,53 @@ export default function PdfViewer({
   }, [version, cvId, retryKey]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const pdfUrl = `/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`;
+  const downloadUrl = `/api/pdf?cvId=${cvId}&download=true`;
+  const guestRegisterHref = '/register?source=guest-pdf';
 
   const handleManualReload = () => {
     setLoading(true);
     setErrorTimeout(false);
     setRetryKey(prev => prev + 1);
   };
+
+  const handleGuestDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isGuest) return;
+    event.preventDefault();
+    if (!guestCanDownload) {
+      window.location.href = guestRegisterHref;
+      return;
+    }
+
+    try {
+      const response = await fetch(downloadUrl);
+      if (response.status === 403) {
+        onGuestDownloadConsumed?.();
+        window.location.href = guestRegisterHref;
+        return;
+      }
+      if (!response.ok) return;
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'CV.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      onGuestDownloadConsumed?.();
+    } catch {
+      // Keep the free download if the file never reached the browser.
+    }
+  };
+
+  const guestDownloadLabel = guestCanDownload
+    ? t('editor.pdf.guestDownloadBtn')
+    : t('editor.pdf.guestDownloadUsed');
+  const downloadHref = isGuest
+    ? (guestCanDownload ? downloadUrl : guestRegisterHref)
+    : downloadUrl;
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#0f1423]/75 border border-subtle dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
@@ -190,13 +235,14 @@ export default function PdfViewer({
 
           {/* Download PDF button */}
           <a
-            href={isGuest ? '/register' : `/api/pdf?cvId=${cvId}&download=true`}
+            href={downloadHref}
+            onClick={isGuest ? handleGuestDownload : undefined}
             target={isGuest ? undefined : "_blank"}
             rel={isGuest ? undefined : "noopener noreferrer"}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-sm"
           >
             <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-            <span>{isGuest ? (language === 'es' ? 'Guardar y descargar' : 'Save and download') : t('editor.pdf.downloadBtn')}</span>
+            <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
           </a>
         </div>
       </div>
@@ -223,13 +269,14 @@ export default function PdfViewer({
                 <span>{t('editor.pdf.retry')}</span>
               </button>
               <a
-                href={isGuest ? '/register' : `/api/pdf?cvId=${cvId}&download=true`}
+                href={downloadHref}
+                onClick={isGuest ? handleGuestDownload : undefined}
                 target={isGuest ? undefined : "_blank"}
                 rel={isGuest ? undefined : "noopener noreferrer"}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-ai/10 border border-ai/20 text-xs font-bold text-ai hover:bg-ai/20 transition-all shadow-sm"
               >
                 <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-                <span>{isGuest ? (language === 'es' ? 'Guardar primero' : 'Save first') : t('editor.pdf.direct')}</span>
+                <span>{isGuest ? guestDownloadLabel : t('editor.pdf.direct')}</span>
               </a>
             </div>
           </div>

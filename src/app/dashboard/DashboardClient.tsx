@@ -90,6 +90,7 @@ interface DashboardClientProps {
   cvTargets: CvTargetSummary[];
   isPremium: boolean;
   isGuest?: boolean;
+  guestCanDownloadPdf?: boolean;
   availablePrompts: {
     id: string;
     name: string;
@@ -106,11 +107,13 @@ export default function DashboardClient({
   cvTargets,
   isPremium,
   isGuest = false,
+  guestCanDownloadPdf = false,
   availablePrompts
 }: DashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [userCvs, setUserCvs] = useState<CvListItem[]>(initialCvs);
+  const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
   const { t, language } = useLanguage();
 
   const targetByCvId = useMemo(() => {
@@ -859,6 +862,8 @@ export default function DashboardClient({
               cv={cv}
               target={targetByCvId.get(cv.id)}
               isGuest={isGuest}
+              guestCanDownload={guestCanDownload}
+              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               isPending={isPending}
               onPreview={setPreviewCv}
               onSetPrincipal={handleMarkAsPrincipal}

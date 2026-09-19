@@ -5,6 +5,7 @@ import { Sparkles, FileText, CreditCard, Crown } from 'lucide-react';
 import DashboardClient from '@/app/dashboard/DashboardClient';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { getActor } from '@/lib/actor';
+import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -14,6 +15,7 @@ export default async function TryPage() {
     redirect('/api/guest?redirect=/try');
   }
   const userId = actor.userId;
+  const guestCanDownloadPdf = await guestHasPdfDownloadRemaining(userId);
 
   // 1. Obtener lista de currículums del usuario invitado
   const userCvs = await db
@@ -68,7 +70,7 @@ export default async function TryPage() {
                   Prueba sin registro activa
                 </h2>
                 <p className="text-text-muted text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
-                  Estás usando Matchply en modo invitado. Puedes importar tu CV con IA, optimizarlo y editarlo gratis. Regístrate para descargarlo y guardar tus cambios de forma permanente.
+                  Estás usando Matchply en modo invitado. Puedes importar tu CV, optimizarlo y descargar 1 PDF. Crea una cuenta para guardar la prueba y seguir descargando.
                 </p>
               </div>
             </div>
@@ -85,6 +87,7 @@ export default async function TryPage() {
             cvTargets={[]} 
             isPremium={false} 
             isGuest={true} 
+            guestCanDownloadPdf={guestCanDownloadPdf}
             availablePrompts={availablePrompts || []} 
           />
         </main>

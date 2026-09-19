@@ -5,6 +5,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import EditorClient from '@/components/editor/EditorClient';
 import { getAllowedCvTemplate, isProSubscription } from '@/lib/subscription';
 import { getActor } from '@/lib/actor';
+import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 
 interface EditorPageProps {
   params: {
@@ -63,6 +64,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
   }
 
   const isGuest = actor.kind === 'guest';
+  const guestCanDownloadPdf = isGuest ? await guestHasPdfDownloadRemaining(userId) : false;
   const subscriptionStatus = actor.subscriptionStatus || 'none';
   const isPremium = !isGuest && isProSubscription(subscriptionStatus);
   const editorCv = {
@@ -84,6 +86,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
       baseCvContent={baseCvContent}
       user={user}
       isGuest={isGuest}
+      guestCanDownloadPdf={guestCanDownloadPdf}
     />
   );
 }

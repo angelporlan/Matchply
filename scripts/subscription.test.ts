@@ -7,6 +7,7 @@ import {
   getAccessTier,
   getAllowedCvTemplate,
   HARVARD_TEMPLATE,
+  canGuestDownloadPdf,
 } from '@/lib/subscription';
 
 test('guests and free users stay off Pro features', () => {
@@ -27,6 +28,9 @@ test('CV caps and Harvard fallback match the paid plan', () => {
   assert.equal(canCreateCv('none', 2, { isGuest: true }), true);
   assert.equal(canCreateCv('none', 3, { isGuest: true }), false);
   assert.equal(canCreateCv('active', 40), true);
+  assert.equal(canGuestDownloadPdf(0), true);
+  assert.equal(canGuestDownloadPdf(1), false);
+  assert.equal(canGuestDownloadPdf(2), false);
 
   assert.equal(canUseCvTemplate('none', 'harvard'), true);
   assert.equal(canUseCvTemplate('none', 'swiss'), false);

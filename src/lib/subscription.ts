@@ -2,6 +2,7 @@ export const PRO_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 
 export const FREE_USER_MAX_CVS = 1;
 export const GUEST_MAX_CVS = 3;
+export const GUEST_MAX_PDF_DOWNLOADS = 1;
 export const HARVARD_TEMPLATE = 'harvard';
 export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE] as const;
 
@@ -108,4 +109,8 @@ export function canAccessFeature(
   context: EntitlementContext = {},
 ) {
   return getPlanEntitlements(status, context).features[feature];
+}
+
+export function canGuestDownloadPdf(usedCount: number) {
+  return usedCount < GUEST_MAX_PDF_DOWNLOADS;
 }
