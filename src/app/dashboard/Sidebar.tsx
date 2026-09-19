@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ChevronDown, Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
@@ -49,12 +49,6 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
     isApplicationsListPath(pathname) || isCompaniesPath(pathname),
   );
   const { t, language } = useLanguage();
-
-  useEffect(() => {
-    if (isApplicationsListPath(pathname) || isCompaniesPath(pathname)) {
-      setApplicationsOpen(true);
-    }
-  }, [pathname]);
 
   const menuItems: SidebarMenuItem[] = isGuest ? [
     {
@@ -193,10 +187,14 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
                     </Link>
                     <button
                       type="button"
-                      onClick={() => setApplicationsOpen((open) => !open)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setApplicationsOpen((open) => !open);
+                      }}
                       aria-expanded={applicationsOpen}
                       aria-label={t('sidebar.menu.toggleApplications')}
-                      className="p-3 text-text-muted hover:text-text"
+                      className="shrink-0 mr-1 p-1.5 rounded-[8px] text-text-muted bg-text/[0.04] hover:bg-text/[0.08] hover:text-text transition-colors"
                     >
                       <ChevronDown
                         className={`w-4 h-4 stroke-[1.75] transition-transform ${applicationsOpen ? 'rotate-180' : ''}`}

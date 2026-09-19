@@ -82,6 +82,7 @@ La base de datos PostgreSQL se gestiona de forma interactiva con **Drizzle ORM**
 - `company`: catálogo compartido (nombre, web, ubicación, sector, `iconHash`). Todos los usuarios reutilizan la misma ficha. Listados con `companyListColumns`; el binario está en `company_icon` y no se selecciona en listados.
 - `user_company`: membresía del CRM personal. El listado de empresas de un usuario sale de aquí, con conteos de *sus* postulaciones y notas.
 - `company_note`: notas de seguimiento por usuario. Se leen en el detalle.
+- Skill de proyecto [`.agents/skills/company-enrich`](.agents/skills/company-enrich/SKILL.md): `/company-enrich list` y `/company-enrich enrich` rellenan web, ubicación, sector e icono del catálogo compartido. No toca notas ni postulaciones.
 - `job_research_run` / `ai_job`: colas Postgres (`SKIP LOCKED`) para research y jobs de IA.
 - `setting` / `prompt`: proveedor/modelo de IA y prompts dinámicos.
 - `audit_log`: auditoría (escritura no bloqueante).
