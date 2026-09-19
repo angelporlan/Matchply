@@ -75,6 +75,9 @@ export async function updateCompanyAction(
 ) {
   try {
     const session = await requireCompanyUser();
+    if ((session.user as any).role !== 'admin') {
+      return { error: 'FORBIDDEN' };
+    }
     const company = await updateCompany(session.user.id, companyId, input);
     await createAuditLog('company_update', session.user.id, session.user.email || null, {
       companyId: company.id,

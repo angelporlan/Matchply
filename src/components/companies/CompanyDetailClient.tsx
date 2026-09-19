@@ -6,14 +6,16 @@ import {
   ArrowLeft,
   Building2,
   ExternalLink,
+  Globe,
+  MapPin,
   StickyNote,
+  Tag,
   Trash2,
 } from 'lucide-react';
 import type { ApplicationSummary, CompanyListItem, CompanyNoteItem } from '@/lib/job-offer-queries';
 import {
   createCompanyNoteAction,
   deleteCompanyNoteAction,
-  updateCompanyAction,
 } from '@/app/dashboard/applications/companies/actions';
 import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationScoreBadge from '@/components/applications/ApplicationScoreBadge';
@@ -43,16 +45,8 @@ export default function CompanyDetailClient({
   statusCounts,
 }: CompanyDetailClientProps) {
   const { t } = useLanguage();
-  const [form, setForm] = useState({
-    name: company.name,
-    website: company.website || '',
-    location: company.location || '',
-    sector: company.sector || '',
-  });
-  const [saving, setSaving] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<CompanyNoteItem | null>(null);
   const [deletingNote, setDeletingNote] = useState(false);
@@ -60,19 +54,6 @@ export default function CompanyDetailClient({
   const showToast = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 4000);
-  };
-
-  const handleSave = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    setSaving(true);
-    const result = await updateCompanyAction(company.id, form);
-    setSaving(false);
-    if ('error' in result && result.error) {
-      setError(errorMessage(t, result.error));
-      return;
-    }
-    showToast(t('companies.toasts.saved'));
   };
 
   const handleAddNote = async (event: React.FormEvent) => {
@@ -102,8 +83,8 @@ export default function CompanyDetailClient({
     showToast(t('companies.toasts.noteDeleted'));
   };
 
-  const websiteHref = form.website
-    ? (form.website.startsWith('http') ? form.website : `https://${form.website}`)
+  const websiteHref = company.website
+    ? (company.website.startsWith('http') ? company.website : `https://${company.website}`)
     : null;
 
   const statusEntries = Object.entries(statusCounts).filter(([, count]) => count > 0);
@@ -155,62 +136,69 @@ export default function CompanyDetailClient({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <section className="lg:col-span-5 bg-surface border border-subtle rounded-[12px] p-6 shadow-sm">
-          <h2 className="text-sm font-bold font-display text-text mb-1">{t('companies.form.editTitle')}</h2>
-          <p className="text-xs text-text-muted mb-4">{t('companies.form.sharedHint')}</p>
-          {error && (
-            <div className="mb-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px]">
-              {error}
+        <section className="lg:col-span-5 bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-5">
+          <div>
+            <h2 className="text-sm font-bold font-display text-text mb-1">
+              {t('companies.detail.infoTitle')}
+            </h2>
+            <p className="text-xs text-text-muted leading-relaxed">
+              {t('companies.detail.infoDesc')}
+            </p>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-subtle">
+            {/* Website */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-text-muted font-display block">
+                {t('companies.form.website')}
+              </span>
+              {websiteHref ? (
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-ai hover:underline break-all"
+                >
+                  <Globe className="w-4 h-4 shrink-0 text-text-muted stroke-[1.75]" />
+                  <span>{company.website}</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                </a>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-text-muted">
+                  <Globe className="w-4 h-4 shrink-0 stroke-[1.75]" />
+                  <span>—</span>
+                </div>
+              )}
             </div>
-          )}
-          <form onSubmit={handleSave} className="space-y-4">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-text-muted font-display">{t('companies.form.name')} *</span>
-              <input
-                required
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-text-muted font-display">{t('companies.form.website')}</span>
-              <input
-                value={form.website}
-                onChange={(event) => setForm((prev) => ({ ...prev, website: event.target.value }))}
-                placeholder="https://..."
-                className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-              />
-            </label>
-            {websiteHref && (
-              <a
-                href={websiteHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-ai hover:underline"
-              >
-                <ExternalLink className="w-3.5 h-3.5 stroke-[1.75]" />
-                {t('companies.table.openWebsite')}
-              </a>
-            )}
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-text-muted font-display">{t('companies.form.location')}</span>
-              <input
-                value={form.location}
-                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-                className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-text-muted font-display">{t('companies.form.sector')}</span>
-              <input
-                value={form.sector}
-                onChange={(event) => setForm((prev) => ({ ...prev, sector: event.target.value }))}
-                className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai font-sans"
-              />
-            </label>
-            <Button type="submit" loading={saving}>{t('companies.form.saveChanges')}</Button>
-          </form>
+
+            {/* Location */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-text-muted font-display block">
+                {t('companies.form.location')}
+              </span>
+              <div className="flex items-center gap-2 text-sm text-text">
+                <MapPin className="w-4 h-4 shrink-0 text-text-muted stroke-[1.75]" />
+                <span>{company.location || '—'}</span>
+              </div>
+            </div>
+
+            {/* Sector */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-text-muted font-display block">
+                {t('companies.form.sector')}
+              </span>
+              <div className="flex items-center gap-2 text-sm text-text">
+                <Tag className="w-4 h-4 shrink-0 text-text-muted stroke-[1.75]" />
+                {company.sector ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-muted text-text border border-subtle">
+                    {company.sector}
+                  </span>
+                ) : (
+                  <span className="text-text-muted">—</span>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="lg:col-span-7 bg-surface border border-subtle rounded-[12px] p-6 shadow-sm space-y-4">
