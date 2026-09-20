@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -171,7 +173,8 @@ def new_release(payload, source_env):
     data = {key: payload[key] for key in ['sha', 'web_image', 'worker_image']}
     data.update(created_at=stamp(), legacy=payload.get('legacy', False))
     save(release / 'release.json', json.dumps(data))
-    save(release / 'compose.env', f"WEB_IMAGE={data['web_image']}\nWORKER_IMAGE={data['worker_image']}\nAPP_ENV_FILE={release}/app.env\n")
+    health_path = '/login' if data['legacy'] else '/api/health'
+    save(release / 'compose.env', f"WEB_IMAGE={data['web_image']}\nWORKER_IMAGE={data['worker_image']}\nAPP_ENV_FILE={release}/app.env\nHEALTH_PATH={health_path}\n")
     return release
 
 
@@ -287,6 +290,34 @@ def status():
                       'latest_backups': [p.name for p in sorted(BACKUPS.glob('backup-*'))[-3:]]}, indent=2))
 
 
+def doctor():
+    status()
+    checks = {'load_average': os.getloadavg(), 'queues': {}}
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection(('matchply.com', 443), timeout=10) as connection:
+            with context.wrap_socket(connection, server_hostname='matchply.com') as tls:
+                checks['certificate_expires'] = tls.getpeercert()['notAfter']
+        active = current()
+        if active:
+            healthy(active, timeout=10)
+            checks['application'] = 'ready'
+        else:
+            checks['application'] = 'legacy-unmanaged'
+    except Exception:
+        checks['application'] = 'check-failed'
+    for table in ['ai_job', 'job_research_run']:
+        exists = run(['docker', 'exec', 'nextprof_postgres_prod', 'psql', '-U', 'postgres', '-d', 'nextprof_db',
+                      '-Atc', f"SELECT to_regclass('public.{table}')"]).decode().strip()
+        if not exists:
+            checks['queues'][table] = 'not-installed'
+            continue
+        counts = run(['docker', 'exec', 'nextprof_postgres_prod', 'psql', '-U', 'postgres', '-d', 'nextprof_db',
+                      '-Atc', f'SELECT status, count(*) FROM {table} GROUP BY status']).decode().strip()
+        checks['queues'][table] = counts.splitlines()
+    print(json.dumps(checks, indent=2))
+
+
 def logs(payload):
     service = payload.get('service', 'web')
     if service not in SERVICES:
@@ -303,8 +334,10 @@ def logs(payload):
 
 
 def dispatch(operation, payload):
-    if operation in ['status', 'doctor']:
+    if operation == 'status':
         status()
+    elif operation == 'doctor':
+        doctor()
     elif operation == 'logs':
         logs(payload)
     elif operation == 'env-list':

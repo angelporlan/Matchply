@@ -90,8 +90,14 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          current_main=$(gh api repos/angelporlan/Matchply/branches/main --jq '.commit.sha')
+          if [ "$current_main" != "$RELEASE_SHA" ]; then
+            echo 'A newer main commit superseded this release; deployment skipped.'
+            exit 0
+          fi
           node scripts/deploy/release-payload.mjs | ssh \
             -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=12 \

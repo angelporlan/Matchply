@@ -19,7 +19,7 @@ services:
       driver: json-file
       options: {max-size: 10m, max-file: '3'}
     healthcheck:
-      test: [CMD, wget, -qO-, 'http://127.0.0.1:3000/api/health']
+      test: [CMD, wget, -qO-, 'http://127.0.0.1:3000${HEALTH_PATH:-/api/health}']
       interval: 15s
       timeout: 5s
       retries: 5
