@@ -13,12 +13,29 @@ export const users = pgTable('user', {
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
   role: text('role').default('user').notNull(), // 'user' o 'admin'
+  accountStatus: text('accountStatus').default('active').notNull(), // 'active' | 'suspended'
+  suspensionReason: text('suspensionReason'),
+  suspendedAt: timestamp('suspendedAt', { mode: 'date' }),
+  suspendedByUserId: uuid('suspendedByUserId'),
+  lastLoginAt: timestamp('lastLoginAt', { mode: 'date' }),
+  lastSeenAt: timestamp('lastSeenAt', { mode: 'date' }),
+  proGrantedUntil: timestamp('proGrantedUntil', { mode: 'date' }),
+  proGrantedReason: text('proGrantedReason'),
+  proGrantedByUserId: uuid('proGrantedByUserId'),
   isGuest: boolean('isGuest').default(false).notNull(),
   guestTokenHash: text('guestTokenHash').unique(),
   guestExpiresAt: timestamp('guestExpiresAt', { mode: 'date' }),
   careerProfile: jsonb('careerProfile'),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-});
+}, (table) => ({
+  createdIdIdx: index('user_created_id_idx').on(table.createdAt, table.id),
+  lastSeenIdx: index('user_last_seen_idx').on(table.lastSeenAt),
+  lastLoginIdx: index('user_last_login_idx').on(table.lastLoginAt),
+  accountStatusIdx: index('user_account_status_idx').on(table.accountStatus),
+  guestCreatedIdx: index('user_guest_created_idx').on(table.isGuest, table.createdAt),
+  roleIdx: index('user_role_idx').on(table.role),
+  proGrantedIdx: index('user_pro_granted_idx').on(table.proGrantedUntil),
+}));
 
 // Tabla de Currículums
 export const cvs = pgTable('cv', {
@@ -304,6 +321,11 @@ export const auditLogs = pgTable('audit_log', {
   details: text('details'), // JSON string con detalles descriptivos del evento
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
+  actorUserId: uuid('actorUserId').references(() => users.id, { onDelete: 'set null' }),
+  affectedUserId: uuid('affectedUserId').references(() => users.id, { onDelete: 'set null' }),
+  supportSessionId: uuid('supportSessionId'),
+  requestId: text('requestId'),
+  category: text('category').default('ordinary').notNull(), // 'ordinary' | 'admin'
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 }, (table) => ({
   userIdIdx: index('audit_log_user_id_idx').on(table.userId),
@@ -311,11 +333,69 @@ export const auditLogs = pgTable('audit_log', {
   createdAtIdx: index('audit_log_created_at_idx').on(table.createdAt),
   // Admin "today" counters: WHERE action = ? AND createdAt >= ?
   actionCreatedIdx: index('audit_log_action_created_idx').on(table.action, table.createdAt),
+  actorCreatedIdx: index('audit_log_actor_created_idx').on(table.actorUserId, table.createdAt),
+  affectedCreatedIdx: index('audit_log_affected_created_idx').on(table.affectedUserId, table.createdAt),
+  categoryCreatedIdx: index('audit_log_category_created_idx').on(table.category, table.createdAt),
+}));
+
+export const supportSessions = pgTable('support_session', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  actorUserId: uuid('actorUserId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  targetUserId: uuid('targetUserId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  reason: text('reason').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }).notNull(),
+  revokedAt: timestamp('revokedAt', { mode: 'date' }),
+  endedAt: timestamp('endedAt', { mode: 'date' }),
+}, (table) => ({
+  actorIdx: index('support_session_actor_idx').on(table.actorUserId, table.createdAt),
+  targetIdx: index('support_session_target_idx').on(table.targetUserId, table.createdAt),
+  expiresIdx: index('support_session_expires_idx').on(table.expiresAt, table.revokedAt),
+}));
+
+export const aiRuntimeConfigs = pgTable('ai_runtime_config', {
+  id: integer('id').primaryKey().default(1),
+  version: integer('version').notNull().default(1),
+  config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const aiRuntimeConfigHistory = pgTable('ai_runtime_config_history', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  version: integer('version').notNull(),
+  config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  versionIdx: uniqueIndex('ai_runtime_config_history_version_idx').on(table.version),
+  createdIdx: index('ai_runtime_config_history_created_idx').on(table.createdAt),
+}));
+
+export const aiRunStats = pgTable('ai_run_stat', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  functionKey: text('functionKey').notNull(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  plan: text('plan').notNull(),
+  success: boolean('success').notNull(),
+  latencyMs: integer('latencyMs'),
+  inputTokens: integer('inputTokens'),
+  outputTokens: integer('outputTokens'),
+  estimatedCostUsd: doublePrecision('estimatedCostUsd'),
+  errorCode: text('errorCode'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => ({
+  createdIdx: index('ai_run_stat_created_idx').on(table.createdAt),
+  functionCreatedIdx: index('ai_run_stat_function_created_idx').on(table.functionKey, table.createdAt),
+  providerCreatedIdx: index('ai_run_stat_provider_created_idx').on(table.provider, table.createdAt),
 }));
 
 export const aiJobs = pgTable('ai_job', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  initiatedByUserId: uuid('initiatedByUserId').references(() => users.id, { onDelete: 'set null' }),
   kind: text('kind').notNull(),
   status: text('status').default('queued').notNull(),
   attempt: integer('attempt').default(0).notNull(),
@@ -323,6 +403,7 @@ export const aiJobs = pgTable('ai_job', {
   nextAttemptAt: timestamp('nextAttemptAt', { mode: 'date' }),
   payload: jsonb('payload').notNull(),
   result: jsonb('result'),
+  resolvedAiConfig: jsonb('resolvedAiConfig'),
   lastError: text('lastError'),
   startedAt: timestamp('startedAt', { mode: 'date' }),
   completedAt: timestamp('completedAt', { mode: 'date' }),
@@ -331,6 +412,7 @@ export const aiJobs = pgTable('ai_job', {
 }, (table) => ({
   queueIdx: index('ai_job_queue_idx').on(table.status, table.nextAttemptAt, table.leaseUntil),
   userIdx: index('ai_job_user_idx').on(table.userId, table.createdAt),
+  initiatedByIdx: index('ai_job_initiated_by_idx').on(table.initiatedByUserId, table.createdAt),
 }));
 
 // Definición de Relaciones para Drizzle
@@ -346,6 +428,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   jobResearchRuns: many(jobResearchRuns),
   researchQuotaPeriods: many(researchQuotaPeriods),
   aiJobs: many(aiJobs),
+  supportSessionsAsActor: many(supportSessions, { relationName: 'supportSessionActor' }),
+  supportSessionsAsTarget: many(supportSessions, { relationName: 'supportSessionTarget' }),
 }));
 
 export const cvsRelations = relations(cvs, ({ one, many }) => ({
@@ -415,10 +499,18 @@ export const researchQuotaPeriodsRelations = relations(researchQuotaPeriods, ({ 
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
+  actor: one(users, { fields: [auditLogs.actorUserId], references: [users.id], relationName: 'auditActor' }),
+  affected: one(users, { fields: [auditLogs.affectedUserId], references: [users.id], relationName: 'auditAffected' }),
+}));
+
+export const supportSessionsRelations = relations(supportSessions, ({ one }) => ({
+  actor: one(users, { fields: [supportSessions.actorUserId], references: [users.id], relationName: 'supportSessionActor' }),
+  target: one(users, { fields: [supportSessions.targetUserId], references: [users.id], relationName: 'supportSessionTarget' }),
 }));
 
 export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
   user: one(users, { fields: [aiJobs.userId], references: [users.id] }),
+  initiatedBy: one(users, { fields: [aiJobs.initiatedByUserId], references: [users.id], relationName: 'aiJobInitiator' }),
 }));
 
 export type User = typeof users.$inferSelect;
@@ -438,4 +530,8 @@ export type ResearchQuotaPeriod = typeof researchQuotaPeriods.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Prompt = typeof prompts.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type SupportSession = typeof supportSessions.$inferSelect;
+export type AiRuntimeConfigRow = typeof aiRuntimeConfigs.$inferSelect;
+export type AiRuntimeConfigHistoryRow = typeof aiRuntimeConfigHistory.$inferSelect;
+export type AiRunStat = typeof aiRunStats.$inferSelect;
 export type AiJob = typeof aiJobs.$inferSelect;
