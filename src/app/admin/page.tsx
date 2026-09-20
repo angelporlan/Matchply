@@ -1,47 +1,47 @@
-import { redirect } from 'next/navigation';
-import { getSessionUser } from '@/lib/session';
-import { getAdminStats, getAIConfig, getAdminAuditLogs, getAdminAuditStats } from './actions';
-import AdminClient from './AdminClient';
+import { getAdminSummaryCounts } from '@/lib/admin/users';
+import { requireAdminContext } from '@/lib/request-context';
+import { AdminErrorState } from '@/components/admin/AdminStates';
+import { isUmamiAdminEnabled } from '@/lib/flags';
 
-export default async function AdminPage() {
-  const user = await getSessionUser();
+export const dynamic = 'force-dynamic';
 
-  // Validar rol de administrador en el servidor (rol fresco de BD, compartido con el layout)
-  if (!user || user.role !== 'admin') {
-    redirect('/dashboard');
-  }
-
-  // Obtener datos iniciales para hidratar el cliente
-  const [statsRes, aiConfigRes, auditLogsRes, auditStatsRes] = await Promise.all([
-    getAdminStats(),
-    getAIConfig(),
-    getAdminAuditLogs(),
-    getAdminAuditStats(),
-  ]);
-
-  if (!statsRes.success || !aiConfigRes.success) {
-    return (
-      <div className="min-h-screen bg-canvas text-text flex flex-col items-center justify-center p-6 font-sans">
-        <div className="bg-white border border-subtle rounded-[12px] p-8 max-w-md text-center shadow-sm">
-          <h2 className="text-xl font-bold font-display text-rose-500 mb-2">Error de Carga</h2>
-          <p className="text-text-muted text-sm font-light">
-            No se han podido cargar los datos de administración de la base de datos.
-          </p>
-        </div>
-      </div>
-    );
+export default async function AdminSummaryPage() {
+  await requireAdminContext();
+  let stats;
+  let error: string | null = null;
+  try {
+    stats = await getAdminSummaryCounts();
+  } catch (err: any) {
+    error = err.message || 'No se han podido cargar las cuentas.';
   }
 
   return (
-    <AdminClient
-      initialStats={statsRes.stats!}
-      initialUsers={statsRes.users || []}
-      initialSettings={aiConfigRes.settings || []}
-      initialPrompts={aiConfigRes.prompts || []}
-      initialAuditLogs={auditLogsRes.success ? auditLogsRes.logs || [] : []}
-      initialAuditStats={auditStatsRes.success ? auditStatsRes.stats! : { registersToday: 0, loginsToday: 0, cvsCreatedToday: 0, downloadsToday: 0 }}
-    />
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold font-display">Resumen</h2>
+      {error || !stats ? (
+        <AdminErrorState title="No se pudieron cargar las cuentas" description={error || 'Inténtalo de nuevo.'} />
+      ) : (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            ['Usuarios registrados', stats.totalUsers],
+            ['Invitados (aparte)', stats.totalGuests],
+            ['CVs', stats.totalCvs],
+            ['Candidaturas', stats.totalOffers],
+            ['Pro Stripe (active/trialing)', stats.stripePro],
+            ['Pro por concesión', stats.grantedPro],
+            ['Cuentas suspendidas', stats.suspended],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-[12px] border border-subtle bg-surface p-5">
+              <dt className="text-sm text-text-muted">{label}</dt>
+              <dd className="mt-2 text-3xl font-display font-semibold text-text">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="text-sm text-text-muted">
+        El tráfico agregado se consulta en <a className="underline" href="/admin/traffic">Tráfico</a>.
+        {isUmamiAdminEnabled() ? '' : ' Umami no está configurado; las cuentas de Postgres siguen siendo la fuente de verdad.'}
+      </p>
+    </div>
   );
 }
-
-export const dynamic = 'force-dynamic';
