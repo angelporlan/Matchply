@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 """Root-owned Matchply operations. SSH gateways expose named operations, never a shell."""
-import contextlib
 import datetime as dt
 import fcntl
 import json
@@ -99,6 +98,30 @@ def backup():
         item.chmod(0o600)
     print(json.dumps({'backup': str(folder), 'bytes': dump.stat().st_size}), flush=True)
     return folder
+
+
+def retain_releases():
+    releases = sorted((ROOT / 'releases').glob('*'), reverse=True)
+    successful = [p for p in releases if (p / 'successful').exists()]
+    keep = set(successful[:5])
+    for name in ['current', 'previous']:
+        link = ROOT / name
+        if link.is_symlink():
+            keep.add(link.resolve())
+    # Only remove this application's old successful metadata and exact images.
+    kept_images = {metadata(p)[key] for p in keep for key in ['web_image', 'worker_image']}
+    for old in successful[5:]:
+        if old in keep:
+            continue
+        old_meta = metadata(old)
+        for key in ['web_image', 'worker_image']:
+            image = old_meta[key]
+            if image not in kept_images and image.startswith('ghcr.io/angelporlan/matchply-'):
+                subprocess.run(['docker', 'image', 'rm', image], capture_output=True, timeout=60)
+        shutil.rmtree(old)
+    # Bootstrap copies are never removed. Retain the most recent 14 deployment backups.
+    for old in sorted(BACKUPS.glob('backup-*'), reverse=True)[14:]:
+        shutil.rmtree(old)
 
 
 def healthy(release, *, timeout=180):
@@ -200,6 +223,10 @@ def deploy(payload):
     point_to('current', release)
     save(release / 'successful', stamp())
     audit('deploy_succeeded', sha=payload['sha'])
+    try:
+        retain_releases()
+    except Exception:
+        audit('retention_failed')
 
 
 def env_names(text):
@@ -245,6 +272,7 @@ def env_change(payload):
     point_to('current', release)
     save(release / 'successful', stamp())
     audit('env_updated', keys=sorted(changes))
+    retain_releases()
 
 
 def status():
