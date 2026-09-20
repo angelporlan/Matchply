@@ -45,7 +45,7 @@ if not (root/'app.env').exists():
             continue
         if any(c in value for c in '\r\n\x00'):
             raise RuntimeError('Multiline value requires manual environment reconciliation')
-        lines.append(key+"='"+value.replace("'", "\\'")+"'")
+        lines.append(key+'='+json.dumps(value, ensure_ascii=False).replace('$', '$$'))
     (root/'app.env').write_text('\n'.join(lines)+'\n')
     (root/'app.env').chmod(0o600)
 Path('/app/Matchply/.env').chmod(0o600)

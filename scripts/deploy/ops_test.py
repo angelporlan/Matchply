@@ -1,5 +1,8 @@
 import importlib.util
+import json
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -25,7 +28,7 @@ class OperationsTests(unittest.TestCase):
         initial = '# existing\nKEEP=old\nEDIT=first\nEDIT=duplicate\n'
         updated = ops.update_env(initial, 'EDIT', 'https://x/?token=$secret')
         self.assertIn('KEEP=old', updated)
-        self.assertIn("EDIT='https://x/?token=$secret'", updated)
+        self.assertIn('EDIT="https://x/?token=$$secret"', updated)
         self.assertEqual(updated.count('EDIT='), 1)
         self.assertNotIn('EDIT=', ops.update_env(updated, 'EDIT', None))
         self.assertEqual(ops.env_names(updated), ['EDIT', 'KEEP'])
@@ -34,6 +37,19 @@ class OperationsTests(unittest.TestCase):
         for key, value in [('KEY\nOTHER', 'x'), ('KEY', 'a\nOTHER=x'), ('KEY', 'a\x00b')]:
             with self.assertRaises(ValueError):
                 ops.update_env('', key, value)
+
+    @unittest.skipUnless(shutil.which('docker'), 'Docker Compose is required for dotenv round-trip')
+    def test_environment_values_round_trip_through_compose(self):
+        values = ['plain', '$SECRET ${VALUE}', "a'b", 'trailing\\', 'quotes"and\\slashes', 'áé😀# words']
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'compose.yml').write_text('services:\n  test:\n    image: alpine\n    environment:\n      VALUE: ${VALUE}\n')
+            for value in values:
+                (root / 'vars').write_text(ops.update_env('', 'VALUE', value))
+                result = subprocess.run(['docker', 'compose', '--env-file', str(root / 'vars'), '-f',
+                                         str(root / 'compose.yml'), 'config', '--environment'], capture_output=True, check=True)
+                environment = dict(line.split('=', 1) for line in result.stdout.decode().splitlines() if '=' in line)
+                self.assertEqual(environment['VALUE'], value)
 
     def test_deploy_disabled_before_any_side_effect(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(ops, 'ROOT', Path(directory)), patch.object(ops, 'run') as command:

@@ -98,6 +98,7 @@ def backup():
         shutil.copy2(active / 'release.json', folder / 'release.json')
     for item in folder.iterdir():
         item.chmod(0o600)
+    save(folder / 'verified', stamp())
     print(json.dumps({'backup': str(folder), 'bytes': dump.stat().st_size}), flush=True)
     return folder
 
@@ -122,7 +123,8 @@ def retain_releases():
                 subprocess.run(['docker', 'image', 'rm', image], capture_output=True, timeout=60)
         shutil.rmtree(old)
     # Bootstrap copies are never removed. Retain the most recent 14 deployment backups.
-    for old in sorted(BACKUPS.glob('backup-*'), reverse=True)[14:]:
+    complete_backups = [p for p in sorted(BACKUPS.glob('backup-*'), reverse=True) if (p / 'verified').exists()]
+    for old in complete_backups[14:]:
         shutil.rmtree(old)
 
 
@@ -244,8 +246,8 @@ def update_env(text, key, value):
     pattern = re.compile(r'^\s*(?:export\s+)?' + re.escape(key) + r'\s*=')
     lines = [line for line in text.splitlines() if not pattern.match(line)]
     if value is not None:
-        # Compose single-quoted values preserve dollar signs and escaped quotes literally.
-        lines.append(key + "='" + value.replace("'", "\\'") + "'")
+        # Compose's dotenv parser understands JSON string escapes. Escape interpolation too.
+        lines.append(key + '=' + json.dumps(value, ensure_ascii=False).replace('$', '$$'))
     return '\n'.join(lines) + '\n'
 
 
@@ -275,7 +277,10 @@ def env_change(payload):
     point_to('current', release)
     save(release / 'successful', stamp())
     audit('env_updated', keys=sorted(changes))
-    retain_releases()
+    try:
+        retain_releases()
+    except Exception:
+        audit('retention_failed')
 
 
 def status():
@@ -383,6 +388,9 @@ def main():
     if not isinstance(payload, dict):
         raise ValueError('JSON object required')
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if operation in ['status', 'doctor', 'logs', 'env-list']:
+        dispatch(operation, payload)
+        return
     with (ROOT / 'operations.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         dispatch(operation, payload)

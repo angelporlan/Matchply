@@ -7,7 +7,7 @@ const journal = JSON.parse(readFileSync('drizzle/meta/_journal.json', 'utf8')).e
 const migrations = journal.map(entry => {
   const sql = readFileSync(`drizzle/${entry.tag}.sql`, 'utf8');
   return { ...entry, hash: createHash('sha256').update(sql).digest('hex'),
-    destructive: /\bDROP\s+(?:COLUMN|TABLE|TYPE)\b|\bTRUNCATE\b|\bDELETE\s+FROM\b|\bALTER\s+COLUMN\b[\s\S]*?\bTYPE\b/i.test(sql) };
+    destructive: /\bDROP\s+(?:COLUMN|TABLE|TYPE)\b|\bTRUNCATE\b|\bDELETE\s+FROM\b|\bRENAME\s+(?:COLUMN|TO)\b|\bALTER\s+COLUMN\b[^;]*?\b(?:TYPE|SET\s+NOT\s+NULL)\b/i.test(sql) };
 });
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
 try {
@@ -24,7 +24,8 @@ try {
   console.log(JSON.stringify({ applied: applied.length, pending: missing.map(({ tag, hash, destructive }) => ({ tag, hash, destructive })) }));
 } catch (error) {
   // Driver errors can include connection details; never print the URL.
-  console.error(error instanceof Error && error.message.startsWith('Unknown') || error?.message?.startsWith('Unapplied')
-    ? error.message : 'Migration preflight failed; inspect database connectivity and schema with the VPS skill.');
+  const message = error instanceof Error ? error.message : '';
+  console.error(message.startsWith('Unknown') || message.startsWith('Unapplied')
+    ? message : 'Migration preflight failed; inspect database connectivity and schema with the VPS skill.');
   process.exitCode = 1;
 } finally { await client.end(); }
