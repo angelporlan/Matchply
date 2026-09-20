@@ -3,6 +3,7 @@ import { Inter, Outfit } from 'next/font/google';
 import { cookies } from 'next/headers';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import type { Language } from '@/lib/i18n/types';
+import SessionChrome from '@/components/session/SessionChrome';
 import { AiPromptDebugProvider } from '@/components/ai/AiPromptDebugContext';
 import './globals.css';
 
@@ -57,7 +58,9 @@ export default async function RootLayout({
       <body className="bg-canvas text-text min-h-screen">
         <LanguageProvider initialLanguage={initialLanguage}>
           <AiPromptDebugProvider initialDebugEnabled={isDebugEnabled}>
-            {children}
+            <SessionChrome>
+              {children}
+            </SessionChrome>
           </AiPromptDebugProvider>
         </LanguageProvider>
       </body>

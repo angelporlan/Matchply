@@ -100,5 +100,40 @@ services:
     mem_limit: 768m
     restart: always
 
+  umami_db:
+    image: postgres:15-alpine
+    container_name: matchply_umami_postgres
+    environment:
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami_change_me}
+      POSTGRES_DB: umami
+    volumes:
+      - umami_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    restart: always
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-v2.18.1
+    container_name: matchply_umami
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-umami_change_me}@umami_db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:-change_me_umami_app_secret}
+      DISABLE_TELEMETRY: 1
+      DISABLE_UPDATES: 1
+      COLLECT_API_ENDPOINT: /api/send
+    depends_on:
+      umami_db:
+        condition: service_healthy
+    mem_limit: 512m
+    restart: always
+
 volumes:
   postgres_prod_data:
+  umami_postgres_data:
