@@ -1,0 +1,68 @@
+# Installed on the VPS by the operator. Application releases only supply image digests.
+# PostgreSQL and analytics retain their existing containers, networks and volumes.
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE required}
+    container_name: nextprof_web_prod
+    env_file: ${APP_ENV_FILE:?APP_ENV_FILE required}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - '127.0.0.1:3000:3000'
+    networks: [database]
+    restart: always
+    mem_limit: 1g
+    stop_grace_period: 30s
+    logging: &logging
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+    healthcheck:
+      test: [CMD, wget, -qO-, 'http://127.0.0.1:3000/api/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+  ai_worker:
+    image: ${WORKER_IMAGE:?WORKER_IMAGE required}
+    container_name: nextprof_ai_worker_prod
+    command: [./node_modules/.bin/tsx, scripts/ai-worker.ts]
+    init: true
+    env_file: ${APP_ENV_FILE:?APP_ENV_FILE required}
+    environment:
+      NODE_ENV: production
+      DATABASE_STATEMENT_TIMEOUT_MS: 180000
+    networks: [database]
+    restart: always
+    stop_grace_period: 5m
+    mem_limit: 768m
+    logging: *logging
+  research_worker:
+    image: ${WORKER_IMAGE:?WORKER_IMAGE required}
+    container_name: nextprof_research_worker_prod
+    command: [./node_modules/.bin/tsx, scripts/research-worker.ts]
+    init: true
+    env_file: ${APP_ENV_FILE:?APP_ENV_FILE required}
+    environment:
+      NODE_ENV: production
+      DATABASE_STATEMENT_TIMEOUT_MS: 180000
+    networks: [database]
+    restart: always
+    stop_grace_period: 5m
+    mem_limit: 512m
+    logging: *logging
+  migrate:
+    image: ${WORKER_IMAGE:?WORKER_IMAGE required}
+    command: [npm, run, db:migrate]
+    env_file: ${APP_ENV_FILE:?APP_ENV_FILE required}
+    environment:
+      NODE_ENV: production
+      DATABASE_STATEMENT_TIMEOUT_MS: 180000
+    networks: [database]
+    profiles: [maintenance]
+    mem_limit: 512m
+networks:
+  database:
+    external: true
+    name: matchply_default

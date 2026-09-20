@@ -11,7 +11,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-RUN npm run build
+# Only non-secret placeholders are needed during static module evaluation.
+# Runtime secrets are supplied by Compose, never copied into the image.
+RUN STRIPE_TEST_SECRET_KEY=sk_test_build_placeholder NEXTAUTH_SECRET=build-placeholder npm run build
 
 FROM node:20-alpine AS web
 RUN apk add --no-cache libc6-compat wget

@@ -6,7 +6,7 @@ services:
     container_name: nextprof_postgres_prod
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: nextprof_secure_pwd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server environment}
       POSTGRES_DB: nextprof_db
     command: >
       postgres
@@ -36,7 +36,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=15000
@@ -64,7 +64,7 @@ services:
     container_name: nextprof_research_worker_prod
     command: npm run research:worker
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
@@ -85,7 +85,7 @@ services:
     container_name: nextprof_ai_worker_prod
     command: npm run ai:worker
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
