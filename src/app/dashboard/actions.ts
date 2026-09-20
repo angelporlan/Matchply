@@ -3,19 +3,20 @@
 import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { auth, unstable_update } from "@/auth";
-import { issueUserApiKey } from "@/lib/api-keys";
+import { unstable_update } from "@/auth";
 import { sanitizeDisplayName } from "@/lib/user-name";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import {
-  canAccessFeature,
   canCreateCv,
   canUseCvTemplate,
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
-import { parseHardConstraints } from "@/lib/curation-constraints";
+import { requireAccountContext, requireProductContext, auditActorFields } from "@/lib/request-context";
+import { cvMetaColumns } from "@/lib/job-offer-queries";
+import { parseMatchConstraints } from "@/lib/curation-constraints";
+import { normalizeCareerProfileFields } from "@/lib/career-profile";
 
 function cvLimitMessage(isGuest: boolean) {
   return isGuest
@@ -33,7 +34,7 @@ export async function setPrincipalCv(cvId: string) {
     const userId = actor.userId;
 
     // 1. Comprobar que el CV existe y pertenece al usuario
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -72,7 +73,7 @@ export async function createBaseCv(title: string) {
 
     // Aplicar el límite correspondiente al nivel de acceso antes de insertar.
     const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
       throw new Error(cvLimitMessage(actor.kind === "guest"));
     }
 
@@ -120,7 +121,7 @@ export async function deleteCv(cvId: string) {
     const userId = actor.userId;
 
     // Comprobar pertenencia
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== userId) {
       throw new Error("Forbidden or CV not found");
     }
@@ -132,7 +133,7 @@ export async function deleteCv(cvId: string) {
       // Si el CV que acabamos de borrar era el principal, elegir otro
       if (cv.isPrincipal) {
         const [nextBaseCv] = await tx
-          .select()
+          .select({ id: cvs.id })
           .from(cvs)
           .where(eq(cvs.userId, userId))
           .orderBy(desc(cvs.createdAt))
@@ -181,14 +182,14 @@ export async function updateCvStyling(
     }
 
     // Comprobar pertenencia
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden or CV not found");
     }
 
     if (
       updates.templateName
-      && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest" })
+      && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })
     ) {
       throw new Error("La única plantilla disponible es Harvard.");
     }
@@ -214,7 +215,7 @@ export async function saveCvContent(cvId: string, content: string) {
       throw new Error("Unauthorized");
     }
 
-    const [cv] = await db.select().from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
     if (!cv || cv.userId !== actor.userId) {
       throw new Error("Forbidden");
     }
@@ -231,87 +232,103 @@ export async function saveCvContent(cvId: string, content: string) {
   }
 }
 
-export async function generateUserApiKey() {
+export async function renameCv(cvId: string, title: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
-    const userId = session.user.id;
-
-    // Fetch user from DB to verify subscription status
-    const [dbUser] = await db
-      .select({ subscriptionStatus: users.subscriptionStatus })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
-      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
+    const cleanTitle = title.trim().replace(/\s+/g, " ");
+    if (!cleanTitle) {
+      throw new Error("INVALID_TITLE");
+    }
+    if (cleanTitle.length > 120) {
+      throw new Error("TITLE_TOO_LONG");
     }
 
-    const issued = issueUserApiKey();
+    const [cv] = await db.select(cvMetaColumns).from(cvs).where(eq(cvs.id, cvId)).limit(1);
+    if (!cv || cv.userId !== actor.userId) {
+      throw new Error("Forbidden or CV not found");
+    }
+
+    if (cv.title === cleanTitle) {
+      return { success: true, title: cleanTitle };
+    }
 
     await db
-      .update(users)
-      .set({
-        apiKey: null,
-        apiKeyHash: issued.hash,
-        apiKeyPrefix: issued.prefix,
-      })
-      .where(eq(users.id, userId));
+      .update(cvs)
+      .set({ title: cleanTitle })
+      .where(eq(cvs.id, cvId));
 
-    // Log de auditoría
-    await createAuditLog("api_key_generate", userId, session.user.email || null, {
-      success: true
-    });
+    if (actor.kind === "user") {
+      await createAuditLog("cv_rename", actor.userId, actor.email || null, {
+        cvId,
+        previousTitle: cv.title,
+        title: cleanTitle,
+      });
+    }
 
-    revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/profile");
-    return { success: true, apiKey: issued.plaintext, prefix: issued.prefix };
+    revalidatePath("/dashboard");
+    return { success: true, title: cleanTitle };
   } catch (error: any) {
-    console.error("Error generating user API Key:", error);
-    return { error: error.message || "Failed to generate API Key" };
+    console.error("Error renaming CV:", error);
+    return { error: error.message || "Failed to rename CV" };
   }
 }
 
-export async function revokeUserApiKey() {
+export async function duplicateCv(cvId: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) {
       throw new Error("Unauthorized");
     }
 
-    const userId = session.user.id;
+    const userId = actor.userId;
 
-    // Fetch user from DB to verify subscription status
-    const [dbUser] = await db
-      .select({ subscriptionStatus: users.subscriptionStatus })
-      .from(users)
-      .where(eq(users.id, userId))
+    const [cv] = await db
+      .select({ ...cvMetaColumns, content: cvs.content })
+      .from(cvs)
+      .where(eq(cvs.id, cvId))
       .limit(1);
-
-    if (!canAccessFeature(dbUser?.subscriptionStatus, "apiKeys")) {
-      throw new Error("API Keys are a PRO feature. Please upgrade your subscription.");
+    if (!cv || cv.userId !== userId) {
+      throw new Error("Forbidden or CV not found");
     }
 
-    await db
-      .update(users)
-      .set({ apiKey: null, apiKeyHash: null, apiKeyPrefix: null })
-      .where(eq(users.id, userId));
+    const cvCount = await getGuestCvCount(userId);
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
+      throw new Error(cvLimitMessage(actor.kind === "guest"));
+    }
 
-    // Log de auditoría
-    await createAuditLog("api_key_revoke", userId, session.user.email || null, {
-      success: true
-    });
+    const [newCv] = (await db
+      .insert(cvs)
+      .values({
+        userId,
+        title: `${cv.title} (Copia)`,
+        content: cv.content,
+        isBase: false,
+        isPrincipal: false,
+        templateName: cv.templateName,
+        accentColor: cv.accentColor,
+        fontFamily: cv.fontFamily,
+        pageMargin: cv.pageMargin,
+        scale: cv.scale,
+      })
+      .returning()) as any[];
 
-    revalidatePath("/dashboard/subscription");
-    revalidatePath("/dashboard/profile");
-    return { success: true };
+    if (actor.kind === "user") {
+      await createAuditLog("cv_duplicate", userId, actor.email || null, {
+        sourceCvId: cv.id,
+        cvId: newCv.id,
+        title: newCv.title,
+      });
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, cvId: newCv.id };
   } catch (error: any) {
-    console.error("Error revoking user API Key:", error);
-    return { error: error.message || "Failed to revoke API Key" };
+    console.error("Error duplicating CV:", error);
+    return { error: error.message || "Failed to duplicate CV" };
   }
 }
 
@@ -329,7 +346,7 @@ export async function createCvPlaceholder(updates: {
     const userId = actor.userId;
 
     const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
       if (actor.kind === "guest") {
         throw new Error(cvLimitMessage(true));
       }
@@ -361,7 +378,7 @@ export async function createCvPlaceholder(updates: {
 
       // Obtener el estilo del currículum principal actual (para copiar el estilo)
       const [principalCv] = await tx
-        .select()
+        .select(cvMetaColumns)
         .from(cvs)
         .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
         .limit(1);
@@ -393,96 +410,44 @@ export async function createCvPlaceholder(updates: {
   }
 }
 
-export async function updateUserMcpSettings(
-  mcpCvId: string | null,
-  mcpProfile: any
-) {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = session.user.id;
-
-    // Validate mcpCvId if provided
-    if (mcpCvId) {
-      const [cv] = await db.select().from(cvs).where(eq(cvs.id, mcpCvId)).limit(1);
-      if (!cv || cv.userId !== userId) {
-        throw new Error("Forbidden or CV not found");
-      }
-    }
-
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const currentProfile = (user?.mcpProfile as Record<string, unknown> | null) || {};
-    const incomingProfile = mcpProfile && typeof mcpProfile === 'object' ? mcpProfile : {};
-    const mergedProfile = {
-      ...currentProfile,
-      ...incomingProfile,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await db
-      .update(users)
-      .set({
-        mcpCvId: mcpCvId || null,
-        mcpProfile: mergedProfile,
-      })
-      .where(eq(users.id, userId));
-
-    // Log de auditoría
-    await createAuditLog("mcp_settings_update", userId, session.user.email || null, {
-      hasMcpCv: !!mcpCvId,
-    });
-
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/kanban");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error updating MCP settings:", error);
-    return { error: error.message || "Failed to update MCP settings" };
-  }
-}
-
 export async function saveUserCareerProfileAction(profileData: any) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
+    const ctx = await requireProductContext();
+    const userId = ctx.effectiveUser!.id;
 
-    const userId = session.user.id;
-
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const currentProfile = (user?.mcpProfile as any) || {};
+    const [user] = await db
+      .select({ careerProfile: users.careerProfile })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const currentProfile = (user?.careerProfile as any) || {};
     const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
+    const normalizedFields = normalizeCareerProfileFields({ ...currentProfile, ...profileFields });
 
     const updatedProfile = {
       ...currentProfile,
-      ...profileFields,
-      hardConstraints: parseHardConstraints({
-        curationCriteria: profileFields?.curationCriteria,
-        bio: profileFields?.bio,
-      }),
+      ...normalizedFields,
+      hardConstraints: parseMatchConstraints(normalizedFields),
       updatedAt: new Date().toISOString(),
     };
 
     await db
       .update(users)
       .set({
-        mcpProfile: updatedProfile,
+        careerProfile: updatedProfile,
       })
       .where(eq(users.id, userId));
 
-    await createAuditLog("career_profile_update", userId, session.user.email || null, {
-      hasBio: !!profileData.bio,
-      hasMasterDocument: !!profileFields?.masterDocument,
-      targetRolesCount: Array.isArray(profileData.targetRoles) ? profileData.targetRoles.length : 0,
-    });
+    await createAuditLog("career_profile_update", userId, ctx.effectiveUser!.email || null, {
+      hasBio: !!normalizedFields.bio,
+      hasMasterDocument: !!normalizedFields.masterDocument,
+      targetRolesCount: Array.isArray(normalizedFields.targetRoles) ? normalizedFields.targetRoles.length : 0,
+      skillsCount: Array.isArray(normalizedFields.skills) ? normalizedFields.skills.length : 0,
+      projectsCount: Array.isArray(normalizedFields.keyProjects) ? normalizedFields.keyProjects.length : 0,
+    }, auditActorFields(ctx));
 
     revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/applications");
 
     return { success: true };
   } catch (error: any) {
@@ -493,10 +458,8 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
 export async function updateUserNameAction(name: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      return { error: "Unauthorized" };
-    }
+    const ctx = await requireAccountContext();
+    const userId = ctx.realUser!.id;
 
     const sanitized = sanitizeDisplayName(name);
     if (!sanitized) {
@@ -506,7 +469,7 @@ export async function updateUserNameAction(name: string) {
     const [currentUser] = await db
       .select({ name: users.name })
       .from(users)
-      .where(eq(users.id, session.user.id))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (!currentUser) {
@@ -520,9 +483,9 @@ export async function updateUserNameAction(name: string) {
     await db
       .update(users)
       .set({ name: sanitized })
-      .where(eq(users.id, session.user.id));
+      .where(eq(users.id, userId));
 
-    await createAuditLog("user_name_update", session.user.id, session.user.email || null, {
+    await createAuditLog("user_name_update", userId, ctx.realUser!.email || null, {
       previousName: currentUser.name,
       newName: sanitized,
     });
@@ -543,4 +506,3 @@ export async function updateUserNameAction(name: string) {
     return { error: error.message || "Failed to update name" };
   }
 }
-

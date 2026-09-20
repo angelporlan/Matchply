@@ -165,6 +165,9 @@ export async function resolveExtensionSession(req: NextRequest) {
   if (!row) {
     throw new ExtensionAuthError(401, 'Extension session is invalid, expired, or revoked');
   }
+  if (row.user.accountStatus === 'suspended') {
+    throw new ExtensionAuthError(403, 'This account is suspended');
+  }
 
   await db.update(extensionInstallations).set({ lastSeenAt: now }).where(eq(extensionInstallations.id, row.installation.id));
   return { token, installation: row.installation, user: row.user, scope: EXTENSION_SCOPE };

@@ -15,6 +15,8 @@ import {
 import LinkNext from 'next/link';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 interface EditorClientProps {
   cv: CV;
@@ -35,16 +37,20 @@ interface EditorClientProps {
     role?: string | null;
   };
   isGuest?: boolean;
+  guestCanDownloadPdf?: boolean;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false }: EditorClientProps) {
+export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [pdfVersion, setPdfVersion] = useState(0);
+  // Epoch estable durante la sesión: junto con pdfVersion forma la URL versionada (cacheable) del PDF.
+  const [contentEpoch] = useState(() => new Date(cv.updatedAt).getTime());
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
 
   // Dynamic Prompt Configs Mapper
   const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
@@ -76,6 +82,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
   
   useEffect(() => {
     setCvContent(cv.content);
@@ -87,7 +94,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     platform: 'linkedin',
     jobDescription: '',
     promptId: availablePrompts.find(p => p.isActive)?.id || '',
-    addToKanban: 'true',
+    addToApplications: 'true',
   });
 
   // Resizer Split Screen states
@@ -140,6 +147,22 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   }, []);
 
   const runOptimizeStream = async (params: any) => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'optimize_cv',
+      title: 'Optimización de CV con IA',
+      data: {
+        baseCvMarkdown: params.baseCvMarkdown || cvContent || cv.content,
+        jobDescription: params.jobDescription,
+        promptId: params.promptId,
+        candidateName: params.candidateName,
+        careerProfileContext: params.careerProfileContext,
+      },
+    });
+    if (!proceed) {
+      setSaveStatus('saved');
+      return;
+    }
+
     setIsStreaming(true);
     setStreamingError(null);
     setSaveStatus('saving');
@@ -186,9 +209,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           setStreamingStep(t('editor.aiModal.steps.generate'));
         }
 
-        // Recargar PDF cada 3 segundos si ya hay contenido razonable
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
         const now = Date.now();
-        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -197,6 +220,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      trackUmamiConversion('cv_optimized');
+      // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
+      router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
       }, 2000);
@@ -210,6 +236,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const runImportStream = async (rawText: string) => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'import_cv',
+      title: 'Importar y Formatear CV con IA',
+      data: {
+        rawText,
+      },
+    });
+    if (!proceed) {
+      setSaveStatus('saved');
+      return;
+    }
+
     setIsStreaming(true);
     setStreamingError(null);
     setSaveStatus('saving');
@@ -258,9 +296,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         setCvContent(accumulatedText);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
 
-        // Recargar PDF cada 3 segundos si ya hay contenido razonable
+        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
         const now = Date.now();
-        if (now - lastPdfReload > 3000 && accumulatedText.length > 50) {
+        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
           lastPdfReload = now;
           setPdfVersion(prev => prev + 1);
         }
@@ -269,6 +307,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      trackUmamiConversion('cv_imported');
+      router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
       }, 2000);
@@ -396,7 +436,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         platform: aiFormData.platform,
         jobDescription: aiFormData.jobDescription,
         promptId: aiFormData.promptId,
-        addToKanban: aiFormData.addToKanban === 'true',
+        addToApplications: aiFormData.addToApplications === 'true',
         targetCvId: placeholderRes.cvId
       }));
 
@@ -631,7 +671,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           >
             <PdfViewer
               cvId={cv.id}
-              version={pdfVersion}
+              version={`${contentEpoch}-${pdfVersion}`}
               isFullScreen={fullscreenPanel === 'pdf'}
               onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'pdf' ? 'none' : 'pdf')}
               liveContent={cvContent}
@@ -642,6 +682,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               scale={scale}
               isAiStreaming={isStreaming}
               isGuest={isGuest}
+              guestCanDownload={guestCanDownload}
+              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
             />
           </div>
         )}
@@ -773,18 +815,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
                     <input
                       type="checkbox"
-                      id="addToKanban"
-                      checked={aiFormData.addToKanban === 'true'}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, addToKanban: e.target.checked ? 'true' : 'false' }))}
+                      id="addToApplications"
+                      checked={aiFormData.addToApplications === 'true'}
+                      onChange={(e) => setAiFormData(prev => ({ ...prev, addToApplications: e.target.checked ? 'true' : 'false' }))}
                       className="rounded bg-canvas border-control dark:border-white/20 text-ai focus:ring-ai/20 w-4 h-4 cursor-pointer accent-ai"
                     />
                     <div className="flex flex-col">
-                      <label htmlFor="addToKanban" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
+                      <label htmlFor="addToApplications" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
                         <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('editor.aiModal.kanban')}
+                        {t('editor.aiModal.applications')}
                       </label>
                       <span className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
-                        {t('editor.aiModal.kanbanDesc')}
+                        {t('editor.aiModal.applicationsDesc')}
                       </span>
                     </div>
                   </div>
@@ -918,7 +960,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           {saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 stroke-[1.75]" />
-              {t('editor.footer.saved')}
+              {t(isGuest ? 'editor.footer.savedGuest' : 'editor.footer.saved')}
             </span>
           )}
           {saveStatus === 'saving' && (

@@ -1,6 +1,6 @@
 # Matchply 🚀
 
-Matchply es una plataforma web inteligente diseñada para ayudar a candidatos a optimizar sus currículums de forma personalizada utilizando Inteligencia Artificial (motores como DeepSeek, Gemini y OpenRouter) y a realizar un seguimiento visual e interactivo de sus procesos de selección mediante un tablero Kanban.
+Matchply es una plataforma web inteligente diseñada para ayudar a candidatos a optimizar sus currículums de forma personalizada utilizando Inteligencia Artificial (motores como DeepSeek, Gemini y OpenRouter) y a realizar un seguimiento visual e interactivo de sus procesos de selección mediante un tablero de postulaciones.
 
 ---
 
@@ -29,15 +29,15 @@ src/
 │   │   ├── auth/         # Configuración y handlers de NextAuth
 │   │   ├── stripe/       # Webhooks e integración de Stripe Checkout
 │   │   └── cv/pdf/       # Generación de PDF interactivo
-│   ├── dashboard/        # Panel principal del usuario y tablero Kanban
-│   │   ├── kanban/       # Vista de seguimiento de postulaciones
+│   ├── dashboard/        # Panel principal del usuario y tablero de postulaciones
+│   │   ├── applications/       # Vista de seguimiento de postulaciones
 │   │   └── actions.ts    # Acciones de servidor (Server Actions) del dashboard
 │   ├── editor/           # Editor interactivo de currículums por ID
 │   ├── layout.tsx        # Layout global (metadatos, fuentes, estilos base)
 │   └── page.tsx          # Landing page promocional del producto
 ├── components/           # Componentes de UI modulares y reutilizables
 │   ├── editor/           # Editor de Markdown, barra de estilos y visor de PDF
-│   ├── kanban/           # Columnas y tarjetas individuales del tablero de seguimiento
+│   ├── applications/           # Columnas y tarjetas individuales del tablero de seguimiento
 │   └── ui/               # Componentes básicos de interfaz
 ├── db/                   # Configuración y esquemas de Base de Datos relacional
 │   ├── index.ts          # Inicialización del cliente Postgres de Drizzle
@@ -105,18 +105,6 @@ npm run db:studio
 npm run lint
 ```
 Ejecuta el linter (ESLint) para verificar estilos y buenas prácticas.
-
-### Integración externa de candidaturas
-
-Las rutas bajo `/api/external` aceptan una clave personal `matchply_usr_…` mediante `Authorization: Bearer`. La lógica de candidaturas es compartida con el servidor MCP para conservar la compatibilidad.
-
-- `GET/POST /api/external/applications`: listado e importación idempotente por `externalSource` + `externalId`.
-- `PATCH /api/external/applications/{id}`: estado y próxima fecha, con `expectedUpdatedAt` para detectar conflictos (`409`).
-- `POST /api/external/applications/{id}/cv`: abre el CV vinculado o crea una nueva versión cuando `regenerate` es `true`.
-- `GET/PUT /api/external/profile`: perfil, criterios y pesos.
-- `GET/PUT /api/external/profile/base-cv`: consulta, creación o selección explícita del CV base.
-
-Antes de desplegar esta integración debe aplicarse la migración `drizzle/0009_mixed_natasha_romanoff.sql`. Añade la identidad externa única por usuario sin modificar candidaturas existentes.
 
 ---
 

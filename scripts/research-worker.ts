@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { jobResearchRuns } from '@/db/schema';
 import { runResearch } from '@/lib/research/orchestrator';
 import { log } from '@/lib/logger';
+import { createIdleBackoff, createWorkerShutdown } from '@/lib/worker-idle';
 
 const MAX_ATTEMPTS = 3;
 const LEASE_MS = 5 * 60_000;
@@ -15,25 +16,25 @@ async function claimNextRun(): Promise<ClaimedRun | null> {
   const now = new Date();
   return db.transaction(async tx => {
     const result = await tx.execute(sql`
-      SELECT * FROM "job_research_run"
+      SELECT r.* FROM "job_research_run" r
       WHERE (
-        "status" = 'queued'
-        OR ("status" = 'running' AND "leaseUntil" < ${now})
+        r."status" = 'queued'
+        OR (r."status" = 'running' AND r."leaseUntil" < ${now})
       )
-      AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
-      AND "attempt" < ${MAX_ATTEMPTS}
-      ORDER BY "createdAt" ASC
-      FOR UPDATE SKIP LOCKED
+      AND (r."nextAttemptAt" IS NULL OR r."nextAttemptAt" <= ${now})
+      AND r."attempt" < ${MAX_ATTEMPTS}
+      AND NOT EXISTS (
+        SELECT 1 FROM "job_research_run" active
+        WHERE active."userId" = r."userId"
+          AND active."status" = 'running'
+          AND active."leaseUntil" > ${now}
+      )
+      ORDER BY r."createdAt" ASC
+      FOR UPDATE OF r SKIP LOCKED
       LIMIT 1
     `);
     const candidate = result.rows[0] as ClaimedRun | undefined;
     if (!candidate) return null;
-
-    const [userActive] = await tx.execute(sql`
-      SELECT count(*)::int AS count FROM "job_research_run"
-      WHERE "userId" = ${candidate.userId} AND "status" = 'running' AND "leaseUntil" > ${now}
-    `).then(result => result.rows as Array<{ count: number }>);
-    if (Number(userActive?.count || 0) > 0) return null;
 
     const leaseUntil = new Date(Date.now() + LEASE_MS);
     const [claimed] = await tx.update(jobResearchRuns).set({
@@ -71,11 +72,15 @@ async function processRun(run: ClaimedRun) {
   }
 }
 
+const shutdown = createWorkerShutdown();
+
 async function workerLoop(slot: number) {
-  while (true) {
+  const idle = createIdleBackoff();
+  while (!shutdown.stopping) {
     try {
       const run = await claimNextRun();
       if (run) {
+        idle.reset();
         log({ event: 'research_claimed', slot, runId: run.id, attempt: run.attempt });
         await processRun(run);
         continue;
@@ -83,7 +88,7 @@ async function workerLoop(slot: number) {
     } catch (error) {
       log({ event: 'research_worker_error', level: 'error', slot, error });
     }
-    await new Promise(resolve => setTimeout(resolve, 2_000));
+    await idle.wait();
   }
 }
 
@@ -91,7 +96,7 @@ log({ event: 'research_worker_started', concurrency: GLOBAL_CONCURRENCY });
 async function main() {
   if (!PIPELINE_ENABLED) {
     log({ event: 'research_worker_disabled' });
-    await new Promise<void>(() => undefined);
+    await shutdown.waitUntilSignal();
     return;
   }
   await Promise.all(Array.from({ length: GLOBAL_CONCURRENCY }, (_, index) => workerLoop(index + 1)));

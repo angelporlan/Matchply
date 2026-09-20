@@ -2,11 +2,22 @@
 
 import React, { useMemo } from 'react';
 import { ArrowUpRight, Target, Zap } from 'lucide-react';
+import {
+  computeProfileCompleteness,
+  type KeyProject,
+  type ProfileSkill,
+} from '@/lib/career-profile';
 
 interface ProfileCompletenessBarProps {
   dumpText: string;
   masterDocument: string;
   curationCriteria: string;
+  skills?: ProfileSkill[];
+  keyProjects?: KeyProject[];
+  preferredLocations?: string;
+  companyPreferences?: string;
+  salaryMin?: number | '' | null;
+  preferredWorkplaces?: string[];
   onActionClick?: (section: string) => void;
 }
 
@@ -14,36 +25,38 @@ export default function ProfileCompletenessBar({
   dumpText,
   masterDocument,
   curationCriteria,
+  skills = [],
+  keyProjects = [],
+  preferredLocations = '',
+  companyPreferences = '',
+  salaryMin = '',
+  preferredWorkplaces = [],
   onActionClick,
 }: ProfileCompletenessBarProps) {
-  const { score, level, missingItems } = useMemo(() => {
-    let currentScore = 0;
-    const missing: Array<{ label: string; boost: number; section: string }> = [];
-
-    if (dumpText && dumpText.trim().length >= 80) {
-      currentScore += 35;
-    } else {
-      missing.push({ label: '+35% Pega tu experiencia', boost: 35, section: 'dump' });
-    }
-
-    if (masterDocument && masterDocument.trim().length >= 120) {
-      currentScore += 40;
-    } else {
-      missing.push({ label: '+40% Genera el documento maestro', boost: 40, section: 'master' });
-    }
-
-    if (curationCriteria && curationCriteria.trim().length >= 20) {
-      currentScore += 25;
-    } else {
-      missing.push({ label: '+25% Añade reglas de puntuación', boost: 25, section: 'criteria' });
-    }
-
-    let lvl = 'Básico';
-    if (currentScore >= 80) lvl = 'Listo para la IA';
-    else if (currentScore >= 50) lvl = 'A medio camino';
-
-    return { score: currentScore, level: lvl, missingItems: missing };
-  }, [dumpText, masterDocument, curationCriteria]);
+  const { score, level, missingItems } = useMemo(
+    () => computeProfileCompleteness({
+      bio: dumpText,
+      masterDocument,
+      curationCriteria,
+      skills,
+      keyProjects,
+      preferredLocations,
+      companyPreferences,
+      salaryMin,
+      preferredWorkplaces,
+    }),
+    [
+      dumpText,
+      masterDocument,
+      curationCriteria,
+      skills,
+      keyProjects,
+      preferredLocations,
+      companyPreferences,
+      salaryMin,
+      preferredWorkplaces,
+    ],
+  );
 
   return (
     <div className="bg-white dark:bg-surface border border-subtle rounded-2xl p-5 shadow-sm space-y-3.5">
@@ -66,7 +79,7 @@ export default function ProfileCompletenessBar({
               </span>
             </div>
             <p className="text-[11px] text-text-muted font-sans">
-              Pega experiencia, genera el documento y define cómo puntuar ofertas. El rol objetivo es opcional.
+              Cuenta experiencia, stack con prueba, proyectos y preferencias. El rol objetivo es opcional.
             </p>
           </div>
         </div>

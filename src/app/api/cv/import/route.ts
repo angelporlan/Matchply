@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // Las actualizaciones de un CV existente no consumen un nuevo cupo.
     if (!targetCvId) {
       const cvCount = await getGuestCvCount(userId);
-      if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === 'guest' })) {
+      if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === 'guest', proGrantedUntil: actor.proGrantedUntil })) {
         return NextResponse.json({
           success: false,
           error: actor.kind === 'guest'
@@ -103,7 +103,11 @@ export async function POST(req: NextRequest) {
 
     // 3. Obtener el usuario para validar su estado de suscripción
     const [user] = await db
-      .select()
+      .select({
+        email: users.email,
+        name: users.name,
+        subscriptionStatus: users.subscriptionStatus,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);

@@ -16,7 +16,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 - **ACT-F11-01:** Puede extraer un perfil estructurado a partir de PDF, texto pegado o contenido de un CV existente.
 - **ACT-F11-02:** La entrevista recibe experiencia/contexto y objetivo opcional; clasifica el perfil y genera preguntas pertinentes.
 - **ACT-F11-03:** La síntesis combina texto libre y respuestas para devolver un perfil enriquecido y documento maestro.
-- **ACT-F11-04:** Devuelve propuestas JSON para previsualización; los endpoints no guardan directamente user.mcpProfile. La confirmación en el formulario aplica y persiste datos.
+- **ACT-F11-04:** Devuelve propuestas JSON para previsualización; los endpoints no guardan directamente user.careerProfile. La confirmación en el formulario aplica y persiste datos.
 - **ACT-F11-05:** La API incluye polish_section para pulir una sección con texto y tipo; rechaza texto vacío y acciones desconocidas.
 - **ACT-F11-06:** Usa el proveedor del nivel de suscripción y funciones de clasificación con alternativas heurísticas.
 

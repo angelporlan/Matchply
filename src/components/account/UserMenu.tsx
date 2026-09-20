@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, LazyMotion, m, domAnimation } from 'framer-motion';
 import {
   ChevronUp,
   CreditCard,
@@ -25,6 +25,7 @@ interface UserMenuProps {
     role?: string | null;
   };
   isPremium: boolean;
+  supportMode?: boolean;
 }
 
 function getInitials(name?: string | null, email?: string | null) {
@@ -68,7 +69,7 @@ function Avatar({
   );
 }
 
-export default function UserMenu({ user, isPremium }: UserMenuProps) {
+export default function UserMenu({ user, isPremium, supportMode = false }: UserMenuProps) {
   const { t } = useLanguage();
   const pathname = usePathname();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -146,9 +147,10 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
         />
       </button>
 
+      <LazyMotion features={domAnimation}>
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             role="menu"
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -200,6 +202,8 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                 <SlidersHorizontal className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 {t('sidebar.userMenu.profile')}
               </Link>
+              {!supportMode && (
+              <>
               <Link
                 href="/dashboard/profile?tab=integrations"
                 role="menuitem"
@@ -238,6 +242,8 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                   {t('sidebar.menu.adminPanel')}
                 </Link>
               )}
+              </>
+              )}
             </nav>
 
             {/* Cerrar sesión */}
@@ -273,9 +279,10 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                 </button>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
+      </LazyMotion>
     </div>
   );
 }

@@ -2,14 +2,14 @@ export const PRO_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 
 export const FREE_USER_MAX_CVS = 1;
 export const GUEST_MAX_CVS = 3;
+export const GUEST_MAX_PDF_DOWNLOADS = 1;
 export const HARVARD_TEMPLATE = 'harvard';
 export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE] as const;
 
 export type AccessTier = 'guest' | 'free' | 'pro';
 export type SubscriptionFeature =
   | 'advancedAi'
-  | 'kanban'
-  | 'apiKeys'
+  | 'applications'
   | 'linkedinExtension'
   | 'deepResearch';
 
@@ -25,8 +25,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      kanban: false,
-      apiKeys: false,
+      applications: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -36,8 +35,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      kanban: false,
-      apiKeys: false,
+      applications: false,
       linkedinExtension: false,
       deepResearch: false,
     },
@@ -47,8 +45,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: ALL_CV_TEMPLATES,
     features: {
       advancedAi: true,
-      kanban: true,
-      apiKeys: true,
+      applications: true,
       linkedinExtension: true,
       deepResearch: true,
     },
@@ -57,10 +54,49 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
 
 type EntitlementContext = {
   isGuest?: boolean;
+  proGrantedUntil?: Date | string | null;
+  now?: Date;
 };
 
 export function isProSubscription(status: string | null | undefined) {
   return PRO_SUBSCRIPTION_STATUSES.has(status || '');
+}
+
+export function isProGrantActive(
+  proGrantedUntil?: Date | string | null,
+  now: Date = new Date(),
+) {
+  if (!proGrantedUntil) return false;
+  const until = proGrantedUntil instanceof Date ? proGrantedUntil : new Date(proGrantedUntil);
+  if (Number.isNaN(until.getTime())) return false;
+  return until.getTime() > now.getTime();
+}
+
+export function hasProAccess(user: {
+  subscriptionStatus?: string | null;
+  proGrantedUntil?: Date | string | null;
+  isGuest?: boolean;
+  now?: Date;
+}) {
+  if (user.isGuest) return false;
+  if (isProSubscription(user.subscriptionStatus)) return true;
+  return isProGrantActive(user.proGrantedUntil, user.now);
+}
+
+export type EffectivePlanSource = 'stripe' | 'trialing' | 'granted' | 'free' | 'guest';
+
+export function getEffectivePlanSource(user: {
+  subscriptionStatus?: string | null;
+  proGrantedUntil?: Date | string | null;
+  isGuest?: boolean;
+  now?: Date;
+}): EffectivePlanSource {
+  if (user.isGuest) return 'guest';
+  const status = user.subscriptionStatus || 'none';
+  if (status === 'trialing') return 'trialing';
+  if (isProSubscription(status)) return 'stripe';
+  if (isProGrantActive(user.proGrantedUntil, user.now)) return 'granted';
+  return 'free';
 }
 
 export function getAccessTier(
@@ -68,7 +104,24 @@ export function getAccessTier(
   context: EntitlementContext = {},
 ): AccessTier {
   if (context.isGuest) return 'guest';
-  return isProSubscription(status) ? 'pro' : 'free';
+  if (isProSubscription(status) || isProGrantActive(context.proGrantedUntil, context.now)) return 'pro';
+  return 'free';
+}
+
+export function effectiveSubscriptionStatus(user: {
+  subscriptionStatus?: string | null;
+  proGrantedUntil?: Date | string | null;
+  isGuest?: boolean;
+  now?: Date;
+}) {
+  return hasProAccess(user) ? 'active' : (user.subscriptionStatus || 'none');
+}
+
+export function userEntitlements(user: {
+  isGuest?: boolean;
+  proGrantedUntil?: Date | string | null;
+}): EntitlementContext {
+  return { isGuest: Boolean(user.isGuest), proGrantedUntil: user.proGrantedUntil ?? null };
 }
 
 export function getPlanEntitlements(
@@ -112,4 +165,8 @@ export function canAccessFeature(
   context: EntitlementContext = {},
 ) {
   return getPlanEntitlements(status, context).features[feature];
+}
+
+export function canGuestDownloadPdf(usedCount: number) {
+  return usedCount < GUEST_MAX_PDF_DOWNLOADS;
 }

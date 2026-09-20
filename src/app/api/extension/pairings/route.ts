@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAccountContext } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
 import {
   createExtensionPairingCode,
@@ -10,8 +10,12 @@ import {
 import { SubscriptionAccessError } from '@/lib/permissions';
 
 async function currentUser() {
-  const session = await auth();
-  return session?.user?.id ? { id: session.user.id, email: session.user.email || null } : null;
+  try {
+    const ctx = await requireAccountContext();
+    return { id: ctx.realUser!.id, email: ctx.realUser!.email || null };
+  } catch {
+    return null;
+  }
 }
 
 function errorResponse(error: unknown) {

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { extensionJson, extensionOptions } from '@/lib/extension-http';
 import { ExtensionAuthError, resolveExtensionSession } from '@/lib/extension-auth';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 
 export async function OPTIONS() {
   return extensionOptions();
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         lastSeenAt: session.installation.lastSeenAt,
         lastCaptureAt: session.installation.lastCaptureAt,
       },
-      canResearch: isProSubscription(session.user.subscriptionStatus),
+      canResearch: hasProAccess(session.user),
     });
   } catch (error) {
     if (error instanceof ExtensionAuthError) return extensionJson({ connected: false, error: error.message }, { status: error.status });

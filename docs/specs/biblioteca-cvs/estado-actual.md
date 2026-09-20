@@ -25,7 +25,6 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 - La tabla cv tiene createdAt, pero no un updatedAt ni un historial persistente de versiones.
 - No se encontró papelera de CVs ni una acción dedicada de duplicar CV manualmente. El borrado es directo.
-- La selección específica de CV para MCP es otro campo y puede diferir del principal.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.
 

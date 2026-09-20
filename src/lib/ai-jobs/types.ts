@@ -1,6 +1,5 @@
 export const AI_JOB_KINDS = [
-  'mcp_optimize',
-  'mcp_evaluate',
+  'match_batch',
   'evaluate',
   'optimize_application',
 ] as const;
@@ -23,4 +22,10 @@ export type OptimizeApplicationPayload = {
   regenerate?: boolean;
 };
 
-export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload;
+export type MatchBatchPayload = {
+  offerIds: string[];
+  targetThreshold: number;
+  requestId: string;
+};
+
+export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload | MatchBatchPayload;

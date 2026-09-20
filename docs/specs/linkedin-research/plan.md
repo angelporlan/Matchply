@@ -8,5 +8,3 @@
 | Queue | PostgreSQL rows, lease, retry/backoff, worker service | `scripts/research-worker.ts` and Docker compose configuration |
 | Research | Tavily search, safe fetch, five agents, JSON synthesis, projections | `src/lib/research/*`, contract tests |
 | Dashboard | Integrations pairing/usage and offer Investigation tab | `LinkedInExtensionConsole`, `ResearchPanel` |
-| MCP | `investigar_oferta` and `consultar_investigacion` | `/api/mcp` tool list/call |
-| Migration | JSON/JSONL legacy importer through external API without auto-research | `scripts/migrate-legacy-linkedin.ts` |

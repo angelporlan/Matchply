@@ -23,7 +23,13 @@ type Props = {
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return '—';
   const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? '—' : date.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  return Number.isNaN(date.valueOf())
+    ? '—'
+    : date.toLocaleString('es-ES', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'Europe/Madrid',
+      });
 }
 
 export default function LinkedInExtensionConsole({ initialInstallations, initialQuota }: Props) {
@@ -101,7 +107,7 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
             </button>
             {pairing && (
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-                <div className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Código válido hasta {formatDate(pairing.expiresAt)}</div>
+                <div suppressHydrationWarning className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Código válido hasta {formatDate(pairing.expiresAt)}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <code className="text-2xl tracking-[0.25em] font-bold text-text">{pairing.code}</code>
                   <button type="button" onClick={copyCode} className="p-2 rounded-md bg-white/70 dark:bg-black/20 text-ai" title="Copiar código">{copied ? <Check className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}</button>
@@ -122,7 +128,7 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
           <div className="flex items-center justify-between"><h4 className="text-sm font-bold text-text">Instalaciones conectadas</h4><button type="button" onClick={() => void refresh()} className="text-xs text-ai hover:underline">Actualizar</button></div>
           {!installations.length ? <div className="p-4 rounded-lg border border-dashed border-control dark:border-white/10 text-xs text-slate-500">Aún no hay una instalación vinculada.</div> : installations.map(installation => (
             <div key={installation.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-subtle bg-canvas/20">
-              <div className="flex items-start gap-3"><div className={`mt-1 w-2 h-2 rounded-full ${installation.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} /><div><div className="text-xs font-semibold text-text">{installation.tokenPrefix}… · {installation.status === 'active' ? 'Activa' : 'Revocada'}</div><div className="text-[10px] text-slate-500 mt-1">v{installation.extensionVersion || '?'} · última actividad {formatDate(installation.lastSeenAt)} · última captura {formatDate(installation.lastCaptureAt)}</div></div></div>
+              <div className="flex items-start gap-3"><div className={`mt-1 w-2 h-2 rounded-full ${installation.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} /><div><div className="text-xs font-semibold text-text">{installation.tokenPrefix}… · {installation.status === 'active' ? 'Activa' : 'Revocada'}</div><div suppressHydrationWarning className="text-[10px] text-slate-500 mt-1">v{installation.extensionVersion || '?'} · última actividad {formatDate(installation.lastSeenAt)} · última captura {formatDate(installation.lastCaptureAt)}</div></div></div>
               {installation.status === 'active' && <button type="button" onClick={() => void revoke(installation.id)} disabled={loading} className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs text-rose-500 hover:text-rose-600 disabled:opacity-50"><Unplug className="w-3.5 h-3.5" /> Revocar</button>}
             </div>
           ))}

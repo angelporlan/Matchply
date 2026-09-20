@@ -13,19 +13,19 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 ## Qué hace actualmente
 
-- **ACT-F09-01:** Recibe CV base propio, puesto, empresa y descripción obligatorios; también URL, plataforma, prompt y opción de añadir a Kanban.
+- **ACT-F09-01:** Recibe CV base propio, puesto, empresa y descripción obligatorios; también URL, plataforma, prompt y opción de añadir a postulaciones.
 - **ACT-F09-02:** Selecciona proveedor/modelo y prompt según configuración, incorpora nombre y contexto profesional al flujo de optimización.
 - **ACT-F09-03:** Entrega Markdown incremental y guarda el resultado al completar; puede crear un CV o actualizar un destino propio indicado.
 - **ACT-F09-04:** Si Free tiene su único CV y no se indica destino, reutiliza el CV base. El original puede quedar sustituido al terminar.
 - **ACT-F09-05:** Las copias conservan estilos permitidos del CV de origen y reciben título Optimizado - puesto (empresa).
 - **ACT-F09-06:** Si el destino es distinto del base, puede guardar contenido parcial cada 3 segundos. El resultado final se guarda sin una aceptación adicional del usuario.
-- **ACT-F09-07:** Añadir a Kanban solo se aplica con permiso PRO; crea una candidatura interested vinculada si no encuentra una con ese cvId.
+- **ACT-F09-07:** Añadir a postulaciones solo se aplica con permiso PRO; crea una candidatura interested vinculada si no encuentra una con ese cvId.
 - **ACT-F09-08:** Hay límite de 8 solicitudes por actor cada 10 minutos, auditoría y marcadores finales de éxito/error en el stream.
 
 ## Límites, diferencias y capacidades parciales
 
 - La intención visual de revisar antes de aplicar descrita en design.md no coincide todavía con el guardado automático de esta ruta.
-- La ruta streaming y las tareas MCP/API no son el mismo circuito; no asumir idénticas reglas de copia, reintento o límites.
+- La ruta streaming y las tareas en cola no son el mismo circuito; no asumir idénticas reglas de copia, reintento o límites.
 - No se ha medido la calidad real de las optimizaciones ni ejecutado proveedores en esta revisión.
 
 Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.

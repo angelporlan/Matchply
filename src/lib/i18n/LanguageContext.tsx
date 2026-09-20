@@ -1,8 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { translations, Language } from './translations';
+import type { Language, TranslationDict } from './types';
+import en from './en';
+import es from './es';
 
 interface LanguageContextType {
   language: Language;
@@ -11,6 +13,25 @@ interface LanguageContextType {
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+const dictionaries: Record<Language, TranslationDict> = {
+  en: en as unknown as TranslationDict,
+  es: es as unknown as TranslationDict,
+};
+
+function lookup(dictionary: TranslationDict | null | undefined, key: string): string | undefined {
+  if (!dictionary) return undefined;
+  const keys = key.split('.');
+  let value: unknown = dictionary;
+  for (const k of keys) {
+    if (value && typeof value === 'object' && k in (value as Record<string, unknown>)) {
+      value = (value as Record<string, unknown>)[k];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof value === 'string' ? value : undefined;
+}
 
 export function LanguageProvider({
   children,
@@ -22,67 +43,17 @@ export function LanguageProvider({
   const router = useRouter();
   const [language, setLanguageState] = useState<Language>(initialLanguage);
 
-  useEffect(() => {
-    // Detect preferred language from localStorage/cookie or browser as a client-side sync
-    const savedLang = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('lang='))
-      ?.split('=')[1] as Language | undefined;
-
-    if (savedLang && (savedLang === 'es' || savedLang === 'en')) {
-      setLanguageState(savedLang);
-    } else {
-      const localLang = localStorage.getItem('lang') as Language | undefined;
-      if (localLang && (localLang === 'es' || localLang === 'en')) {
-        setLanguageState(localLang);
-        document.cookie = `lang=${localLang}; path=/; max-age=31536000`;
-      } else {
-        const browserLang = navigator.language.startsWith('en') ? 'en' : 'es';
-        setLanguageState(browserLang);
-        document.cookie = `lang=${browserLang}; path=/; max-age=31536000`;
-      }
-    }
-  }, []);
-
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('lang', lang);
     document.cookie = `lang=${lang}; path=/; max-age=31536000`;
-    
-    // Refresh Server Components so they render in the new language
     router.refresh();
   };
 
   const t = (key: string, replacements?: Record<string, string | number>): string => {
-    const keys = key.split('.');
-    let value: any = translations[language];
-
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        // Fallback to Spanish if key is not found in selected language
-        let fallbackValue: any = translations['es'];
-        for (const fk of keys) {
-          if (fallbackValue && typeof fallbackValue === 'object' && fk in fallbackValue) {
-            fallbackValue = fallbackValue[fk];
-          } else {
-            fallbackValue = undefined;
-            break;
-          }
-        }
-        if (typeof fallbackValue === 'string') {
-          value = fallbackValue;
-        } else {
-          return key; // Return the key itself as a fallback
-        }
-        break;
-      }
-    }
-
-    if (typeof value !== 'string') {
-      return key;
-    }
+    let value = lookup(dictionaries[language], key);
+    if (value === undefined && language !== 'es') value = lookup(dictionaries.es, key);
+    if (value === undefined) return key;
 
     let result = value;
     if (replacements) {
@@ -90,7 +61,6 @@ export function LanguageProvider({
         result = result.replace(new RegExp(`{${placeholder}}`, 'g'), String(val));
       });
     }
-
     return result;
   };
 

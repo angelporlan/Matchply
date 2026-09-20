@@ -1,16 +1,21 @@
 version: '3.8'
 
 services:
-  # Servicio de la Base de Datos PostgreSQL
   db:
     image: postgres:15-alpine
     container_name: nextprof_postgres_prod
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: nextprof_secure_pwd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server environment}
       POSTGRES_DB: nextprof_db
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=64MB
+      -c max_connections=100
     ports:
-      # Binding a 127.0.0.1 por seguridad, para que no sea accesible desde internet públicamente
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
@@ -19,21 +24,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 1g
     restart: always
 
-  # Servicio de la Aplicación Web Next.js
   web:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: web
     container_name: nextprof_web_prod
     ports:
-      - "127.0.0.1:3000:3000" # Exponer localmente, se conectará con Nginx/Caddy en el puerto 80/443
+      - "127.0.0.1:3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=15000
+      - NODE_OPTIONS=--max-old-space-size=768
+      - PDF_WORKER_POOL_SIZE=2
     env_file:
       - .env
     depends_on:
@@ -45,45 +53,87 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    mem_limit: 1g
     restart: always
 
-  # Worker interno: comparte imagen y base de datos, sin puertos públicos.
   research_worker:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: worker
     container_name: nextprof_research_worker_prod
     command: npm run research:worker
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
+      - NODE_OPTIONS=--max-old-space-size=384
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
+    mem_limit: 512m
     restart: always
 
   ai_worker:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      target: worker
     container_name: nextprof_ai_worker_prod
     command: npm run ai:worker
     environment:
-      - DATABASE_URL=postgresql://postgres:nextprof_secure_pwd@db:5432/nextprof_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the server environment}
       - NODE_ENV=production
       - DATABASE_POOL_MAX=8
       - DATABASE_STATEMENT_TIMEOUT_MS=180000
       - AI_WORKER_ENABLED=true
+      - AI_GLOBAL_CONCURRENCY=2
+      - NODE_OPTIONS=--max-old-space-size=512
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
+    mem_limit: 768m
+    restart: always
+
+  umami_db:
+    image: postgres:15-alpine
+    container_name: matchply_umami_postgres
+    environment:
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami_change_me}
+      POSTGRES_DB: umami
+    volumes:
+      - umami_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    restart: always
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-v2.18.1
+    container_name: matchply_umami
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-umami_change_me}@umami_db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:-change_me_umami_app_secret}
+      DISABLE_TELEMETRY: 1
+      DISABLE_UPDATES: 1
+      COLLECT_API_ENDPOINT: /api/send
+    depends_on:
+      umami_db:
+        condition: service_healthy
+    mem_limit: 512m
     restart: always
 
 volumes:
   postgres_prod_data:
+  umami_postgres_data:

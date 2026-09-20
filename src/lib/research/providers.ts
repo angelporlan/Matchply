@@ -1,8 +1,8 @@
 import { createHash } from 'crypto';
 import { isIP } from 'net';
 import { lookup } from 'node:dns/promises';
-import { getAiSetting } from '@/lib/ai-settings';
-import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER, getDefaultModelForProvider } from '@/lib/models';
+import { resolveRouteModel } from '@/lib/ai-runtime-store';
+import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER } from '@/lib/models';
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_FETCHED_TEXT = 24_000;
@@ -160,9 +160,8 @@ export async function fetchPublicSource(result: WebSearchResult): Promise<Public
 }
 
 export async function getProModelConfig() {
-  const provider = await getAiSetting('pro_provider', DEFAULT_PRO_PROVIDER);
-  const model = await getAiSetting('pro_model', getDefaultModelForProvider('pro', provider));
-  return { provider, model: model || DEFAULT_PRO_MODEL };
+  const routed = await resolveRouteModel('research', true);
+  return { provider: routed.provider, model: routed.model || DEFAULT_PRO_MODEL };
 }
 
 function parseJsonObject(text: string) {

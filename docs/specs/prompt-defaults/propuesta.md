@@ -1,134 +1,35 @@
-# Configuración de IA, modelos y biblioteca de prompts — comportamiento deseado
+# Configuración de IA, modelos y prompts — comportamiento deseado
 
-Estado: **Borrador — pendiente de rellenar**  
-Responsable: [POR DEFINIR]  
-Fecha de revisión: [POR DEFINIR]  
-Prioridad: [Imprescindible / Importante / Más adelante / Sin cambio]
+Estado: **Aprobado para implementar**  
+Fecha de revisión: 20 de septiembre de 2026  
+Prioridad: Imprescindible
 
-Referencia: [lo que hace actualmente](estado-actual.md). Las observaciones ACT son una fotografía del código; no son requisitos aprobados.
-
-Se conserva la [especificación técnica anterior](spec.md). Esta propuesta permite definir cambios sin sobrescribirla y todavía no la sustituye.
-
-Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras; el resto ayuda a concretar cuando lo necesites. Usa «No aplica» en vez de inventar una decisión. Ningún campo vacío implica aceptar el comportamiento actual.
+Se conserva la [especificación técnica anterior](spec.md) para el historial de prompts integrados. Esta propuesta la sustituye operativamente.
 
 ## 1. Lo que quiero
 
-**Quiero que esta funcionalidad…**
+Modelos por plan general y excepciones por función, guardados atómicamente. Prompts únicamente en código, con selector de modos del editor. Catálogo oficial consultado en servidor. Historial de configuración restaurable.
 
-[ESCRIBE AQUÍ]
+## 2. Decisiones
 
-**El problema que quiero resolver y para quién:**
+- Proveedores: Gemini, DeepSeek, OpenRouter.
+- Contrato `AiRuntimeConfig` (versión, general Gratis/Pro, excepciones de seis funciones). No cambia qué funciones permite cada plan.
+- Resolver una vez por petición o trabajo; TTL ≤ 60 s; el snapshot viaja con los reintentos del job.
+- Prompts: modos versionados en código. `promptId` → `modeId` con mapa temporal de UUID antiguos. Tabla `prompt` histórica, sin lecturas operativas ni editor admin.
+- Ningún modo autoriza inventar experiencia o métricas; las diferencias de tono quedan subordinadas a las reglas comunes de fidelidad.
+- Probar un modelo nuevo antes de activarlo. Credenciales solo en entorno (configurada / no configurada).
 
-[ESCRIBE AQUÍ]
+## 3. Funciones con modelo
 
-**Al terminar, la persona debe obtener/ver…**
+`optimize_cv`, `import_cv`, `career_profile`, `matching`, `outreach`, `research`.
 
-[ESCRIBE AQUÍ]
+## 4. Criterios
 
-## 2. Decisiones específicas de esta funcionalidad
-
-**¿Qué funciones tendrán modelos y prompts configurables, y cuáles estarán fijados?**
-
-[ESCRIBE AQUÍ]
-
-**¿Quieres versiones, pruebas comparativas y aprobación antes de activar un prompt?**
-
-[ESCRIBE AQUÍ]
-
-**¿Qué contrato de salida, fidelidad y fallback debe cumplir cada operación IA?**
-
-[ESCRIBE AQUÍ]
-
-## 3. Qué conservar y qué cambiar
-
-Consulta los puntos ACT de la ficha actual. Puedes mantener, modificar o eliminar cada comportamiento que sea relevante.
-
-| Referencia actual o comportamiento | Mantener / Cambiar / Eliminar / Añadir | Mi decisión y motivo |
-| --- | --- | --- |
-| [ACT-… o descripción] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Lo que debe seguir funcionando siempre, incluso si hay errores:**
-
-- INV-01: [POR DEFINIR]
-
-**Lo que queda fuera de este cambio:**
-
-[POR DEFINIR]
-
-## 4. Quién puede usarlo y con qué límites
-
-| Persona o plan | Puede verlo | Puede usarlo o modificarlo | Límite y qué ocurre al agotarlo |
-| --- | --- | --- | --- |
-| Visitante / invitado | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario Gratis | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario PRO | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Administrador / integración, si aplica | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-## 5. Cómo debe funcionar
-
-**Dónde comienza y qué debe existir antes:** [POR DEFINIR]
-
-1. La persona o integración hace: [POR DEFINIR].
-2. La aplicación comprueba: [POR DEFINIR].
-3. La aplicación procesa y muestra: [POR DEFINIR].
-4. La persona revisa o confirma, si procede: [POR DEFINIR].
-5. La aplicación guarda y termina en: [POR DEFINIR].
-
-| Dato de entrada | Obligatorio | Formato, ejemplo ficticio y validación |
-| --- | --- | --- |
-| [POR DEFINIR] | [Sí / No] | [POR DEFINIR] |
-
-| Resultado o dato guardado | Dónde se muestra/guarda | Momento de guardado y si sustituye algo |
-| --- | --- | --- |
-| [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Confirmación, deshacer, versiones o recuperación:** [POR DEFINIR]
-
-## 6. Casos especiales y errores
-
-| Situación | Qué debe ver la persona | Qué debe conservar/hacer el sistema |
-| --- | --- | --- |
-| No hay datos o es el primer uso | [POR DEFINIR] | [POR DEFINIR] |
-| Datos incompletos o inválidos | [POR DEFINIR] | [POR DEFINIR] |
-| Falta sesión, permiso o cuota | [POR DEFINIR] | [POR DEFINIR] |
-| IA/servicio lento, caído o respuesta inválida | [POR DEFINIR / No aplica] | [POR DEFINIR / No aplica] |
-| Cierre de pestaña o pérdida de conexión | [POR DEFINIR] | [POR DEFINIR] |
-| Reintento, doble clic o dos cambios simultáneos | [POR DEFINIR] | [POR DEFINIR] |
-| Éxito parcial o datos ya existentes | [POR DEFINIR] | [POR DEFINIR] |
-
-## 7. Resultado esperado y criterios para darlo por correcto
-
-Escribe ejemplos observables. Una frase como «que funcione bien» no permite comprobar el resultado. Estos criterios se completarán antes de implementar; todavía no son pruebas realizadas.
-
-| ID | Dado este contexto | Cuando ocurre esta acción | Entonces espero exactamente |
-| --- | --- | --- | --- |
-| CA-01 | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-02 | [Caso de error] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-03 | [Caso de permiso/límite] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Ejemplo completo con datos ficticios (entrada → resultado):**
-
-[ESCRIBE AQUÍ]
-
-**Cómo lo comprobaré manualmente:** [POR DEFINIR]
-
-## 8. Experiencia, datos y condiciones adicionales (si aplica)
-
-- Pantalla, textos, botones, móvil y accesibilidad: [POR DEFINIR; referencia visual en design.md].
-- Idiomas de interfaz y de resultados: [POR DEFINIR].
-- Tiempo de respuesta, progreso y coste máximo: [POR DEFINIR].
-- Datos enviados a IA/terceros y confirmación necesaria: [POR DEFINIR].
-- Conservación, exportación, borrado y registro de acciones: [POR DEFINIR].
-- Qué ocurre con datos existentes al activar el cambio: [POR DEFINIR].
-- Dependencias de otras funcionalidades: [POR DEFINIR; enlazar sus fichas].
-- Dudas por resolver: [POR DEFINIR].
-
-## 9. Revisión antes de implementar
-
-- [ ] He definido el objetivo y el resultado esperado.
-- [ ] He decidido qué conservar y qué cambiar.
-- [ ] He revisado permisos, errores y datos existentes.
-- [ ] Los criterios CA describen resultados comprobables.
-
-Decisión final: [Borrador / Listo para revisión / Aprobado para implementar]  
-Quién y cuándo toma la decisión: [POR DEFINIR]
+| ID | Esperado |
+| --- | --- |
+| CA-IA-01 | Guardado atómico; un conflicto de versión no sobrescribe otra edición |
+| CA-IA-02 | Proveedor caído: se conservan las selecciones actuales |
+| CA-IA-03 | Combinación nueva sin prueba satisfactoria: no se activa |
+| CA-IA-04 | Todos los modos se resuelven sin tabla `prompt` |
+| CA-IA-05 | Identificador desconocido: mensaje de recarga, sin ejecutar IA |
+| CA-IA-06 | Workers usan el snapshot del job en reintentos |

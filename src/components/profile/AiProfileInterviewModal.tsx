@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DictationTextarea from './DictationTextarea';
 import type { InterviewQuestion, ProfileClassification } from '@/lib/profile-classification';
+import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 
 interface AiProfileInterviewModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export default function AiProfileInterviewModal({
   const [error, setError] = useState<string | null>(null);
   const [masterDraft, setMasterDraft] = useState('');
   const [pendingProfile, setPendingProfile] = useState<any>(null);
+  const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,6 +53,20 @@ export default function AiProfileInterviewModal({
   }, [isOpen]);
 
   const fetchInterview = async () => {
+    const proceed = await inspectOrExecutePrompt({
+      action: 'start_interview',
+      title: 'Generar Preguntas de Entrevista IA',
+      data: {
+        dumpText,
+        optionalTarget,
+        currentProfile,
+      },
+    });
+    if (!proceed) {
+      onClose();
+      return;
+    }
+
     setLoadingQuestions(true);
     setError(null);
     try {
@@ -80,15 +96,29 @@ export default function AiProfileInterviewModal({
   };
 
   const handleSynthesize = async () => {
+    const qaList = questions
+      .map((q) => ({
+        question: q.question,
+        answer: (answers[q.id] || '').trim(),
+      }))
+      .filter((qa) => qa.answer.length > 0);
+
+    const proceed = await inspectOrExecutePrompt({
+      action: 'synthesize_profile',
+      title: 'Sintetizar Perfil desde Entrevista IA',
+      data: {
+        currentProfile,
+        qaList,
+        dumpText,
+        optionalTarget,
+        classification,
+      },
+    });
+    if (!proceed) return;
+
     setSynthesizing(true);
     setError(null);
     try {
-      const qaList = questions
-        .map((q) => ({
-          question: q.question,
-          answer: (answers[q.id] || '').trim(),
-        }))
-        .filter((qa) => qa.answer.length > 0);
 
       const res = await fetch('/api/ai/profile/interview', {
         method: 'POST',

@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAccountContext } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
 import { ExtensionAuthError, revokeExtensionInstallation } from '@/lib/extension-auth';
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  let user: { id: string; email: string | null };
   try {
-    const result = await revokeExtensionInstallation(session.user.id, params.id);
-    await createAuditLog('extension_installation_revoked', session.user.id, session.user.email || null, {
+    const ctx = await requireAccountContext();
+    user = { id: ctx.realUser!.id, email: ctx.realUser!.email || null };
+  } catch {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+  try {
+    const result = await revokeExtensionInstallation(user.id, params.id);
+    await createAuditLog('extension_installation_revoked', user.id, user.email, {
       installationId: result.id,
     });
     return NextResponse.json({ success: true, id: result.id });

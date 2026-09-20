@@ -1,6 +1,8 @@
 "use client";
 
 import React from 'react';
+import { formatCareerProfileContext } from '@/lib/career-profile';
+import type { ScoringPreferences } from '@/lib/curation-constraints';
 import {
   Eye,
   X,
@@ -20,6 +22,12 @@ interface AiPreviewModalProps {
     targetRoles: string[];
     experienceYears?: number | '';
     techStack?: Record<string, string[] | undefined> | any;
+    skills?: Array<{
+      name: string;
+      category?: string;
+      proficiency?: string;
+      evidence?: string;
+    }>;
     keyProjects?: Array<{
       title: string;
       techStack?: string;
@@ -36,6 +44,9 @@ interface AiPreviewModalProps {
     companyPreferences: string;
     salaryMin?: number | '';
     salaryTarget?: number | '';
+    englishLevel?: string;
+    englishOverLevelPolicy?: string;
+    scoringPreferences?: ScoringPreferences;
     curationCriteria: string;
     masterDocument?: string;
   };
@@ -64,13 +75,14 @@ export default function AiPreviewModal({
                 Cómo te ve la IA
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                Este es el contexto exacto que se inyecta en cada evaluación de oferta y creación de CV.
+                Revisa tu resumen profesional y las condiciones de puntuación antes de guardar el perfil.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Cerrar vista previa del perfil"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
           >
             <X className="w-4 h-4 stroke-[1.75]" />
@@ -83,7 +95,7 @@ export default function AiPreviewModal({
           <div className="bg-surface-muted dark:bg-canvas border border-ai/20 rounded-xl p-4 space-y-2">
             <div className="flex items-center gap-2 text-ai font-bold font-display text-xs">
               <ShieldCheck className="w-4 h-4 stroke-[1.75]" />
-              <span>Reglas duras aplicadas en código:</span>
+              <span>Condiciones que limitan la puntuación:</span>
             </div>
             {constraintChips.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 pt-1">
@@ -98,28 +110,28 @@ export default function AiPreviewModal({
               </div>
             ) : (
               <p className="text-[11px] text-slate-400">
-                No se han detectado reglas duras de idioma o descarte estricto. La IA usará evaluación semántica estándar.
+                No has definido límites de puntuación. Indicar tu nivel de inglés no activa penalizaciones.
               </p>
             )}
           </div>
+
+          {(profileData.scoringPreferences?.reviewRequired.length || 0) > 0 && (
+            <div className="rounded-xl border border-subtle p-4 text-text">
+              <p className="font-bold">Criterios pendientes de aclarar — inactivos</p>
+              <ul className="mt-2 list-disc pl-4 space-y-1">
+                {profileData.scoringPreferences!.reviewRequired.map((text) => <li key={text}>{text}</li>)}
+              </ul>
+            </div>
+          )}
 
           {/* Contexto inyectado */}
           <div className="space-y-2">
             <p className="text-xs font-bold text-text font-display flex items-center gap-1.5">
               <Code2 className="w-4 h-4 text-ai stroke-[1.75]" />
-              Payload de Contexto del Candidato:
+              Resumen profesional:
             </p>
             <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto border border-slate-800">
-{`${profileData.masterDocument ? `### DOCUMENTO MAESTRO:\n${profileData.masterDocument}\n\n` : ''}### PERFIL DEL CANDIDATO:
-- Trayectoria & Stack: ${profileData.bio || '(Sin biografía definida)'}
-- Roles Objetivo: ${profileData.targetRoles?.join(', ') || '(Sin definir)'}
-- Años de Experiencia: ${profileData.experienceYears || 'N/D'}
-- Modalidades: ${profileData.preferredWorkplaces?.join(', ') || 'Cualquiera'}
-- Ubicaciones: ${profileData.preferredLocations || 'No especificada'}
-- Empresas Preferidas: ${profileData.companyPreferences || 'Cualquiera'}
-- Salario: Min ${profileData.salaryMin || 'N/D'}€, Target ${profileData.salaryTarget || 'N/D'}€
-${profileData.keyProjects && profileData.keyProjects.length > 0 ? `\n- Proyectos Clave:\n${profileData.keyProjects.map(p => `  * ${p.title} (${p.techStack || ''}): ${p.description} [Impacto: ${p.impact || 'N/D'}]`).join('\n')}` : ''}
-${profileData.curationCriteria ? `\n### CRITERIOS DE CURACIÓN (LinkedIn Matching):\n${profileData.curationCriteria}` : ''}`}
+{formatCareerProfileContext(profileData) || 'Aún no hay suficiente perfil para inyectar contexto.'}
             </div>
           </div>
         </div>

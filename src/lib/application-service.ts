@@ -1,11 +1,11 @@
-import { and, desc, eq, gt } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { cvs, jobOffers, users } from '@/db/schema';
+import { jobOffers } from '@/db/schema';
+import { findOrCreateCompany } from '@/lib/company-service';
 import { requireUserFeature } from '@/lib/permissions';
-import { enqueueAiJob } from '@/lib/ai-jobs/queue';
-import { settleAiJob } from '@/lib/ai-jobs/settle';
+import { jobOfferOwnershipColumns } from '@/lib/job-offer-queries';
 
-export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected'] as const;
+export const PIPELINE_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
 export type PipelineStatus = typeof PIPELINE_STATUSES[number];
 
 export class ApplicationConflictError extends Error {}
@@ -39,6 +39,7 @@ export type ExternalApplicationInput = {
 };
 
 export function normalizeStatus(value?: string): PipelineStatus {
+  if (value && value.startsWith('archived:')) return 'archived';
   return PIPELINE_STATUSES.includes(value as PipelineStatus)
     ? value as PipelineStatus
     : 'interested';
@@ -66,7 +67,7 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
   const match = applicationMatchStrategy(input);
   if (!match) return null;
   if (match.strategy === 'external') {
-    const [offer] = await db.select().from(jobOffers).where(and(
+    const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
       eq(jobOffers.userId, userId),
       eq(jobOffers.externalSource, match.externalSource),
       eq(jobOffers.externalId, match.externalId),
@@ -74,13 +75,13 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
     return offer || null;
   }
   if (match.strategy === 'url') {
-    const [offer] = await db.select().from(jobOffers).where(and(
+    const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
       eq(jobOffers.userId, userId),
       eq(jobOffers.url, match.url),
     )).limit(1);
     return offer || null;
   }
-  const [offer] = await db.select().from(jobOffers).where(and(
+  const [offer] = await db.select(jobOfferOwnershipColumns).from(jobOffers).where(and(
     eq(jobOffers.userId, userId),
     eq(jobOffers.title, match.title),
     eq(jobOffers.company, match.company),
@@ -89,7 +90,7 @@ async function findExisting(userId: string, input: ExternalApplicationInput) {
 }
 
 export async function upsertExternalApplication(userId: string, input: ExternalApplicationInput) {
-  await requireUserFeature(userId, 'kanban');
+  await requireUserFeature(userId, 'applications');
   const existing = await findExisting(userId, input);
   const score = input.scoreOverall === null || input.scoreOverall === undefined
     ? null
@@ -97,6 +98,7 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
   const data = {
     title: input.title.trim(),
     company: input.company.trim(),
+    companyId: null as string | null,
     url: input.url?.trim() || null,
     platform: input.platform || 'other',
     description: input.description || null,
@@ -124,6 +126,10 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
     updatedAt: new Date(),
   };
 
+  const companyRecord = await findOrCreateCompany(userId, data.company);
+  data.company = companyRecord?.name ?? data.company;
+  data.companyId = companyRecord?.id ?? null;
+
   if (existing) {
     const [updated] = await db.update(jobOffers).set(data).where(eq(jobOffers.id, existing.id)).returning();
     return { offer: updated, created: false };
@@ -133,115 +139,12 @@ export async function upsertExternalApplication(userId: string, input: ExternalA
   return { offer: created, created: true };
 }
 
-export async function listExternalApplications(
-  userId: string,
-  filters: { externalSource?: string; updatedSince?: string } = {},
-) {
-  await requireUserFeature(userId, 'kanban');
-  const clauses = [eq(jobOffers.userId, userId)];
-  if (filters.externalSource) clauses.push(eq(jobOffers.externalSource, filters.externalSource));
-  if (filters.updatedSince) {
-    const since = new Date(filters.updatedSince);
-    if (!Number.isNaN(since.valueOf())) clauses.push(gt(jobOffers.updatedAt, since));
-  }
-  return db.select().from(jobOffers).where(and(...clauses)).orderBy(desc(jobOffers.updatedAt));
-}
-
 export async function getOwnedApplication(userId: string, offerId: string) {
-  await requireUserFeature(userId, 'kanban');
+  await requireUserFeature(userId, 'applications');
   const [offer] = await db.select().from(jobOffers).where(and(
     eq(jobOffers.id, offerId),
     eq(jobOffers.userId, userId),
   )).limit(1);
   if (!offer) throw new ApplicationNotFoundError('Application not found');
   return offer;
-}
-
-export async function updateExternalApplication(
-  userId: string,
-  offerId: string,
-  input: { status?: string; nextFollowupDate?: string | null; expectedUpdatedAt?: string },
-) {
-  const existing = await getOwnedApplication(userId, offerId);
-  if (input.expectedUpdatedAt && existing.updatedAt.toISOString() !== input.expectedUpdatedAt) {
-    throw new ApplicationConflictError('Application changed in Matchply');
-  }
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (input.status !== undefined) {
-    if (!PIPELINE_STATUSES.includes(input.status as PipelineStatus)) throw new Error('Invalid status');
-    values.status = input.status;
-  }
-  if (input.nextFollowupDate !== undefined) {
-    values.nextFollowupDate = input.nextFollowupDate ? new Date(input.nextFollowupDate) : null;
-  }
-  const [updated] = await db.update(jobOffers).set(values).where(eq(jobOffers.id, offerId)).returning();
-  return updated;
-}
-
-async function resolveBaseCv(userId: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (user?.mcpCvId) {
-    const [selected] = await db.select().from(cvs).where(and(
-      eq(cvs.id, user.mcpCvId),
-      eq(cvs.userId, userId),
-    )).limit(1);
-    if (selected) return { user, cv: selected };
-  }
-  const [base] = await db.select().from(cvs).where(and(
-    eq(cvs.userId, userId),
-    eq(cvs.isBase, true),
-  )).orderBy(desc(cvs.isPrincipal)).limit(1);
-  return { user, cv: base || null };
-}
-
-export async function optimizeApplicationCv(userId: string, offerId: string, regenerate = false) {
-  const offer = await getOwnedApplication(userId, offerId);
-  if (offer.cvId && !regenerate) {
-    return { offer, cvId: offer.cvId, created: false };
-  }
-  if (!offer.description) throw new Error('Application has no job description');
-
-  const job = await enqueueAiJob({
-    userId,
-    kind: 'optimize_application',
-    payload: { offerId, regenerate },
-  });
-  const settled = await settleAiJob(job.id);
-  if (settled.status === 'failed') {
-    throw new Error(settled.lastError || 'CV optimization failed');
-  }
-  if (settled.status !== 'completed') {
-    throw new Error(`CV optimization is still ${settled.status}. Job ${settled.id}`);
-  }
-
-  const result = (settled.result || {}) as { cvId?: string; created?: boolean };
-  const updated = await getOwnedApplication(userId, offerId);
-  return { offer: updated, cvId: result.cvId || updated.cvId, created: Boolean(result.created) };
-}
-
-export async function createApplicationCvFromMarkdown(
-  userId: string,
-  offerId: string,
-  content: string,
-  title?: string,
-) {
-  const offer = await getOwnedApplication(userId, offerId);
-  const { cv: baseCv } = await resolveBaseCv(userId);
-  const [newCv] = await db.insert(cvs).values({
-    userId,
-    title: title?.trim() || `[API] - ${offer.title} (${offer.company})`,
-    content: content.trim(),
-    isBase: false,
-    isPrincipal: false,
-    templateName: baseCv?.templateName || 'harvard',
-    accentColor: baseCv?.accentColor || '#1a5f7a',
-    fontFamily: baseCv?.fontFamily || 'helvetica',
-    pageMargin: baseCv?.pageMargin ?? 36,
-    scale: baseCv?.scale ?? 1,
-  }).returning();
-  const [updatedOffer] = await db.update(jobOffers).set({
-    cvId: newCv.id,
-    updatedAt: new Date(),
-  }).where(eq(jobOffers.id, offerId)).returning();
-  return { offer: updatedOffer, cvId: newCv.id, created: true };
 }

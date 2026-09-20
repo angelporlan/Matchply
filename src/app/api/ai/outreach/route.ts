@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { jobOffers, cvs, users } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
-import { canAccessFeature } from '@/lib/subscription';
+import { canAccessFeature, effectiveSubscriptionStatus, userEntitlements } from '@/lib/subscription';
+import { requireProductContext } from '@/lib/request-context';
+
+const outreachOfferColumns = {
+  id: jobOffers.id,
+  cvId: jobOffers.cvId,
+  title: jobOffers.title,
+  company: jobOffers.company,
+  description: jobOffers.description,
+};
+
+const outreachCvColumns = {
+  id: cvs.id,
+  content: cvs.content,
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    const userId = session.user.id;
+    const ctx = await requireProductContext({ feature: 'applications' });
+    const userId = ctx.effectiveUser!.id;
     const body = await req.json();
     const { offerId } = body;
 
@@ -21,37 +30,39 @@ export async function POST(req: NextRequest) {
       return new NextResponse('Missing offerId', { status: 400 });
     }
 
-    // 1. Fetch job offer
-    const [offer] = await db
-      .select()
-      .from(jobOffers)
-      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
-      .limit(1);
+    const [[offer], [user]] = await Promise.all([
+      db
+        .select(outreachOfferColumns)
+        .from(jobOffers)
+        .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
+        .limit(1),
+      db
+        .select({
+          subscriptionStatus: users.subscriptionStatus,
+          isGuest: users.isGuest,
+          proGrantedUntil: users.proGrantedUntil,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
+    ]);
 
     if (!offer) {
       return new NextResponse('Job offer not found or access denied', { status: 404 });
     }
 
-    // 2. Fetch user to verify subscription status
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
     if (!user) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    if (!canAccessFeature(user.subscriptionStatus, 'kanban', { isGuest: user.isGuest })) {
-      return new NextResponse('A PRO subscription is required to access Kanban', { status: 403 });
+    if (!canAccessFeature(user.subscriptionStatus, 'applications', userEntitlements(user))) {
+      return new NextResponse('A PRO subscription is required to access the applications board', { status: 403 });
     }
 
-    // 3. Find candidate CV (prefer linked cvId, then principal cv, then any cv)
     let selectedCv = null;
     if (offer.cvId) {
       const [cv] = await db
-        .select()
+        .select(outreachCvColumns)
         .from(cvs)
         .where(and(eq(cvs.id, offer.cvId), eq(cvs.userId, userId)))
         .limit(1);
@@ -59,9 +70,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (!selectedCv) {
-      // Find principal CV
       const [principalCv] = await db
-        .select()
+        .select(outreachCvColumns)
         .from(cvs)
         .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
         .limit(1);
@@ -69,9 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (!selectedCv) {
-      // Find any CV
       const [anyCv] = await db
-        .select()
+        .select(outreachCvColumns)
         .from(cvs)
         .where(eq(cvs.userId, userId))
         .orderBy(desc(cvs.createdAt))
@@ -86,16 +95,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // 4. Call AI service to generate outreach, cover letter, and interview questions
     const aiResult = await AIService.generateOutreachAndPrep({
       cvContent: selectedCv.content,
       jobDescription: offer.description || 'No description provided.',
       company: offer.company,
       jobTitle: offer.title,
-      userSubscriptionStatus: user.subscriptionStatus
+      userSubscriptionStatus: effectiveSubscriptionStatus(user)
     });
 
-    // 5. Update job offer in DB
     await db
       .update(jobOffers)
       .set({

@@ -8,17 +8,17 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 ## Acceso y punto de entrada
 
-**Quién lo usa:** Backend/worker; consulta del propietario por sesión o API.  
+**Quién lo usa:** Backend/worker; consulta del propietario por sesión.  
 **Dónde comienza:** /api/ai/jobs/[id] · scripts/ai-worker.ts.
 
 ## Qué hace actualmente
 
-- **ACT-F25-01:** Persiste trabajos mcp_optimize, mcp_evaluate, evaluate y optimize_application con payload, resultado, intento y error.
+- **ACT-F25-01:** Persiste trabajos evaluate y optimize_application con payload, resultado, intento y error.
 - **ACT-F25-02:** Estados queued, running, completed y failed; cola PostgreSQL con lease de 5 minutos y hasta 3 intentos.
 - **ACT-F25-03:** El worker reclama trabajo con bloqueo SKIP LOCKED y evita reclamar otro de un usuario con trabajo activo por esa vía.
 - **ACT-F25-04:** settleAiJob espera resultado y puede reclamar directamente por ID tras 1,5 segundos por defecto si sigue en cola; espera configurada de 90 segundos por defecto.
-- **ACT-F25-05:** La consulta de trabajo acepta actor propietario o autenticación externa y devuelve estado, resultado, error y fechas.
-- **ACT-F25-06:** La optimización MCP puede generar CV, evaluación y candidatura; la evaluación externa devuelve resultado estructurado. El worker registra resultados/fallos.
+- **ACT-F25-05:** La consulta de trabajo exige actor propietario y devuelve estado, resultado, error y fechas.
+- **ACT-F25-06:** La evaluación devuelve un resultado estructurado y la optimización de candidatura genera un CV vinculado. El worker registra resultados/fallos.
 - **ACT-F25-07:** Los reintentos tras fallo vuelven a queued con demora progresiva hasta el máximo.
 
 ## Límites, diferencias y capacidades parciales

@@ -33,7 +33,7 @@ Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras;
 
 [ESCRIBE AQUÍ]
 
-**¿Una oferta archivada debe seguir contando en métricas y aparecer en API/MCP?**
+**¿Una oferta archivada debe seguir contando en métricas y aparecer en integraciones externas?**
 
 [ESCRIBE AQUÍ]
 

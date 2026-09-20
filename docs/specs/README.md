@@ -1,6 +1,8 @@
 # Funcionalidades de Matchply: estado actual y lo que quiero cambiar
 
-Aquí tienes el inventario funcional de la aplicación y **28 fichas en español para definir cómo quieres que funcione**. Incluye experiencia de usuario, administración, extensión, API, MCP y procesos de fondo.
+Aquí tienes el inventario funcional de la aplicación y **25 fichas en español para definir cómo quieres que funcione**. Incluye experiencia de usuario, administración, extensión y procesos de fondo.
+
+Las antiguas fichas **F19** (claves personales e integraciones API), **F20** (API externa) y **F21** (servidor MCP) se retiraron junto con su código. El plan para reintroducir esas capacidades de forma ordenada está en [future-tips.md](../future-tips.md).
 
 Fotografía del código local: **12 de septiembre de 2026**. El análisis es estático: describe comportamiento implementado y señala funciones parciales; no certifica que proveedores, producción o todos los flujos funcionen al ejecutarlos.
 
@@ -29,16 +31,13 @@ Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.
 | F09 | Optimización de CV para una oferta | [Leer estado actual](optimizacion-cv/estado-actual.md) | [Escribir lo que quiero](optimizacion-cv/spec.md) |
 | F10 | Perfil profesional, preferencias y reglas de selección | [Leer estado actual](perfil-profesional/estado-actual.md) | [Escribir lo que quiero](perfil-profesional/spec.md) |
 | F11 | Extracción, entrevista y documento profesional con IA | [Leer estado actual](asistente-perfil-ia/estado-actual.md) | [Escribir lo que quiero](asistente-perfil-ia/spec.md) |
-| F12 | Candidaturas, Kanban y detalle de oferta | [Leer estado actual](candidaturas-kanban/estado-actual.md) | [Escribir lo que quiero](candidaturas-kanban/spec.md) |
+| F12 | Candidaturas, tablero de postulaciones y detalle de oferta | [Leer estado actual](candidaturas-kanban/estado-actual.md) | [Escribir lo que quiero](candidaturas-kanban/spec.md) |
 | F13 | Archivo, restauración y borrado de candidaturas | [Leer estado actual](archivo-candidaturas/estado-actual.md) | [Escribir lo que quiero](archivo-candidaturas/spec.md) |
 | F14 | Selección de ofertas con IA y afinidad individual | [Leer estado actual](seleccion-y-afinidad-ofertas/estado-actual.md) | [Escribir lo que quiero](seleccion-y-afinidad-ofertas/spec.md) |
 | F15 | Copia de informes y análisis de candidaturas con IA | [Leer estado actual](informes-y-analisis-candidaturas/estado-actual.md) | [Escribir lo que quiero](informes-y-analisis-candidaturas/spec.md) |
 | F16 | Carta de presentación, mensaje de contacto y preparación de entrevista | [Leer estado actual](cartas-contacto-y-entrevistas/estado-actual.md) | [Escribir lo que quiero](cartas-contacto-y-entrevistas/spec.md) |
 | F17 | Vinculación y captura de ofertas desde Chrome | [Leer estado actual](extension-linkedin/estado-actual.md) | [Escribir lo que quiero](extension-linkedin/spec.md) |
 | F18 | Investigación profunda de ofertas y empresas | [Leer estado actual](linkedin-research/estado-actual.md) | [Escribir lo que quiero](linkedin-research/propuesta.md) |
-| F19 | Claves personales y configuración de integraciones | [Leer estado actual](claves-api-y-preferencias-mcp/estado-actual.md) | [Escribir lo que quiero](claves-api-y-preferencias-mcp/spec.md) |
-| F20 | API externa: sincronización, perfil, evaluación y CV | [Leer estado actual](api-externa/estado-actual.md) | [Escribir lo que quiero](api-externa/spec.md) |
-| F21 | Servidor MCP y búsqueda de ofertas remotas | [Leer estado actual](servidor-mcp/estado-actual.md) | [Escribir lo que quiero](servidor-mcp/spec.md) |
 | F22 | Suscripción, Checkout y portal de facturación | [Leer estado actual](facturacion-stripe/estado-actual.md) | [Escribir lo que quiero](facturacion-stripe/spec.md) |
 | F23 | Administración de usuarios y estadísticas | [Leer estado actual](administracion-usuarios/estado-actual.md) | [Escribir lo que quiero](administracion-usuarios/spec.md) |
 | F24 | Configuración de IA, modelos y biblioteca de prompts | [Leer estado actual](prompt-defaults/estado-actual.md) | [Escribir lo que quiero](prompt-defaults/propuesta.md) |
@@ -52,8 +51,7 @@ Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.
 - **CV y versiones:** Gratis reutiliza su único CV y la optimización guarda automáticamente el resultado. La comparación visual no es un historial ni una aprobación previa. Véanse [optimización](optimizacion-cv/estado-actual.md) y [editor](editor-cv/estado-actual.md).
 - **Planes:** invitado admite 3 CVs y Gratis 1; al reclamar la prueba no se recorta ese conjunto. PRO corresponde a `active` o `trialing`. Véanse [prueba](prueba-invitado/estado-actual.md) y [permisos](planes-y-permisos/estado-actual.md).
 - **Afinidad:** hay distintos motores que escriben puntuaciones. El modal actual puntúa, pero no aplica automáticamente las recomendaciones de archivo. Véase [selección de ofertas](seleccion-y-afinidad-ofertas/estado-actual.md).
-- **Automatización:** capturar LinkedIn no inicia actualmente investigación; guardar una fecha de seguimiento no envía recordatorios; generar una carta no la envía. Véanse [extensión](extension-linkedin/estado-actual.md), [Kanban](candidaturas-kanban/estado-actual.md) y [cartas](cartas-contacto-y-entrevistas/estado-actual.md).
-- **Integraciones:** web, API y MCP tienen diferencias en permisos, escritura del perfil, límites y respuesta a trabajos pendientes. Véanse [API](api-externa/estado-actual.md), [MCP](servidor-mcp/estado-actual.md) y [trabajos IA](trabajos-ia-y-reintentos/estado-actual.md).
+- **Automatización:** capturar LinkedIn no inicia actualmente investigación; guardar una fecha de seguimiento no envía recordatorios; generar una carta no la envía. Véanse [extensión](extension-linkedin/estado-actual.md), [postulaciones](candidaturas-kanban/estado-actual.md) y [cartas](cartas-contacto-y-entrevistas/estado-actual.md).
 
 Son decisiones abiertas para tus plantillas, no cambios realizados ni propuestas aprobadas automáticamente.
 
@@ -87,7 +85,7 @@ Si un deseo contradice la ficha actual, es un cambio por definir. Si contradice 
 ## Vocabulario breve
 
 - **Candidatura / oferta guardada:** registro de seguimiento; tener estado «Enviada» no significa que Matchply haya enviado nada al empleador.
-- **CV principal:** CV destacado del usuario. **CV base:** bandera de origen; puede diferir del principal y del CV elegido para MCP.
+- **CV principal:** CV destacado del usuario. **CV base:** bandera de origen; puede diferir del principal.
 - **Afinidad / puntuación:** estimación de la aplicación; no es una garantía de entrevista.
 - **Streaming:** el texto aparece mientras la IA lo genera.
 - **Trabajo en cola:** operación persistida que ejecuta un proceso de fondo o, en algunos casos, la propia petición.

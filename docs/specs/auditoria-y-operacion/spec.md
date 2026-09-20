@@ -1,132 +1,47 @@
-# Auditoría, salud, límites técnicos y operación — comportamiento deseado
+# Auditoría, tráfico y operación — comportamiento deseado
 
-Estado: **Borrador — pendiente de rellenar**  
-Responsable: [POR DEFINIR]  
-Fecha de revisión: [POR DEFINIR]  
-Prioridad: [Imprescindible / Importante / Más adelante / Sin cambio]
+Estado: **Aprobado para implementar**  
+Responsable: Operación Matchply  
+Fecha de revisión: 20 de septiembre de 2026  
+Prioridad: Imprescindible
 
-Referencia: [lo que hace actualmente](estado-actual.md). Las observaciones ACT son una fotografía del código; no son requisitos aprobados.
-
-Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras; el resto ayuda a concretar cuando lo necesites. Usa «No aplica» en vez de inventar una decisión. Ningún campo vacío implica aceptar el comportamiento actual.
+Referencia: [estado actual](estado-actual.md). Umami es la opción de medición acordada.
 
 ## 1. Lo que quiero
 
-**Quiero que esta funcionalidad…**
+Separar tres finalidades: **auditoría** (quién hizo qué, para soporte), **tráfico** (visitas agregadas vía Umami) y **logs técnicos** (errores). El administrador consulta auditoría con filtros en servidor y ve métricas de Umami sin credenciales en el cliente.
 
-[ESCRIBE AQUÍ]
+## 2. Decisiones
 
-**El problema que quiero resolver y para quién:**
-
-[ESCRIBE AQUÍ]
-
-**Al terminar, la persona debe obtener/ver…**
-
-[ESCRIBE AQUÍ]
-
-## 2. Decisiones específicas de esta funcionalidad
-
-**¿Qué acciones deben auditarse obligatoriamente y durante cuánto tiempo?**
-
-[ESCRIBE AQUÍ]
-
-**¿Qué métricas, alertas y límites técnicos necesitas para operar la app?**
-
-[ESCRIBE AQUÍ]
-
-**¿Qué copias de seguridad, recuperación, mantenimiento y borrado de datos quieres exigir?**
-
-[ESCRIBE AQUÍ]
+- Umami autoalojado, versión fijada, base propia, sin dashboard público.
+- Medición desactivada en desarrollo, `/admin`, impersonación y hasta que `UMAMI_AEPD_CLEARED=true`.
+- No enviar correos, IDs de usuario, CVs ni perfiles. Sin identificación de personas ni grabación de sesiones.
+- Conservación Umami: 12 meses. Auditoría ordinaria: 90 días. Administrativa: 12 meses.
+- `createAuditLog` sigue sin bloquear la actividad ordinaria. Los cambios administrativos críticos persisten con su registro en la misma transacción.
 
 ## 3. Qué conservar y qué cambiar
 
-Consulta los puntos ACT de la ficha actual. Puedes mantener, modificar o eliminar cada comportamiento que sea relevante.
+| Referencia | Decisión |
+| --- | --- |
+| ACT-F26-01 Registro de eventos | Mantener y ampliar actor real, afectado, sesión de soporte, requestId |
+| ACT-F26-02 Inserción no bloqueante | Mantener para actividad ordinaria |
+| ACT-F26-03 Últimos 1000 eventos en cliente | Cambiar: filtros y paginación en PostgreSQL |
+| Conteos de visitas desde audit_log | Cambiar: tráfico vía Umami; Postgres sigue siendo verdad de cuentas y suscripciones |
 
-| Referencia actual o comportamiento | Mantener / Cambiar / Eliminar / Añadir | Mi decisión y motivo |
-| --- | --- | --- |
-| [ACT-… o descripción] | [POR DEFINIR] | [POR DEFINIR] |
+**Invariantes:** INV-01 un error de Umami no rompe el producto ni usuarios. INV-02 las peticiones a Umami no contienen datos personales. INV-03 no se reconstruye tráfico histórico inexistente.
 
-**Lo que debe seguir funcionando siempre, incluso si hay errores:**
+**Fuera de alcance:** PostHog, Plausible gestionado, grabaciones, cruces con cuentas.
 
-- INV-01: [POR DEFINIR]
+## 4–7. Criterios
 
-**Lo que queda fuera de este cambio:**
+| ID | Esperado |
+| --- | --- |
+| CA-A01 | Filtros de auditoría por fecha, acción, admin y usuario afectado se resuelven en SQL con paginación |
+| CA-A02 | Inicio/fin de impersonación, roles, suspensión, Pro e IA quedan registrados |
+| CA-T01 | El script de Umami no se inyecta en desarrollo, admin ni impersonación |
+| CA-T02 | Si Umami falla, Resumen muestra el error de tráfico y el resto del panel funciona |
+| CA-T03 | Eventos de conversión: prueba iniciada, registro, importación, optimización y descarga confirmadas, agregados |
 
-[POR DEFINIR]
+## 8. Notas
 
-## 4. Quién puede usarlo y con qué límites
-
-| Persona o plan | Puede verlo | Puede usarlo o modificarlo | Límite y qué ocurre al agotarlo |
-| --- | --- | --- | --- |
-| Visitante / invitado | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario Gratis | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario PRO | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Administrador / integración, si aplica | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-## 5. Cómo debe funcionar
-
-**Dónde comienza y qué debe existir antes:** [POR DEFINIR]
-
-1. La persona o integración hace: [POR DEFINIR].
-2. La aplicación comprueba: [POR DEFINIR].
-3. La aplicación procesa y muestra: [POR DEFINIR].
-4. La persona revisa o confirma, si procede: [POR DEFINIR].
-5. La aplicación guarda y termina en: [POR DEFINIR].
-
-| Dato de entrada | Obligatorio | Formato, ejemplo ficticio y validación |
-| --- | --- | --- |
-| [POR DEFINIR] | [Sí / No] | [POR DEFINIR] |
-
-| Resultado o dato guardado | Dónde se muestra/guarda | Momento de guardado y si sustituye algo |
-| --- | --- | --- |
-| [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Confirmación, deshacer, versiones o recuperación:** [POR DEFINIR]
-
-## 6. Casos especiales y errores
-
-| Situación | Qué debe ver la persona | Qué debe conservar/hacer el sistema |
-| --- | --- | --- |
-| No hay datos o es el primer uso | [POR DEFINIR] | [POR DEFINIR] |
-| Datos incompletos o inválidos | [POR DEFINIR] | [POR DEFINIR] |
-| Falta sesión, permiso o cuota | [POR DEFINIR] | [POR DEFINIR] |
-| IA/servicio lento, caído o respuesta inválida | [POR DEFINIR / No aplica] | [POR DEFINIR / No aplica] |
-| Cierre de pestaña o pérdida de conexión | [POR DEFINIR] | [POR DEFINIR] |
-| Reintento, doble clic o dos cambios simultáneos | [POR DEFINIR] | [POR DEFINIR] |
-| Éxito parcial o datos ya existentes | [POR DEFINIR] | [POR DEFINIR] |
-
-## 7. Resultado esperado y criterios para darlo por correcto
-
-Escribe ejemplos observables. Una frase como «que funcione bien» no permite comprobar el resultado. Estos criterios se completarán antes de implementar; todavía no son pruebas realizadas.
-
-| ID | Dado este contexto | Cuando ocurre esta acción | Entonces espero exactamente |
-| --- | --- | --- | --- |
-| CA-01 | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-02 | [Caso de error] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-03 | [Caso de permiso/límite] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Ejemplo completo con datos ficticios (entrada → resultado):**
-
-[ESCRIBE AQUÍ]
-
-**Cómo lo comprobaré manualmente:** [POR DEFINIR]
-
-## 8. Experiencia, datos y condiciones adicionales (si aplica)
-
-- Pantalla, textos, botones, móvil y accesibilidad: [POR DEFINIR; referencia visual en design.md].
-- Idiomas de interfaz y de resultados: [POR DEFINIR].
-- Tiempo de respuesta, progreso y coste máximo: [POR DEFINIR].
-- Datos enviados a IA/terceros y confirmación necesaria: [POR DEFINIR].
-- Conservación, exportación, borrado y registro de acciones: [POR DEFINIR].
-- Qué ocurre con datos existentes al activar el cambio: [POR DEFINIR].
-- Dependencias de otras funcionalidades: [POR DEFINIR; enlazar sus fichas].
-- Dudas por resolver: [POR DEFINIR].
-
-## 9. Revisión antes de implementar
-
-- [ ] He definido el objetivo y el resultado esperado.
-- [ ] He decidido qué conservar y qué cambiar.
-- [ ] He revisado permisos, errores y datos existentes.
-- [ ] Los criterios CA describen resultados comprobables.
-
-Decisión final: [Borrador / Listo para revisión / Aprobado para implementar]  
-Quién y cuándo toma la decisión: [POR DEFINIR]
+Documentar la evaluación AEPD en `docs/ops/umami.md`. Actualizar privacidad y cookies. Activación gradual.

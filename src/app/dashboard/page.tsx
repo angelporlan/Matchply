@@ -1,16 +1,17 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { auth } from '@/auth';
 import { db } from '@/db';
-import { cvs, users, jobOffers, prompts } from '@/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
-import { cvListColumns } from '@/lib/job-offer-queries';
-import { Sparkles, Kanban, CreditCard, CheckCircle2, Crown, LogOut, Shield, FileText, PartyPopper } from 'lucide-react';
-import { isProSubscription } from '@/lib/subscription';
+import { cvs, jobOffers } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+import { cvListColumns, cvTargetColumns } from '@/lib/job-offer-queries';
+import { CreditCard, Crown } from 'lucide-react';
+import { hasProAccess } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
+import { getSessionUser } from '@/lib/session';
 import DashboardClient from './DashboardClient';
 import { getServerTranslations } from '@/lib/i18n/server';
+import { publicOptimizeModes } from '@/lib/optimize-modes';
+import CheckoutConversionBeacon from '@/components/analytics/CheckoutConversionBeacon';
 
 interface DashboardPageProps {
   searchParams?: {
@@ -20,13 +21,15 @@ interface DashboardPageProps {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
+  const dbUser = await getSessionUser();
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
+  const userId = dbUser.id;
   const { t } = getServerTranslations();
+
+  let subscriptionStatus = dbUser.subscriptionStatus || 'none';
 
   if (searchParams?.checkout === 'success' && searchParams.session_id) {
     const checkoutSession = await stripe.checkout.sessions.retrieve(searchParams.session_id);
@@ -36,58 +39,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ) {
       const subscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
       await syncStripeSubscription(subscription);
+      subscriptionStatus = subscription.status;
     }
   }
 
-  // 1. Obtener información actualizada del usuario de la base de datos
-  const [dbUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const isPremium = hasProAccess({ ...dbUser, subscriptionStatus });
 
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = isProSubscription(subscriptionStatus);
-
-  // 2. Obtener lista de currículums del usuario (Principal primero, luego más recientes)
-  const userCvs = await db
-    .select(cvListColumns)
-    .from(cvs)
-    .where(eq(cvs.userId, userId))
-    .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
-
-  const offerCounts = await db
-    .select({
-      status: jobOffers.status,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .groupBy(jobOffers.status);
-
-  const totalOffers = offerCounts.reduce((sum, row) => sum + Number(row.count || 0), 0);
-  const interviewOffers = Number(offerCounts.find((row) => row.status === 'interview')?.count || 0);
-  const successfulOffers = Number(offerCounts.find((row) => row.status === 'offer')?.count || 0);
-
-  // 4. Obtener prompts no archivados para optimización de CV
-  const availablePrompts = await db
-    .select({
-      id: prompts.id,
-      name: prompts.name,
-      nameEn: prompts.nameEn,
-      isActive: prompts.isActive,
-      description: prompts.description,
-      descriptionEn: prompts.descriptionEn,
-      color: prompts.color,
-    })
-    .from(prompts)
-    .where(
-      and(
-        eq(prompts.key, 'optimize_cv'),
-        eq(prompts.isArchived, false)
-      )
-    )
-    .orderBy(prompts.name);
+  const [userCvs, cvTargets] = await Promise.all([
+    db
+      .select(cvListColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.isPrincipal), desc(cvs.updatedAt)),
+    db
+      .selectDistinctOn([jobOffers.cvId], cvTargetColumns)
+      .from(jobOffers)
+      .where(eq(jobOffers.userId, userId))
+      .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt)),
+  ]);
+  const availablePrompts = publicOptimizeModes();
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -104,7 +74,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
               <div>
                 <h2 className="text-xl font-bold font-display text-text flex items-center gap-2">
-                  {t('dashboard.banner.title', { name: dbUser?.name || session.user.name || t('sidebar.profile.candidate') })}
+                  {t('dashboard.banner.title', { name: dbUser.name || t('sidebar.profile.candidate') })}
                 </h2>
                 <p className="text-text-muted text-xs mt-1 font-light leading-relaxed max-w-xl font-sans">
                   {t('dashboard.banner.desc')}
@@ -121,46 +91,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
 
-        {/* Panel de Estadísticas Rápidas */}
-        {isPremium && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 animate-fadeIn">
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans">{t('dashboard.stats.active')}</span>
-                <h3 className="text-3xl font-bold font-display text-text mt-1">{totalOffers}</h3>
-              </div>
-              <div className="p-3 bg-ai/10 text-ai rounded-xl border border-ai/10">
-                <FileText className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
-
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans">{t('dashboard.stats.interview')}</span>
-                <h3 className="text-3xl font-bold font-display text-amber-500 dark:text-amber-400 mt-1">{interviewOffers}</h3>
-              </div>
-              <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/10">
-                <Sparkles className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
-
-            <div className="bg-surface p-6 rounded-[12px] border border-subtle flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-text-muted text-xs font-medium font-sans flex items-center gap-1.5">
-                  {t('dashboard.stats.successful')} <PartyPopper className="w-3.5 h-3.5 text-success-text" />
-                </span>
-                <h3 className="text-3xl font-bold font-display text-success-text mt-1">{successfulOffers}</h3>
-              </div>
-              <div className="p-3 bg-action/10 text-success-text rounded-xl border border-action/10">
-                <CheckCircle2 className="w-5 h-5 stroke-[1.75]" />
-              </div>
-            </div>
-          </div>
-        )}
-
+        <CheckoutConversionBeacon checkout={searchParams?.checkout} />
         {/* Sección de Currículums */}
         <DashboardClient 
           initialCvs={userCvs} 
+          cvTargets={cvTargets} 
           isPremium={isPremium} 
           availablePrompts={availablePrompts || []} 
         />

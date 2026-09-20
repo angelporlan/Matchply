@@ -1,31 +1,20 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
+import { getRequestContext } from '@/lib/request-context';
 import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap, Lightbulb } from 'lucide-react';
 import { getServerTranslations } from '@/lib/i18n/server';
 
 export default async function SubscriptionPage() {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
+  const ctx = await getRequestContext();
+  if (ctx.impersonation) redirect('/dashboard');
+  const dbUser = ctx.effectiveUser;
+  if (!dbUser) {
     redirect('/login');
   }
 
-  const userId = session.user.id;
   const { t } = getServerTranslations();
-
-  // Obtener información del usuario
-  const [dbUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  const subscriptionStatus = dbUser?.subscriptionStatus || 'none';
-  const isPremium = isProSubscription(subscriptionStatus);
+  const isPremium = hasProAccess(dbUser);
   const [proTitleBefore, proTitleAfter = ''] = t('subscription.title.pro').split('PRO');
 
   return (

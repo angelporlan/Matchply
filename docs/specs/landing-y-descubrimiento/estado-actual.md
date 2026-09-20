@@ -15,7 +15,7 @@ Método: lectura estática del código local, sin ejecución funcional ni compro
 
 - **ACT-F01-01:** Presenta optimización de CV, seguimiento, comparación Gratis/PRO, FAQ y enlaces de soporte y legales.
 - **ACT-F01-02:** El CTA permite probar sin cuenta mediante /try y acceder al registro o Checkout conservando parámetros de origen, plan y destino.
-- **ACT-F01-03:** Contiene demostraciones visuales del editor y Kanban, selector de volumen de candidaturas y enlaces hacia la plantilla Harvard.
+- **ACT-F01-03:** Contiene demostraciones visuales del editor y del tablero de postulaciones, selector de volumen de candidaturas y enlaces hacia la plantilla Harvard.
 - **ACT-F01-04:** La calculadora muestra 10 EUR divididos por entre 2 y 30 candidaturas; es un cálculo comercial del cliente, no una factura ni consumo medido.
 - **ACT-F01-05:** La página obtiene la sesión para adaptar enlaces. Los ejemplos y animaciones no son los CVs o candidaturas del visitante.
 

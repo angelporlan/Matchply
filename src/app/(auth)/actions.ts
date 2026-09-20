@@ -22,7 +22,7 @@ export async function registerUser(prevState: any, formData: FormData) {
 
     // Comprobar si el email ya existe
     const [existing] = await db
-      .select()
+      .select({ id: users.id })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);

@@ -267,7 +267,7 @@ Escala: **4, 8, 12, 16, 24, 32, 48, 64, 96 px**. Ritmo principal de 8 px con pas
 | Inputs / botones | Radio 8 px, altura mínima 44 px |
 | Badge | Radio 6 px; pill para filtros o etiquetas compactas |
 | Formularios | Gap 16 px entre campos, 24–32 px entre grupos |
-| Kanban | Gap 24–32 px escritorio, 16 px móvil; 12–16 px entre tarjetas |
+| Postulaciones | Gap 24–32 px escritorio, 16 px móvil; 12–16 px entre tarjetas |
 | Sombra de tarjeta | `0 2px 8px rgba(30,27,75,0.04)` en claro; borde prioritario en oscuro |
 | Sombra de diálogo | `0 16px 48px rgba(11,15,25,0.18)` en claro; overlay oscuro en ambos temas |
 
@@ -306,7 +306,7 @@ Toolbar neutra, sin relieve en cada icono. Markdown sobrio: no reutilizar púrpu
 
 Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
 
-### Candidaturas / Kanban
+### Candidaturas / Postulaciones
 
 | Estado visual | Familia | Señal adicional |
 |---|---|---|
@@ -319,6 +319,8 @@ Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantil
 Son etiquetas de presentación: no cambiar valores persistidos por una decisión visual. Plataforma de origen con badge corporativo compacto (LinkedIn, InfoJobs, Indeed), separado del estado.
 
 Arrastre con elevación moderada y destino delimitado. Rotación opcional hasta 1 grado; sin animación con movimiento reducido. Acción «Mover a…» como alternativa a arrastrar. En móvil, selector de estado/lista o scroll interno del tablero, sin desbordar toda la página.
+
+**Tabla CRM (vista por defecto).** Cabecera con fondo `surface-muted`, filas de 44–48 px y separadores `subtle`. Orden por columna con indicador textual y `aria-sort`; el estado se cambia con un desplegable que mantiene color semántico y texto, nunca solo color. Selección múltiple con barra de acciones (archivar, cambiar estado); borrar queda como acción destructiva de fila con confirmación. Fechas absolutas con `title` para la hora completa. En móvil (<768 px) la tabla se apila como tarjetas con los mismos datos. Columnas configurables y **vistas guardables** (columnas, filtros, orden y tamaño de página): presets del sistema de solo lectura y vistas personales; los cambios sin guardar se marcan y se pueden revertir, con vista predeterminada por usuario.
 
 ### Ajustes, suscripción, integraciones y administración
 
@@ -411,7 +413,7 @@ Inventario para localizar y decidir migración, **no reglas vigentes** ni eviden
 | 2 | Button compartido y controles base | Variantes, teclado, foco, carga, deshabilitado, contraste y movimiento reducido. |
 | 3 | Landing y autenticación | CTA con relieve moderado, narrativa CV y formularios legibles. |
 | 4 | Dashboard, optimización y editor | CV → oferta → revisión → PDF claro; original conservado y estados reales. |
-| 5 | Kanban, ajustes, suscripción, integraciones y admin | Semántica común, alternativa a drag y controles consistentes. |
+| 5 | Postulaciones, ajustes, suscripción, integraciones y admin | Semántica común, alternativa a drag y controles consistentes. |
 | 6 | Retirar estilos heredados y QA | Sin referencias a utilidades retiradas; verificación visual y funcional. |
 
 Al implementar: ejecutar lint, typecheck y build según alcance; validar ambos temas y tamaños. Probar crear/importar CV, optimizar con éxito/error, revisar/aplicar/descartar, guardar, cambiar candidatura y exportar. Comparar PDF antes/después para comprobar que el tema UI no lo altera. Un build correcto no demuestra coherencia visual.

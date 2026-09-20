@@ -1,19 +1,26 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireProductContext, auditActorFields } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
 import { getResearchQuota, getResearchRunForUser, enqueueResearchForOffer } from '@/lib/research/queue';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { ApplicationNotFoundError } from '@/lib/application-service';
+import { AccountSuspendedError, ImpersonationEndedError, SupportActionBlockedError } from '@/lib/request-errors';
 
 function errorResponse(error: unknown) {
   if (error instanceof SubscriptionAccessError) return NextResponse.json({ error: error.message }, { status: error.status });
   if (error instanceof ApplicationNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
+  if (error instanceof AccountSuspendedError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) {
+    return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+  }
+  if (error instanceof Error && error.message === 'Unauthorized') {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
   return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
 }
 
 async function currentUser() {
-  const session = await auth();
-  return session?.user?.id ? { id: session.user.id, email: session.user.email || null } : null;
+  const ctx = await requireProductContext({ feature: 'deepResearch' });
+  return ctx.effectiveUser ? { id: ctx.effectiveUser.id, email: ctx.effectiveUser.email || null, ctx } : null;
 }
 
 export async function GET(_req: Request, { params }: { params: { offerId: string } }) {
@@ -44,7 +51,7 @@ export async function POST(req: Request, { params }: { params: { offerId: string
       offerId: params.offerId,
       runId: research.run?.id || null,
       status: research.status,
-    });
+    }, auditActorFields(user.ctx));
     return NextResponse.json({
       accepted: research.accepted,
       runId: research.run?.id || null,

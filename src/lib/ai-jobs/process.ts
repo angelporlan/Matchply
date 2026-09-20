@@ -1,17 +1,20 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, type AiJob, users } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
+import { baseCvForAiColumns } from '@/lib/job-offer-queries';
 import { createAuditLog } from '@/lib/audit';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
-import {
-  getOwnedApplication,
-  upsertExternalApplication,
-} from '@/lib/application-service';
-import { completeAiJob, failAiJob } from './queue';
+import { getOwnedApplication } from '@/lib/application-service';
+import { completeAiJob, failAiJob, renewAiJobLease } from './queue';
+import { processMatchBatch } from './match-batch';
 import { log } from '@/lib/logger';
-import { evaluationFields, formatMcpEvaluateMessage, formatMcpOptimizeMessage, parseJsonObject } from './evaluation';
+import { parseJsonObject } from './evaluation';
 import type { OfferJobPayload, OptimizeApplicationPayload } from './types';
+import { bindAiRuntime, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
+import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
+import { recordAiRunStat } from '@/lib/ai-run-stats';
+import { effectiveSubscriptionStatus } from '@/lib/subscription';
 
 async function consumeStream(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -26,162 +29,24 @@ async function consumeStream(stream: ReadableStream<Uint8Array>) {
 }
 
 async function resolveBaseCv(userId: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await db.select({
+    name: users.name,
+    email: users.email,
+    subscriptionStatus: users.subscriptionStatus,
+    careerProfile: users.careerProfile,
+    isGuest: users.isGuest,
+    proGrantedUntil: users.proGrantedUntil,
+  })
+    .from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return { user: null, cv: null };
-  if (user.mcpCvId) {
-    const [selected] = await db.select().from(cvs).where(and(
-      eq(cvs.id, user.mcpCvId),
-      eq(cvs.userId, userId),
-    )).limit(1);
-    if (selected) return { user, cv: selected };
-  }
-  const [base] = await db.select().from(cvs).where(and(
-    eq(cvs.userId, userId),
-    eq(cvs.isBase, true),
-  )).orderBy(desc(cvs.isPrincipal)).limit(1);
+  const [base] = await db.select({ ...baseCvForAiColumns, templateName: cvs.templateName, accentColor: cvs.accentColor, fontFamily: cvs.fontFamily, pageMargin: cvs.pageMargin, scale: cvs.scale })
+    .from(cvs).where(eq(cvs.userId, userId))
+    .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id)).limit(1);
   return { user, cv: base || null };
 }
 
 function offerPayload(job: AiJob): OfferJobPayload {
   return job.payload as OfferJobPayload;
-}
-
-async function processMcpOptimize(job: AiJob) {
-  const payload = offerPayload(job);
-  const { user, cv: baseCv } = await resolveBaseCv(job.userId);
-  if (!user || !baseCv) throw new Error('Base CV not found');
-
-  const cvMarkdown = await consumeStream(await AIService.optimizeCVStream({
-    baseCvMarkdown: baseCv.content,
-    jobDescription: payload.description,
-    userSubscriptionStatus: user.subscriptionStatus,
-    candidateName: user.name || '',
-    careerProfileContext: formatCareerProfileContext(user.mcpProfile),
-  }));
-  if (!cvMarkdown) throw new Error('AI returned an empty CV');
-
-  const [newCv] = await db.insert(cvs).values({
-    userId: job.userId,
-    title: `Optimizado (MCP) - ${payload.title} (${payload.company})`,
-    content: cvMarkdown,
-    isBase: false,
-    isPrincipal: false,
-    templateName: baseCv.templateName,
-    accentColor: baseCv.accentColor,
-    fontFamily: baseCv.fontFamily,
-    pageMargin: baseCv.pageMargin,
-    scale: baseCv.scale,
-  }).returning();
-
-  let parsed: Record<string, any> | null = null;
-  try {
-    const evalText = await consumeStream(await AIService.analyzeSTARStream({
-      cvMarkdown: baseCv.content,
-      jobDescription: payload.description,
-      company: payload.company,
-      userSubscriptionStatus: user.subscriptionStatus,
-      mcpProfile: user.mcpProfile,
-    }));
-    parsed = parseJsonObject(evalText);
-  } catch (error) {
-    log({ event: 'ai_job_eval_failed', level: 'warn', jobId: job.id, userId: job.userId, error });
-  }
-
-  const fields = parsed ? evaluationFields(parsed) : {
-    scoreOverall: null,
-    scoreBreakdown: null,
-    redFlags: null,
-    tldr: null,
-    legitimacyTier: null,
-    rawReport: null,
-  };
-
-  const { offer } = await upsertExternalApplication(job.userId, {
-    title: payload.title,
-    company: payload.company,
-    url: payload.url || undefined,
-    platform: payload.platform || 'other',
-    description: payload.description,
-    status: 'interested',
-    source: 'mcp_server',
-    externalSource: payload.externalSource || undefined,
-    externalId: payload.externalId || undefined,
-    cvId: newCv.id,
-    ...fields,
-  });
-
-  await createAuditLog('mcp_cv_optimize', job.userId, user.email, {
-    offerId: offer.id,
-    title: payload.title,
-    company: payload.company,
-    cvId: newCv.id,
-    jobId: job.id,
-  });
-
-  return {
-    offerId: offer.id,
-    cvId: newCv.id,
-    parsed,
-    message: formatMcpOptimizeMessage({
-      company: payload.company,
-      title: payload.title,
-      offerId: offer.id,
-      parsed,
-    }),
-  };
-}
-
-async function processMcpEvaluate(job: AiJob) {
-  const payload = offerPayload(job);
-  const { user, cv: baseCv } = await resolveBaseCv(job.userId);
-  if (!user || !baseCv) throw new Error('Base CV not found');
-
-  const evalText = await consumeStream(await AIService.analyzeSTARStream({
-    cvMarkdown: baseCv.content,
-    jobDescription: payload.description,
-    company: payload.company,
-    userSubscriptionStatus: user.subscriptionStatus,
-    mcpProfile: user.mcpProfile,
-  }));
-  const parsed = parseJsonObject(evalText);
-  if (!parsed) throw new Error('AI did not return valid JSON evaluation');
-
-  const fields = evaluationFields(parsed);
-  const { offer } = await upsertExternalApplication(job.userId, {
-    title: payload.title,
-    company: payload.company,
-    url: payload.url || undefined,
-    platform: payload.platform || 'other',
-    description: payload.description,
-    status: 'interested',
-    source: 'mcp_server',
-    externalSource: payload.externalSource || undefined,
-    externalId: payload.externalId || undefined,
-    ...fields,
-  });
-
-  await createAuditLog('mcp_job_offer_evaluate', job.userId, user.email, {
-    offerId: offer.id,
-    title: payload.title,
-    company: payload.company,
-    score: parsed.score,
-    jobId: job.id,
-  });
-
-  return {
-    offerId: offer.id,
-    parsed,
-    tldr: fields.tldr,
-    legitimacyTier: fields.legitimacyTier,
-    message: formatMcpEvaluateMessage({
-      company: payload.company,
-      title: payload.title,
-      offerId: offer.id,
-      parsed,
-      tldr: fields.tldr,
-      legitimacyTier: fields.legitimacyTier,
-    }),
-  };
 }
 
 async function processEvaluate(job: AiJob) {
@@ -193,8 +58,9 @@ async function processEvaluate(job: AiJob) {
     cvMarkdown: baseCv.content,
     jobDescription: payload.description,
     company: payload.company,
-    userSubscriptionStatus: user.subscriptionStatus,
-    mcpProfile: user.mcpProfile,
+    jobTitle: payload.title,
+    userSubscriptionStatus: effectiveSubscriptionStatus(user),
+    careerProfile: user.careerProfile,
   }));
   const parsed = parseJsonObject(evalText);
   if (!parsed) throw new Error('AI did not return valid JSON evaluation');
@@ -221,9 +87,9 @@ async function processOptimizeApplication(job: AiJob) {
   const content = await consumeStream(await AIService.optimizeCVStream({
     baseCvMarkdown: baseCv.content,
     jobDescription: offer.description,
-    userSubscriptionStatus: user.subscriptionStatus,
+    userSubscriptionStatus: effectiveSubscriptionStatus(user),
     candidateName: user.name || '',
-    careerProfileContext: formatCareerProfileContext(user.mcpProfile),
+    careerProfileContext: formatCareerProfileContext(user.careerProfile),
   }));
   if (!content) throw new Error('AI returned an empty CV');
 
@@ -250,14 +116,26 @@ async function processOptimizeApplication(job: AiJob) {
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
+  const snapshot = job.resolvedAiConfig
+    ? parseAiRuntimeConfig(job.resolvedAiConfig)
+    : await getResolvedAiRuntime();
+  return bindAiRuntime(snapshot, async () => {
+  let renewing = false;
+  const heartbeat = job.kind === 'match_batch' ? setInterval(() => {
+    if (renewing) return;
+    renewing = true;
+    void renewAiJobLease(job).then(owned => {
+      if (!owned && heartbeat) clearInterval(heartbeat);
+    }).catch(() => {
+      // An expired lease prevents progress/completion writes; a worker can safely reclaim the job.
+      log({ event: 'ai_job_lease_renewal_failed', level: 'warn', jobId: job.id });
+    }).finally(() => { renewing = false; });
+  }, 30_000) : null;
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
-      case 'mcp_optimize':
-        result = await processMcpOptimize(job);
-        break;
-      case 'mcp_evaluate':
-        result = await processMcpEvaluate(job);
+      case 'match_batch':
+        result = await processMatchBatch(job);
         break;
       case 'evaluate':
         result = await processEvaluate(job);
@@ -268,10 +146,20 @@ export async function processAiJob(job: AiJob) {
       default:
         throw new Error(`Unknown AI job kind: ${job.kind}`);
     }
-    await completeAiJob(job.id, result);
+    const completed = await completeAiJob(job.id, result, job);
+    if (!completed) return;
+    void recordAiRunStat({
+      functionKey: job.kind,
+      provider: snapshot.general.pro.provider,
+      model: snapshot.general.pro.model,
+      plan: 'unknown',
+      success: true,
+      latencyMs: Date.now() - started,
+    });
     log({
       event: 'ai_job_completed',
       userId: job.userId,
+      initiatedByUserId: job.initiatedByUserId,
       jobId: job.id,
       kind: job.kind,
       durationMs: Date.now() - started,
@@ -281,11 +169,24 @@ export async function processAiJob(job: AiJob) {
       event: 'ai_job_failed',
       level: 'error',
       userId: job.userId,
+      initiatedByUserId: job.initiatedByUserId,
       jobId: job.id,
       kind: job.kind,
       durationMs: Date.now() - started,
       error,
     });
+    void recordAiRunStat({
+      functionKey: job.kind,
+      provider: snapshot.general.pro.provider,
+      model: snapshot.general.pro.model,
+      plan: 'unknown',
+      success: false,
+      latencyMs: Date.now() - started,
+      errorCode: error instanceof Error ? error.message.slice(0, 80) : 'AI_JOB_FAILED',
+    });
     await failAiJob(job, error);
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
+  });
 }

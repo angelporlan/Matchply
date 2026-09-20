@@ -10,6 +10,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { buildClaimPath, getAuthIntent } from '@/lib/auth-intent';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -55,6 +56,7 @@ export default function RegisterPage() {
         setError(res.error);
       } else {
         setSuccess(true);
+        trackUmamiConversion('signup_completed');
         const loginRes = await signIn('credentials', {
           email,
           password,

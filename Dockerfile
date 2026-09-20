@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Instalar dependencias necesarias para compilar librerías nativas si se requiere
 RUN apk add --no-cache libc6-compat

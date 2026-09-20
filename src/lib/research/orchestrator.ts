@@ -119,21 +119,20 @@ function publicOfferContext(offer: typeof jobOffers.$inferSelect, cv: string | n
 }
 
 async function saveSources(runId: string, agentRunId: string, sources: Awaited<ReturnType<typeof collectSources>>) {
-  for (const source of sources) {
-    await db.insert(jobResearchSources).values({
-      researchRunId: runId,
-      agentRunId,
-      url: source.url,
-      canonicalUrl: source.canonicalUrl,
-      title: source.title?.slice(0, 500) || null,
-      domain: source.domain,
-      sourceType: source.sourceType,
-      publishedAt: source.publishedAt && !Number.isNaN(new Date(source.publishedAt).valueOf()) ? new Date(source.publishedAt) : null,
-      excerpt: source.excerpt.slice(0, 6_000),
-      contentHash: source.contentHash,
-      confidence: 0.65,
-    }).onConflictDoNothing({ target: [jobResearchSources.researchRunId, jobResearchSources.canonicalUrl] });
-  }
+  if (sources.length === 0) return;
+  await db.insert(jobResearchSources).values(sources.map((source) => ({
+    researchRunId: runId,
+    agentRunId,
+    url: source.url,
+    canonicalUrl: source.canonicalUrl,
+    title: source.title?.slice(0, 500) || null,
+    domain: source.domain,
+    sourceType: source.sourceType,
+    publishedAt: source.publishedAt && !Number.isNaN(new Date(source.publishedAt).valueOf()) ? new Date(source.publishedAt) : null,
+    excerpt: source.excerpt.slice(0, 6_000),
+    contentHash: source.contentHash,
+    confidence: 0.65,
+  }))).onConflictDoNothing({ target: [jobResearchSources.researchRunId, jobResearchSources.canonicalUrl] });
 }
 
 async function executeAgent(runId: string, agentRunId: string, role: ResearchAgentRole, offer: typeof jobOffers.$inferSelect, cv: string | null, config: { provider: string; model: string }) {
@@ -312,19 +311,7 @@ export async function runResearch(runId: string) {
     updatedAt: now,
   }).where(eq(jobResearchRuns.id, run.id));
   await db.update(jobOffers).set({
-    scoreOverall: report.score,
-    scoreBreakdown: {
-      offerFit: report.offerAnalysis.score,
-      company: report.companyAnalysis.score,
-      people: report.peopleAnalysis.score,
-      historyNews: report.historyNews.score,
-      verificationRisk: report.verificationRisk.score,
-      confidence: report.confidence,
-    },
-    tldr: report.executiveSummary,
-    redFlags: report.redFlags,
     legitimacyTier: report.recommendation,
-    rawReport: reportMarkdown(report),
     targetProofPoints: report.offerAnalysis.strengths || [],
     updatedAt: now,
   }).where(eq(jobOffers.id, offer.id));

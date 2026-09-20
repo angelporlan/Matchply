@@ -18,7 +18,7 @@ export async function settleAiJob(jobId: string, waitMs = WAIT_MS): Promise<AiJo
     if (!job) throw new Error('AI_JOB_NOT_FOUND');
     if (isTerminalAiJob(job)) return job;
 
-    if (!stolen && Date.now() - started >= STEAL_AFTER_MS && job.status === 'queued') {
+    if (job.kind !== 'match_batch' && !stolen && Date.now() - started >= STEAL_AFTER_MS && job.status === 'queued') {
       const claimed = await claimAiJobById(job.id);
       if (claimed) {
         stolen = true;

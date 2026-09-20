@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
+import { readFileSync } from 'fs';
 
 // Márgenes predeterminados
 const PAGE_MARGIN = 36;
@@ -48,6 +49,41 @@ const FONT_FAMILIES: Record<string, FontSet> = {
   times: { regular: 'Custom-Times-Roman', bold: 'Custom-Times-Bold', italic: 'Custom-Times-Italic', boldItalic: 'Custom-Times-BoldItalic' },
   courier: { regular: 'Custom-Courier', bold: 'Custom-Courier-Bold', italic: 'Custom-Courier-Oblique', boldItalic: 'Custom-Courier-BoldOblique' }
 };
+
+// PDFKit font name -> TTF file (Liberation metrics-compatible with Helvetica/Times/Courier).
+const FONT_FILES: Record<string, string> = {
+  'Custom-Helvetica': 'LiberationSans-Regular.ttf',
+  'Custom-Helvetica-Bold': 'LiberationSans-Bold.ttf',
+  'Custom-Helvetica-Oblique': 'LiberationSans-Italic.ttf',
+  'Custom-Helvetica-BoldOblique': 'LiberationSans-BoldItalic.ttf',
+  'Custom-Times-Roman': 'LiberationSerif-Regular.ttf',
+  'Custom-Times-Bold': 'LiberationSerif-Bold.ttf',
+  'Custom-Times-Italic': 'LiberationSerif-Italic.ttf',
+  'Custom-Times-BoldItalic': 'LiberationSerif-BoldItalic.ttf',
+  'Custom-Courier': 'LiberationMono-Regular.ttf',
+  'Custom-Courier-Bold': 'LiberationMono-Bold.ttf',
+  'Custom-Courier-Oblique': 'LiberationMono-Italic.ttf',
+  'Custom-Courier-BoldOblique': 'LiberationMono-BoldItalic.ttf',
+};
+
+const FONTS_DIR = process.env.PDF_FONTS_DIR || path.join(process.cwd(), 'src/assets/fonts');
+const fontBufferCache = new Map<string, Buffer>();
+
+function getFontBuffer(fontName: string): Buffer {
+  const cached = fontBufferCache.get(fontName);
+  if (cached) return cached;
+  const file = FONT_FILES[fontName];
+  if (!file) throw new Error(`Unknown PDF font: ${fontName}`);
+  const buffer = readFileSync(path.join(FONTS_DIR, file));
+  fontBufferCache.set(fontName, buffer);
+  return buffer;
+}
+
+function registerFontFamily(doc: PDFKit.PDFDocument, family: FontSet) {
+  for (const fontName of [family.regular, family.bold, family.italic, family.boldItalic]) {
+    doc.registerFont(fontName, getFontBuffer(fontName));
+  }
+}
 
 interface CustomizeOptions {
   fontFamily: FontSet;
@@ -730,22 +766,9 @@ export function generatePdfBuffer(markdown: string, options: any = {}): Promise<
         bufferPages: true
       });
 
-      // Register standard-compatible TrueType fonts to bypass dynamic AFM file lookup issues in Next.js
-      const fontsDir = path.join(process.cwd(), 'src/assets/fonts');
-      doc.registerFont('Custom-Helvetica', path.join(fontsDir, 'LiberationSans-Regular.ttf'));
-      doc.registerFont('Custom-Helvetica-Bold', path.join(fontsDir, 'LiberationSans-Bold.ttf'));
-      doc.registerFont('Custom-Helvetica-Oblique', path.join(fontsDir, 'LiberationSans-Italic.ttf'));
-      doc.registerFont('Custom-Helvetica-BoldOblique', path.join(fontsDir, 'LiberationSans-BoldItalic.ttf'));
-      
-      doc.registerFont('Custom-Times-Roman', path.join(fontsDir, 'LiberationSerif-Regular.ttf'));
-      doc.registerFont('Custom-Times-Bold', path.join(fontsDir, 'LiberationSerif-Bold.ttf'));
-      doc.registerFont('Custom-Times-Italic', path.join(fontsDir, 'LiberationSerif-Italic.ttf'));
-      doc.registerFont('Custom-Times-BoldItalic', path.join(fontsDir, 'LiberationSerif-BoldItalic.ttf'));
-      
-      doc.registerFont('Custom-Courier', path.join(fontsDir, 'LiberationMono-Regular.ttf'));
-      doc.registerFont('Custom-Courier-Bold', path.join(fontsDir, 'LiberationMono-Bold.ttf'));
-      doc.registerFont('Custom-Courier-Oblique', path.join(fontsDir, 'LiberationMono-Italic.ttf'));
-      doc.registerFont('Custom-Courier-BoldOblique', path.join(fontsDir, 'LiberationMono-BoldItalic.ttf'));
+      // Register the TrueType fonts of the selected family from in-memory buffers
+      // (read from disk once per process, not once per render).
+      registerFontFamily(doc, customize.fontFamily);
 
 
       const chunks: Buffer[] = [];

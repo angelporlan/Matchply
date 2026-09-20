@@ -196,15 +196,4 @@ export function genericSoftwareInterviewQuestions(
   ];
 }
 
-export function formatCareerProfileContext(profile: any, maxChars = 3200): string {
-  if (!profile || typeof profile !== 'object') return '';
-  const chunks: string[] = [];
-  const master = typeof profile.masterDocument === 'string' ? profile.masterDocument.trim() : '';
-  const bio = typeof profile.bio === 'string' ? profile.bio.trim() : '';
-  if (master) chunks.push(master.slice(0, maxChars));
-  else if (bio) chunks.push(bio.slice(0, Math.min(2000, maxChars)));
-  if (typeof profile.curationCriteria === 'string' && profile.curationCriteria.trim()) {
-    chunks.push(`Criterios de puntuación:\n${profile.curationCriteria.trim().slice(0, 1500)}`);
-  }
-  return chunks.join('\n\n').trim();
-}
+export { formatCareerProfileContext } from './career-profile';
