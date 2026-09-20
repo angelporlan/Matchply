@@ -2,6 +2,7 @@ import { and, eq, gt, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, type AiJob } from '@/db/schema';
 import type { AiJobKind, AiJobPayload, MatchBatchPayload } from './types';
+import { getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 
 const MAX_ATTEMPTS = 3;
 const LEASE_MS = 5 * 60_000;
@@ -10,14 +11,18 @@ export async function enqueueAiJob(input: {
   userId: string;
   kind: AiJobKind;
   payload: AiJobPayload;
+  initiatedByUserId?: string | null;
 }) {
   const now = new Date();
+  const resolvedAiConfig = await getResolvedAiRuntime();
   const [job] = await db.insert(aiJobs).values({
     userId: input.userId,
+    initiatedByUserId: input.initiatedByUserId ?? input.userId,
     kind: input.kind,
     status: 'queued',
     attempt: 0,
     payload: input.payload,
+    resolvedAiConfig,
     nextAttemptAt: now,
     createdAt: now,
     updatedAt: now,
@@ -39,7 +44,12 @@ export async function getAiJobForUser(userId: string, jobId: string) {
 }
 
 /** requestId survives a lost POST response; the same request never starts a second batch. */
-export async function enqueueMatchBatchJob(userId: string, payload: MatchBatchPayload) {
+export async function enqueueMatchBatchJob(
+  userId: string,
+  payload: MatchBatchPayload,
+  meta: { initiatedByUserId?: string | null } = {},
+) {
+  const resolvedAiConfig = await getResolvedAiRuntime();
   return db.transaction(async tx => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`match-request:${userId}`}))`);
     const [existing] = await tx.select().from(aiJobs).where(and(
@@ -50,9 +60,17 @@ export async function enqueueMatchBatchJob(userId: string, payload: MatchBatchPa
     if (existing) return existing;
     const now = new Date();
     const [job] = await tx.insert(aiJobs).values({
-      userId, kind: 'match_batch', status: 'queued', attempt: 0, payload,
+      userId,
+      initiatedByUserId: meta.initiatedByUserId ?? userId,
+      kind: 'match_batch',
+      status: 'queued',
+      attempt: 0,
+      payload,
+      resolvedAiConfig,
       result: { total: payload.offerIds.length, items: [], errors: [] },
-      nextAttemptAt: now, createdAt: now, updatedAt: now,
+      nextAttemptAt: now,
+      createdAt: now,
+      updatedAt: now,
     }).returning();
     return job;
   });

@@ -5,7 +5,7 @@ import { AIService } from '@/lib/ai-service';
 import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
 import { persistMatchResult } from '@/lib/match-persistence';
 import { log } from '@/lib/logger';
-import { canAccessFeature } from '@/lib/subscription';
+import { canAccessFeature, effectiveSubscriptionStatus } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { readCurrentMatchBatchResult, readMatchBatchInputHashes } from './match-batch-progress';
 import { ownsAiJobLease, saveAiJobProgress } from './queue';
@@ -29,7 +29,12 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   if (!pendingIds.length) return { ...progress, inputHashes };
 
   const [userRows, cvRows, offers] = await Promise.all([
-    db.select({ careerProfile: users.careerProfile, subscriptionStatus: users.subscriptionStatus, isGuest: users.isGuest })
+    db.select({
+      careerProfile: users.careerProfile,
+      subscriptionStatus: users.subscriptionStatus,
+      isGuest: users.isGuest,
+      proGrantedUntil: users.proGrantedUntil,
+    })
       .from(users).where(eq(users.id, job.userId)).limit(1),
     db.select(baseCvForAiColumns).from(cvs).where(eq(cvs.userId, job.userId))
       .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id)).limit(1),
@@ -38,7 +43,7 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   ]);
   const user = userRows[0];
   if (!user) throw new Error('USER_NOT_FOUND');
-  if (!canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest })) throw new SubscriptionAccessError('applications');
+  if (!canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest, proGrantedUntil: user.proGrantedUntil })) throw new SubscriptionAccessError('applications');
 
   // AI micro-batches complete concurrently; serialize saves so progress cannot lose another batch's items.
   let progressTail: Promise<void> = Promise.resolve();
@@ -63,7 +68,7 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   await AIService.curateOffersBatch({
     baseCvMarkdown: cvRows[0]?.content || '',
     userCareerProfile: user.careerProfile || {},
-    userSubscriptionStatus: user.subscriptionStatus,
+    userSubscriptionStatus: effectiveSubscriptionStatus(user),
     offers,
     kind: 'triage',
     targetThreshold: payload.targetThreshold,

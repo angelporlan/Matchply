@@ -1,65 +1,67 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { prompts } from '@/db/schema';
-import { getBuiltInPrompt, type BuiltInPromptKey } from '@/lib/prompt-defaults';
+import { UnknownOptimizeModeError } from '@/lib/request-errors';
+import {
+  getDefaultOptimizeMode,
+  isOptimizeModeId,
+  looksLikeLegacyPromptId,
+  resolveOptimizeModeFromName,
+  type OptimizeModeId,
+} from '@/lib/optimize-modes';
+import { getBuiltInPrompt, getOptimizePrompt, type BuiltInPrompt, type BuiltInPromptKey } from '@/lib/prompt-defaults';
 
-const TTL_MS = 60_000;
-
-type ResolvedPrompt = ReturnType<typeof getBuiltInPrompt> & {
-  systemPrompt: string;
-  userPrompt: string;
-  isStrict: boolean;
+export type ResolvedPrompt = BuiltInPrompt & {
+  modeId?: OptimizeModeId;
 };
 
-const cache = new Map<string, { value: ResolvedPrompt; expiresAt: number }>();
+const legacyModeCache = new Map<string, OptimizeModeId | 'unknown'>();
 
-function cacheKey(key: BuiltInPromptKey, promptId?: string) {
-  return promptId ? `id:${promptId}` : `active:${key}`;
+async function mapLegacyPromptId(promptId: string): Promise<OptimizeModeId | null> {
+  const cached = legacyModeCache.get(promptId);
+  if (cached === 'unknown') return null;
+  if (cached) return cached;
+  try {
+    const [row] = await db
+      .select({ id: prompts.id, name: prompts.name, nameEn: prompts.nameEn, isActive: prompts.isActive })
+      .from(prompts)
+      .where(eq(prompts.id, promptId))
+      .limit(1);
+    const mapped = resolveOptimizeModeFromName(row?.name) || resolveOptimizeModeFromName(row?.nameEn);
+    if (mapped) {
+      legacyModeCache.set(promptId, mapped);
+      return mapped;
+    }
+    if (row?.isActive) {
+      const def = getDefaultOptimizeMode().id;
+      legacyModeCache.set(promptId, def);
+      return def;
+    }
+  } catch {
+    // historical table may be unavailable; treat as unknown
+  }
+  legacyModeCache.set(promptId, 'unknown');
+  return null;
 }
 
-/**
- * Admin-overridable prompts with the same 60s TTL pattern as AI provider settings.
- * Incomplete DB rows fall back to the versioned built-in prompt.
- */
-export async function resolveAiPrompt(key: BuiltInPromptKey, promptId?: string): Promise<ResolvedPrompt> {
-  const builtInPrompt = getBuiltInPrompt(key);
-  const now = Date.now();
-  const keyName = cacheKey(key, promptId);
-  const hit = cache.get(keyName);
-  if (hit && hit.expiresAt > now) return hit.value;
-
-  try {
-    const [dbPrompt] = await db
-      .select({
-        systemPrompt: prompts.systemPrompt,
-        userPrompt: prompts.userPrompt,
-        isStrict: prompts.isStrict,
-      })
-      .from(prompts)
-      .where(
-        promptId
-          ? eq(prompts.id, promptId)
-          : and(eq(prompts.key, key), eq(prompts.isActive, true))
-      )
-      .limit(1);
-
-    const value: ResolvedPrompt = dbPrompt?.systemPrompt?.trim() && dbPrompt.userPrompt?.trim()
-      ? {
-          ...builtInPrompt,
-          systemPrompt: dbPrompt.systemPrompt,
-          userPrompt: dbPrompt.userPrompt,
-          isStrict: dbPrompt.isStrict,
-        }
-      : builtInPrompt;
-
-    cache.set(keyName, { value, expiresAt: now + TTL_MS });
-    return value;
-  } catch (error) {
-    console.error(`[AIService] Error al obtener prompt "${key}" de la DB. Usando prompt integrado:`, error);
-    return hit?.value ?? builtInPrompt;
+export async function resolveOptimizeModeId(modeOrPromptId?: string | null): Promise<OptimizeModeId> {
+  if (!modeOrPromptId) return getDefaultOptimizeMode().id;
+  if (isOptimizeModeId(modeOrPromptId)) return modeOrPromptId;
+  if (looksLikeLegacyPromptId(modeOrPromptId)) {
+    const mapped = await mapLegacyPromptId(modeOrPromptId);
+    if (mapped) return mapped;
   }
+  throw new UnknownOptimizeModeError();
+}
+
+export async function resolveAiPrompt(key: BuiltInPromptKey, promptId?: string): Promise<ResolvedPrompt> {
+  if (key === 'optimize_cv') {
+    const modeId = await resolveOptimizeModeId(promptId);
+    return getOptimizePrompt(modeId);
+  }
+  return getBuiltInPrompt(key);
 }
 
 export function clearAiPromptsCache() {
-  cache.clear();
+  legacyModeCache.clear();
 }

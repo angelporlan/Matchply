@@ -11,6 +11,10 @@ import { processMatchBatch } from './match-batch';
 import { log } from '@/lib/logger';
 import { parseJsonObject } from './evaluation';
 import type { OfferJobPayload, OptimizeApplicationPayload } from './types';
+import { bindAiRuntime, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
+import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
+import { recordAiRunStat } from '@/lib/ai-run-stats';
+import { effectiveSubscriptionStatus } from '@/lib/subscription';
 
 async function consumeStream(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -25,7 +29,14 @@ async function consumeStream(stream: ReadableStream<Uint8Array>) {
 }
 
 async function resolveBaseCv(userId: string) {
-  const [user] = await db.select({ name: users.name, email: users.email, subscriptionStatus: users.subscriptionStatus, careerProfile: users.careerProfile })
+  const [user] = await db.select({
+    name: users.name,
+    email: users.email,
+    subscriptionStatus: users.subscriptionStatus,
+    careerProfile: users.careerProfile,
+    isGuest: users.isGuest,
+    proGrantedUntil: users.proGrantedUntil,
+  })
     .from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return { user: null, cv: null };
   const [base] = await db.select({ ...baseCvForAiColumns, templateName: cvs.templateName, accentColor: cvs.accentColor, fontFamily: cvs.fontFamily, pageMargin: cvs.pageMargin, scale: cvs.scale })
@@ -48,7 +59,7 @@ async function processEvaluate(job: AiJob) {
     jobDescription: payload.description,
     company: payload.company,
     jobTitle: payload.title,
-    userSubscriptionStatus: user.subscriptionStatus,
+    userSubscriptionStatus: effectiveSubscriptionStatus(user),
     careerProfile: user.careerProfile,
   }));
   const parsed = parseJsonObject(evalText);
@@ -76,7 +87,7 @@ async function processOptimizeApplication(job: AiJob) {
   const content = await consumeStream(await AIService.optimizeCVStream({
     baseCvMarkdown: baseCv.content,
     jobDescription: offer.description,
-    userSubscriptionStatus: user.subscriptionStatus,
+    userSubscriptionStatus: effectiveSubscriptionStatus(user),
     candidateName: user.name || '',
     careerProfileContext: formatCareerProfileContext(user.careerProfile),
   }));
@@ -105,6 +116,10 @@ async function processOptimizeApplication(job: AiJob) {
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
+  const snapshot = job.resolvedAiConfig
+    ? parseAiRuntimeConfig(job.resolvedAiConfig)
+    : await getResolvedAiRuntime();
+  return bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const heartbeat = job.kind === 'match_batch' ? setInterval(() => {
     if (renewing) return;
@@ -133,9 +148,18 @@ export async function processAiJob(job: AiJob) {
     }
     const completed = await completeAiJob(job.id, result, job);
     if (!completed) return;
+    void recordAiRunStat({
+      functionKey: job.kind,
+      provider: snapshot.general.pro.provider,
+      model: snapshot.general.pro.model,
+      plan: 'unknown',
+      success: true,
+      latencyMs: Date.now() - started,
+    });
     log({
       event: 'ai_job_completed',
       userId: job.userId,
+      initiatedByUserId: job.initiatedByUserId,
       jobId: job.id,
       kind: job.kind,
       durationMs: Date.now() - started,
@@ -145,13 +169,24 @@ export async function processAiJob(job: AiJob) {
       event: 'ai_job_failed',
       level: 'error',
       userId: job.userId,
+      initiatedByUserId: job.initiatedByUserId,
       jobId: job.id,
       kind: job.kind,
       durationMs: Date.now() - started,
       error,
     });
+    void recordAiRunStat({
+      functionKey: job.kind,
+      provider: snapshot.general.pro.provider,
+      model: snapshot.general.pro.model,
+      plan: 'unknown',
+      success: false,
+      latencyMs: Date.now() - started,
+      errorCode: error instanceof Error ? error.message.slice(0, 80) : 'AI_JOB_FAILED',
+    });
     await failAiJob(job, error);
   } finally {
     if (heartbeat) clearInterval(heartbeat);
   }
+  });
 }

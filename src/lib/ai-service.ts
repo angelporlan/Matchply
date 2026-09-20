@@ -1,4 +1,5 @@
-import { getAiSetting } from '@/lib/ai-settings';
+import { resolveRouteModel, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
+import type { AiFunctionKey } from '@/lib/ai-runtime-config';
 import { resolveAiPrompt } from '@/lib/ai-prompts';
 import { AI_FETCH_TIMEOUT_MS, AI_STREAM_CONNECT_TIMEOUT_MS, fetchWithTimeout } from '@/lib/http';
 import {
@@ -118,6 +119,7 @@ export interface OptimizeRequest {
   jobDescription: string;
   userSubscriptionStatus: string; // 'active' o 'none'
   promptId?: string;
+  modeId?: string;
   candidateName?: string;
   careerProfileContext?: string;
 }
@@ -143,8 +145,18 @@ export class AIService {
     return null;
   }
 
+  private static async routeModel(isPro: boolean, fn: AiFunctionKey) {
+    const routed = await resolveRouteModel(fn, isPro);
+    return { provider: routed.provider, model: routed.model };
+  }
+
   private static async getSetting(key: string, defaultValue: string): Promise<string> {
-    return getAiSetting(key, defaultValue);
+    const config = await getResolvedAiRuntime();
+    if (key === 'free_provider') return config.general.free.provider;
+    if (key === 'free_model') return config.general.free.model;
+    if (key === 'pro_provider') return config.general.pro.provider;
+    if (key === 'pro_model') return config.general.pro.model;
+    return defaultValue;
   }
 
   private static templatePrompt(template: string, cv: string, job: string): string {
@@ -163,17 +175,16 @@ export class AIService {
     return resolveAiPrompt(key, promptId);
   }
 
-  static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId }: OptimizeRequest): Promise<string> {
+  static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId }: OptimizeRequest): Promise<string> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    const resolvedPrompt = await this.resolvePrompt('optimize_cv', promptId);
+    const resolvedPrompt = await this.resolvePrompt('optimize_cv', modeId || promptId);
     const systemPrompt = resolvedPrompt.systemPrompt;
     const userPromptTemplate = resolvedPrompt.userPrompt;
 
     if (!isPro) {
       // [FREE] Enrutamiento Plan FREE
-      const provider = await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+      const { provider, model } = await this.routeModel(false, 'optimize_cv');
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
@@ -190,8 +201,7 @@ export class AIService {
       }
     } else {
       // [PRO] Enrutamiento Plan PRO
-      const provider = await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER);
-      const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
+      const { provider, model } = await this.routeModel(true, 'optimize_cv');
 
       const defaultSystem = provider === 'gemini'
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
@@ -218,13 +228,7 @@ export class AIService {
     const resolvedPrompt = await this.resolvePrompt('import_cv');
     const { systemPrompt, userPrompt: userPromptTemplate, isStrict } = resolvedPrompt;
 
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-    
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+    const { provider, model } = await this.routeModel(isPro, 'import_cv');
 
     const finalSystemPrompt = systemPrompt + (isStrict ? "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS : "");
     const finalUserPrompt = userPromptTemplate.replace(/\{\{cv\}\}/g, rawText);
@@ -238,10 +242,10 @@ export class AIService {
     }
   }
 
-  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, candidateName, careerProfileContext }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
+  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId, candidateName, careerProfileContext }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
-    const resolvedPrompt = await this.resolvePrompt('optimize_cv', promptId);
+    const resolvedPrompt = await this.resolvePrompt('optimize_cv', modeId || promptId);
     const systemPrompt = resolvedPrompt.systemPrompt;
     const userPromptTemplate = resolvedPrompt.userPrompt;
 
@@ -252,8 +256,7 @@ export class AIService {
       : '';
 
     if (!isPro) {
-      const provider = await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      const model = await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+      const { provider, model } = await this.routeModel(false, 'optimize_cv');
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
       const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
@@ -269,8 +272,7 @@ export class AIService {
         return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
     } else {
-      const provider = await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER);
-      const model = await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider));
+      const { provider, model } = await this.routeModel(true, 'optimize_cv');
 
       const defaultSystem = provider === 'gemini'
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
@@ -297,13 +299,7 @@ export class AIService {
     const resolvedPrompt = await this.resolvePrompt('import_cv');
     const { systemPrompt, userPrompt: userPromptTemplate, isStrict } = resolvedPrompt;
 
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER) 
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-    
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+    const { provider, model } = await this.routeModel(isPro, 'import_cv');
 
     const resolvedName = this.extractCandidateName(rawText) || candidateName || "Candidato";
     const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: Identifica el nombre de la persona en el CV (usualmente al principio). El currículum resultante DEBE comenzar obligatoriamente con ese nombre propio en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
@@ -341,6 +337,18 @@ export class AIService {
       `Añádela a .env (o al entorno Docker/VPS) y reinicia Next.js. ` +
       `Para usar respuestas simuladas en local, define ALLOW_AI_MOCK=true.`
     );
+  }
+
+  static async probeModel(provider: string, model: string): Promise<string> {
+    const systemPrompt = 'Responde únicamente con la palabra OK.';
+    const userPrompt = 'Prueba de modelo con datos ficticios. No uses datos reales.';
+    if (provider === 'gemini') {
+      return this.callGeminiOficial('', '', model, systemPrompt, userPrompt);
+    }
+    if (provider === 'deepseek') {
+      return this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt);
+    }
+    return this.callOpenRouter('', '', model, systemPrompt, userPrompt);
   }
 
   private static extractGeminiText(payload: any): string {
@@ -930,14 +938,7 @@ Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el 
     userSubscriptionStatus: string;
   }): Promise<{ outreachMessage: string; coverLetter: string; interviewQuestions: any[] }> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+    const { provider, model } = await this.routeModel(isPro, 'outreach');
 
     const systemPrompt = `Eres un experto en selección de personal y marca profesional. Tu tarea es generar:
 1. Un email o mensaje de contacto corto (outreach) para enviar al reclutador por LinkedIn o email (máximo 150 palabras, tono profesional y persuasivo, adaptado a la vacante y la experiencia del candidato).
@@ -1020,8 +1021,7 @@ Descripción: ${jobDescription}`;
     const started = Date.now();
     if (!offers.length) return { curated: [], errors: [] };
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    const provider = await this.getSetting(isPro ? 'pro_provider' : 'free_provider', isPro ? DEFAULT_PRO_PROVIDER : DEFAULT_FREE_PROVIDER);
-    const model = await this.getSetting(isPro ? 'pro_model' : 'free_model', getDefaultModelForProvider(isPro ? 'pro' : 'free', provider));
+    const { provider, model } = await this.routeModel(isPro, 'matching');
     const constraints = parseMatchConstraints(userCareerProfile || {});
     const candidateEvidence = buildCandidateEvidence(userCareerProfile, baseCvMarkdown, constraints);
     const systemPrompt = buildMatchSystemPrompt({ kind: 'triage', targetThreshold });
@@ -1134,20 +1134,15 @@ Descripción: ${jobDescription}`;
     systemPrompt,
     userPrompt,
     userSubscriptionStatus = 'none',
+    functionKey = 'career_profile',
   }: {
     systemPrompt: string;
     userPrompt: string;
     userSubscriptionStatus?: string;
+    functionKey?: AiFunctionKey;
   }): Promise<string> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    
-    const provider = isPro 
-      ? await this.getSetting('pro_provider', DEFAULT_PRO_PROVIDER)
-      : await this.getSetting('free_provider', DEFAULT_FREE_PROVIDER);
-      
-    const model = isPro
-      ? await this.getSetting('pro_model', getDefaultModelForProvider('pro', provider))
-      : await this.getSetting('free_model', getDefaultModelForProvider('free', provider));
+    const { provider, model } = await this.routeModel(isPro, functionKey);
 
     if (provider === 'gemini') {
       return await this.callGeminiOficial("", "", model, systemPrompt, userPrompt);
@@ -1562,14 +1557,16 @@ DIRECTRICES:
     userPrompt: string;
   }> {
     const isPro = canAccessFeature(userContext.subscriptionStatus || 'none', 'advancedAi');
-    const provider = await this.getSetting(
-      isPro ? 'pro_provider' : 'free_provider',
-      isPro ? DEFAULT_PRO_PROVIDER : DEFAULT_FREE_PROVIDER,
-    );
-    const model = await this.getSetting(
-      isPro ? 'pro_model' : 'free_model',
-      getDefaultModelForProvider(isPro ? 'pro' : 'free', provider),
-    );
+    const debugFn: AiFunctionKey = action === 'optimize_cv'
+      ? 'optimize_cv'
+      : action === 'import_cv'
+        ? 'import_cv'
+        : action === 'curate_offers'
+          ? 'matching'
+          : action === 'outreach'
+            ? 'outreach'
+            : 'career_profile';
+    const { provider, model } = await this.routeModel(isPro, debugFn);
 
     if (action === 'optimize_cv') {
       const resolvedPrompt = await this.resolvePrompt('optimize_cv', payload.promptId);
