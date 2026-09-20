@@ -4,8 +4,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { GUEST_MAX_CVS } from '@/lib/subscription';
-import { getSession } from '@/lib/session';
-import { getEntitlementUser } from '@/lib/permissions';
+import { assertMutableActor, getRequestContext } from '@/lib/request-context';
+import { AccountSuspendedError } from '@/lib/request-errors';
 
 export { GUEST_MAX_CVS } from '@/lib/subscription';
 
@@ -21,6 +21,10 @@ export type RequestActor = {
   email: string | null;
   role: string | null;
   subscriptionStatus: string;
+  accountStatus: string;
+  proGrantedUntil: Date | null;
+  realUserId: string;
+  impersonationSessionId: string | null;
 };
 
 function hashGuestToken(token: string) {
@@ -68,11 +72,7 @@ async function getGuestActorFromCookie(): Promise<RequestActor | null> {
 
   return {
     kind: 'guest',
-    userId: guest.id,
-    name: guest.name,
-    email: guest.email,
-    role: guest.role,
-    subscriptionStatus: guest.subscriptionStatus,
+    ...guestActorFields(guest),
   };
 }
 
@@ -93,24 +93,43 @@ async function deleteExpiredGuestFromCookie() {
 }
 
 export async function getActor(options: { allowGuest?: boolean } = {}): Promise<RequestActor | null> {
-  const session = await getSession();
-  if (session?.user?.id) {
-    const dbUser = await getEntitlementUser(session.user.id);
+  const ctx = await getRequestContext();
+  assertMutableActor(ctx);
 
-    if (dbUser && !dbUser.isGuest) {
-      return {
-        kind: 'user',
-        userId: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        role: dbUser.role,
-        subscriptionStatus: dbUser.subscriptionStatus,
-      };
+  if (ctx.effectiveUser && !ctx.effectiveUser.isGuest) {
+    if (ctx.effectiveUser.accountStatus === 'suspended' && !ctx.impersonation) {
+      throw new AccountSuspendedError();
     }
+    return {
+      kind: 'user',
+      userId: ctx.effectiveUser.id,
+      name: ctx.effectiveUser.name,
+      email: ctx.effectiveUser.email,
+      role: ctx.effectiveUser.role,
+      subscriptionStatus: ctx.effectiveUser.subscriptionStatus,
+      accountStatus: ctx.effectiveUser.accountStatus,
+      proGrantedUntil: ctx.effectiveUser.proGrantedUntil,
+      realUserId: ctx.realUser?.id || ctx.effectiveUser.id,
+      impersonationSessionId: ctx.impersonation?.id ?? null,
+    };
   }
 
   if (!options.allowGuest) return null;
   return getGuestActorFromCookie();
+}
+
+function guestActorFields(guest: { id: string; name: string | null; email: string | null; role: string | null; subscriptionStatus: string }): Omit<RequestActor, 'kind'> {
+  return {
+    userId: guest.id,
+    name: guest.name,
+    email: guest.email,
+    role: guest.role,
+    subscriptionStatus: guest.subscriptionStatus,
+    accountStatus: 'active',
+    proGrantedUntil: null,
+    realUserId: guest.id,
+    impersonationSessionId: null,
+  };
 }
 
 export async function getOrCreateGuestActor(): Promise<RequestActor> {
@@ -139,11 +158,7 @@ export async function getOrCreateGuestActor(): Promise<RequestActor> {
 
   return {
     kind: 'guest',
-    userId: guest.id,
-    name: guest.name,
-    email: guest.email,
-    role: guest.role,
-    subscriptionStatus: guest.subscriptionStatus,
+    ...guestActorFields(guest),
   };
 }
 

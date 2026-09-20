@@ -1,132 +1,125 @@
-# Administración de usuarios y estadísticas — comportamiento deseado
+# Administración de usuarios y panel de soporte — comportamiento deseado
 
-Estado: **Borrador — pendiente de rellenar**  
-Responsable: [POR DEFINIR]  
-Fecha de revisión: [POR DEFINIR]  
-Prioridad: [Imprescindible / Importante / Más adelante / Sin cambio]
+Estado: **Aprobado para implementar**  
+Responsable: Operación Matchply  
+Fecha de revisión: 20 de septiembre de 2026  
+Prioridad: Imprescindible
 
-Referencia: [lo que hace actualmente](estado-actual.md). Las observaciones ACT son una fotografía del código; no son requisitos aprobados.
-
-Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras; el resto ayuda a concretar cuando lo necesites. Usa «No aplica» en vez de inventar una decisión. Ningún campo vacío implica aceptar el comportamiento actual.
+Referencia: [lo que hace actualmente](estado-actual.md). Plan de renovación del panel `/admin`.
 
 ## 1. Lo que quiero
 
 **Quiero que esta funcionalidad…**
 
-[ESCRIBE AQUÍ]
+Convierta `/admin` en una herramienta de soporte con secciones independientes: Resumen, Usuarios, IA, Tráfico y Auditoría. Cada sección carga solo sus datos. El listado de usuarios se resuelve en PostgreSQL (búsqueda, filtros, orden y paginación). El administrador opera con el rol fresco de base de datos, no con el JWT.
 
 **El problema que quiero resolver y para quién:**
 
-[ESCRIBE AQUÍ]
+Soporte no puede localizar cuentas, medir actividad ni conceder Pro temporal sin editar `subscriptionStatus`. El panel actual descarga todos los usuarios y hasta 1.000 eventos al navegador.
 
 **Al terminar, la persona debe obtener/ver…**
 
-[ESCRIBE AQUÍ]
+Un listado filtrable, una ficha de usuario con conteos y actividad reciente, acciones de rol/suspensión/Pro temporal, e impersonación limitada cuando esté habilitada.
 
 ## 2. Decisiones específicas de esta funcionalidad
 
-**¿Qué roles administrativos habrá y qué datos personales necesita ver cada uno?**
+**Roles:** un único rol `admin`. Ve datos de cuenta necesarios para soporte (nombre, correo, id, alta, accesos, plan, estado). No ve markdown completo de CVs ni descripciones de ofertas en listados.
 
-[ESCRIBE AQUÍ]
+**Plan y Stripe:** no se edita `subscriptionStatus` a mano. El acceso Pro es la unión de suscripción Stripe válida (`active`/`trialing`) o concesión `proGrantedUntil` vigente. Stripe no borra la concesión.
 
-**¿Qué cambios de plan puede hacer soporte y cómo se reconcilian con Stripe?**
-
-[ESCRIBE AQUÍ]
-
-**¿Qué métricas deben mostrarse y cómo se definen exactamente?**
-
-[ESCRIBE AQUÍ]
+**Impersonación:** sesión de soporte de 30 minutos, motivo obligatorio, cookie HttpOnly con token hasheado. Edición de CVs, perfil y candidaturas; bloqueo de facturación, credenciales, tokens y administración. Desactivable con `IMPERSONATION_ENABLED`.
 
 ## 3. Qué conservar y qué cambiar
 
-Consulta los puntos ACT de la ficha actual. Puedes mantener, modificar o eliminar cada comportamiento que sea relevante.
-
 | Referencia actual o comportamiento | Mantener / Cambiar / Eliminar / Añadir | Mi decisión y motivo |
 | --- | --- | --- |
-| [ACT-… o descripción] | [POR DEFINIR] | [POR DEFINIR] |
+| ACT-F23-01 Conteos globales | Cambiar | Incluir trialing y concesiones en Pro; invitados aparte |
+| ACT-F23-02 Lista completa en cliente | Cambiar | Filtros y paginación en PostgreSQL; ficha propia |
+| ACT-F23-03 Cambio de rol | Cambiar | Autorización con rol de BD; proteger último admin activo |
+| ACT-F23-04 Editar subscriptionStatus | Eliminar | Concesión temporal con motivo y vencimiento |
+| ACT-F23-05 Un único cliente con todo | Cambiar | Cinco secciones / rutas; errores aislados |
+| Impersonación | Añadir | Sesión de soporte revocable |
+| lastLoginAt / lastSeenAt | Añadir | Actividad; nulos = desconocido |
+| Suspensión | Añadir | Motivo obligatorio; producto bloqueado salvo facturación |
 
-**Lo que debe seguir funcionando siempre, incluso si hay errores:**
+**Invariantes:**
 
-- INV-01: [POR DEFINIR]
+- INV-01: Las acciones administrativas comprueban el rol actualizado en servidor en cada solicitud.
+- INV-02: No puede quedar cero administradores activos.
+- INV-03: Un fallo de analítica no impide gestionar usuarios.
+- INV-04: Los listados administrativos no incluyen contenido completo de CVs ni ofertas.
+- INV-05: La impersonación caducada o revocada no se reinterpreta como acción del administrador.
+- INV-06: Stripe no sobrescribe `proGrantedUntil`.
 
-**Lo que queda fuera de este cambio:**
-
-[POR DEFINIR]
+**Fuera de esta versión:** borrado de cuentas, exportación masiva, acciones masivas, grabaciones de sesión y cambios comerciales en Stripe.
 
 ## 4. Quién puede usarlo y con qué límites
 
 | Persona o plan | Puede verlo | Puede usarlo o modificarlo | Límite y qué ocurre al agotarlo |
 | --- | --- | --- | --- |
-| Visitante / invitado | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario Gratis | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario PRO | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Administrador / integración, si aplica | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
+| Visitante / invitado | No | No | — |
+| Usuario Gratis / PRO | No el panel | — | — |
+| Administrador | Sí | Sí, salvo auto-quitarse el último rol admin | Impersonación máx. 30 min |
+| Durante impersonación | Producto del usuario | CVs, perfil, candidaturas, PDF, IA | Facturación y admin bloqueados |
 
 ## 5. Cómo debe funcionar
 
-**Dónde comienza y qué debe existir antes:** [POR DEFINIR]
+**Dónde comienza:** `/admin` con sesión de administrador activo y no suspendido.
 
-1. La persona o integración hace: [POR DEFINIR].
-2. La aplicación comprueba: [POR DEFINIR].
-3. La aplicación procesa y muestra: [POR DEFINIR].
-4. La persona revisa o confirma, si procede: [POR DEFINIR].
-5. La aplicación guarda y termina en: [POR DEFINIR].
+1. El administrador abre una sección; la URL conserva filtros, orden y página.
+2. El servidor autoriza con el rol de BD y carga solo esa sección.
+3. En usuarios, PostgreSQL aplica búsqueda (nombre, correo, id), fechas en Europe/Madrid, rol, plan efectivo, estado y actividad.
+4. La ficha muestra cuenta, origen Pro, conteos y actividad paginada.
+5. Las acciones críticas (rol, suspensión, concesión, impersonación) se auditan en la misma transacción.
 
 | Dato de entrada | Obligatorio | Formato, ejemplo ficticio y validación |
 | --- | --- | --- |
-| [POR DEFINIR] | [Sí / No] | [POR DEFINIR] |
-
-| Resultado o dato guardado | Dónde se muestra/guarda | Momento de guardado y si sustituye algo |
-| --- | --- | --- |
-| [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Confirmación, deshacer, versiones o recuperación:** [POR DEFINIR]
+| Búsqueda | No | Texto; coincidencia parcial en nombre/correo/id |
+| Rango de alta | No | hoy, 7d, 30d o from/to ISO fecha Madrid |
+| Motivo suspensión / Pro / impersonación | Sí | Texto ≥ 8 caracteres |
+| Vencimiento Pro | Sí al conceder | Fecha futura; predeterminado 30 días |
 
 ## 6. Casos especiales y errores
 
 | Situación | Qué debe ver la persona | Qué debe conservar/hacer el sistema |
 | --- | --- | --- |
-| No hay datos o es el primer uso | [POR DEFINIR] | [POR DEFINIR] |
-| Datos incompletos o inválidos | [POR DEFINIR] | [POR DEFINIR] |
-| Falta sesión, permiso o cuota | [POR DEFINIR] | [POR DEFINIR] |
-| IA/servicio lento, caído o respuesta inválida | [POR DEFINIR / No aplica] | [POR DEFINIR / No aplica] |
-| Cierre de pestaña o pérdida de conexión | [POR DEFINIR] | [POR DEFINIR] |
-| Reintento, doble clic o dos cambios simultáneos | [POR DEFINIR] | [POR DEFINIR] |
-| Éxito parcial o datos ya existentes | [POR DEFINIR] | [POR DEFINIR] |
+| Sin usuarios que coincidan | Estado vacío de la sección | No error global |
+| JWT con rol antiguo | Acceso denegado a acciones | El layout ya usa rol de BD |
+| Último admin | Error al degradar | Transacción con bloqueo |
+| Cuenta suspendida | Pantalla de cuenta suspendida + portal Stripe | Producto, extensión y jobs nuevos bloqueados |
+| Impersonación vencida | Error de recarga; no ejecuta la acción | Limpia cookie; no actúa como admin |
+| Pestaña antigua | Formularios invalidados | Epoch de contexto en cada mutación |
 
-## 7. Resultado esperado y criterios para darlo por correcto
-
-Escribe ejemplos observables. Una frase como «que funcione bien» no permite comprobar el resultado. Estos criterios se completarán antes de implementar; todavía no son pruebas realizadas.
+## 7. Resultado esperado
 
 | ID | Dado este contexto | Cuando ocurre esta acción | Entonces espero exactamente |
 | --- | --- | --- | --- |
-| CA-01 | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-02 | [Caso de error] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-03 | [Caso de permiso/límite] | [POR DEFINIR] | [POR DEFINIR] |
+| CA-01 | Filtros combinados y página 2 | Recargo o abro una ficha y vuelvo | La URL restaura filtros, orden y página |
+| CA-02 | Cambio de hora Europe/Madrid | Filtro «hoy» | El rango usa medianoche Madrid, sin duplicar filas |
+| CA-03 | JWT dice admin y BD dice user | Llama a una acción admin | 403 / error de autorización |
+| CA-04 | Un solo admin activo | Intento degradarlo | Se rechaza y el rol no cambia |
+| CA-05 | Usuario suspendido | Abre el dashboard | Pantalla suspendida; portal de facturación accesible |
+| CA-06 | Concesión Pro 30 días y Stripe `none` | Usa candidaturas | Acceso Pro hasta el vencimiento |
+| CA-07 | Stripe pasa a `canceled` con concesión vigente | Webhook | `subscriptionStatus` canceled; concesión intacta |
+| CA-08 | Impersonación de usuario | Guarda un CV | El CV es del usuario; auditoría cita al admin real |
+| CA-09 | Impersonación | Abre Checkout o el panel admin | Acción bloqueada |
+| CA-10 | Listado admin | Inspecciono el HTML | No hay `rawReport` ni bloques `## Experiencia` de todos los CVs |
 
-**Ejemplo completo con datos ficticios (entrada → resultado):**
+**Cómo lo comprobaré:** suite de filtros/auth/impersonación, `typecheck`, `lint`, `build` y revisión visual móvil/escritorio, claro/oscuro y teclado.
 
-[ESCRIBE AQUÍ]
+## 8. Experiencia, datos y condiciones adicionales
 
-**Cómo lo comprobaré manualmente:** [POR DEFINIR]
-
-## 8. Experiencia, datos y condiciones adicionales (si aplica)
-
-- Pantalla, textos, botones, móvil y accesibilidad: [POR DEFINIR; referencia visual en design.md].
-- Idiomas de interfaz y de resultados: [POR DEFINIR].
-- Tiempo de respuesta, progreso y coste máximo: [POR DEFINIR].
-- Datos enviados a IA/terceros y confirmación necesaria: [POR DEFINIR].
-- Conservación, exportación, borrado y registro de acciones: [POR DEFINIR].
-- Qué ocurre con datos existentes al activar el cambio: [POR DEFINIR].
-- Dependencias de otras funcionalidades: [POR DEFINIR; enlazar sus fichas].
-- Dudas por resolver: [POR DEFINIR].
+- Tablas con cabecera `surface-muted`, filas ≥44 px, filtros etiquetados, temas claro/oscuro, teclado y tarjetas en móvil. Ver [design.md](../../../design.md).
+- Panel en español; el producto del usuario impersonado conserva su idioma.
+- `lastSeenAt` se actualiza como máximo cada cinco minutos. La impersonación no cuenta como actividad del usuario.
+- Conservación: eventos ordinarios 90 días; administrativos 12 meses. Sin purga histórica en el primer despliegue.
+- Feature flag: `IMPERSONATION_ENABLED`.
 
 ## 9. Revisión antes de implementar
 
-- [ ] He definido el objetivo y el resultado esperado.
-- [ ] He decidido qué conservar y qué cambiar.
-- [ ] He revisado permisos, errores y datos existentes.
-- [ ] Los criterios CA describen resultados comprobables.
+- [x] Objetivo y resultado esperados
+- [x] Qué conservar y qué cambiar
+- [x] Permisos, errores y datos existentes
+- [x] Criterios CA comprobables
 
-Decisión final: [Borrador / Listo para revisión / Aprobado para implementar]  
-Quién y cuándo toma la decisión: [POR DEFINIR]
+Decisión final: **Aprobado para implementar**

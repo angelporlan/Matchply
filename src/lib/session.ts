@@ -1,9 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { sessionUserColumns } from '@/lib/job-offer-queries';
+import { sessionUserWithGuestColumns } from '@/lib/job-offer-queries';
 import { requestCache } from '@/lib/request-cache';
+import { getRequestContext } from '@/lib/request-context';
+
+export { getSession } from '@/lib/auth-session';
 
 export type SessionUser = {
   id: string;
@@ -13,31 +15,32 @@ export type SessionUser = {
   role: string;
   subscriptionStatus: string;
   isGuest: boolean;
+  accountStatus: string;
+  proGrantedUntil: Date | null;
 };
 
-/** One JWT decode per request, shared by layout, page and nested helpers. */
-export const getSession = requestCache(async () => auth());
+export const sessionUserSelect = sessionUserWithGuestColumns;
 
 /**
- * Session + fresh `user` row (subscription, role) resolved once per request.
+ * Effective product user (impersonated target when a support session is active).
  * Returns null when there is no session or the user row no longer exists.
  */
 export const getSessionUser = requestCache(async (): Promise<SessionUser | null> => {
-  const session = await getSession();
-  const userId = session?.user?.id;
-  if (!userId) return null;
+  const ctx = await getRequestContext();
+  return ctx.effectiveUser;
+});
 
+/** Authenticated account, ignoring impersonation. */
+export const getRealSessionUser = requestCache(async (): Promise<SessionUser | null> => {
+  const ctx = await getRequestContext();
+  return ctx.realUser;
+});
+
+export const loadUserById = requestCache(async (userId: string): Promise<SessionUser | null> => {
   const [dbUser] = await db
-    .select({ ...sessionUserColumns, isGuest: users.isGuest })
+    .select(sessionUserSelect)
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-
-  if (!dbUser) return null;
-
-  return {
-    ...dbUser,
-    name: dbUser.name ?? session?.user?.name ?? null,
-    image: dbUser.image ?? session?.user?.image ?? null,
-  };
+  return dbUser ?? null;
 });

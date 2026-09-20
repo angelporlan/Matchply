@@ -20,6 +20,8 @@ export type EntitlementUser = {
   role: string;
   subscriptionStatus: string;
   isGuest: boolean;
+  accountStatus: string;
+  proGrantedUntil: Date | null;
 };
 
 /** Narrow user read for entitlement checks; memoized per request by userId. */
@@ -32,6 +34,8 @@ export const getEntitlementUser = requestCache(async (userId: string): Promise<E
       role: users.role,
       subscriptionStatus: users.subscriptionStatus,
       isGuest: users.isGuest,
+      accountStatus: users.accountStatus,
+      proGrantedUntil: users.proGrantedUntil,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -46,7 +50,14 @@ export async function requireUserFeature(userId: string, feature: SubscriptionFe
     throw new Error('User not found');
   }
 
-  if (!canAccessFeature(user.subscriptionStatus, feature, { isGuest: user.isGuest })) {
+  if (user.accountStatus === 'suspended') {
+    throw new SubscriptionAccessError(feature);
+  }
+
+  if (!canAccessFeature(user.subscriptionStatus, feature, {
+    isGuest: user.isGuest,
+    proGrantedUntil: user.proGrantedUntil,
+  })) {
     throw new SubscriptionAccessError(feature);
   }
 
