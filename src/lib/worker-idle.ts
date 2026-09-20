@@ -18,7 +18,11 @@ export function createWorkerShutdown() {
     waitUntilSignal() {
       if (stopping) return Promise.resolve();
       return new Promise<void>((resolve) => {
-        const done = () => resolve();
+        const timer = setInterval(() => {}, 1 << 30);
+        const done = () => {
+          clearInterval(timer);
+          resolve();
+        };
         process.on('SIGTERM', done);
         process.on('SIGINT', done);
       });
