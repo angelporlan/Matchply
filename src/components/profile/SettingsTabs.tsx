@@ -14,6 +14,7 @@ interface SettingsTabsProps {
   profile: React.ReactNode;
   integrations: React.ReactNode;
   account: React.ReactNode;
+  hideSensitiveTabs?: boolean;
 }
 
 export default function SettingsTabs({
@@ -21,6 +22,7 @@ export default function SettingsTabs({
   profile,
   integrations,
   account,
+  hideSensitiveTabs = false,
 }: SettingsTabsProps) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -52,16 +54,18 @@ export default function SettingsTabs({
       label: t('settings.tabs.profile'),
       icon: <SlidersHorizontal className="w-4 h-4 stroke-[1.75]" />,
     },
-    {
-      id: 'integrations',
-      label: t('settings.tabs.integrations'),
-      icon: <Terminal className="w-4 h-4 stroke-[1.75]" />,
-    },
-    {
-      id: 'account',
-      label: t('settings.tabs.account'),
-      icon: <UserCircle className="w-4 h-4 stroke-[1.75]" />,
-    },
+    ...(!hideSensitiveTabs ? [
+      {
+        id: 'integrations' as const,
+        label: t('settings.tabs.integrations'),
+        icon: <Terminal className="w-4 h-4 stroke-[1.75]" />,
+      },
+      {
+        id: 'account' as const,
+        label: t('settings.tabs.account'),
+        icon: <UserCircle className="w-4 h-4 stroke-[1.75]" />,
+      },
+    ] : []),
   ];
 
   return (

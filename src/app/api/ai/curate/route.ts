@@ -1,10 +1,9 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { requireProductContext } from '@/lib/request-context';
 import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
-import { requireUserFeature } from '@/lib/permissions';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { enqueueMatchBatchJob, getAiJobForUser, isTerminalAiJob } from '@/lib/ai-jobs/queue';
 import { matchBatchCounts } from '@/lib/ai-jobs/match-batch-state';
@@ -18,9 +17,15 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const OBSERVER_WINDOW_MS = 50_000;
 
 export async function POST(req: Request) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return new NextResponse('Unauthorized', { status: 401 });
+  let userId: string;
+  let initiatedByUserId: string;
+  try {
+    const ctx = await requireProductContext({ feature: 'applications' });
+    userId = ctx.effectiveUser!.id;
+    initiatedByUserId = ctx.realUser?.id || userId;
+  } catch {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -37,11 +42,6 @@ export async function POST(req: Request) {
   const targetThreshold = typeof body.targetThreshold === 'number' && Number.isFinite(body.targetThreshold)
     ? Math.max(0, Math.min(100, Math.round(body.targetThreshold))) : 65;
 
-  try {
-    await requireUserFeature(userId, 'applications');
-  } catch {
-    return new NextResponse('Forbidden', { status: 403 });
-  }
   try {
     consumeRateLimit(`ai:curate:${userId}`, 10, 10 * 60_000);
   } catch (error) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   const job = await enqueueMatchBatchJob(userId, {
     offerIds: offers.map(offer => offer.id), targetThreshold,
     requestId: body.requestId || randomUUID(),
-  });
+  }, { initiatedByUserId });
 
   const encoder = new TextEncoder();
   let cancelled = false;

@@ -1,18 +1,20 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { isProSubscription } from '@/lib/subscription';
-import { getSessionUser } from '@/lib/session';
+import { hasProAccess } from '@/lib/subscription';
+import { getRequestContext } from '@/lib/request-context';
 import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap, Lightbulb } from 'lucide-react';
 import { getServerTranslations } from '@/lib/i18n/server';
 
 export default async function SubscriptionPage() {
-  const dbUser = await getSessionUser();
+  const ctx = await getRequestContext();
+  if (ctx.impersonation) redirect('/dashboard');
+  const dbUser = ctx.effectiveUser;
   if (!dbUser) {
     redirect('/login');
   }
 
   const { t } = getServerTranslations();
-  const isPremium = isProSubscription(dbUser.subscriptionStatus);
+  const isPremium = hasProAccess(dbUser);
   const [proTitleBefore, proTitleAfter = ''] = t('subscription.title.pro').split('PRO');
 
   return (

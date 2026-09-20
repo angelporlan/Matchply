@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { requireProductContext } from '@/lib/request-context';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
+import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
 import { formatPromptForClipboard, type AiPromptDebugAction } from '@/lib/ai-prompts-debug';
 
@@ -18,12 +19,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  let userId: string;
+  try {
+    const ctx = await requireProductContext();
+    userId = ctx.effectiveUser!.id;
+  } catch {
     return new NextResponse('Unauthorized', { status: 401 });
   }
-
-  const userId = session.user.id;
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) {
     return new NextResponse('User not found', { status: 404 });
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
 
     const resolved = await AIService.buildDebugPrompt(action, data, {
       userId: user.id,
-      subscriptionStatus: user.subscriptionStatus,
+      subscriptionStatus: effectiveSubscriptionStatus(user),
       careerProfile: user.careerProfile,
     });
 

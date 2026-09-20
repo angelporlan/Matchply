@@ -1,15 +1,17 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { cvs, prompts, jobOffers } from '@/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { cvs, jobOffers } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { cvListColumns, cvTargetColumns } from '@/lib/job-offer-queries';
 import { CreditCard, Crown } from 'lucide-react';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
 import { getSessionUser } from '@/lib/session';
 import DashboardClient from './DashboardClient';
 import { getServerTranslations } from '@/lib/i18n/server';
+import { publicOptimizeModes } from '@/lib/optimize-modes';
+import CheckoutConversionBeacon from '@/components/analytics/CheckoutConversionBeacon';
 
 interface DashboardPageProps {
   searchParams?: {
@@ -41,10 +43,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
-  const isPremium = isProSubscription(subscriptionStatus);
+  const isPremium = hasProAccess({ ...dbUser, subscriptionStatus });
 
-  // Currículums (Principal primero), oferta más reciente por CV y modos de optimización, en paralelo.
-  const [userCvs, cvTargets, availablePrompts] = await Promise.all([
+  const [userCvs, cvTargets] = await Promise.all([
     db
       .select(cvListColumns)
       .from(cvs)
@@ -55,25 +56,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from(jobOffers)
       .where(eq(jobOffers.userId, userId))
       .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt)),
-    db
-      .select({
-        id: prompts.id,
-        name: prompts.name,
-        nameEn: prompts.nameEn,
-        isActive: prompts.isActive,
-        description: prompts.description,
-        descriptionEn: prompts.descriptionEn,
-        color: prompts.color,
-      })
-      .from(prompts)
-      .where(
-        and(
-          eq(prompts.key, 'optimize_cv'),
-          eq(prompts.isArchived, false)
-        )
-      )
-      .orderBy(prompts.name),
   ]);
+  const availablePrompts = publicOptimizeModes();
 
   return (
     <div className="relative overflow-x-hidden min-h-screen">
@@ -107,6 +91,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
 
+        <CheckoutConversionBeacon checkout={searchParams?.checkout} />
         {/* Sección de Currículums */}
         <DashboardClient 
           initialCvs={userCvs} 

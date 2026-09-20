@@ -97,8 +97,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         }
       }
 
-      // Log de auditoría para todo inicio de sesión exitoso (Credentials y OAuth)
       if (user && user.id && user.email) {
+        const { recordLoginAt } = await import('@/lib/user-activity');
+        await recordLoginAt(user.id);
         await createAuditLog("user_login", user.id, user.email, {
           provider: account?.provider || "credentials"
         });

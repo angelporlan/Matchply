@@ -1,8 +1,8 @@
 'use server';
 
-import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/lib/audit';
+import { auditActorFields, requireProductContext } from '@/lib/request-context';
 import {
   CompanyHasApplicationsError,
   CompanyNameConflictError,
@@ -14,7 +14,6 @@ import {
   deleteCompanyNote,
   updateCompany,
 } from '@/lib/company-service';
-import { requireUserFeature } from '@/lib/permissions';
 
 function mapCompanyError(error: unknown): { error: string; applicationCount?: number } {
   if (error instanceof CompanyNameConflictError) return { error: 'COMPANY_NAME_CONFLICT' };
@@ -27,12 +26,7 @@ function mapCompanyError(error: unknown): { error: string; applicationCount?: nu
 }
 
 async function requireCompanyUser() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error('Unauthorized');
-  }
-  await requireUserFeature(session.user.id, 'applications');
-  return session;
+  return requireProductContext({ feature: 'applications' });
 }
 
 function revalidateCompanies(companyId?: string) {
@@ -48,12 +42,13 @@ export async function createCompanyAction(input: {
   sector?: string | null;
 }) {
   try {
-    const session = await requireCompanyUser();
-    const company = await createCompany(session.user.id, input);
-    await createAuditLog('company_create', session.user.id, session.user.email || null, {
+    const ctx = await requireCompanyUser();
+    const userId = ctx.effectiveUser!.id;
+    const company = await createCompany(userId, input);
+    await createAuditLog('company_create', userId, ctx.effectiveUser!.email || null, {
       companyId: company.id,
       name: company.name,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies(company.id);
     return { success: true as const, company };
   } catch (error: unknown) {
@@ -74,15 +69,16 @@ export async function updateCompanyAction(
   },
 ) {
   try {
-    const session = await requireCompanyUser();
-    if ((session.user as any).role !== 'admin') {
+    const ctx = await requireCompanyUser();
+    if (ctx.impersonation || ctx.effectiveUser!.role !== 'admin') {
       return { error: 'FORBIDDEN' };
     }
-    const company = await updateCompany(session.user.id, companyId, input);
-    await createAuditLog('company_update', session.user.id, session.user.email || null, {
+    const userId = ctx.effectiveUser!.id;
+    const company = await updateCompany(userId, companyId, input);
+    await createAuditLog('company_update', userId, ctx.effectiveUser!.email || null, {
       companyId: company.id,
       name: company.name,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies(company.id);
     return { success: true as const, company };
   } catch (error: unknown) {
@@ -95,11 +91,12 @@ export async function updateCompanyAction(
 
 export async function deleteCompanyAction(companyId: string) {
   try {
-    const session = await requireCompanyUser();
-    await deleteCompany(session.user.id, companyId);
-    await createAuditLog('company_delete', session.user.id, session.user.email || null, {
+    const ctx = await requireCompanyUser();
+    const userId = ctx.effectiveUser!.id;
+    await deleteCompany(userId, companyId);
+    await createAuditLog('company_delete', userId, ctx.effectiveUser!.email || null, {
       companyId,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies();
     return { success: true as const };
   } catch (error: unknown) {
@@ -112,12 +109,13 @@ export async function deleteCompanyAction(companyId: string) {
 
 export async function deleteCompaniesAction(companyIds: string[]) {
   try {
-    const session = await requireCompanyUser();
+    const ctx = await requireCompanyUser();
+    const userId = ctx.effectiveUser!.id;
     let deletedCount = 0;
     let skippedCount = 0;
     for (const companyId of companyIds) {
       try {
-        await deleteCompany(session.user.id, companyId);
+        await deleteCompany(userId, companyId);
         deletedCount++;
       } catch (err: unknown) {
         if (err instanceof CompanyHasApplicationsError) {
@@ -127,11 +125,11 @@ export async function deleteCompaniesAction(companyIds: string[]) {
         }
       }
     }
-    await createAuditLog('company_bulk_delete', session.user.id, session.user.email || null, {
+    await createAuditLog('company_bulk_delete', userId, ctx.effectiveUser!.email || null, {
       totalRequested: companyIds.length,
       deletedCount,
       skippedCount,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies();
     return { success: true as const, deletedCount, skippedCount };
   } catch (error: unknown) {
@@ -144,12 +142,13 @@ export async function deleteCompaniesAction(companyIds: string[]) {
 
 export async function createCompanyNoteAction(companyId: string, content: string) {
   try {
-    const session = await requireCompanyUser();
-    const note = await createCompanyNote(session.user.id, companyId, content);
-    await createAuditLog('company_note_create', session.user.id, session.user.email || null, {
+    const ctx = await requireCompanyUser();
+    const userId = ctx.effectiveUser!.id;
+    const note = await createCompanyNote(userId, companyId, content);
+    await createAuditLog('company_note_create', userId, ctx.effectiveUser!.email || null, {
       companyId,
       noteId: note.id,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies(companyId);
     return { success: true as const, note };
   } catch (error: unknown) {
@@ -162,12 +161,13 @@ export async function createCompanyNoteAction(companyId: string, content: string
 
 export async function deleteCompanyNoteAction(noteId: string) {
   try {
-    const session = await requireCompanyUser();
-    const note = await deleteCompanyNote(session.user.id, noteId);
-    await createAuditLog('company_note_delete', session.user.id, session.user.email || null, {
+    const ctx = await requireCompanyUser();
+    const userId = ctx.effectiveUser!.id;
+    const note = await deleteCompanyNote(userId, noteId);
+    await createAuditLog('company_note_delete', userId, ctx.effectiveUser!.email || null, {
       companyId: note.companyId,
       noteId,
-    });
+    }, auditActorFields(ctx));
     revalidateCompanies(note.companyId);
     return { success: true as const };
   } catch (error: unknown) {

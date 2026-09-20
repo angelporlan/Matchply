@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireBillingContext } from '@/lib/request-context';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -12,12 +12,8 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Stripe secret key not configured', { status: 500 });
     }
 
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    const userId = session.user.id;
+    const ctx = await requireBillingContext();
+    const userId = ctx.realUser.id;
 
     // 1. Obtener datos del usuario
     const [user] = await db

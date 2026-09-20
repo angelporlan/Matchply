@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { jobOffers, cvs } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
 import { cvListColumns } from '@/lib/job-offer-queries';
@@ -23,7 +23,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
 
   const userId = dbUser.id;
   const offerId = params.id;
-  const isPremium = isProSubscription(dbUser.subscriptionStatus);
+  const isPremium = hasProAccess(dbUser);
 
   if (!isPremium) {
     redirect('/dashboard/subscription');

@@ -44,7 +44,7 @@ async function seed() {
     }
 
     // === 2. SEED PROMPTS ===
-    console.log(`⏳ Configurando prompts en la base de datos...`);
+    console.log(`⏳ Conservando prompts históricos (ya no son operativos; los modos viven en código)...`);
 
     // Limpiamos los prompts de la base de datos para evitar duplicados
     await db

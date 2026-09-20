@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireProductContext } from '@/lib/request-context';
 import { getCompanyIcon } from '@/lib/company-service';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  try {
+    await requireProductContext({ feature: 'applications' });
+  } catch {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 

@@ -3,8 +3,8 @@ import { db } from '@/db';
 import { jobOffers, cvs, users } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
-import { canAccessFeature } from '@/lib/subscription';
-import { getSession } from '@/lib/session';
+import { canAccessFeature, effectiveSubscriptionStatus, userEntitlements } from '@/lib/subscription';
+import { requireProductContext } from '@/lib/request-context';
 
 const outreachOfferColumns = {
   id: jobOffers.id,
@@ -21,12 +21,8 @@ const outreachCvColumns = {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session || !session.user || !session.user.id) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    const userId = session.user.id;
+    const ctx = await requireProductContext({ feature: 'applications' });
+    const userId = ctx.effectiveUser!.id;
     const body = await req.json();
     const { offerId } = body;
 
@@ -44,6 +40,7 @@ export async function POST(req: NextRequest) {
         .select({
           subscriptionStatus: users.subscriptionStatus,
           isGuest: users.isGuest,
+          proGrantedUntil: users.proGrantedUntil,
         })
         .from(users)
         .where(eq(users.id, userId))
@@ -58,7 +55,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    if (!canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest })) {
+    if (!canAccessFeature(user.subscriptionStatus, 'applications', userEntitlements(user))) {
       return new NextResponse('A PRO subscription is required to access the applications board', { status: 403 });
     }
 
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest) {
       jobDescription: offer.description || 'No description provided.',
       company: offer.company,
       jobTitle: offer.title,
-      userSubscriptionStatus: user.subscriptionStatus
+      userSubscriptionStatus: effectiveSubscriptionStatus(user)
     });
 
     await db

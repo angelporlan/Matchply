@@ -25,6 +25,7 @@ interface UserMenuProps {
     role?: string | null;
   };
   isPremium: boolean;
+  supportMode?: boolean;
 }
 
 function getInitials(name?: string | null, email?: string | null) {
@@ -68,7 +69,7 @@ function Avatar({
   );
 }
 
-export default function UserMenu({ user, isPremium }: UserMenuProps) {
+export default function UserMenu({ user, isPremium, supportMode = false }: UserMenuProps) {
   const { t } = useLanguage();
   const pathname = usePathname();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -201,6 +202,8 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                 <SlidersHorizontal className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 {t('sidebar.userMenu.profile')}
               </Link>
+              {!supportMode && (
+              <>
               <Link
                 href="/dashboard/profile?tab=integrations"
                 role="menuitem"
@@ -238,6 +241,8 @@ export default function UserMenu({ user, isPremium }: UserMenuProps) {
                   <Shield className="w-4 h-4 stroke-[1.75] text-text-muted" />
                   {t('sidebar.menu.adminPanel')}
                 </Link>
+              )}
+              </>
               )}
             </nav>
 

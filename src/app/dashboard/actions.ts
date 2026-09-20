@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { auth, unstable_update } from "@/auth";
+import { unstable_update } from "@/auth";
 import { sanitizeDisplayName } from "@/lib/user-name";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
+import { requireAccountContext, requireProductContext, auditActorFields } from "@/lib/request-context";
 import { cvMetaColumns } from "@/lib/job-offer-queries";
 import { parseMatchConstraints } from "@/lib/curation-constraints";
 import { normalizeCareerProfileFields } from "@/lib/career-profile";
@@ -72,7 +73,7 @@ export async function createBaseCv(title: string) {
 
     // Aplicar el límite correspondiente al nivel de acceso antes de insertar.
     const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
       throw new Error(cvLimitMessage(actor.kind === "guest"));
     }
 
@@ -188,7 +189,7 @@ export async function updateCvStyling(
 
     if (
       updates.templateName
-      && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest" })
+      && !canUseCvTemplate(actor.subscriptionStatus, updates.templateName, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })
     ) {
       throw new Error("La única plantilla disponible es Harvard.");
     }
@@ -295,7 +296,7 @@ export async function duplicateCv(cvId: string) {
     }
 
     const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
       throw new Error(cvLimitMessage(actor.kind === "guest"));
     }
 
@@ -345,7 +346,7 @@ export async function createCvPlaceholder(updates: {
     const userId = actor.userId;
 
     const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest" })) {
+    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
       if (actor.kind === "guest") {
         throw new Error(cvLimitMessage(true));
       }
@@ -411,12 +412,8 @@ export async function createCvPlaceholder(updates: {
 
 export async function saveUserCareerProfileAction(profileData: any) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = session.user.id;
+    const ctx = await requireProductContext();
+    const userId = ctx.effectiveUser!.id;
 
     const [user] = await db
       .select({ careerProfile: users.careerProfile })
@@ -441,13 +438,13 @@ export async function saveUserCareerProfileAction(profileData: any) {
       })
       .where(eq(users.id, userId));
 
-    await createAuditLog("career_profile_update", userId, session.user.email || null, {
+    await createAuditLog("career_profile_update", userId, ctx.effectiveUser!.email || null, {
       hasBio: !!normalizedFields.bio,
       hasMasterDocument: !!normalizedFields.masterDocument,
       targetRolesCount: Array.isArray(normalizedFields.targetRoles) ? normalizedFields.targetRoles.length : 0,
       skillsCount: Array.isArray(normalizedFields.skills) ? normalizedFields.skills.length : 0,
       projectsCount: Array.isArray(normalizedFields.keyProjects) ? normalizedFields.keyProjects.length : 0,
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/applications");
@@ -461,10 +458,8 @@ export async function saveUserCareerProfileAction(profileData: any) {
 
 export async function updateUserNameAction(name: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      return { error: "Unauthorized" };
-    }
+    const ctx = await requireAccountContext();
+    const userId = ctx.realUser!.id;
 
     const sanitized = sanitizeDisplayName(name);
     if (!sanitized) {
@@ -474,7 +469,7 @@ export async function updateUserNameAction(name: string) {
     const [currentUser] = await db
       .select({ name: users.name })
       .from(users)
-      .where(eq(users.id, session.user.id))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (!currentUser) {
@@ -488,9 +483,9 @@ export async function updateUserNameAction(name: string) {
     await db
       .update(users)
       .set({ name: sanitized })
-      .where(eq(users.id, session.user.id));
+      .where(eq(users.id, userId));
 
-    await createAuditLog("user_name_update", session.user.id, session.user.email || null, {
+    await createAuditLog("user_name_update", userId, ctx.realUser!.email || null, {
       previousName: currentUser.name,
       newName: sanitized,
     });

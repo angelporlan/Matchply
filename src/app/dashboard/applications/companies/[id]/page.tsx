@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 import { getSessionUser } from '@/lib/session';
 import {
   CompanyNotFoundError,
@@ -23,7 +23,7 @@ export default async function CompanyDetailPage({ params }: CompanyPageProps) {
   }
 
   const userId = dbUser.id;
-  if (!isProSubscription(dbUser.subscriptionStatus)) {
+  if (!hasProAccess(dbUser)) {
     redirect('/dashboard/subscription');
   }
 

@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { users, cvs } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { isProSubscription } from '@/lib/subscription';
-import { getSessionUser } from '@/lib/session';
+import { hasProAccess } from '@/lib/subscription';
+import { getRequestContext } from '@/lib/request-context';
 import { getResearchQuota } from '@/lib/research/queue';
 import { listExtensionInstallations } from '@/lib/extension-auth';
 import { getServerTranslations } from '@/lib/i18n/server';
@@ -15,15 +15,23 @@ import IntegrationsPanel from '@/components/subscription/IntegrationsPanel';
 import { ProfileTabsSkeleton } from '@/components/skeletons';
 import { Sparkles } from 'lucide-react';
 
-export default async function ProfileSettingsPage() {
-  const sessionUser = await getSessionUser();
+export default async function ProfileSettingsPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
+  const ctx = await getRequestContext();
+  const sessionUser = ctx.effectiveUser;
   if (!sessionUser) {
     redirect('/login');
+  }
+  if (ctx.impersonation && (searchParams?.tab === 'account' || searchParams?.tab === 'integrations')) {
+    redirect('/dashboard/profile?tab=profile');
   }
 
   const userId = sessionUser.id;
   const { t } = getServerTranslations();
-  const isPremium = isProSubscription(sessionUser.subscriptionStatus);
+  const isPremium = hasProAccess(sessionUser);
 
   // careerProfile (JSONB) y createdAt solo se necesitan en esta página.
   const [[profileRow], userCvs, [initialInstallations, initialQuota]] = await Promise.all([
@@ -43,7 +51,7 @@ export default async function ProfileSettingsPage() {
       .from(cvs)
       .where(eq(cvs.userId, userId))
       .orderBy(desc(cvs.createdAt)),
-    isPremium
+    isPremium && !ctx.impersonation
       ? Promise.all([listExtensionInstallations(userId), getResearchQuota(userId)])
       : Promise.resolve<[Awaited<ReturnType<typeof listExtensionInstallations>>, Awaited<ReturnType<typeof getResearchQuota>>]>(
         [[], { used: 0, limit: 10, periodStart: new Date() }],
@@ -79,6 +87,7 @@ export default async function ProfileSettingsPage() {
         <Suspense fallback={<ProfileTabsSkeleton />}>
           <SettingsTabs
             defaultTab="profile"
+            hideSensitiveTabs={Boolean(ctx.impersonation)}
             profile={
               <CareerProfileForm
                 initialProfile={dbUser?.careerProfile as any}

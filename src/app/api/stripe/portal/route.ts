@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireBillingContext } from '@/lib/request-context';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -11,11 +11,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Stripe secret key not configured', { status: 500 });
     }
 
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
+    const ctx = await requireBillingContext();
     const [user] = await db
       .select({
         id: users.id,
@@ -24,7 +20,7 @@ export async function GET(req: NextRequest) {
         stripeCustomerId: users.stripeCustomerId,
       })
       .from(users)
-      .where(eq(users.id, session.user.id))
+      .where(eq(users.id, ctx.realUser.id))
       .limit(1);
 
     if (!user) {

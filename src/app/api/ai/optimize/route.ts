@@ -10,6 +10,8 @@ import {
   canAccessFeature,
   canCreateCv,
   getAllowedCvTemplate,
+  effectiveSubscriptionStatus,
+  userEntitlements,
 } from '@/lib/subscription';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
       platform,
       jobDescription,
       promptId,
+      modeId,
       addToApplications = true,
       targetCvId: requestedTargetCvId,
     } = body;
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
           name: users.name,
           subscriptionStatus: users.subscriptionStatus,
           isGuest: users.isGuest,
+          proGrantedUntil: users.proGrantedUntil,
           careerProfile: users.careerProfile,
         })
         .from(users)
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
         .from(cvs)
         .where(eq(cvs.userId, userId));
 
-      if (!canCreateCv(user.subscriptionStatus, Number(existingCvCount) || 0, { isGuest: user.isGuest })) {
+      if (!canCreateCv(user.subscriptionStatus, Number(existingCvCount) || 0, userEntitlements(user))) {
         if (user.isGuest) {
           return new NextResponse('Guest CV limit reached', { status: 403 });
         }
@@ -125,18 +129,19 @@ export async function POST(req: NextRequest) {
     const allowedTemplate = getAllowedCvTemplate(
       user.subscriptionStatus,
       baseCv.templateName,
-      { isGuest: user.isGuest },
+      userEntitlements(user),
     );
     const shouldAddToApplications = Boolean(addToApplications)
-      && canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest });
+      && canAccessFeature(user.subscriptionStatus, 'applications', userEntitlements(user));
     const shouldSavePartialResult = Boolean(targetCvId) && targetCvId !== baseCv.id;
 
     // 3. Obtener el stream de IA
     const aiStream = await AIService.optimizeCVStream({
       baseCvMarkdown: baseCv.content,
       jobDescription: jobDescription,
-      userSubscriptionStatus: user.subscriptionStatus,
-      promptId: promptId,
+      userSubscriptionStatus: effectiveSubscriptionStatus(user),
+      promptId: modeId || promptId,
+      modeId: modeId || promptId,
       candidateName: user.name || '',
       careerProfileContext: formatCareerProfileContext(user.careerProfile),
     });

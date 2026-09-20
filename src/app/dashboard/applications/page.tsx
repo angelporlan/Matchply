@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { applicationViews, cvs, jobOffers } from '@/db/schema';
 import { eq, desc, asc } from 'drizzle-orm';
 import ApplicationsClient from '@/components/applications/ApplicationsClient';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 import { cvListColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
 import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
@@ -21,7 +21,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   }
 
   const userId = dbUser.id;
-  const isPremium = isProSubscription(dbUser.subscriptionStatus);
+  const isPremium = hasProAccess(dbUser);
 
   if (!isPremium) {
     redirect('/dashboard/subscription');

@@ -69,6 +69,13 @@ export const sessionUserColumns = {
   image: users.image,
   role: users.role,
   subscriptionStatus: users.subscriptionStatus,
+  accountStatus: users.accountStatus,
+  proGrantedUntil: users.proGrantedUntil,
+};
+
+export const sessionUserWithGuestColumns = {
+  ...sessionUserColumns,
+  isGuest: users.isGuest,
 };
 
 export const baseCvForAiColumns = {

@@ -19,6 +19,7 @@ interface SidebarProps {
   };
   isPremium: boolean;
   isGuest?: boolean;
+  supportMode?: boolean;
 }
 
 type SidebarChildItem = {
@@ -42,7 +43,7 @@ function isCompaniesPath(pathname: string) {
   return pathname.startsWith('/dashboard/applications/companies');
 }
 
-export default function Sidebar({ user, isPremium, isGuest = false }: SidebarProps) {
+export default function Sidebar({ user, isPremium, isGuest = false, supportMode = false }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [applicationsOpen, setApplicationsOpen] = useState(
@@ -272,7 +273,7 @@ export default function Sidebar({ user, isPremium, isGuest = false }: SidebarPro
               </div>
             </>
           ) : (
-            <UserMenu user={user} isPremium={isPremium} />
+            <UserMenu user={user} isPremium={isPremium} supportMode={supportMode} />
           )}
         </div>
       </aside>

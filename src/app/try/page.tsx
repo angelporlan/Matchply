@@ -1,16 +1,24 @@
 import { db } from '@/db';
-import { cvs, users, jobOffers, prompts } from '@/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { cvs, users, jobOffers } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { Sparkles, FileText, CreditCard, Crown } from 'lucide-react';
 import DashboardClient from '@/app/dashboard/DashboardClient';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { getActor } from '@/lib/actor';
+import { AccountSuspendedError } from '@/lib/request-errors';
+import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 export default async function TryPage() {
-  const actor = await getActor({ allowGuest: true });
+  let actor;
+  try {
+    actor = await getActor({ allowGuest: true });
+  } catch (error) {
+    if (error instanceof AccountSuspendedError) redirect('/account/suspended');
+    throw error;
+  }
   if (!actor) {
     redirect('/api/guest?redirect=/try');
   }
@@ -24,25 +32,7 @@ export default async function TryPage() {
     .where(eq(cvs.userId, userId))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
 
-  // 2. Obtener prompts no archivados para optimización de CV
-  const availablePrompts = await db
-    .select({
-      id: prompts.id,
-      name: prompts.name,
-      nameEn: prompts.nameEn,
-      isActive: prompts.isActive,
-      description: prompts.description,
-      descriptionEn: prompts.descriptionEn,
-      color: prompts.color,
-    })
-    .from(prompts)
-    .where(
-      and(
-        eq(prompts.key, 'optimize_cv'),
-        eq(prompts.isArchived, false)
-      )
-    )
-    .orderBy(prompts.name);
+  const availablePrompts = publicOptimizeModes();
 
   const user = {
     name: 'Invitado',

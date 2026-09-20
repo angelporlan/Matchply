@@ -20,6 +20,7 @@ import { timeAgo } from '@/lib/time-ago';
 import { cn } from '@/lib/utils';
 import DropdownMenu, { DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import CvThumbnail from './CvThumbnail';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 interface CvCardProps {
   cv: CvListItem;
@@ -118,9 +119,11 @@ export default function CvCard({
             link.remove();
             URL.revokeObjectURL(objectUrl);
             onGuestDownloadConsumed?.();
+            trackUmamiConversion('cv_downloaded');
           })();
           return;
         }
+        trackUmamiConversion('cv_downloaded');
         window.open(`/api/pdf?cvId=${cv.id}&download=true`, '_blank', 'noopener,noreferrer');
       },
     },

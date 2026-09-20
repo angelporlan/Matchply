@@ -3,15 +3,15 @@
 import { db } from "@/db";
 import { jobOffers, cvs, users } from "@/db/schema";
 import { AIService } from "@/lib/ai-service";
-import { eq, and, inArray, desc } from "drizzle-orm";
-import { auth } from "@/auth";
+import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { findOrCreateCompany } from "@/lib/company-service";
-import { requireUserFeature } from "@/lib/permissions";
 import { log } from "@/lib/logger";
 import { persistMatchResult } from "@/lib/match-persistence";
 import { baseCvForAiColumns, curateOfferColumns, jobOfferOwnershipColumns } from "@/lib/job-offer-queries";
+import { auditActorFields, requireProductContext } from "@/lib/request-context";
+import { effectiveSubscriptionStatus } from "@/lib/subscription";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
   revalidatePath("/dashboard/applications");
@@ -21,19 +21,19 @@ function revalidateApplicationPaths(...companyIds: Array<string | null | undefin
   }
 }
 
+async function requireApplicationContext() {
+  return requireProductContext({ feature: "applications" });
+}
+
 export async function getOwnedJobOffer(offerId: string) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
-    // Detalle completo (tabla ancha): solo se lee al abrir la oferta.
     const [offer] = await db
       .select()
       .from(jobOffers)
-      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, session.user.id)))
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
       .limit(1);
 
     if (!offer) {
@@ -51,14 +51,10 @@ export async function getOwnedJobOffer(offerId: string) {
   }
 }
 
-
 export async function updateJobOfferStatus(offerId: string, newStatus: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
     const [offer] = await db
       .select(jobOfferOwnershipColumns)
@@ -66,7 +62,7 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
       .where(eq(jobOffers.id, offerId))
       .limit(1);
 
-    if (!offer || offer.userId !== session.user.id) {
+    if (!offer || offer.userId !== userId) {
       throw new Error("Forbidden or Offer not found");
     }
 
@@ -78,14 +74,13 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
       })
       .where(eq(jobOffers.id, offerId));
 
-    // Log de auditoría para cambio de estado de candidatura
-    await createAuditLog("job_offer_status_change", session.user.id, session.user.email || null, {
+    await createAuditLog("job_offer_status_change", userId, ctx.effectiveUser!.email || null, {
       offerId: offer.id,
       title: offer.title,
       company: offer.company,
       oldStatus: offer.status,
       newStatus
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath("/dashboard/applications");
     return { success: true };
@@ -97,11 +92,8 @@ export async function updateJobOfferStatus(offerId: string, newStatus: string) {
 
 export async function updateJobOfferCv(offerId: string, cvId: string | null) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
     const [offer] = await db
       .select(jobOfferOwnershipColumns)
@@ -109,7 +101,7 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
       .where(eq(jobOffers.id, offerId))
       .limit(1);
 
-    if (!offer || offer.userId !== session.user.id) {
+    if (!offer || offer.userId !== userId) {
       throw new Error("Forbidden or Offer not found");
     }
 
@@ -122,7 +114,6 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
       .where(eq(jobOffers.id, offerId));
 
     revalidatePath("/dashboard/applications");
-    // El dashboard muestra la oferta más reciente vinculada a cada CV.
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
@@ -133,11 +124,8 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
 
 export async function deleteJobOffer(offerId: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
     const [offer] = await db
       .select(jobOfferOwnershipColumns)
@@ -145,18 +133,17 @@ export async function deleteJobOffer(offerId: string) {
       .where(eq(jobOffers.id, offerId))
       .limit(1);
 
-    if (!offer || offer.userId !== session.user.id) {
+    if (!offer || offer.userId !== userId) {
       throw new Error("Forbidden or Offer not found");
     }
 
     await db.delete(jobOffers).where(eq(jobOffers.id, offerId));
 
-    // Log de auditoría para eliminación de candidatura en el tablero
-    await createAuditLog("job_offer_delete", session.user.id, session.user.email || null, {
+    await createAuditLog("job_offer_delete", userId, ctx.effectiveUser!.email || null, {
       offerId: offer.id,
       title: offer.title,
       company: offer.company
-    });
+    }, auditActorFields(ctx));
 
     revalidateApplicationPaths(offer.companyId);
     if (offer.cvId) revalidatePath("/dashboard");
@@ -175,19 +162,16 @@ export async function createJobOffer(offerData: {
   description?: string;
 }) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
-    const companyRecord = await findOrCreateCompany(session.user.id, offerData.company);
+    const companyRecord = await findOrCreateCompany(userId, offerData.company);
     const companyName = companyRecord?.name ?? offerData.company.trim();
 
     const [newOffer] = (await db
       .insert(jobOffers)
       .values({
-        userId: session.user.id,
+        userId,
         title: offerData.title,
         company: companyName,
         companyId: companyRecord?.id ?? null,
@@ -198,15 +182,13 @@ export async function createJobOffer(offerData: {
       })
       .returning()) as any[];
 
-    // Log de auditoría para creación de candidatura
-    await createAuditLog("job_offer_create", session.user.id, session.user.email || null, {
+    await createAuditLog("job_offer_create", userId, ctx.effectiveUser!.email || null, {
       offerId: newOffer.id,
       title: newOffer.title,
       company: newOffer.company,
       platform: newOffer.platform
-    });
+    }, auditActorFields(ctx));
 
-    // Una oferta nueva no tiene CV vinculado: el dashboard no cambia.
     revalidateApplicationPaths(companyRecord?.id);
     return { success: true };
   } catch (error: any) {
@@ -226,11 +208,8 @@ export async function updateJobOfferDetails(
   }
 ) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    await requireUserFeature(session.user.id, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
 
     const [offer] = await db
       .select(jobOfferOwnershipColumns)
@@ -238,11 +217,11 @@ export async function updateJobOfferDetails(
       .where(eq(jobOffers.id, offerId))
       .limit(1);
 
-    if (!offer || offer.userId !== session.user.id) {
+    if (!offer || offer.userId !== userId) {
       throw new Error("Forbidden or Offer not found");
     }
 
-    const companyRecord = await findOrCreateCompany(session.user.id, offerData.company);
+    const companyRecord = await findOrCreateCompany(userId, offerData.company);
     const companyName = companyRecord?.name ?? offerData.company.trim();
 
     await db
@@ -258,13 +237,16 @@ export async function updateJobOfferDetails(
       })
       .where(eq(jobOffers.id, offerId));
 
-    // Log de auditoría para actualización de candidatura
-    await createAuditLog("job_offer_update", session.user.id, session.user.email || null, {
+    await createAuditLog("job_offer_update", userId, ctx.effectiveUser!.email || null, {
       offerId: offer.id,
       title: offer.title,
       company: offer.company,
-      updatedData: offerData
-    });
+      updatedData: {
+        title: offerData.title,
+        company: offerData.company,
+        platform: offerData.platform,
+      }
+    }, auditActorFields(ctx));
 
     revalidateApplicationPaths(offer.companyId, companyRecord?.id);
     if (offer.cvId) revalidatePath("/dashboard");
@@ -277,12 +259,9 @@ export async function updateJobOfferDetails(
 
 export async function evaluateSingleOfferMatchAction(offerId: string) {
   try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      throw new Error("Unauthorized");
-    }
-    const userId = session.user.id;
-    const user = await requireUserFeature(userId, "applications");
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
+    const user = ctx.effectiveUser!;
 
     const [[offer], [baseCv], [profileRow]] = await Promise.all([
       db
@@ -321,7 +300,7 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
         matchEvidence: offer.matchEvidence,
         matchDetails: offer.matchDetails,
       }],
-      userSubscriptionStatus: user.subscriptionStatus,
+      userSubscriptionStatus: effectiveSubscriptionStatus(user),
       targetThreshold: 65,
       kind: 'deep',
     });
@@ -353,5 +332,3 @@ export async function evaluateSingleOfferMatchAction(offerId: string) {
     return { error: error.message || "Failed to evaluate match" };
   }
 }
-
-

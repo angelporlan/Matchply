@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // Las actualizaciones de un CV existente no consumen un nuevo cupo.
     if (!targetCvId) {
       const cvCount = await getGuestCvCount(userId);
-      if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === 'guest' })) {
+      if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === 'guest', proGrantedUntil: actor.proGrantedUntil })) {
         return NextResponse.json({
           success: false,
           error: actor.kind === 'guest'

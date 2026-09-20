@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { cvs, prompts } from '@/db/schema';
+import { cvs } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import EditorClient from '@/components/editor/EditorClient';
-import { getAllowedCvTemplate, isProSubscription } from '@/lib/subscription';
+import { getAllowedCvTemplate, hasProAccess } from '@/lib/subscription';
 import { getActor } from '@/lib/actor';
+import { AccountSuspendedError } from '@/lib/request-errors';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
+import { publicOptimizeModes } from '@/lib/optimize-modes';
 
 interface EditorPageProps {
   params: {
@@ -14,7 +16,13 @@ interface EditorPageProps {
 }
 
 export default async function EditorPage({ params }: EditorPageProps) {
-  const actor = await getActor({ allowGuest: true });
+  let actor;
+  try {
+    actor = await getActor({ allowGuest: true });
+  } catch (error) {
+    if (error instanceof AccountSuspendedError) redirect('/account/suspended');
+    throw error;
+  }
   if (!actor) {
     redirect('/try');
   }
@@ -22,31 +30,12 @@ export default async function EditorPage({ params }: EditorPageProps) {
   const userId = actor.userId;
   const cvId = params.cvId;
 
-  const [[cv], availablePrompts] = await Promise.all([
-    db
+  const [cv] = await db
       .select()
       .from(cvs)
       .where(and(eq(cvs.id, cvId), eq(cvs.userId, userId)))
-      .limit(1),
-    db
-      .select({
-        id: prompts.id,
-        name: prompts.name,
-        nameEn: prompts.nameEn,
-        isActive: prompts.isActive,
-        description: prompts.description,
-        descriptionEn: prompts.descriptionEn,
-        color: prompts.color,
-      })
-      .from(prompts)
-      .where(
-        and(
-          eq(prompts.key, 'optimize_cv'),
-          eq(prompts.isArchived, false)
-        )
-      )
-      .orderBy(prompts.name),
-  ]);
+      .limit(1);
+  const availablePrompts = publicOptimizeModes();
 
   if (!cv) {
     redirect(actor.kind === 'guest' ? '/try' : '/dashboard');
@@ -66,7 +55,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
   const isGuest = actor.kind === 'guest';
   const guestCanDownloadPdf = isGuest ? await guestHasPdfDownloadRemaining(userId) : false;
   const subscriptionStatus = actor.subscriptionStatus || 'none';
-  const isPremium = !isGuest && isProSubscription(subscriptionStatus);
+  const isPremium = !isGuest && hasProAccess({ subscriptionStatus, proGrantedUntil: actor.proGrantedUntil, isGuest });
   const editorCv = {
     ...cv,
     templateName: getAllowedCvTemplate(subscriptionStatus, cv.templateName, { isGuest }),

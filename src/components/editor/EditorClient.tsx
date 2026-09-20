@@ -16,6 +16,7 @@ import LinkNext from 'next/link';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 interface EditorClientProps {
   cv: CV;
@@ -219,6 +220,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      trackUmamiConversion('cv_optimized');
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
       router.refresh();
       setTimeout(() => {
@@ -305,6 +307,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
       setPdfVersion(prev => prev + 1);
+      trackUmamiConversion('cv_imported');
       router.refresh();
       setTimeout(() => {
         setIsStreaming(false);

@@ -2,12 +2,11 @@
 
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
 import { db } from '@/db';
 import { applicationViews } from '@/db/schema';
 import { createAuditLog } from '@/lib/audit';
 import { normalizeViewConfig, type ApplicationViewConfig } from '@/lib/application-views';
-import { requireUserFeature } from '@/lib/permissions';
+import { auditActorFields, requireProductContext } from '@/lib/request-context';
 
 const MAX_VIEW_NAME_LENGTH = 60;
 
@@ -21,30 +20,26 @@ function cleanViewName(name: unknown) {
 }
 
 async function requireViewUser() {
-  const session = await auth();
-  if (!session || !session.user || !session.user.id) {
-    throw new Error('Unauthorized');
-  }
-  await requireUserFeature(session.user.id, 'applications');
-  return session;
+  return requireProductContext({ feature: 'applications' });
 }
 
 export async function createApplicationView(name: string, config: ApplicationViewConfig) {
   try {
-    const session = await requireViewUser();
+    const ctx = await requireViewUser();
+    const userId = ctx.effectiveUser!.id;
     const cleanName = cleanViewName(name);
     if (!cleanName) return { error: 'INVALID_NAME' };
 
     const [created] = await db.insert(applicationViews).values({
-      userId: session.user.id,
+      userId,
       name: cleanName,
       config: normalizeViewConfig(config),
     }).returning();
 
-    await createAuditLog('application_view_create', session.user.id, session.user.email || null, {
+    await createAuditLog('application_view_create', userId, ctx.effectiveUser!.email || null, {
       viewId: created.id,
       name: cleanName,
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath('/dashboard/applications');
     return { success: true, view: created };
@@ -60,11 +55,12 @@ export async function updateApplicationView(
   patch: { name?: string; config?: ApplicationViewConfig },
 ) {
   try {
-    const session = await requireViewUser();
+    const ctx = await requireViewUser();
+    const userId = ctx.effectiveUser!.id;
 
     const [existing] = await db.select().from(applicationViews).where(and(
       eq(applicationViews.id, id),
-      eq(applicationViews.userId, session.user.id),
+      eq(applicationViews.userId, userId),
     )).limit(1);
 
     if (!existing) return { error: 'NOT_FOUND' };
@@ -83,10 +79,10 @@ export async function updateApplicationView(
 
     const [updated] = await db.update(applicationViews).set(values).where(eq(applicationViews.id, id)).returning();
 
-    await createAuditLog('application_view_update', session.user.id, session.user.email || null, {
+    await createAuditLog('application_view_update', userId, ctx.effectiveUser!.email || null, {
       viewId: id,
       name: updated.name,
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath('/dashboard/applications');
     return { success: true, view: updated };
@@ -99,19 +95,20 @@ export async function updateApplicationView(
 
 export async function deleteApplicationView(id: string) {
   try {
-    const session = await requireViewUser();
+    const ctx = await requireViewUser();
+    const userId = ctx.effectiveUser!.id;
 
     const [deleted] = await db.delete(applicationViews).where(and(
       eq(applicationViews.id, id),
-      eq(applicationViews.userId, session.user.id),
+      eq(applicationViews.userId, userId),
     )).returning();
 
     if (!deleted) return { error: 'NOT_FOUND' };
 
-    await createAuditLog('application_view_delete', session.user.id, session.user.email || null, {
+    await createAuditLog('application_view_delete', userId, ctx.effectiveUser!.email || null, {
       viewId: id,
       name: deleted.name,
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath('/dashboard/applications');
     return { success: true };
@@ -123,12 +120,13 @@ export async function deleteApplicationView(id: string) {
 
 export async function setDefaultApplicationView(id: string | null) {
   try {
-    const session = await requireViewUser();
+    const ctx = await requireViewUser();
+    const userId = ctx.effectiveUser!.id;
 
     if (id) {
       const [existing] = await db.select({ id: applicationViews.id }).from(applicationViews).where(and(
         eq(applicationViews.id, id),
-        eq(applicationViews.userId, session.user.id),
+        eq(applicationViews.userId, userId),
       )).limit(1);
       if (!existing) return { error: 'NOT_FOUND' };
     }
@@ -136,17 +134,17 @@ export async function setDefaultApplicationView(id: string | null) {
     await db.transaction(async (tx) => {
       await tx.update(applicationViews)
         .set({ isDefault: false })
-        .where(eq(applicationViews.userId, session.user.id));
+        .where(eq(applicationViews.userId, userId));
       if (id) {
         await tx.update(applicationViews)
           .set({ isDefault: true, updatedAt: new Date() })
-          .where(and(eq(applicationViews.id, id), eq(applicationViews.userId, session.user.id)));
+          .where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId)));
       }
     });
 
-    await createAuditLog('application_view_set_default', session.user.id, session.user.email || null, {
+    await createAuditLog('application_view_set_default', userId, ctx.effectiveUser!.email || null, {
       viewId: id,
-    });
+    }, auditActorFields(ctx));
 
     revalidatePath('/dashboard/applications');
     return { success: true };

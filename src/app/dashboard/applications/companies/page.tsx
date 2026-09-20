@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { isProSubscription } from '@/lib/subscription';
+import { hasProAccess } from '@/lib/subscription';
 import { listCompaniesForUser } from '@/lib/company-service';
 import { getSessionUser } from '@/lib/session';
 import CompaniesClient from '@/components/companies/CompaniesClient';
@@ -11,7 +11,7 @@ export default async function CompaniesPage() {
   }
 
   const userId = dbUser.id;
-  if (!isProSubscription(dbUser.subscriptionStatus)) {
+  if (!hasProAccess(dbUser)) {
     redirect('/dashboard/subscription');
   }
 
