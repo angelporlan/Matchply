@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 import { NextResponse } from 'next/server';
 import { importUserData, UserDataImportError } from '@/lib/user-data-import';
 import { log } from '@/lib/logger';
@@ -22,14 +23,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
+  const compressed = Buffer.from(await request.arrayBuffer());
   const declaredLength = Number(request.headers.get('content-length') || 0);
-  if (declaredLength > MAX_BODY_BYTES) {
+  if (declaredLength > MAX_BODY_BYTES || compressed.byteLength > MAX_BODY_BYTES) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
   }
-  const raw = await request.text();
-  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+
+  const encoding = (request.headers.get('content-encoding') || 'identity').toLowerCase();
+  if (encoding !== 'identity' && encoding !== 'gzip') {
+    return NextResponse.json({ error: 'Unsupported content encoding' }, { status: 415, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  let body: Buffer;
+  try {
+    body = encoding === 'gzip' ? gunzipSync(compressed) : compressed;
+  } catch {
+    return NextResponse.json({ error: 'Invalid compressed payload' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (body.byteLength > MAX_BODY_BYTES) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
   }
+  const raw = body.toString('utf8');
 
   let payload: unknown;
   try {
