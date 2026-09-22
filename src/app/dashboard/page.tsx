@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { cvs, jobOffers } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc, isNotNull } from 'drizzle-orm';
 import { cvListColumns, cvTargetColumns } from '@/lib/job-offer-queries';
 import { CreditCard, Crown } from 'lucide-react';
 import { hasProAccess } from '@/lib/subscription';
@@ -12,6 +12,7 @@ import DashboardClient from './DashboardClient';
 import { getServerTranslations } from '@/lib/i18n/server';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import CheckoutConversionBeacon from '@/components/analytics/CheckoutConversionBeacon';
+import { timed } from '@/lib/logger';
 
 interface DashboardPageProps {
   searchParams?: {
@@ -45,7 +46,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const isPremium = hasProAccess({ ...dbUser, subscriptionStatus });
 
-  const [userCvs, cvTargets] = await Promise.all([
+  const [userCvs, cvTargets] = await timed('nav_queries', { route: '/dashboard' }, () => Promise.all([
     db
       .select(cvListColumns)
       .from(cvs)
@@ -54,9 +55,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     db
       .selectDistinctOn([jobOffers.cvId], cvTargetColumns)
       .from(jobOffers)
-      .where(eq(jobOffers.userId, userId))
+      .where(and(eq(jobOffers.userId, userId), isNotNull(jobOffers.cvId)))
       .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt)),
-  ]);
+  ]));
   const availablePrompts = publicOptimizeModes();
 
   return (
