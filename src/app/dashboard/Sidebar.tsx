@@ -9,6 +9,8 @@ import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import Logo from '@/components/ui/Logo';
 import UserMenu from '@/components/account/UserMenu';
+import NavigationLink from '@/components/navigation/NavigationLink';
+import { useNavigationPending } from '@/components/navigation/NavigationPendingProvider';
 
 interface SidebarProps {
   user: {
@@ -45,6 +47,7 @@ function isCompaniesPath(pathname: string) {
 
 export default function Sidebar({ user, isPremium, isGuest = false, supportMode = false }: SidebarProps) {
   const pathname = usePathname();
+  const { pendingHref } = useNavigationPending();
   const [isOpen, setIsOpen] = useState(false);
   const [applicationsOpen, setApplicationsOpen] = useState(
     isApplicationsListPath(pathname) || isCompaniesPath(pathname),
@@ -140,25 +143,33 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
               const childActive = Boolean(item.children?.some((child) => child.isActive(pathname)));
               const active = isActive(item.href);
               if (!item.children) {
+                const pending = pendingHref === item.href;
                 return (
-                  <Link
+                  <NavigationLink
                     key={item.name}
                     href={item.href}
+                    isCurrent={active}
                     onClick={() => setIsOpen(false)}
-                    aria-current={active ? 'page' : undefined}
                     className={`flex items-center gap-3 px-4 py-3 rounded-[8px] text-sm font-semibold transition-colors ${
                       active
                         ? 'bg-surface-muted text-text shadow-sm'
+                        : pending
+                        ? 'bg-surface-muted/70 text-text'
                         : 'text-text-muted hover:text-text hover:bg-surface-muted'
                     }`}
                   >
                     <Icon
                       className={`w-4 h-4 stroke-[1.75] ${
-                        active ? 'text-text' : 'text-text-muted'
+                        active || pending ? 'text-text' : 'text-text-muted'
                       }`}
                     />
                     <span>{item.name}</span>
-                  </Link>
+                    {pending && !active && (
+                      <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                        {t('sidebar.nav.pending')}
+                      </span>
+                    )}
+                  </NavigationLink>
                 );
               }
 
@@ -173,10 +184,10 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                         : 'text-text-muted hover:text-text hover:bg-surface-muted'
                     }`}
                   >
-                    <Link
+                    <NavigationLink
                       href={item.href}
+                      isCurrent={active}
                       onClick={() => setIsOpen(false)}
-                      aria-current={active ? 'page' : undefined}
                       className="flex flex-1 items-center gap-3 px-4 py-3 min-w-0"
                     >
                       <Icon
@@ -185,7 +196,12 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                         }`}
                       />
                       <span className="truncate">{item.name}</span>
-                    </Link>
+                      {pendingHref === item.href && !active && (
+                        <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                          {t('sidebar.nav.pending')}
+                        </span>
+                      )}
+                    </NavigationLink>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -208,20 +224,27 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                         const childIsActive = child.isActive(pathname);
                         const ChildIcon = child.href.endsWith('/companies') ? Building2 : Kanban;
                         return (
-                          <Link
+                          <NavigationLink
                             key={child.href}
                             href={child.href}
+                            isCurrent={childIsActive}
                             onClick={() => setIsOpen(false)}
-                            aria-current={childIsActive ? 'page' : undefined}
                             className={`flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors ${
                               childIsActive
                                 ? 'bg-surface-muted text-text'
+                                : pendingHref === child.href
+                                ? 'bg-surface-muted/70 text-text'
                                 : 'text-text-muted hover:text-text hover:bg-surface-muted'
                             }`}
                           >
                             <ChildIcon className="w-3.5 h-3.5 stroke-[1.75]" />
                             <span>{child.name}</span>
-                          </Link>
+                            {pendingHref === child.href && !childIsActive && (
+                              <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                                {t('sidebar.nav.pending')}
+                              </span>
+                            )}
+                          </NavigationLink>
                         );
                       })}
                     </div>

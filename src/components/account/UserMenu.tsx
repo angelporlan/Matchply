@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import NavigationLink from '@/components/navigation/NavigationLink';
 import { signOut } from 'next-auth/react';
 import { AnimatePresence, LazyMotion, m, domAnimation } from 'framer-motion';
 import {
@@ -194,25 +195,25 @@ export default function UserMenu({ user, isPremium, supportMode = false }: UserM
 
             {/* Navegación */}
             <nav className="p-1.5">
-              <Link
+              <NavigationLink
                 href="/dashboard/profile?tab=profile"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text hover:bg-surface-muted transition-colors font-display"
               >
                 <SlidersHorizontal className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 {t('sidebar.userMenu.profile')}
-              </Link>
+              </NavigationLink>
               {!supportMode && (
               <>
-              <Link
+              <NavigationLink
                 href="/dashboard/profile?tab=integrations"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text hover:bg-surface-muted transition-colors font-display"
               >
                 <Terminal className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 {t('sidebar.userMenu.integrations')}
-              </Link>
-              <Link
+              </NavigationLink>
+              <NavigationLink
                 href="/dashboard/subscription"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text hover:bg-surface-muted transition-colors font-display"
@@ -223,24 +224,24 @@ export default function UserMenu({ user, isPremium, supportMode = false }: UserM
                   <CreditCard className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 )}
                 {t('sidebar.userMenu.subscription')}
-              </Link>
-              <Link
+              </NavigationLink>
+              <NavigationLink
                 href="/dashboard/profile?tab=account"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text hover:bg-surface-muted transition-colors font-display"
               >
                 <UserCircle className="w-4 h-4 stroke-[1.75] text-text-muted" />
                 {t('sidebar.userMenu.account')}
-              </Link>
+              </NavigationLink>
               {user.role === 'admin' && (
-                <Link
+                <NavigationLink
                   href="/admin"
                   role="menuitem"
                   className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text hover:bg-surface-muted transition-colors font-display"
                 >
                   <Shield className="w-4 h-4 stroke-[1.75] text-text-muted" />
                   {t('sidebar.menu.adminPanel')}
-                </Link>
+                </NavigationLink>
               )}
               </>
               )}
