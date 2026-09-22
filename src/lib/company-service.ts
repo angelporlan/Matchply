@@ -149,18 +149,36 @@ export async function listCompanyLookups(userId: string): Promise<CompanyLookupI
 }
 
 export async function listCompaniesForUser(userId: string): Promise<CompanyListRow[]> {
+  const offerCounts = db
+    .select({
+      companyId: jobOffers.companyId,
+      applicationCount: sql<number>`cast(count(*) as int)`.as('applicationCount'),
+    })
+    .from(jobOffers)
+    .where(eq(jobOffers.userId, userId))
+    .groupBy(jobOffers.companyId)
+    .as('offer_counts');
+  const noteCounts = db
+    .select({
+      companyId: companyNotes.companyId,
+      noteCount: sql<number>`cast(count(*) as int)`.as('noteCount'),
+    })
+    .from(companyNotes)
+    .where(eq(companyNotes.userId, userId))
+    .groupBy(companyNotes.companyId)
+    .as('note_counts');
+
   const rows = await db
     .select({
       ...companyListColumns,
-      applicationCount: sql<number>`cast(count(distinct ${jobOffers.id}) as int)`,
-      noteCount: sql<number>`cast(count(distinct ${companyNotes.id}) as int)`,
+      applicationCount: sql<number>`cast(coalesce(${offerCounts.applicationCount}, 0) as int)`,
+      noteCount: sql<number>`cast(coalesce(${noteCounts.noteCount}, 0) as int)`,
     })
     .from(userCompanies)
     .innerJoin(companies, eq(companies.id, userCompanies.companyId))
-    .leftJoin(jobOffers, and(eq(jobOffers.companyId, companies.id), eq(jobOffers.userId, userId)))
-    .leftJoin(companyNotes, and(eq(companyNotes.companyId, companies.id), eq(companyNotes.userId, userId)))
+    .leftJoin(offerCounts, eq(offerCounts.companyId, companies.id))
+    .leftJoin(noteCounts, eq(noteCounts.companyId, companies.id))
     .where(eq(userCompanies.userId, userId))
-    .groupBy(companies.id)
     .orderBy(asc(companies.name));
 
   return rows.map((row) => ({
