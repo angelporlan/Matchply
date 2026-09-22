@@ -13,13 +13,14 @@ import {
   Copy,
 } from 'lucide-react';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { getOwnedCvContentAction } from '@/app/dashboard/settings-actions';
 
 interface CvItem {
   id: string;
   title: string;
   isBase: boolean;
   isPrincipal: boolean;
-  content: string;
+  content?: string;
 }
 
 interface CvImportProfileModalProps {
@@ -64,6 +65,10 @@ export default function CvImportProfileModal({
     if (tab === 'select') {
       const found = userCvs.find((c) => c.id === selectedCvId);
       rawText = found?.content || '';
+      if (!rawText && selectedCvId) {
+        const owned = await getOwnedCvContentAction(selectedCvId);
+        rawText = 'content' in owned ? owned.content : '';
+      }
     } else if (tab === 'paste') {
       rawText = pastedText;
     }
@@ -94,14 +99,13 @@ export default function CvImportProfileModal({
           body: formData,
         });
       } else if (tab === 'select') {
-        const found = userCvs.find((c) => c.id === selectedCvId);
-        if (!found || !found.content) {
+        if (!rawText) {
           throw new Error('Selecciona un CV de la lista para continuar.');
         }
         res = await fetch('/api/ai/profile/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: found.content }),
+          body: JSON.stringify({ text: rawText }),
         });
       } else {
         if (!pastedText.trim()) {

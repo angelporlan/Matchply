@@ -52,9 +52,11 @@ import {
 import DictationTextarea from '@/components/profile/DictationTextarea';
 import { Button } from '@/components/ui/Button';
 import ProfileCompletenessBar from '@/components/profile/ProfileCompletenessBar';
-import AiProfileInterviewModal from '@/components/profile/AiProfileInterviewModal';
-import CvImportProfileModal from '@/components/profile/CvImportProfileModal';
-import AiPreviewModal from '@/components/profile/AiPreviewModal';
+import dynamic from 'next/dynamic';
+
+const AiProfileInterviewModal = dynamic(() => import('@/components/profile/AiProfileInterviewModal'), { ssr: false });
+const CvImportProfileModal = dynamic(() => import('@/components/profile/CvImportProfileModal'), { ssr: false });
+const AiPreviewModal = dynamic(() => import('@/components/profile/AiPreviewModal'), { ssr: false });
 import SkillsEvidenceEditor from '@/components/profile/SkillsEvidenceEditor';
 import KeyProjectsEditor from '@/components/profile/KeyProjectsEditor';
 
@@ -90,13 +92,16 @@ interface CareerProfileFormProps {
     title: string;
     isBase: boolean;
     isPrincipal: boolean;
-    content: string;
+    content?: string;
   }>;
+  baseCvContent?: string;
 }
 
 function baseCvMarkdown(
-  userCvs: Array<{ isBase: boolean; isPrincipal: boolean; content: string }>,
+  userCvs: Array<{ isBase: boolean; isPrincipal: boolean; content?: string }>,
+  baseCvContent?: string,
 ) {
+  if (baseCvContent) return baseCvContent;
   return userCvs.find((cv) => cv.isBase)?.content
     || userCvs.find((cv) => cv.isPrincipal)?.content
     || userCvs[0]?.content
@@ -133,8 +138,9 @@ function loadStructured(
 export default function CareerProfileForm({
   initialProfile,
   userCvs = [],
+  baseCvContent = '',
 }: CareerProfileFormProps) {
-  const cvMarkdown = useMemo(() => baseCvMarkdown(userCvs), [userCvs]);
+  const cvMarkdown = useMemo(() => baseCvMarkdown(userCvs, baseCvContent), [userCvs, baseCvContent]);
   const initialStructured = useMemo(
     () => loadStructured(initialProfile, cvMarkdown),
     [initialProfile, cvMarkdown],
@@ -863,6 +869,7 @@ export default function CareerProfileForm({
         </div>
       </form>
 
+      {isInterviewOpen && (
       <AiProfileInterviewModal
         isOpen={isInterviewOpen}
         onClose={() => setIsInterviewOpen(false)}
@@ -871,12 +878,16 @@ export default function CareerProfileForm({
         currentProfile={buildPayload()}
         onApplyProfile={handleApplyEnrichedProfile}
       />
+      )}
+      {isImportOpen && (
       <CvImportProfileModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         userCvs={userCvs}
         onApplyProfile={handleApplyEnrichedProfile}
       />
+      )}
+      {isPreviewOpen && (
       <AiPreviewModal
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
@@ -900,6 +911,7 @@ export default function CareerProfileForm({
         }}
         constraintChips={constraintChips}
       />
+      )}
     </div>
   );
 }
