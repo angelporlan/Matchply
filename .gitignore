@@ -50,3 +50,6 @@ promo-video/dist/
 # Python operations helpers
 __pycache__/
 *.pyc
+
+# GTM Documentation
+docs/gtm/
