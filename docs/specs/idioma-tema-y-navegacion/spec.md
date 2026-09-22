@@ -1,5 +1,49 @@
 # Idioma, tema, navegación y componentes comunes — comportamiento deseado
 
+## Propuesta acotada: fluidez de navegación (20/09/2026)
+
+Modo `assist`: diagnóstico y planificación solicitados; implementación no realizada. Esta propuesta cubre la navegación y conserva pendiente la plantilla general de idioma/tema que sigue debajo.
+
+Contexto: el usuario observa lentitud sin caché tanto en local como en producción y confirma que producción tiene la última build. Véanse [evidencia y límites del diagnóstico](evidence.md), [plan priorizado](plan.md) y [criterios de aceptación](expectations.md).
+
+- **REQ-NAV-01:** La interfaz DEBE confirmar inmediatamente la navegación y permitir elegir otro destino durante la espera. El destino pendiente debe distinguirse de la página ya cargada.
+- **REQ-NAV-02:** Los cambios de presentación con datos disponibles DEBEN realizarse en cliente sin volver a solicitar la página completa. Una pestaña sin datos DEBE cargar solo lo necesario y mostrar su propio estado de carga.
+- **REQ-NAV-03:** La cabecera y navegación DEBEN conservarse mientras se carga contenido. Las secciones independientes DEBEN poder aparecer sin esperar consultas ajenas.
+- **REQ-NAV-04:** Los listados DEBEN tener una carga inicial acotada; los CVs completos, informes y detalles se recuperan al usarlos. Paginación y filtros DEBEN conservar resultados, conteos y acciones existentes.
+- **REQ-NAV-05:** El JavaScript y las miniaturas no esenciales DEBERÍAN quedar fuera del camino crítico de navegación. Las tareas obsoletas DEBERÍAN cancelarse y las solicitudes iguales en curso deduplicarse.
+- **REQ-NAV-06:** La mejora DEBE verificarse separando caché del router, recursos del navegador, proceso servidor y compilación de desarrollo, y registrando la versión realmente evaluada.
+- **NFR-NAV-01:** Objetivos propuestos: primer feedback p95 ≤100 ms; cambio visual local p95 ≤100 ms; contenido útil p95 ≤1 s en escritorio y ≤2 s en el perfil móvil de prueba. Son objetivos, no tiempos actuales ni garantías aprobadas; el entorno y la muestra se definen en expectativas.
+- **INV-NAV-01:** Mantener autorización por usuario efectivo, roles, suscripción, suspensión y modo soporte; ninguna caché ni precarga puede mezclar identidades.
+- **INV-NAV-02:** Mantener URLs directas, atrás/adelante, vistas guardadas, filtros, selección y exportaciones. Los cambios entre pestañas de Ajustes no deben perder ediciones sin guardar.
+- **INV-NAV-03:** Una mutación confirmada debe reflejarse al volver al listado; finalizar sesión o cambiar de actor invalida cualquier reutilización de datos del actor anterior.
+
+Supuestos: se priorizan Mis CVs, Postulaciones, Empresas y Ajustes; no se ha identificado una única pareja de pestañas afectada. No se cambian reglas de negocio, proveedor de hosting ni autenticación. Los cambios sobre administración quedan sujetos a que la medición la identifique como afectada. **ASSUMP-NAV-01:** producción ejecuta la última build; lo confirma el usuario, no el metadato `legacy` del gateway.
+
+**DEC-NAV-01:** El destino pendiente se implementa con `Link` y estado compartido compatibles con Next 14. No se usará `useLinkStatus` ni APIs de versiones posteriores.
+
+**DEC-NAV-02:** La casilla de cabecera y «Seleccionar las N» siguen significando el conjunto filtrado, no solo la página visible. Exportación, cambio de estado e IA operan sobre esa selección. Al paginar en SQL, se recuperan los IDs del filtro o las acciones aceptan el filtro como alcance; no se recorta a la página sin aviso. El tope de exportación de 1.000 IDs se conserva y se informa si se supera.
+
+**DEC-NAV-03:** Los umbrales de NFR-NAV-01 sirven para comparar antes/después. No son SLOs operativos ni, por sí solos, criterio de rollback.
+
+**DEC-NAV-04:** Una miniatura persistida en servidor solo se plantea si, tras el resto de recortes, AC-NAV-08 sigue mostrando coste relevante en el camino de navegación.
+
+Transiciones del destino pendiente:
+
+| Desde | Evento | Hacia |
+| --- | --- | --- |
+| Reposo | Clic en destino A | Pendiente A; feedback inmediato; `aria-current` sigue en la ruta confirmada |
+| Pendiente A | Clic en destino B | Pendiente B |
+| Pendiente A | Ruta A confirmada | Reposo; `aria-current` en A |
+| Pendiente A | Error, sin red o redirección | Se retira el pendiente o se muestra recuperación |
+| Pendiente A | Espera >3 s | Se anuncia la espera; el sidebar sigue usable |
+| Pendiente A | Espera >15 s | Se ofrece salir o reintentar; no se afirma que el servidor haya cancelado su trabajo |
+
+Fuera de esta propuesta: idioma/tema de la plantilla F27 que sigue debajo; autenticación; hosting; reglas de negocio; desplegar o actualizar producción como solución; prometer un factor concreto de aceleración.
+
+**Revisión de especificación: lista para revisar.** Comportamiento, invariantes y verificaciones definidos. Falta medir la navegación autenticada de la última build; es el primer paso del plan, no un resultado ya obtenido. No se autoriza ni realiza despliegue con este documento.
+
+---
+
 Estado: **Borrador — pendiente de rellenar**  
 Responsable: [POR DEFINIR]  
 Fecha de revisión: [POR DEFINIR]  

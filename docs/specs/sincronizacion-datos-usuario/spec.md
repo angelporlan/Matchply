@@ -1,7 +1,7 @@
 # Sincronización de datos de usuario local → producción
 
-Estado: **Listo para implementar — solicitud explícita del usuario**  
-Fecha: 2026-09-20
+Estado: **Implementado y verificado en producción**
+Fecha: 2026-09-21
 
 ## Problema y resultado
 
@@ -15,7 +15,7 @@ Quedan fuera las credenciales, Stripe, roles y suspensión, actividad de login, 
 
 ## Contrato de importación
 
-- La petición es `POST /api/internal/user-data-import` con JSON versionado y el encabezado temporal `x-matchply-import-token`.
+- La petición es `POST /api/internal/user-data-import` con JSON versionado (se envía gzip para atravesar el proxy) y el encabezado temporal `x-matchply-import-token`.
 - El token solo existe durante una importación, se compara en tiempo constante y se elimina al terminar.
 - El cuerpo está limitado a 8 MiB. El paquete incluye un hash y recuentos; el servidor valida referencias, propiedad y estados antes de abrir la transacción.
 - La cuenta destino se resuelve por email. Si el UUID local colisiona con otra cuenta o una referencia no se puede mapear, la transacción falla completa.
@@ -29,4 +29,3 @@ Quedan fuera las credenciales, Stripe, roles y suspensión, actividad de login, 
 - **INV-002:** una importación devuelve éxito solo después de confirmar la transacción completa.
 - **INV-003:** dos importaciones concurrentes de la misma cuenta se serializan.
 - **INV-004:** un paquete inválido o una referencia conflictiva deja la producción sin cambios.
-

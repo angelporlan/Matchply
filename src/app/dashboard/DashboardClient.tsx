@@ -12,8 +12,10 @@ import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, 
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import CvCard from '@/components/dashboard/CvCard';
-import CvQuickPreviewModal from '@/components/dashboard/CvQuickPreviewModal';
+import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+
+const CvQuickPreviewModal = dynamic(() => import('@/components/dashboard/CvQuickPreviewModal'), { ssr: false });
 
 const promptConfigs: Record<
   string,
@@ -1219,10 +1221,7 @@ export default function DashboardClient({
         </div>
       )}
 
-      {/* Modal de vista rápida del CV */}
-      {previewCv && (
-        <CvQuickPreviewModal cv={previewCv} onClose={() => setPreviewCv(null)} />
-      )}
+      {previewCv && <CvQuickPreviewModal cv={previewCv} onClose={() => setPreviewCv(null)} />}
     </div>
   );
 }

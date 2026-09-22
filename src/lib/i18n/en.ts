@@ -178,6 +178,14 @@ const en = {
       profile: {
         candidate: 'Candidate',
       },
+      nav: {
+        pending: 'Loading',
+        waiting: 'This section is still loading.',
+        stuck: 'This is taking longer than usual. You can retry or stay on this screen. The server may still be working.',
+        retry: 'Retry',
+        dismiss: 'Stay here',
+        error: 'This section could not be loaded.',
+      },
       userMenu: {
         account: 'My account',
         save: 'Save',
@@ -201,6 +209,7 @@ const en = {
         integrations: 'Integrations',
         account: 'Account',
       },
+      loadingTab: 'Loading this panel…',
       account: {
         personalTitle: 'Personal information',
         nameLabel: 'Display name',
@@ -566,6 +575,7 @@ const en = {
             downloaded: 'CSV file downloaded successfully',
             error: 'Failed to export data',
             noFieldsSelected: 'Select at least one field to export',
+            limit: 'Export includes at most {limit} applications. Narrow the filter or export in batches.',
           },
         },
         pagination: {

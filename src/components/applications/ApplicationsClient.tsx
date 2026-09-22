@@ -1,26 +1,24 @@
 "use client";
 
-import { useMemo, useState, useEffect, useDeferredValue } from 'react';
+import { useMemo, useState, useEffect, useDeferredValue, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
 import { CvListItem, ApplicationSummary, CompanyLookupItem } from '@/lib/job-offer-queries';
 import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
-import CurateWithAiModal from './CurateWithAiModal';
-import JobOfferDetailsModal from './JobOfferDetailsModal';
 import ApplicationsTable from './ApplicationsTable';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
 import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
+import { queryApplicationIdsAction, queryApplicationsAction } from '@/app/dashboard/applications/query-actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
+import { replaceUrlQuery } from '@/lib/client-url';
+import { EXPORT_OFFER_ID_LIMIT, emptyStatusCounts, type ApplicationStatusCounts } from '@/lib/application-filter-bounds';
 import {
   DEFAULT_VIEW_CONFIG,
   SYSTEM_VIEWS,
-  filterApplications,
   normalizeViewConfig,
-  paginate,
-  sortApplications,
   viewConfigsEqual,
   type ApplicationColumnFilter,
   type ApplicationColumnId,
@@ -37,13 +35,25 @@ import {
 import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles, Download } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
-import ExportApplicationsModal from './ExportApplicationsModal';
-import { ApplicationsBoardSkeleton, ApplicationsSkeleton, OfferDetailsModalSkeleton } from '@/components/skeletons';
+import { ApplicationsBoardSkeleton, OfferDetailsModalSkeleton } from '@/components/skeletons';
 
 const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), {
   ssr: false,
   loading: () => <ApplicationsBoardSkeleton />,
 });
+const CurateWithAiModal = dynamic(() => import('./CurateWithAiModal'), { ssr: false });
+const JobOfferDetailsModal = dynamic(() => import('./JobOfferDetailsModal'), { ssr: false });
+const ExportApplicationsModal = dynamic(() => import('./ExportApplicationsModal'), { ssr: false });
+
+function hydrateOffers(items: ApplicationSummary[]): ApplicationSummary[] {
+  return items.map((offer) => ({
+    ...offer,
+    createdAt: new Date(offer.createdAt),
+    updatedAt: new Date(offer.updatedAt),
+    nextFollowupDate: offer.nextFollowupDate ? new Date(offer.nextFollowupDate) : null,
+    status: offer.status.startsWith('archived:') ? 'archived' : offer.status,
+  }));
+}
 
 interface SavedApplicationView {
   id: string;
@@ -56,6 +66,8 @@ type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejecte
 
 interface ApplicationsClientProps {
   offers: ApplicationSummary[];
+  filteredTotal: number;
+  statusCounts: ApplicationStatusCounts;
   userCvs: CvListItem[];
   companies: CompanyLookupItem[];
   savedViews: SavedApplicationView[];
@@ -66,6 +78,8 @@ interface ApplicationsClientProps {
 
 export default function ApplicationsClient({
   offers: rawOffers,
+  filteredTotal: initialFilteredTotal,
+  statusCounts: initialStatusCounts,
   userCvs,
   companies,
   savedViews: initialSavedViews,
@@ -209,7 +223,7 @@ export default function ApplicationsClient({
     const params = new URLSearchParams(searchParams.toString());
     if (patch.layout) params.set('layout', patch.layout);
     if (patch.view) params.set('view', patch.view);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    replaceUrlQuery(pathname, params);
   };
 
   const handleLayoutChange = (next: 'table' | 'board') => {
@@ -463,15 +477,17 @@ export default function ApplicationsClient({
     });
   };
 
-  const handleToggleAll = (ids: string[], checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => {
-        if (checked) next.add(id);
-        else next.delete(id);
-      });
-      return next;
-    });
+  const handleToggleAll = async (_ids: string[], checked: boolean) => {
+    if (!checked) {
+      setSelectedIds(new Set());
+      return;
+    }
+    const result = await queryApplicationIdsAction({ filters: viewFilters, sort });
+    if ('error' in result) return;
+    setSelectedIds(new Set(result.ids));
+    if (result.ids.length > EXPORT_OFFER_ID_LIMIT) {
+      showToast(t('applications.table.export.toasts.limit').replace('{limit}', String(EXPORT_OFFER_ID_LIMIT)), 'info');
+    }
   };
 
   const handleRowStatusChange = async (offer: ApplicationSummary, status: string) => {
@@ -550,23 +566,18 @@ export default function ApplicationsClient({
     }
   };
 
-  // Hydration state
-  const [hasMounted, setHasMounted] = useState(false);
-
-  const [localOffers, setLocalOffers] = useState(() =>
-    offers.map((o) => (o.status.startsWith('archived:') ? { ...o, status: 'archived' } : o))
-  );
+  const [localOffers, setLocalOffers] = useState(() => hydrateOffers(offers));
+  const [filteredTotal, setFilteredTotal] = useState(initialFilteredTotal);
+  const [statusCounts, setStatusCounts] = useState(initialStatusCounts ?? emptyStatusCounts());
+  const [listLoading, setListLoading] = useState(false);
   const [draggingOfferId, setDraggingOfferId] = useState<string | null>(null);
+  const skipListFetch = useRef(true);
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setLocalOffers(
-      offers.map((o) => (o.status.startsWith('archived:') ? { ...o, status: 'archived' } : o))
-    );
-  }, [offers]);
+    setLocalOffers(hydrateOffers(offers));
+    setFilteredTotal(initialFilteredTotal);
+    setStatusCounts(initialStatusCounts ?? emptyStatusCounts());
+  }, [offers, initialFilteredTotal, initialStatusCounts]);
 
   // Drag and Drop Handlers
   const handleDragStart = (start: any) => {
@@ -617,19 +628,51 @@ export default function ApplicationsClient({
   });
 
   const boardOffers = localOffers;
-  const filteredOffers = useMemo(
-    () => filterApplications(boardOffers, viewFilters),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [localOffers, viewFilters],
-  );
-  const boardFilteredOffers = useMemo(
-    () => filterApplications(boardOffers, { ...viewFilters, excludedStatuses: [] }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [localOffers, viewFilters],
-  );
-  const sortedOffers = useMemo(() => sortApplications(filteredOffers, sort), [filteredOffers, sort]);
-  const pagination = useMemo(() => paginate(sortedOffers, page, pageSize), [sortedOffers, page, pageSize]);
+  const filteredOffers = localOffers;
+  const boardFilteredOffers = localOffers;
+  const pagination = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    return {
+      items: localOffers,
+      page: safePage,
+      pageSize,
+      totalPages,
+      total: filteredTotal,
+      start,
+      end: Math.min(start + localOffers.length, filteredTotal),
+    };
+  }, [localOffers, filteredTotal, page, pageSize]);
   const hasActiveFilters = Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all' || columnFilters.length > 0;
+
+  useEffect(() => {
+    if (skipListFetch.current) {
+      skipListFetch.current = false;
+      return;
+    }
+    let cancelled = false;
+    setListLoading(true);
+    queryApplicationsAction({
+      layout,
+      filters: viewFilters,
+      sort,
+      page,
+      pageSize,
+    }).then((result) => {
+      if (cancelled) return;
+      if (!('error' in result)) {
+        setLocalOffers(hydrateOffers(result.data.items));
+        setFilteredTotal(result.data.total);
+        setStatusCounts(result.data.statusCounts);
+        if (result.data.page !== page) setPage(result.data.page);
+      }
+      setListLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [layout, viewFilters, sort, page, pageSize]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -651,6 +694,20 @@ export default function ApplicationsClient({
     if (result.error) {
       setError(result.error);
     } else {
+      skipListFetch.current = false;
+      const refreshed = await queryApplicationsAction({
+        layout,
+        filters: viewFilters,
+        sort,
+        page: 1,
+        pageSize,
+      });
+      if (!('error' in refreshed)) {
+        setLocalOffers(hydrateOffers(refreshed.data.items));
+        setFilteredTotal(refreshed.data.total);
+        setStatusCounts(refreshed.data.statusCounts);
+        setPage(1);
+      }
       setIsModalOpen(false);
       setFormData({
         title: '',
@@ -662,12 +719,8 @@ export default function ApplicationsClient({
     }
   };
 
-  if (!hasMounted) {
-    return <ApplicationsSkeleton layout={layout} />;
-  }
-
   return (
-    <div className={`w-full ${layout === 'table' ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
+    <div className={`w-full ${layout === 'table' ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`} aria-busy={listLoading || undefined}>
       {/* Cabecera del Tablero */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
@@ -821,6 +874,7 @@ export default function ApplicationsClient({
         <ApplicationsBoardView
           offers={boardOffers}
           filteredOffers={boardFilteredOffers}
+          columnCounts={statusCounts}
           hasActiveFilters={hasActiveFilters}
           userCvs={userCvs}
           viewMode={viewMode}
@@ -853,17 +907,17 @@ export default function ApplicationsClient({
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-text font-display">
-                  {selectedIds.size === filteredOffers.length
-                    ? t('applications.table.bulk.allSelected').replace('{count}', String(filteredOffers.length))
+                  {selectedIds.size === filteredTotal
+                    ? t('applications.table.bulk.allSelected').replace('{count}', String(filteredTotal))
                     : t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
                 </span>
-                {selectedIds.size < filteredOffers.length && (
+                {selectedIds.size < filteredTotal && (
                   <button
                     type="button"
-                    onClick={() => setSelectedIds(new Set(filteredOffers.map((o) => o.id)))}
+                    onClick={() => void handleToggleAll([], true)}
                     className="text-xs font-bold text-ai hover:underline underline-offset-2 ml-1"
                   >
-                    {t('applications.table.bulk.selectAllCount').replace('{count}', String(filteredOffers.length))}
+                    {t('applications.table.bulk.selectAllCount').replace('{count}', String(filteredTotal))}
                   </button>
                 )}
               </div>
@@ -915,7 +969,9 @@ export default function ApplicationsClient({
 
           <ApplicationsTable
             offers={pagination.items}
-            allSelectableIds={filteredOffers.map((o) => o.id)}
+            allSelectableIds={selectedIds.size === filteredTotal && filteredTotal > 0
+              ? Array.from(selectedIds)
+              : pagination.items.map((offer) => offer.id)}
             companies={companies}
             userCvs={userCvs}
             columns={columns}

@@ -226,6 +226,14 @@ const es = {
       profile: {
         candidate: 'Candidato',
       },
+      nav: {
+        pending: 'Cargando',
+        waiting: 'La sección sigue cargando.',
+        stuck: 'La carga está tardando más de lo habitual. Puedes reintentar o quedarte en esta pantalla. El servidor puede seguir trabajando.',
+        retry: 'Reintentar',
+        dismiss: 'Quedarme aquí',
+        error: 'No se pudo cargar esta sección.',
+      },
       userMenu: {
         account: 'Mi cuenta',
         save: 'Guardar',
@@ -249,6 +257,7 @@ const es = {
         integrations: 'Integraciones',
         account: 'Cuenta',
       },
+      loadingTab: 'Cargando este panel…',
       account: {
         personalTitle: 'Información personal',
         nameLabel: 'Nombre visible',
@@ -614,6 +623,7 @@ const es = {
             downloaded: 'Archivo CSV descargado correctamente',
             error: 'Error al exportar los datos',
             noFieldsSelected: 'Selecciona al menos un campo para exportar',
+            limit: 'La exportación incluye como máximo {limit} candidaturas. Reduce el filtro o exporta por partes.',
           },
         },
         pagination: {

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import type { ApplicationSummary, CvListItem } from '@/lib/job-offer-queries';
+import type { ApplicationStatusCounts } from '@/lib/application-filter-bounds';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import ApplicationCard from './ApplicationCard';
 import ApplicationDenseListItem from './ApplicationDenseListItem';
@@ -44,6 +45,7 @@ interface ApplicationsBoardViewProps {
   onOpenCurate: (simulation: boolean) => void;
   onOpenDetails: (offer: ApplicationSummary) => void;
   onDelete: (offerId: string) => void;
+  columnCounts?: ApplicationStatusCounts;
 }
 
 export default function ApplicationsBoardView({
@@ -60,6 +62,7 @@ export default function ApplicationsBoardView({
   onOpenCurate,
   onOpenDetails,
   onDelete,
+  columnCounts,
 }: ApplicationsBoardViewProps) {
   const { t } = useLanguage();
   const [visibleByColumn, setVisibleByColumn] = useState<Partial<Record<Column['id'], number>>>({});
@@ -103,6 +106,7 @@ export default function ApplicationsBoardView({
           {columns.map((column) => {
             const rawColumnOffers = offers.filter((offer) => offer.status === column.id);
             let columnOffers = filteredOffers.filter((offer) => offer.status === column.id);
+            const globalCount = columnCounts?.[column.id] ?? rawColumnOffers.length;
 
             if (column.id === 'interested') {
               columnOffers = [...columnOffers].sort((a, b) => {
@@ -142,7 +146,7 @@ export default function ApplicationsBoardView({
                     </div>
                     <div className="flex flex-col items-end gap-1 font-display">
                       <span className="text-sm font-bold text-text bg-canvas px-2.5 py-1 rounded-[8px] border border-subtle shadow-sm">
-                        {hasActiveFilters && rawColumnOffers.length > 0 ? `${columnOffers.length}/${rawColumnOffers.length}` : rawColumnOffers.length}
+                        {hasActiveFilters && globalCount > 0 ? `${columnOffers.length}/${globalCount}` : globalCount}
                       </span>
                       <span className="text-[10px] font-medium text-text-muted">
                         {t('applications.board.offersCount')}

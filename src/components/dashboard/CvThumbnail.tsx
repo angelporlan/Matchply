@@ -34,17 +34,18 @@ export default function CvThumbnail({ cvId, version, className }: CvThumbnailPro
       return;
     }
 
-    let cancelled = false;
-    renderCvThumbnail(cvId, version)
+    const controller = new AbortController();
+    renderCvThumbnail(cvId, version, 560, controller.signal)
       .then((url) => {
-        if (!cancelled) setDataUrl(url);
+        setDataUrl(url);
       })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setFailed(true);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [inView, cvId, version]);
 
