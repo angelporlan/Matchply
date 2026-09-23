@@ -35,7 +35,7 @@ async function temporaryWorkspace() {
 
 test('GTM runs are unique, finalized outputs are discoverable, and canonical files stay separate', async () => {
   const root = await temporaryWorkspace();
-  const now = new Date('2026-09-22T12:34:56.000Z');
+  const now = new Date();
   const [first, second] = await Promise.all([
     createGtmRun({ root, botName: 'Captador', title: 'Primera entrega', now }),
     createGtmRun({ root, botName: 'Captador', title: 'Segunda entrega', now }),
