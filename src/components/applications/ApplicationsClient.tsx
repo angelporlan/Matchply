@@ -10,6 +10,7 @@ import ApplicationsTable from './ApplicationsTable';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
+import { Button } from '@/components/ui/Button';
 import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { queryApplicationIdsAction, queryApplicationsAction } from '@/app/dashboard/applications/query-actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
@@ -32,7 +33,7 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, RefreshCw, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles, Download } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles, Download } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { ApplicationsBoardSkeleton, OfferDetailsModalSkeleton } from '@/components/skeletons';
@@ -733,16 +734,13 @@ export default function ApplicationsClient({
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto font-display">
-          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="segmented w-full sm:w-auto" role="group" aria-label={`${t('applications.layout.table')} / ${t('applications.layout.board')}`}>
             <button
               type="button"
               onClick={() => handleLayoutChange('table')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                layout === 'table'
-                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                  : 'text-text-muted hover:text-text dark:hover:text-white'
-              }`}
+              className="segmented__item flex-1 sm:flex-none"
+              aria-pressed={layout === 'table'}
             >
               <Table2 className="w-3.5 h-3.5 stroke-[1.75]" />
               {t('applications.layout.table')}
@@ -750,25 +748,18 @@ export default function ApplicationsClient({
             <button
               type="button"
               onClick={() => handleLayoutChange('board')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                layout === 'board'
-                  ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                  : 'text-text-muted hover:text-text dark:hover:text-white'
-              }`}
+              className="segmented__item flex-1 sm:flex-none"
+              aria-pressed={layout === 'board'}
             >
               <SquareKanban className="w-3.5 h-3.5 stroke-[1.75]" />
               {t('applications.layout.board')}
             </button>
           </div>
 
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-[8px] bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-semibold text-sm shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
-          >
+          <Button type="button" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 stroke-[1.75]" />
             {t('applications.board.newApplicationBtn')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -806,15 +797,12 @@ export default function ApplicationsClient({
           )}
 
           {layout === 'board' && (
-            <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm font-display">
+            <div className="segmented" role="group" aria-label={`${t('applications.board.viewCompact')} / ${t('applications.board.viewComfortable')}`}>
               <button
                 type="button"
                 onClick={() => setViewMode('compact')}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                  viewMode === 'compact'
-                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                    : 'text-text-muted hover:text-text dark:hover:text-white'
-                }`}
+                className="segmented__item"
+                aria-pressed={viewMode === 'compact'}
               >
                 <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
                 {t('applications.board.viewCompact')}
@@ -822,11 +810,8 @@ export default function ApplicationsClient({
               <button
                 type="button"
                 onClick={() => setViewMode('comfortable')}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-bold transition-all ${
-                  viewMode === 'comfortable'
-                    ? 'bg-text dark:bg-white text-canvas shadow-sm'
-                    : 'text-text-muted hover:text-text dark:hover:text-white'
-                }`}
+                className="segmented__item"
+                aria-pressed={viewMode === 'comfortable'}
               >
                 <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
                 {t('applications.board.viewComfortable')}
@@ -925,15 +910,15 @@ export default function ApplicationsClient({
                 <button
                   type="button"
                   onClick={handleCurateSelected}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold font-display shadow-xs shadow-ai/20 hover:opacity-95 active:scale-98 transition-all cursor-pointer"
+                  className="btn-raised btn-raised--ai btn-raised--sm"
                 >
-                  <Sparkles className="w-3.5 h-3.5 stroke-[2] text-violet-200" />
+                  <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
                   <span>{t('applications.table.bulk.matchWithAi')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsExportModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-subtle bg-surface hover:bg-canvas hover:border-control text-text text-xs font-bold font-display shadow-xs transition-all cursor-pointer"
+                  className="btn-raised btn-raised--secondary btn-raised--sm"
                 >
                   <Download className="w-3.5 h-3.5 stroke-[1.75]" />
                   <span>{t('applications.table.bulk.exportData')}</span>
@@ -1173,20 +1158,9 @@ export default function ApplicationsClient({
                 >
                   {t('common.cancel')}
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted dark:text-canvas rounded-[8px] transition-all disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      {t('applications.modal.savingBtn')}
-                    </>
-                  ) : (
-                    t('applications.modal.saveBtn')
-                  )}
-                </button>
+                <Button type="submit" disabled={loading} loading={loading}>
+                  {loading ? t('applications.modal.savingBtn') : t('applications.modal.saveBtn')}
+                </Button>
               </div>
             </form>
           </div>

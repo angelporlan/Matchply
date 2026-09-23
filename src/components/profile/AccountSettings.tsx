@@ -127,7 +127,7 @@ export default function AccountSettings({ user, isPremium, memberSince }: Accoun
 
           <ButtonLink
             href={isPremium ? '/api/stripe/portal' : '/dashboard/subscription'}
-            variant={isPremium ? 'strong' : 'primary'}
+            variant={isPremium ? 'secondary' : 'primary'}
             size="sm"
             className="shrink-0"
           >

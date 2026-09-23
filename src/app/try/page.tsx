@@ -9,7 +9,7 @@ import { AccountSuspendedError } from '@/lib/request-errors';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { ButtonLink } from '@/components/ui/Button';
 
 export default async function TryPage() {
   let actor;
@@ -64,12 +64,9 @@ export default async function TryPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/register"
-              className="w-full md:w-auto bg-action hover:bg-action-hover text-on-action font-bold px-6 py-3 rounded-[8px] text-sm transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 font-display text-center"
-            >
+            <ButtonLink href="/register" className="w-full md:w-auto shrink-0">
               Guardar mi CV
-            </Link>
+            </ButtonLink>
           </div>
 
           <DashboardClient 

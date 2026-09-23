@@ -7,7 +7,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { APPLICATION_STATUSES } from '@/lib/application-views';
 
 export const APPLICATION_STATUS_STYLES: Record<string, { color: string; border: string; icon: 'bookmark' | 'send' | 'calendar' | 'party' | 'ban' | 'archive' }> = {
-  interested: { color: 'text-indigo-400 bg-indigo-500/10', border: 'border-indigo-500/20', icon: 'bookmark' },
+  interested: { color: 'text-ai-text bg-ai-surface', border: 'border-ai/20', icon: 'bookmark' },
   applied: { color: 'text-blue-400 bg-blue-500/10', border: 'border-blue-500/20', icon: 'send' },
   interview: { color: 'text-amber-400 bg-amber-500/10', border: 'border-amber-500/20', icon: 'calendar' },
   offer: { color: 'text-emerald-400 bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'party' },

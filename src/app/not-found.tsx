@@ -59,7 +59,7 @@ export default function NotFound() {
 
           {/* Botones principales de acción */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <ButtonLink href="/dashboard" variant="primary">
+            <ButtonLink href="/dashboard" variant="strong">
               <Home className="w-4 h-4 stroke-[1.75]" />
               <span>{t('notFound.backDashboard')}</span>
             </ButtonLink>

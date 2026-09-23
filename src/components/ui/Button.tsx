@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/** primary: alta (verde). ai: IA. strong: tinta, solo guardar sin IA ni alta. secondary: outline. ghost: filtros. danger: destruir. Un sólido por cabecera. */
 export type ButtonVariant =
   | 'primary'
   | 'ai'

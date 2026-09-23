@@ -68,7 +68,7 @@ export default async function AdminAuditPage({
             <input type="date" name="to" defaultValue={result.query.to} className="mt-1 w-full min-h-[44px] rounded-[8px] border border-control bg-canvas px-3" />
           </label>
           <div className="flex items-end">
-            <button type="submit" className="btn-raised min-h-[44px] w-full">Filtrar</button>
+            <button type="submit" className="btn-raised btn-raised--secondary min-h-[44px] w-full">Filtrar</button>
           </div>
         </form>
 

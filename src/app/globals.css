@@ -169,6 +169,7 @@
   --btn-edge: #4c1d95;
 }
 
+/* Tinta: solo guardar o confirmar si la vista no tiene IA ni alta. */
 .btn-raised--strong {
   --btn-bg: var(--text);
   --btn-hover: var(--text);
@@ -263,6 +264,70 @@
   .btn-raised:not(:disabled):not([aria-disabled='true']):is(:hover, :active) {
     transform: none;
   }
+}
+
+/* Pestañas y toggles: no son CTA. El activo pesa en tipo, no en bloque tinta. */
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.segmented__item,
+.pill-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.pill-tab {
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  background: var(--surface);
+}
+
+.segmented__item:hover,
+.pill-tab:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.pill-tab:hover {
+  border-color: var(--border-control);
+}
+
+.segmented__item[aria-pressed='true'],
+.pill-tab[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--text) 10%, var(--surface));
+  color: var(--text);
+  font-weight: 700;
+}
+
+.pill-tab[aria-pressed='true'] {
+  border-color: transparent;
+}
+
+.segmented__item[aria-pressed='true']:hover,
+.pill-tab[aria-pressed='true']:hover {
+  background: color-mix(in srgb, var(--text) 14%, var(--surface));
+  border-color: transparent;
 }
 
 /* ============================================================

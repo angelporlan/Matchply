@@ -34,6 +34,7 @@ import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
 import ApplicationStatusSelect from './ApplicationStatusSelect';
+import { Button } from '@/components/ui/Button';
 
 const SORTABLE_COLUMNS: ApplicationColumnId[] = [
   'title',
@@ -414,14 +415,10 @@ export default function ApplicationsTable({
             <Inbox className="w-8 h-8 mx-auto mb-3 text-text-muted opacity-60 stroke-[1.75]" />
             <p className="text-sm font-bold text-text font-display">{t('applications.table.emptyTitle')}</p>
             <p className="text-xs text-text-muted font-sans mt-1">{t('applications.table.emptyDesc')}</p>
-            <button
-              type="button"
-              onClick={onNewApplication}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-text dark:bg-white text-canvas text-xs font-semibold transition-colors"
-            >
+            <Button type="button" onClick={onNewApplication} className="mt-4">
               <Plus className="w-3.5 h-3.5 stroke-[1.75]" />
               {t('applications.board.newApplicationBtn')}
-            </button>
+            </Button>
           </>
         )}
       </div>

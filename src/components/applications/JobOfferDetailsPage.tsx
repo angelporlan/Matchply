@@ -20,6 +20,8 @@ import {
   TrendingUp, AlertTriangle, AlertCircle, Copy, Check, ChevronDown, ChevronUp, ArrowLeft
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { matchScoreStrokeClass } from './matchScoreStyle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parseSections, parseMarkdownTable, ParsedReport } from '@/lib/ai-parser';
 import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
@@ -175,7 +177,7 @@ export default function JobOfferDetailsPage({
       case 'interested':
         return {
           title: t('applications.columns.interested.title'),
-          style: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+          style: 'text-ai-text bg-ai-surface border-ai/20',
           icon: <Bookmark className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'applied':
@@ -422,23 +424,23 @@ export default function JobOfferDetailsPage({
             </select>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="ai"
+            size="sm"
             onClick={handleOptimizeCvForOffer}
             disabled={optimizingCv || loading}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover px-3.5 py-2 rounded-[8px] shadow-sm shadow-ai/20 transition-all font-display disabled:opacity-50"
+            loading={optimizingCv}
           >
-            {optimizingCv ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-            )}
-            <span>{offer.cvId ? 'Re-optimizar CV con IA' : '✨ Optimizar CV con IA'}</span>
-          </button>
+            {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+            <span>{offer.cvId ? 'Re-optimizar CV con IA' : 'Optimizar CV con IA'}</span>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => setIsEditing(!isEditing)}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-text dark:bg-white dark:text-canvas hover:bg-text/95 dark:hover:bg-surface-muted px-4 py-2 rounded-[8px] shadow-sm transition-all font-display"
           >
             {isEditing ? (
               <>
@@ -451,7 +453,7 @@ export default function JobOfferDetailsPage({
                 Editar
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -489,13 +491,7 @@ export default function JobOfferDetailsPage({
                     cx="56"
                     cy="56"
                     r={radius}
-                    className={`fill-transparent transition-all duration-1000 ${
-                      scoreVal >= 75
-                        ? 'stroke-emerald-500'
-                        : scoreVal >= 60
-                        ? 'stroke-ai'
-                        : 'stroke-rose-500'
-                    }`}
+                    className={`fill-transparent transition-all duration-1000 ${matchScoreStrokeClass(scoreVal)}`}
                     strokeWidth="8"
                     strokeDasharray={circumference}
                     strokeDashoffset={strokeDashoffset}
@@ -571,7 +567,7 @@ export default function JobOfferDetailsPage({
                 }}
                 disabled={evaluatingMatch}
                 aria-busy={evaluatingMatch}
-                className="mt-3 min-h-11 w-full px-3 rounded-[8px] bg-ai-action text-on-ai-action border border-ai-action text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[8px] border border-ai/30 bg-ai-surface px-3 text-sm font-semibold text-ai-text disabled:opacity-50"
               >
                 {evaluatingMatch ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -616,7 +612,7 @@ export default function JobOfferDetailsPage({
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <a
                     href={`/editor/${offer.cvId}`}
-                    className="text-xs font-bold text-text bg-surface border border-control dark:border-white/15 hover:bg-surface-muted dark:hover:bg-surface-muted py-2 rounded-[8px] transition-all flex items-center justify-center gap-1 text-center"
+                    className="btn-raised btn-raised--secondary btn-raised--sm w-full"
                   >
                     <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
                     Editar CV
@@ -625,7 +621,7 @@ export default function JobOfferDetailsPage({
                     type="button"
                     onClick={handleOptimizeCvForOffer}
                     disabled={optimizingCv || loading}
-                    className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover py-2 rounded-[8px] shadow-sm transition-all flex items-center justify-center gap-1 disabled:opacity-50"
+                    className="btn-raised btn-raised--secondary btn-raised--sm w-full"
                   >
                     {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
                     Re-optimizar
@@ -636,10 +632,10 @@ export default function JobOfferDetailsPage({
                   type="button"
                   onClick={handleOptimizeCvForOffer}
                   disabled={optimizingCv || loading}
-                  className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover py-2.5 rounded-[8px] shadow-sm shadow-ai/20 transition-all flex items-center justify-center gap-1.5 w-full disabled:opacity-50 mt-1"
+                  className="btn-raised btn-raised--secondary mt-1 w-full"
                 >
                   {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
-                  ✨ Crear y optimizar CV con IA
+                  Crear y optimizar CV con IA
                 </button>
               )}
             </div>
@@ -992,23 +988,16 @@ export default function JobOfferDetailsPage({
                       Genera plantillas personalizadas de email, mensajes para reclutadores y preguntas típicas de entrevista técnica basadas en los requisitos de esta oferta.
                     </p>
                     
-                    <button
+                    <Button
+                      type="button"
+                      variant="ai"
                       onClick={handleGenerateOutreach}
                       disabled={aiGenerating}
-                      className="bg-text dark:bg-white dark:text-canvas hover:bg-text/95 dark:hover:bg-surface-muted text-white font-bold px-6 py-3 rounded-[8px] text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer font-display hover:-translate-y-0.5 disabled:opacity-50"
+                      loading={aiGenerating}
                     >
-                      {aiGenerating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin text-ai" />
-                          Generando con IA...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 text-ai animate-pulse" />
-                          Generar con IA
-                        </>
-                      )}
-                    </button>
+                      {!aiGenerating && <Sparkles className="w-4 h-4 stroke-[1.75]" />}
+                      {aiGenerating ? 'Generando con IA...' : 'Generar con IA'}
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -1095,7 +1084,7 @@ export default function JobOfferDetailsPage({
                     {(hasDbQuestions || parsedReport.G) && (
                       <div className="space-y-3 pt-3 border-t border-subtle">
                         <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest flex items-center gap-1.5">
-                          <TrendingUp className="w-3.5 h-3.5 text-indigo-500 stroke-[1.75]" />
+                          <TrendingUp className="w-3.5 h-3.5 text-ai-text stroke-[1.75]" />
                           Preguntas Probables de Entrevista
                         </span>
 
@@ -1231,23 +1220,10 @@ export default function JobOfferDetailsPage({
                       >
                         Cancelar
                       </button>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex items-center justify-center gap-2 px-5 py-2 text-xs font-bold text-white bg-text dark:bg-white dark:text-canvas rounded-[8px] transition-all disabled:opacity-50"
-                      >
-                        {loading ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            Guardando...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-3.5 h-3.5" />
-                            Guardar Cambios
-                          </>
-                        )}
-                      </button>
+                      <Button type="submit" variant="strong" size="sm" disabled={loading} loading={loading}>
+                        {!loading && <Save className="w-3.5 h-3.5 stroke-[1.75]" />}
+                        {loading ? 'Guardando...' : 'Guardar Cambios'}
+                      </Button>
                     </div>
                   </form>
                 ) : (

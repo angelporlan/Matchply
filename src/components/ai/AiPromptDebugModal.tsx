@@ -123,15 +123,13 @@ export default function AiPromptDebugModal({
               </div>
 
               {/* Tabs */}
-              <div className="flex items-center gap-1 border-b border-subtle pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="segmented" role="group" aria-label="Vista del prompt">
                 <button
                   type="button"
                   onClick={() => setActiveTab('full')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'full'
-                      ? 'bg-text dark:bg-white text-canvas font-bold'
-                      : 'text-text-muted hover:text-text hover:bg-subtle'
-                  }`}
+                  className="segmented__item"
+                  aria-pressed={activeTab === 'full'}
                 >
                   <Code className="w-3.5 h-3.5" />
                   Prompt Completo
@@ -139,11 +137,8 @@ export default function AiPromptDebugModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab('system')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'system'
-                      ? 'bg-text dark:bg-white text-canvas font-bold'
-                      : 'text-text-muted hover:text-text hover:bg-subtle'
-                  }`}
+                  className="segmented__item"
+                  aria-pressed={activeTab === 'system'}
                 >
                   <Terminal className="w-3.5 h-3.5" />
                   System Prompt
@@ -151,21 +146,19 @@ export default function AiPromptDebugModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab('user')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'user'
-                      ? 'bg-text dark:bg-white text-canvas font-bold'
-                      : 'text-text-muted hover:text-text hover:bg-subtle'
-                  }`}
+                  className="segmented__item"
+                  aria-pressed={activeTab === 'user'}
                 >
                   <AlignLeft className="w-3.5 h-3.5" />
                   User Prompt (Datos)
                 </button>
+                </div>
 
                 <div className="ml-auto">
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-subtle bg-canvas hover:bg-surface-hover text-text transition-colors cursor-pointer"
+                    className="btn-raised btn-raised--ghost btn-raised--sm px-2.5"
                   >
                     {copied ? (
                       <>
@@ -218,7 +211,7 @@ export default function AiPromptDebugModal({
               type="button"
               disabled={loading || !debugData}
               onClick={onExecute}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-ai to-ai-action text-white font-bold text-xs shadow-sm hover:opacity-95 active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+              className="btn-raised btn-raised--ai btn-raised--sm flex-1 sm:flex-initial"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>Ejecutar realmente</span>

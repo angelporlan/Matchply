@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X, ArrowRight } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
+import { ButtonLink } from '@/components/ui/Button';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 
@@ -54,12 +55,9 @@ export default function LandingHeader({
           <ThemeToggle />
 
           {isLoggedIn ? (
-            <Link
-              href="/dashboard"
-              className="bg-text dark:bg-white text-canvas hover:bg-text/95 dark:hover:bg-surface-muted font-bold px-4 py-2 rounded-[8px] text-sm transition-all shadow-sm flex items-center gap-1.5 font-display"
-            >
+            <ButtonLink href="/dashboard" variant="secondary" size="sm">
               {navDashboard} <ArrowRight className="w-4 h-4 stroke-[1.75]" />
-            </Link>
+            </ButtonLink>
           ) : (
             <>
               <Link
@@ -68,12 +66,9 @@ export default function LandingHeader({
               >
                 {navLogin}
               </Link>
-              <Link
-                href="/try"
-                className="bg-text dark:bg-white text-canvas hover:bg-text/90 dark:hover:bg-surface-muted font-bold px-4 py-2 rounded-[8px] text-sm transition-all shadow-sm font-display"
-              >
+              <ButtonLink href="/try" variant="secondary" size="sm">
                 {navRegister}
-              </Link>
+              </ButtonLink>
             </>
           )}
         </div>
@@ -134,29 +129,17 @@ export default function LandingHeader({
           {/* Stacked Action Buttons */}
           <div className="flex flex-col gap-3 mt-2">
             {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                onClick={() => setIsOpen(false)}
-                className="w-full bg-text dark:bg-white text-canvas hover:bg-text/95 dark:hover:bg-surface-muted font-bold py-3 rounded-[8px] text-sm text-center transition-all shadow-sm flex items-center justify-center gap-1.5 font-display"
-              >
+              <ButtonLink href="/dashboard" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
                 {navDashboard} <ArrowRight className="w-4 h-4 stroke-[1.75]" />
-              </Link>
+              </ButtonLink>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="w-full bg-surface border border-subtle text-text font-bold py-3 rounded-[8px] text-sm text-center transition-all shadow-sm font-display hover:bg-canvas dark:hover:bg-surface-muted/80"
-                >
+                <ButtonLink href="/login" variant="secondary" className="w-full" onClick={() => setIsOpen(false)}>
                   {navLogin}
-                </Link>
-                <Link
-                  href="/try"
-                  onClick={() => setIsOpen(false)}
-                  className="w-full bg-action hover:bg-action/90 text-on-action font-bold py-3 rounded-[8px] text-sm text-center transition-all shadow-sm font-display"
-                >
+                </ButtonLink>
+                <ButtonLink href="/try" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
                   {navRegister}
-                </Link>
+                </ButtonLink>
               </>
             )}
           </div>

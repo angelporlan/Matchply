@@ -1,10 +1,10 @@
 # Matchply — Sistema de diseño
 
-Versión 2 · 12 de septiembre de 2026
+Versión 2.1 · 23 de septiembre de 2026
 
 **Fuente única de verdad para el diseño de Matchply.** Consolida la guía anterior, `notes.md`, `desing_notes.md`, el plan visual de `IMPLEMENTATION_PLAN.md` y las pautas visuales de `AGENTS.md`. El nombre canónico es `design.md`; no crear otro `desing.md`.
 
-Este documento define el diseño objetivo. Esta revisión es documental: los cambios de interfaz descritos requieren implementación posterior. Los hallazgos del código y el inventario heredado se distinguen de las reglas nuevas.
+Este documento define el diseño objetivo. Los tokens y los botones con relieve ya están en el código; la sección 11 distingue lo aplicado de lo que sigue pendiente. Los hallazgos del código y el inventario heredado se distinguen de las reglas nuevas.
 
 ## 1. Dirección del producto
 
@@ -60,7 +60,7 @@ Estas referencias orientan el acabado visual; no justifican añadir un calendari
 
 La distribución 60–30–10 orienta la composición, no mide píxeles: predominan lienzos neutros; estructura y tipografía organizan; verde y púrpura comparten el acento. El texto medianoche no implica cubrir un 30 % de la pantalla con paneles oscuros.
 
-Los nombres siguientes son **tokens objetivo todavía no implementados**.
+Los nombres siguientes son los tokens de `src/app/globals.css` (`:root` claro, `.dark` oscuro).
 
 ### Superficies y texto
 
@@ -81,7 +81,7 @@ No usar `border-subtle` como única señal para identificar un campo. Evitar tex
 
 | Token o rol | Claro | Oscuro | Uso |
 |---|---|---|---|
-| `action` | `#2ECC71` | `#2ECC71` | Acción principal general |
+| `action` | `#2ECC71` | `#2ECC71` | Alta de entidad y avance. No es color de marca |
 | `on-action` | `#1E1B4B` | `#1E1B4B` | Texto e iconos sobre verde |
 | `action-hover` | `#27AE60` | `#27AE60` | Hover verde con texto oscuro |
 | `ai-accent` | `#8B5CF6` | `#A78BFA` | Identificación y detalles IA |
@@ -98,6 +98,25 @@ No usar `border-subtle` como única señal para identificar un campo. Evitar tex
 Acción y éxito comparten familia verde, pero el éxito se presenta como estado compacto con icono y texto, no como otro botón. Rojo, ámbar y azul son colores semánticos, no nuevos acentos decorativos. Para hover destructivo usar `#991B1B` con blanco en claro y `#FECACA` con `#0B0F19` en oscuro.
 
 **Logo:** conservar las dos barras y el wordmark. Valores actuales: barras `#4E46E5` y `#8F84F8`, «match» medianoche y «ply» `#8F84F8`; en oscuro, barras y «ply» `#B4A9FB`, «match» blanco. Es la excepción de marca al púrpura funcional. No recolorear todo el menú para imitar el logo.
+
+### Disciplina de uso
+
+La paleta no se reelige en cada pantalla. Índigo (`text`, `#1E1B4B`) da seriedad de CV y CRM: texto, wordmark «match», foco y peso del elemento activo. Violeta es matching e IA. Verde es el semáforo de «avanza», no el color del logo: si entra en la marca o en todos los botones, choca con el violeta.
+
+Un solo botón sólido saturado por cabecera; el segundo control de esa fila es outline o ghost. No pasar el primario a azul de producto: se confunde con LinkedIn y con los ATS genéricos. No usar rosa para el encaje. Rojo, ámbar y azul informativo siguen siendo estados, no marca.
+
+### Escala de encaje
+
+El porcentaje no es una probabilidad de contratación. Misma escala en badge y anillo:
+
+| Banda | Fondo / texto | Trazo |
+|---|---|---|
+| Sin dato | `surface-muted` / `text-muted` | `text-muted` |
+| 0–39 | `surface-muted` / `text-muted` | `text-muted` |
+| 40–69 | `warning-surface` / `warning-text` | `warning-text` |
+| 70–100 | `success-surface` / `success-text` | `success-text` |
+
+Nunca rosa, ni el violeta de marca, para un encaje bajo o medio. El violeta queda para la acción de IA.
 
 ### Contraste comprobado
 
@@ -143,19 +162,42 @@ Usar 16 px en inputs móviles; evitar badges de 9–10 px y pesos ultraligeros e
 - Dominante: borde de 2 px y sombra sólida diagonal de 2 px en la app; 4 px en landing.
 - Secundario: borde de 1 px y sin sombra sólida. Toolbar plana. Dejar espacio para no recortar sombras.
 
-| Variante | Tratamiento | Ejemplos |
+Cuatro roles. No se mezclan en la misma fila. El relieve (borde de 2 px y sombra sólida) es solo del sólido dominante; el secundario no lo lleva.
+
+| Rol | Cuándo | Look | Clase |
+|---|---|---|---|
+| Primario crear | Alta de entidad o avance del proceso: nueva empresa, nueva candidatura, registrarse, empezar desde la landing | Verde `action`, texto `on-action`, borde tinta | `btn-raised` |
+| Primario IA | La única acción que ejecuta IA en esa vista | `ai-action` + `on-ai-action`; borde `#4C1D95` en claro y `#0B0F19` en oscuro | `btn-raised--ai` |
+| Primario tinta | Guardar o confirmar cuando la vista no tiene IA ni alta. Ejemplo: guardar cambios en el editor o en el perfil | Tinta en claro; fondo claro y texto oscuro en oscuro | `btn-raised--strong` |
+| Secundario | Alternativa real al sólido (Crear CV frente a Generar con IA, Editar junto a optimizar, Google, cancelar con peso) | Superficie, texto principal, borde `border-control` de 1 px, sin sombra | `btn-raised--secondary` |
+| Terciario / ghost | Filtros, pestañas, volver, iconos | Sin relleno, o pastilla `surface-muted` al activarse | `btn-raised--ghost`, `.pill-tab`, `.segmented` |
+| Destructivo | Confirmar una pérdida | Rojo semántico, sin relieve promocional | `btn-raised--danger` |
+
+**Una cabecera, un sólido.** El segundo control es siempre outline o ghost. La tinta no es un CTA de creación: un título oscuro, un tab oscuro y un botón oscuro son tres manchas del mismo peso.
+
+| Pantalla | Único sólido | El resto |
 |---|---|---|
-| Principal general | Verde + medianoche; borde y sombra medianoche | Crear CV, guardar candidatura, empezar desde landing |
-| Principal IA | `ai-action` + `on-ai-action`; borde/sombra `#4C1D95` en claro y `#0B0F19` en oscuro | Adaptar CV a esta oferta |
-| Secundario | Superficie neutra, texto principal, `border-control` | Importar, descargar mientras se edita, cancelar |
-| IA secundario | `ai-surface`, `ai-text`, borde del mismo color de texto | Abrir opciones IA cuando otra acción domina |
-| Neutro fuerte | Medianoche/blanco en claro; fondo claro/texto oscuro en oscuro | Acción administrativa sin semántica de éxito |
-| Ghost | Sin borde ni sombra; fondo neutro visible en hover | Volver, editar título, abrir menú |
-| Destructivo | Rojo semántico, sin relieve promocional | Eliminar CV en diálogo de confirmación |
+| CVs | Generar con IA (violeta) | Crear CV en outline. Todos / Base / Optimizados: pastilla de tinta suave, no bloque negro |
+| Postulaciones | Nueva candidatura (verde) | Tabla / Tablero y densidad: control segmentado |
+| Empresas | Nueva empresa (verde) | Ningún segundo sólido en esa barra |
+| Login | Entrar (tinta) | Google en outline |
+| Registro y landing | Crear cuenta o empezar (verde) | La cabecera de la landing no repite otro sólido: el hero ya lo tiene |
+| Editor, perfil, ficha sin alta | Guardar (tinta) | Cancelar y alternativas en outline o ghost |
 
-**Prioridad:** en el panel de optimización domina IA; guardar/cancelar son secundarios. En revisión, «Aplicar cambios» puede ser verde dominante porque confirma la decisión del usuario. En exportación, «Descargar PDF» puede ser dominante. El color indica función; el relieve indica prioridad.
+«Ver CV optimizado» es navegación y no lleva violeta. «Aplicar cambios» en la revisión puede ser verde porque confirma el avance. Descargar, si es la acción dominante de esa vista y no hay IA ni alta, usa tinta. El borde degradado deja de ser obligatorio: el color y Sparkles ya identifican IA; no acumular gradiente, glow, shimmer y sombra sólida.
 
-Un CTA que navega al registro puede ser verde («Empezar con mi CV»). Una acción que ejecuta optimización usa IA. «Ver CV optimizado» es navegación y no necesita púrpura. El borde degradado heredado deja de ser obligatorio: el color y Sparkles ya identifican IA; no acumular gradiente, glow, shimmer y sombra sólida.
+Pestañas y segmentos no son CTA: altura 32–36 px, peso tipográfico en el activo y fondo `color-mix` de tinta al 10 %. El botón dominante de la vista sigue en 44 px.
+
+### Etiquetas, no botones
+
+Los chips de una tarjeta no compiten con lo que hay que pulsar.
+
+| Etiqueta | Tratamiento |
+|---|---|
+| Principal | Violeta suave: `ai-surface` + `ai-text` |
+| Base, Copia | Gris: `surface-muted` + `text-muted` |
+| Plantilla (Harvard, etc.) | Ghost: texto e icono, sin relleno |
+| Interesado | La misma pastilla violeta suave. Es estado, no botón |
 
 ### Estados
 
@@ -173,7 +215,7 @@ Transiciones específicas de 120–160 ms para color, transform y shadow. No `tr
 
 ### Receta CSS de referencia
 
-Ejemplo del botón general con relieve y su variante IA. **No está aplicado a la app.**
+Ejemplo del botón de alta (verde) y de su variante IA. Las clases viven en `src/app/globals.css` y `src/components/ui/Button.tsx`, junto con `--strong`, `--secondary`, `--ghost`, `--danger`, `.segmented` y `.pill-tab`.
 
 ```css
 .btn-raised {
@@ -285,7 +327,7 @@ Login/registro: formulario centrado, etiquetas persistentes, autocompletado y er
 
 Priorizar «Mis CVs», «Candidaturas» y «Ajustes», conservando acceso a integraciones y facturación dentro de la arquitectura existente. No eliminar funciones para forzar tres enlaces. Activo con superficie neutra, peso y `aria-current`; no púrpura por defecto.
 
-Cada CV muestra nombre, actualización y estado relevante. «Principal» utiliza badge neutro e icono; acciones secundarias en menú accesible. Estado vacío con explicación y una acción útil. Estadísticas subordinadas al trabajo.
+Cada CV muestra nombre, actualización y estado relevante. «Principal» es etiqueta violeta suave, no un botón. Base y Copia van en gris; la plantilla, en ghost. Acciones secundarias en menú accesible. Estado vacío con explicación y una acción útil. Estadísticas subordinadas al trabajo.
 
 ### Optimización y revisión
 
@@ -310,7 +352,7 @@ Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantil
 
 | Estado visual | Familia | Señal adicional |
 |---|---|---|
-| Interesado / pendiente | Neutra | Nombre y contador |
+| Interesado / pendiente | Violeta suave (`ai-surface` / `ai-text`) | Pastilla de estado, no botón |
 | Postulado | Azul información | Etiqueta |
 | Entrevista | Ámbar | Fecha cuando exista |
 | Oferta conseguida | Verde éxito | Etiqueta e icono |
@@ -405,12 +447,12 @@ Inventario para localizar y decidir migración, **no reglas vigentes** ni eviden
 
 ## 11. Plan de aplicación y aceptación
 
-**Pendiente de implementación.** No interpretar esta tabla como tareas completadas.
+La tabla sigue el plan visual amplio. No interpretarla como una lista de tareas ya cerradas. La jerarquía de botones de la sección 5 está aplicada en las cabeceras de CVs, postulaciones y empresas, en las altas, en los toggles de vista, en login/registro y en guardar.
 
 | Orden | Trabajo | Criterio de aceptación |
 |---|---|---|
 | 1 | Tokens, Tailwind y body del layout | Temas coherentes en página/portales; fuentes y radios alineados. |
-| 2 | Button compartido y controles base | Variantes, teclado, foco, carga, deshabilitado, contraste y movimiento reducido. |
+| 2 | Button compartido y controles base | Variantes de la sección 5, un sólido por cabecera, teclado, foco, carga, deshabilitado, contraste y movimiento reducido. |
 | 3 | Landing y autenticación | CTA con relieve moderado, narrativa CV y formularios legibles. |
 | 4 | Dashboard, optimización y editor | CV → oferta → revisión → PDF claro; original conservado y estados reales. |
 | 5 | Postulaciones, ajustes, suscripción, integraciones y admin | Semántica común, alternativa a drag y controles consistentes. |

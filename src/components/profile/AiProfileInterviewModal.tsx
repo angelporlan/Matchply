@@ -306,7 +306,7 @@ export default function AiProfileInterviewModal({
                 type="button"
                 onClick={handleSynthesize}
                 disabled={synthesizing || loadingQuestions}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-ai to-ai-action text-white text-xs font-bold shadow-md shadow-ai/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                className="btn-raised btn-raised--ai btn-raised--sm"
               >
                 {synthesizing ? (
                   <>

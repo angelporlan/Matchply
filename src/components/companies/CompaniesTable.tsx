@@ -25,6 +25,7 @@ import CompanyColumnHeaderMenu from './CompanyColumnHeaderMenu';
 import CompanyIcon from './CompanyIcon';
 import { formatDate, cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { Button } from '@/components/ui/Button';
 
 interface CompaniesTableProps {
   companies: CompanyListRow[];
@@ -283,14 +284,10 @@ export default function CompaniesTable({
             <Building2 className="w-8 h-8 mx-auto mb-3 text-text-muted opacity-60 stroke-[1.75]" />
             <p className="text-sm font-bold text-text font-display">{t('companies.empty.title')}</p>
             <p className="text-xs text-text-muted font-sans mt-1">{t('companies.empty.desc')}</p>
-            <button
-              type="button"
-              onClick={onNewCompany}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-[8px] bg-text dark:bg-white text-canvas text-xs font-semibold transition-colors"
-            >
+            <Button type="button" onClick={onNewCompany} className="mt-4">
               <Plus className="w-3.5 h-3.5 stroke-[1.75]" />
               {t('companies.newBtn')}
-            </button>
+            </Button>
           </>
         )}
       </div>

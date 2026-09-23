@@ -109,7 +109,7 @@ export default async function AdminUsersPage({
           </select>
         </label>
         <div className="flex items-end">
-          <button type="submit" className="btn-raised min-h-[44px] w-full">Filtrar</button>
+          <button type="submit" className="btn-raised btn-raised--secondary min-h-[44px] w-full">Filtrar</button>
         </div>
       </form>
 

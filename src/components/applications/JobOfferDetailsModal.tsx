@@ -14,10 +14,13 @@ import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
-  Edit3, Save, Loader2, Sparkles, Clock, Archive,
+  Edit3, Save, Sparkles, Clock, Archive,
   TrendingUp, AlertTriangle, AlertCircle, Copy, Check, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { scoreToPercent } from '@/lib/application-views';
+import { matchScoreStrokeClass } from './matchScoreStyle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { MATCH_DIMENSION_KEYS, MATCH_DIMENSION_LABELS } from '@/lib/matching/types';
 import { currentMatchEvidence } from '@/lib/match-display';
@@ -194,7 +197,7 @@ export default function JobOfferDetailsModal({
       case 'interested':
         return {
           title: t('applications.columns.interested.title'),
-          style: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+          style: 'text-ai-text bg-ai-surface border-ai/20',
           icon: <Bookmark className="w-3.5 h-3.5 stroke-[1.75]" />,
         };
       case 'applied':
@@ -493,9 +496,9 @@ export default function JobOfferDetailsModal({
                           <div className="border-t border-subtle pt-3 flex justify-end">
                             <a
                               href={`/editor/${offer.cvId}`}
-                              className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover px-4 py-2 rounded-[8px] shadow-sm transition-all flex items-center gap-1.5"
+                              className="btn-raised btn-raised--secondary btn-raised--sm"
                             >
-                              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
+                              <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
                               {t('applications.modal.viewCvBtn')}
                             </a>
                           </div>
@@ -655,31 +658,35 @@ export default function JobOfferDetailsModal({
                                 <>
                                   <a
                                     href={`/editor/${offer.cvId}`}
-                                    className="text-xs font-bold text-text bg-surface border border-control dark:border-white/15 hover:bg-surface-muted dark:hover:bg-surface-muted px-3.5 py-2 rounded-[8px] transition-all flex items-center gap-1.5"
+                                    className="btn-raised btn-raised--secondary btn-raised--sm"
                                   >
                                     <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
                                     {t('applications.modal.viewCvBtn')}
                                   </a>
-                                  <button
+                                  <Button
                                     type="button"
+                                    variant="ai"
+                                    size="sm"
                                     onClick={handleOptimizeCvForOffer}
                                     disabled={optimizingCv || loading}
-                                    className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover px-3.5 py-2 rounded-[8px] shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                    loading={optimizingCv}
                                   >
-                                    {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                                    {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
                                     Re-optimizar con IA
-                                  </button>
+                                  </Button>
                                 </>
                               ) : (
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ai"
+                                  size="sm"
                                   onClick={handleOptimizeCvForOffer}
                                   disabled={optimizingCv || loading}
-                                  className="text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover px-4 py-2 rounded-[8px] shadow-sm shadow-ai/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                  loading={optimizingCv}
                                 >
-                                  {optimizingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
-                                  ✨ Crear y optimizar CV con IA
-                                </button>
+                                  {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
+                                  Crear y optimizar CV con IA
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -727,13 +734,7 @@ export default function JobOfferDetailsModal({
                                     cx="40"
                                     cy="40"
                                     r="34"
-                                    className={`fill-transparent transition-all duration-1000 ${
-                                      (offer.scoreOverall ?? 0) >= 75
-                                        ? 'stroke-emerald-500'
-                                        : (offer.scoreOverall ?? 0) >= 60
-                                        ? 'stroke-ai'
-                                        : 'stroke-rose-500'
-                                    }`}
+                                    className={`fill-transparent transition-all duration-1000 ${matchScoreStrokeClass(scoreToPercent(offer.scoreOverall))}`}
                                     strokeWidth="6"
                                     strokeDasharray={2 * Math.PI * 34}
                                     strokeDashoffset={2 * Math.PI * 34 - ((offer.scoreOverall ?? 0) / 100) * (2 * Math.PI * 34)}
@@ -1140,23 +1141,10 @@ export default function JobOfferDetailsModal({
                 >
                   {t('common.cancel')}
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted dark:text-canvas rounded-[8px] transition-all disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('applications.modal.savingBtn')}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 stroke-[1.75]" />
-                      {t('applications.modal.saveChangesBtn')}
-                    </>
-                  )}
-                </button>
+                <Button type="submit" variant="strong" size="sm" disabled={loading} loading={loading}>
+                  {!loading && <Save className="w-4 h-4 stroke-[1.75]" />}
+                  {loading ? t('applications.modal.savingBtn') : t('applications.modal.saveChangesBtn')}
+                </Button>
               </div>
             </form>
           )}
