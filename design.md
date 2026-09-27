@@ -97,7 +97,7 @@ No usar `border-subtle` como única señal para identificar un campo. Evitar tex
 
 Acción y éxito comparten familia verde, pero el éxito se presenta como estado compacto con icono y texto, no como otro botón. Rojo, ámbar y azul son colores semánticos, no nuevos acentos decorativos. Para hover destructivo usar `#991B1B` con blanco en claro y `#FECACA` con `#0B0F19` en oscuro.
 
-**Logo:** conservar las dos barras y el wordmark. Valores actuales: barras `#4E46E5` y `#8F84F8`, «match» medianoche y «ply» `#8F84F8`; en oscuro, barras y «ply» `#B4A9FB`, «match» blanco. Es la excepción de marca al púrpura funcional. No recolorear todo el menú para imitar el logo.
+**Logo:** isotipo «Match Checkmark» (glifo de la letra M en medianoche/blanco con el trazo de check central integrado en verde esmeralda `#2ECC71`, comunicando validación y matching) y wordmark «match» medianoche (`#1E1B4B` en claro / `#F3F4F6` en oscuro, extrabold) y «ply» violeta (`#6366F1` en claro / `#A78BFA` en oscuro, medium). Dos variantes modulares: `standard` (isotipo + palabra completa «matchply» para UI general, navbar y sidebar) y `hero` (isotipo haciendo de M capitular + «atchply» con `sr-only` para el hero de marketing). SVG vectorial pixel-perfect escalable. No recolorear todo el menú para imitar el logo.
 
 ### Disciplina de uso
 
@@ -421,7 +421,7 @@ Se revisaron también README, integraciones/Stripe y especificaciones de `docs/`
 | `tailwind.config.ts` | Tema por clase, colores HSL variables, Inter/Outfit y radios 12/10/8 px. Conservar mecanismo y completar semántica. |
 | `src/app/globals.css` | `:root` oscuro; glass, glow, scrollbars, float, pulse y shimmer. Corregir temas y revisar consumidores antes de retirar utilidades. |
 | `src/app/layout.tsx` | Carga fuentes y sincroniza tema, pero fuerza body oscuro. Preservar sincronización y corregir fondo. |
-| `src/components/ui/Logo.tsx` | Dos barras; `notes.md` atribuía otro púrpura a «ply». Aquí se recoge el real `#8F84F8`. |
+| `src/components/ui/Logo.tsx` | Isotipo «Match Checkmark» (SVG vectorial con check integrado #2ECC71) y wordmark unificado Outfit. |
 | `src/components/ui/ThemeToggle.tsx` | Clase y localStorage con preferencia del sistema. Alinear con tokens. |
 | `src/components/landing/LandingPageClient.tsx` | CTA verde/blanco, botones locales y animaciones. Priorizar contraste y variantes compartidas. |
 | `src/components/ui/` | AlertModal, LanguageToggle, Logo y ThemeToggle; no hay Button compartido en esta revisión. Crearlo al implementar. |

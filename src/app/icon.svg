@@ -1,30 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Rich deep purple background gradient -->
+    <!-- Background Midnight Gradient -->
     <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1E1B4B" />
-      <stop offset="100%" stop-color="#120E2B" />
+      <stop offset="100%" stop-color="#0B0F19" />
     </linearGradient>
     
-    <!-- Shorter left bar gradient -->
-    <linearGradient id="left-bar-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#8F84F8" />
-      <stop offset="100%" stop-color="#6366F1" />
-    </linearGradient>
-    
-    <!-- Taller right bar gradient -->
-    <linearGradient id="right-bar-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#B4A9FB" />
-      <stop offset="100%" stop-color="#8F84F8" />
+    <!-- Emerald Gradient for Match Checkmark -->
+    <linearGradient id="emerald-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#34D399" />
     </linearGradient>
   </defs>
 
-  <!-- Rounded base container -->
-  <rect width="512" height="512" rx="112" fill="url(#bg-grad)" />
+  <!-- Squircle Base Container -->
+  <rect width="512" height="512" rx="116" fill="url(#bg-grad)" />
 
-  <!-- Shorter left bar -->
-  <rect x="158" y="220" width="80" height="160" rx="24" fill="url(#left-bar-grad)" />
+  <!-- M-Checkmark Graphic -->
+  <!-- Left Pillar & Descent -->
+  <path
+    d="M 96 416 V 132 C 96 114.3 110.3 100 128 100 H 134 C 147.9 100 160.6 108.8 164.5 122 L 256 328"
+    stroke="#F3F4F6"
+    stroke-width="56"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
 
-  <!-- Taller right bar -->
-  <rect x="274" y="140" width="80" height="240" rx="24" fill="url(#right-bar-grad)" />
+  <!-- Right Pillar -->
+  <path
+    d="M 416 216 V 416"
+    stroke="#F3F4F6"
+    stroke-width="56"
+    stroke-linecap="round"
+  />
+
+  <!-- Emerald Checkmark Core -->
+  <path
+    d="M 180 252 L 256 344 L 416 112"
+    stroke="url(#emerald-grad)"
+    stroke-width="56"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
 </svg>
