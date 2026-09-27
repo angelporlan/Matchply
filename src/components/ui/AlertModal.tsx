@@ -108,7 +108,7 @@ export default function AlertModal({
       onMouseUp={stopPropagation}
       onTouchStart={stopPropagation}
       onTouchEnd={stopPropagation}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity duration-300"
+      className="modal-scrim"
     >
       <div
         ref={modalRef}

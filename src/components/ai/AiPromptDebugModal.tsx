@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Copy, Check, Play, X, Loader2, Terminal, Code, AlignLeft } from 'lucide-react';
 import type { AiPromptDebugResponse } from '@/lib/ai-prompts-debug';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 
 interface AiPromptDebugModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export default function AiPromptDebugModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <ModalScrim>
       <div
         className="relative w-full max-w-3xl bg-surface border border-ai/30 shadow-2xl rounded-[16px] overflow-hidden flex flex-col max-h-[90vh] text-text font-sans"
         role="dialog"
@@ -219,6 +220,6 @@ export default function AiPromptDebugModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

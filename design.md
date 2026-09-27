@@ -374,7 +374,7 @@ Agrupar ajustes e integraciones por propósito con feedback próximo al control.
 
 - Inputs: label visible, placeholder orientativo, ayuda/error asociado; borde identificable y foco consistente.
 - Alertas: icono, mensaje claro y acción contextual; sin un glow o gradiente distinto para cada tipo.
-- Modales/drawers: foco contenido, cierre accesible, retorno al activador; proteger datos sin guardar cuando corresponda.
+- Modales/drawers: foco contenido, cierre accesible, retorno al activador; proteger datos sin guardar cuando corresponda. El velo (`modal-scrim`, z-60, portal a `document.body`) cubre también el sidebar. El contenido de la app no debe envolver ese velo en una capa `z-10`.
 - Tooltips complementarios, nunca único acceso a información esencial. Menús utilizables con teclado.
 - Scrollbars: respetar el sistema cuando sea posible; no ocultar scroll ni reducir interacción por estética.
 - Skeleton solo si anticipa estructura; no fingir contenido ni éxito. Errores de red no vacían formularios.

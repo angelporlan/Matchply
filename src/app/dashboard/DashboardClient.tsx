@@ -11,6 +11,7 @@ import {
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import CvCard from '@/components/dashboard/CvCard';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -874,7 +875,7 @@ export default function DashboardClient({
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <ModalScrim>
           <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
@@ -1112,7 +1113,7 @@ export default function DashboardClient({
               )}
             </div>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {/* AlertModal para advertencia de falta de CV Principal */}
@@ -1142,8 +1143,7 @@ export default function DashboardClient({
 
       {/* Modal para crear un CV en blanco */}
       {isCreateOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+        <ModalScrim
           role="dialog"
           aria-modal="true"
           aria-label={t('dashboard.cvs.create')}
@@ -1208,7 +1208,7 @@ export default function DashboardClient({
               </form>
             </div>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {previewCv && <CvQuickPreviewModal cv={previewCv} onClose={() => setPreviewCv(null)} />}

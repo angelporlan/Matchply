@@ -331,7 +331,7 @@ export default function JobOfferDetailsModal({
   return createPortal(
     <div
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
+      className="modal-scrim"
     >
       <div
         ref={modalRef}

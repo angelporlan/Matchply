@@ -97,7 +97,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
-      <main className={`max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 ${isTableLayout ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
+      <main className={`max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative ${isTableLayout ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
         <ApplicationsClient
           offers={workspace.items}
           filteredTotal={workspace.total}

@@ -11,6 +11,7 @@ import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationV
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
 import { queryApplicationIdsAction, queryApplicationsAction } from '@/app/dashboard/applications/query-actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
@@ -1039,7 +1040,7 @@ export default function ApplicationsClient({
 
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <ModalScrim>
           <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden">
             
             {/* Adornos visuales */}
@@ -1164,7 +1165,7 @@ export default function ApplicationsClient({
               </div>
             </form>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {detailsLoading && <OfferDetailsModalSkeleton />}

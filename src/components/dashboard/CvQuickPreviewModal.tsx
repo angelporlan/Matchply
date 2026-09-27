@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { CvListItem } from '@/lib/job-offer-queries';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { A4PageSkeleton } from '@/components/skeletons';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 
 const PdfViewer = dynamic(() => import('@/components/editor/PdfViewer'), {
   ssr: false,
@@ -37,8 +38,8 @@ export default function CvQuickPreviewModal({ cv, onClose }: CvQuickPreviewModal
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+    <ModalScrim
+      className="p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={t('dashboard.cvs.card.preview')}
@@ -69,6 +70,6 @@ export default function CvQuickPreviewModal({ cv, onClose }: CvQuickPreviewModal
           <PdfViewer cvId={cv.id} version={new Date(cv.updatedAt).getTime()} />
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

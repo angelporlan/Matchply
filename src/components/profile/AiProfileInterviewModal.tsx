@@ -12,6 +12,7 @@ import {
 import DictationTextarea from './DictationTextarea';
 import type { InterviewQuestion, ProfileClassification } from '@/lib/profile-classification';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 
 interface AiProfileInterviewModalProps {
   isOpen: boolean;
@@ -164,7 +165,7 @@ export default function AiProfileInterviewModal({
   const answeredCount = questions.filter((q) => (answers[q.id] || '').trim()).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm animate-in fade-in">
+    <ModalScrim>
       <div className="bg-white dark:bg-surface border border-ai/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-subtle flex items-center justify-between bg-gradient-to-r from-ai/10 to-transparent">
           <div className="flex items-center gap-3">
@@ -327,7 +328,7 @@ export default function AiProfileInterviewModal({
                 type="button"
                 onClick={handleConfirm}
                 disabled={!masterDraft.trim()}
-                className="px-5 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                className="btn-raised btn-raised--sm"
               >
                 Usar este documento
               </button>
@@ -335,6 +336,6 @@ export default function AiProfileInterviewModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

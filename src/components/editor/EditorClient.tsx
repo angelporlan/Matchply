@@ -7,6 +7,7 @@ import MarkdownEditor from './MarkdownEditor';
 import PdfViewer from './PdfViewer';
 import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
   Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette,
   Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw,
@@ -455,7 +456,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={user} isPremium={isPremium} isGuest={isGuest} />
-      <div className="flex-1 h-screen flex flex-col relative z-10 overflow-hidden">
+      <div className="flex-1 h-screen flex flex-col relative overflow-hidden">
         {/* Background glow effects */}
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
@@ -486,13 +487,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
         {/* Botones de acción principal */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsAiOpen(true)}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-[8px] bg-ai-action hover:bg-ai-hover text-on-ai-action font-bold text-xs shadow-sm hover:shadow-md transition-all font-display hover:-translate-y-0.5"
-          >
+          <Button type="button" variant="ai" size="sm" onClick={() => setIsAiOpen(true)}>
             <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
             {t('editor.header.optimizeBtn')}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -691,7 +689,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <ModalScrim>
           <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
@@ -937,7 +935,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               )}
             </div>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {/* Barra de estado inferior fija */}

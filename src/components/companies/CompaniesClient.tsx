@@ -22,6 +22,7 @@ import {
 } from '@/app/dashboard/applications/companies/actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import CompaniesTable from './CompaniesTable';
 import type {
@@ -491,7 +492,7 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
 
       {/* Modal Nueva Empresa */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <ModalScrim>
           <div className="relative w-full max-w-lg bg-surface border border-subtle rounded-2xl p-6 md:p-8 shadow-dialog overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
@@ -597,7 +598,7 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
               </div>
             </form>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {/* AlertModal para Borrado Individual */}

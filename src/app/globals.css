@@ -266,6 +266,24 @@
   }
 }
 
+/* Velo de diálogo. z-60 queda por encima del sidebar (z-50). El contenido no puede crear una capa z-10 que lo atrape. */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.dark .modal-scrim {
+  background: rgb(0 0 0 / 0.8);
+}
+
 /* Pestañas y toggles: no son CTA. El activo pesa en tipo, no en bloque tinta. */
 .segmented {
   display: inline-flex;

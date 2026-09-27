@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Download, Copy, Check, X, Loader2, FileSpreadsheet, CheckSquare, Square } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import { getOffersExportDataAction } from '@/app/dashboard/applications/export-actions';
 import { formatDataAsCsv, formatDataAsTsv, triggerCsvDownload, ExportColumnDefinition } from '@/lib/export-helpers';
 
@@ -227,7 +228,7 @@ export default function ExportApplicationsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <ModalScrim>
       <div className="relative w-full max-w-2xl rounded-[16px] border border-subtle bg-surface shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle">
@@ -338,6 +339,6 @@ export default function ExportApplicationsModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

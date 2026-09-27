@@ -444,7 +444,7 @@ export function OfferDetailPageSkeleton() {
 export function OfferDetailsModalSkeleton() {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+      className="modal-scrim"
       aria-busy="true"
     >
       <ScreenBusy />

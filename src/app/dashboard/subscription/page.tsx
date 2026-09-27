@@ -24,7 +24,7 @@ export default async function SubscriptionPage() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
 
         {/* HEADER SECTION */}
         <div className="text-center mb-12">
