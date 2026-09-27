@@ -179,12 +179,14 @@ export const extensionPairingCodes = pgTable('extension_pairing_code', {
   userStatusIdx: index('extension_pairing_code_user_status_idx').on(table.userId, table.expiresAt, table.consumedAt),
 }));
 
-// Claves de agente (PAT). Nunca se almacena el secreto, solo su SHA-256.
+// Claves de agente. La autenticación usa el hash. tokenCipher es el secreto
+// cifrado para que el dueño pueda copiarlo; no se selecciona en listados.
 export const userApiTokens = pgTable('user_api_token', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   name: text('name').notNull(),
   tokenHash: text('tokenHash').notNull().unique(),
+  tokenCipher: text('tokenCipher'),
   lastChars: text('lastChars').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
@@ -195,11 +197,13 @@ export const userApiTokens = pgTable('user_api_token', {
   userIdx: index('user_api_token_user_idx').on(table.userId, table.createdAt),
 }));
 
-// Sesiones limitadas de la extensión. Nunca se almacena el token en claro.
+// Sesiones de la extensión. La autenticación usa el hash. tokenCipher permite
+// copiar el secreto; no se selecciona en el listado.
 export const extensionInstallations = pgTable('extension_installation', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   tokenHash: text('tokenHash').notNull().unique(),
+  tokenCipher: text('tokenCipher'),
   tokenPrefix: text('tokenPrefix').notNull(),
   extensionVersion: text('extensionVersion'),
   status: text('status').default('active').notNull(), // active | revoked | expired

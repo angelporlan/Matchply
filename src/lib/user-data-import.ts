@@ -43,6 +43,7 @@ const FORBIDDEN_KEYS = new Set([
   'apiKey',
   'apiKeyHash',
   'tokenHash',
+  'tokenCipher',
   'codeHash',
   'supportSessionId',
 ]);
