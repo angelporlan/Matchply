@@ -224,27 +224,23 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
             {t('subscription.integrations.apiKeys.title')}
           </h3>
           <p className="text-xs text-text-muted font-sans font-light max-w-xl leading-relaxed">
-            {t('subscription.integrations.apiKeys.description')}
+            {t('subscription.integrations.apiKeys.description')}{' '}
+            <button
+              type="button"
+              onClick={() => setPromptInfoOpen(true)}
+              className="inline-flex items-center gap-1 font-medium text-text underline underline-offset-2 hover:text-ai-action transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus rounded-sm"
+            >
+              <Info className="w-3.5 h-3.5 text-ai-action inline shrink-0" />
+              <span>{t('subscription.integrations.apiKeys.howToGuide')}</span>
+            </button>
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="inline-flex items-center gap-1">
-            <Button type="button" variant="secondary" size="sm" onClick={() => void copy(AGENT_CV_SYSTEM_PROMPT, 'system-prompt')}>
-              {copied === 'system-prompt' ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-              {copied === 'system-prompt' ? t('subscription.integrations.apiKeys.copyPromptDone') : t('subscription.integrations.apiKeys.copyPrompt')}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="px-2 text-text-muted hover:text-text"
-              onClick={() => setPromptInfoOpen(true)}
-              aria-label={t('subscription.integrations.apiKeys.promptInfoBtn')}
-              title={t('subscription.integrations.apiKeys.promptInfoBtn')}
-            >
-              <Info className="w-3.5 h-3.5" />
-            </Button>
-          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void copy(AGENT_CV_SYSTEM_PROMPT, 'system-prompt')}>
+            {copied === 'system-prompt' ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+            {copied === 'system-prompt' ? t('subscription.integrations.apiKeys.copyPromptDone') : t('subscription.integrations.apiKeys.copyPrompt')}
+          </Button>
           <Button type="button" variant="primary" size="sm" onClick={() => { setError(null); setCreateOpen(true); }}>
             <KeyRound className="w-3.5 h-3.5 stroke-[1.75]" />
             {t('subscription.integrations.apiKeys.create')}

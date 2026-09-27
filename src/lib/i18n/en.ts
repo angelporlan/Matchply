@@ -856,6 +856,7 @@ const en = {
           promptInfoHowStep2: 'Paste it into your agent\'s system instructions (in Claude Desktop, Custom GPTs, Cursor rules, or as the "system" role in your scripts).',
           promptInfoHowStep3: 'Provide your agent with your API key (Bearer mp_live_...) so it can read your profile (GET /api/v1/agent/profile) and save the new CV (POST /api/v1/agent/cvs).',
           promptInfoClose: 'Got it',
+          howToGuide: 'How to configure your agent? Usage guide →',
           empty: 'No keys yet. Create one and copy it into the agent; it will not be shown again.',
           nameLabel: 'Name',
           namePlaceholder: 'Cursor, Claude, CLI…',

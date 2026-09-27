@@ -904,6 +904,7 @@ const es = {
           promptInfoHowStep2: 'Pégalo en la sección de instrucciones del agente (en Claude Desktop, Custom GPTs, Cursor rules o como rol "system" en tus scripts).',
           promptInfoHowStep3: 'Facilítale a tu agente tu clave de API (Bearer mp_live_...) para que pueda consultar tu perfil (GET /api/v1/agent/profile) y guardar el nuevo CV (POST /api/v1/agent/cvs).',
           promptInfoClose: 'Entendido',
+          howToGuide: '¿Cómo configurar tu agente? Guía de uso →',
           empty: 'Todavía no hay claves. Crea una y cópiala en el agente; no volverá a mostrarse.',
           nameLabel: 'Nombre',
           namePlaceholder: 'Cursor, Claude, CLI…',
