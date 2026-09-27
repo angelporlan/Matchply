@@ -202,12 +202,13 @@
   --btn-edge: #7f1d1d;
 }
 
+/* En oscuro el canto es pizarra, no blanco: se ve sobre el canvas sin parecer tiza. */
 .dark .btn-raised {
-  --btn-edge: #0b0f19;
+  --btn-edge: #4a5a78;
 }
 
 .dark .btn-raised--ai {
-  --btn-edge: #0b0f19;
+  --btn-edge: #5c4a86;
 }
 
 .dark .btn-raised--secondary {
@@ -218,7 +219,21 @@
   --btn-bg: #fca5a5;
   --btn-hover: #fecaca;
   --btn-fg: #0b0f19;
-  --btn-edge: #0b0f19;
+  --btn-edge: #6e343c;
+}
+
+/* En claro, sobre la banda tinta, el canto medianoche se funde con el fondo. */
+html:not(.dark) .on-ink .btn-raised:not(.btn-raised--on-ink) {
+  --btn-edge: #f4f2fb;
+}
+
+.btn-raised--on-ink {
+  --btn-bg: transparent;
+  --btn-hover: rgba(255, 255, 255, 0.12);
+  --btn-fg: #ffffff;
+  --btn-edge: rgba(255, 255, 255, 0.7);
+  box-shadow: none;
+  border-width: 1px;
 }
 
 @media (hover: hover) {
@@ -230,7 +245,8 @@
   }
 
   .btn-raised--secondary:hover,
-  .btn-raised--ghost:hover {
+  .btn-raised--ghost:hover,
+  .btn-raised--on-ink:hover {
     box-shadow: none;
   }
 }
@@ -336,6 +352,12 @@
   background: color-mix(in srgb, var(--text) 10%, var(--surface));
   color: var(--text);
   font-weight: 700;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.dark .segmented__item[aria-pressed='true'],
+.dark .pill-tab[aria-pressed='true'] {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 }
 
 .pill-tab[aria-pressed='true'] {
@@ -346,6 +368,17 @@
 .pill-tab[aria-pressed='true']:hover {
   background: color-mix(in srgb, var(--text) 14%, var(--surface));
   border-color: transparent;
+}
+
+.segmented-indicator {
+  background: color-mix(in srgb, var(--text) 12%, var(--surface));
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.dark .segmented-indicator {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 }
 
 /* ============================================================
