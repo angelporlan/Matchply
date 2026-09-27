@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/lib/audit';
 import { AgentApiError } from '@/lib/agent-api/errors';
-import { createUserApiToken, revokeUserApiToken } from '@/lib/agent-api/tokens';
+import { createUserApiToken, deleteRevokedUserApiToken, revealUserApiToken, revokeUserApiToken } from '@/lib/agent-api/tokens';
 import type { AgentScope } from '@/lib/agent-api/scopes';
 import { parseApiTokenName } from '@/lib/agent-api/validate';
 import { parseApiTokenScopes } from '@/lib/api-key-auth';
@@ -63,6 +63,28 @@ export async function revokeApiKeyAction(tokenId: string) {
     await createAuditLog('api_key_revoked', user.id, user.email, { apiKeyId: revoked.id });
     revalidatePath('/dashboard/profile');
     return { success: true as const, id: revoked.id };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function revealApiKeyAction(tokenId: string) {
+  try {
+    const user = await requireApiKeyOwner();
+    const token = await revealUserApiToken(user.id, tokenId);
+    return { success: true as const, token };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function deleteApiKeyAction(tokenId: string) {
+  try {
+    const user = await requireApiKeyOwner();
+    const deleted = await deleteRevokedUserApiToken(user.id, tokenId);
+    await createAuditLog('api_key_deleted', user.id, user.email, { apiKeyId: deleted.id });
+    revalidatePath('/dashboard/profile');
+    return { success: true as const, id: deleted.id };
   } catch (error) {
     return actionError(error);
   }

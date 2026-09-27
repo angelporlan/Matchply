@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Clipboard, Link2, Loader2, RefreshCw, ShieldCheck, Trash2, Unplug } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
 
 type Installation = {
   id: string;
@@ -38,6 +39,8 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
   const [quota, setQuota] = useState(initialQuota);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedPrefixId, setCopiedPrefixId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -78,6 +81,38 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
     await navigator.clipboard.writeText(pairing.code);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function copySession(id: string) {
+    setError(null);
+    const response = await fetch(`/api/extension/pairings/${id}`, { cache: 'no-store' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || typeof body.token !== 'string') {
+      setError(body.error || 'No se pudo copiar la sesión');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(body.token);
+      setCopiedPrefixId(id);
+      window.setTimeout(() => setCopiedPrefixId((current) => (current === id ? null : current)), 1800);
+    } catch {
+      setError('No se pudo copiar la sesión');
+    }
+  }
+
+  async function removeInstallation() {
+    if (!deleteId) return;
+    setLoading(true);
+    setError(null);
+    const response = await fetch(`/api/extension/pairings/${deleteId}?remove=1`, { method: 'DELETE' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setError(body.error || 'No se pudo quitar la instalación');
+    } else {
+      setInstallations((current) => current.filter((installation) => installation.id !== deleteId));
+      setDeleteId(null);
+    }
+    setLoading(false);
   }
 
   return (
@@ -128,13 +163,39 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
           <div className="flex items-center justify-between"><h4 className="text-sm font-bold text-text">Instalaciones conectadas</h4><button type="button" onClick={() => void refresh()} className="text-xs text-ai hover:underline">Actualizar</button></div>
           {!installations.length ? <div className="p-4 rounded-lg border border-dashed border-control dark:border-white/10 text-xs text-slate-500">Aún no hay una instalación vinculada.</div> : installations.map(installation => (
             <div key={installation.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-subtle bg-canvas/20">
-              <div className="flex items-start gap-3"><div className={`mt-1 w-2 h-2 rounded-full ${installation.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} /><div><div className="text-xs font-semibold text-text">{installation.tokenPrefix}… · {installation.status === 'active' ? 'Activa' : 'Revocada'}</div><div suppressHydrationWarning className="text-[10px] text-slate-500 mt-1">v{installation.extensionVersion || '?'} · última actividad {formatDate(installation.lastSeenAt)} · última captura {formatDate(installation.lastCaptureAt)}</div></div></div>
-              {installation.status === 'active' && <button type="button" onClick={() => void revoke(installation.id)} disabled={loading} className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs text-rose-500 hover:text-rose-600 disabled:opacity-50"><Unplug className="w-3.5 h-3.5" /> Revocar</button>}
+              <div className="flex items-start gap-3 min-w-0">
+                <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${installation.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1 text-xs font-semibold text-text">
+                    <span className="truncate">{installation.tokenPrefix}… · {installation.status === 'active' ? 'Activa' : 'Revocada'}</span>
+                    <button type="button" onClick={() => void copySession(installation.id)} className="p-1 rounded-md text-text-muted hover:text-text hover:bg-surface-muted shrink-0" aria-label="Copiar token" title="Copiar token">
+                      {copiedPrefixId === installation.id ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <div suppressHydrationWarning className="text-[10px] text-slate-500 mt-1">v{installation.extensionVersion || '?'} · última actividad {formatDate(installation.lastSeenAt)} · última captura {formatDate(installation.lastCaptureAt)}</div>
+                </div>
+              </div>
+              {installation.status === 'active' ? (
+                <button type="button" onClick={() => void revoke(installation.id)} disabled={loading} className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs text-rose-500 hover:text-rose-600 disabled:opacity-50"><Unplug className="w-3.5 h-3.5" /> Revocar</button>
+              ) : (
+                <button type="button" onClick={() => setDeleteId(installation.id)} disabled={loading} className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs text-rose-500 hover:text-rose-600 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" /> Eliminar</button>
+              )}
             </div>
           ))}
         </div>
         <p className="text-[10px] text-slate-500 dark:text-text-muted flex items-start gap-2"><Trash2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Matchply no guarda API keys en la extensión ni envía candidaturas, mensajes o contactos automáticamente.</p>
       </div>
+      <AlertModal
+        isOpen={Boolean(deleteId)}
+        onClose={() => { if (!loading) setDeleteId(null); }}
+        type="danger"
+        title="Quitar instalación"
+        message="Desaparecerá de la lista. La sesión ya no funciona."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={() => void removeInstallation()}
+        isPending={loading}
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'crypto';
-import { and, desc, eq, gt, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lt, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { extensionInstallations, extensionPairingCodes, users } from '@/db/schema';
+import { decryptSecret, encryptSecret } from '@/lib/secret-box';
 import { requireUserFeature } from '@/lib/permissions';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { NextRequest } from 'next/server';
@@ -105,6 +106,39 @@ export async function revokeExtensionInstallation(userId: string, installationId
   return updated;
 }
 
+export async function deleteRevokedExtensionInstallation(userId: string, installationId: string) {
+  const [deleted] = await db.delete(extensionInstallations).where(and(
+    eq(extensionInstallations.id, installationId),
+    eq(extensionInstallations.userId, userId),
+    ne(extensionInstallations.status, 'active'),
+  )).returning({ id: extensionInstallations.id });
+  if (!deleted) throw new ExtensionAuthError(404, 'Extension installation not found');
+  return deleted;
+}
+
+export async function revealExtensionInstallationToken(userId: string, installationId: string) {
+  const [row] = await db.select({
+    tokenCipher: extensionInstallations.tokenCipher,
+    tokenHash: extensionInstallations.tokenHash,
+  }).from(extensionInstallations).where(and(
+    eq(extensionInstallations.id, installationId),
+    eq(extensionInstallations.userId, userId),
+  )).limit(1);
+  if (!row?.tokenCipher) {
+    throw new ExtensionAuthError(409, 'Esta sesión se creó sin guardar el token completo. Revócala y vuelve a vincular la extensión.');
+  }
+  let token: string;
+  try {
+    token = decryptSecret(row.tokenCipher);
+  } catch {
+    throw new ExtensionAuthError(409, 'No se pudo recuperar el token.');
+  }
+  if (hashSecret(token) !== row.tokenHash) {
+    throw new ExtensionAuthError(409, 'No se pudo recuperar el token.');
+  }
+  return token;
+}
+
 export async function claimExtensionPairingCode(codeInput: unknown, extensionVersion?: unknown) {
   const code = normalizePairingCode(codeInput);
   if (!code) throw new ExtensionAuthError(400, 'Pairing code is invalid');
@@ -131,6 +165,7 @@ export async function claimExtensionPairingCode(codeInput: unknown, extensionVer
     const [installation] = await tx.insert(extensionInstallations).values({
       userId: consumed.userId,
       tokenHash: hashSecret(token),
+      tokenCipher: encryptSecret(token),
       tokenPrefix: token.slice(0, 18),
       extensionVersion: typeof extensionVersion === 'string' ? extensionVersion.slice(0, 40) : null,
       status: 'active',

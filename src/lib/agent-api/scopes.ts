@@ -21,6 +21,7 @@ export type ApiTokenView = {
   lastUsedAt: Date | string | null;
   revokedAt: Date | string | null;
   expiresAt: Date | string | null;
+  recoverable: boolean;
 };
 
 export function apiTokenHint(lastChars: string) {

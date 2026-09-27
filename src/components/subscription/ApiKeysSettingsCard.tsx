@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Clipboard, KeyRound } from 'lucide-react';
-import { createApiKeyAction, revokeApiKeyAction } from '@/app/dashboard/profile/api-key-actions';
+import { createApiKeyAction, deleteApiKeyAction, revealApiKeyAction, revokeApiKeyAction } from '@/app/dashboard/profile/api-key-actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import {
@@ -90,13 +90,16 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
   const [scopes, setScopes] = useState<AgentScope[]>([...AGENT_SCOPES]);
   const [secret, setSecret] = useState<string | null>(null);
   const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState(false);
-  const [copied, setCopied] = useState<'token' | 'curl' | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const fullAccess = scopes.length === AGENT_SCOPES.length;
   const revokeTarget = tokens.find((token) => token.id === revokeId) ?? null;
+  const deleteTarget = tokens.find((token) => token.id === deleteId) ?? null;
 
   function errorText(code: string) {
     const key = `subscription.integrations.apiKeys.errors.${code}`;
@@ -160,7 +163,21 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
     setRevokeId(null);
   }
 
-  async function copy(value: string, kind: 'token' | 'curl') {
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    setError(null);
+    const result = await deleteApiKeyAction(deleteId);
+    setDeleting(false);
+    if ('error' in result) {
+      setError(errorText(result.error));
+      return;
+    }
+    setTokens((current) => current.filter((token) => token.id !== result.id));
+    setDeleteId(null);
+  }
+
+  async function copy(value: string, kind: string) {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(kind);
@@ -168,6 +185,16 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
     } catch {
       setError(errorText('generic'));
     }
+  }
+
+  async function copyStoredToken(id: string) {
+    setError(null);
+    const result = await revealApiKeyAction(id);
+    if ('error' in result) {
+      setError(errorText(result.error));
+      return;
+    }
+    await copy(result.token, id);
   }
 
   const curl = secret
@@ -214,16 +241,31 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
                     {active ? t('subscription.integrations.apiKeys.active') : t('subscription.integrations.apiKeys.revoked')}
                   </span>
                 </div>
-                <code className="text-xs text-text-muted font-sans">{apiTokenHint(token.lastChars)}</code>
+                <div className="flex items-center gap-1">
+                  <code className="text-xs text-text-muted font-sans">{apiTokenHint(token.lastChars)}</code>
+                  <button
+                    type="button"
+                    onClick={() => void copyStoredToken(token.id)}
+                    className="p-1 rounded-md text-text-muted hover:text-text hover:bg-surface-muted"
+                    aria-label={t('subscription.integrations.apiKeys.copy')}
+                    title={t('subscription.integrations.apiKeys.copy')}
+                  >
+                    {copied === token.id ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
                 <p className="text-[11px] text-text-muted font-sans">
                   <span title={absolute(token.createdAt)}>{t('subscription.integrations.apiKeys.created', { when: relative(token.createdAt) })}</span>
                   {' · '}
                   <span title={absolute(token.lastUsedAt)}>{t('subscription.integrations.apiKeys.lastUsed', { when: relative(token.lastUsedAt) })}</span>
                 </p>
               </div>
-              {active && (
+              {active ? (
                 <Button type="button" variant="ghost" size="sm" className="self-start sm:self-auto text-danger-text" onClick={() => setRevokeId(token.id)}>
                   {t('subscription.integrations.apiKeys.revoke')}
+                </Button>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" className="self-start sm:self-auto text-danger-text" onClick={() => setDeleteId(token.id)}>
+                  {t('subscription.integrations.apiKeys.remove')}
                 </Button>
               )}
             </li>
@@ -324,6 +366,17 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
         cancelLabel={t('subscription.integrations.apiKeys.cancel')}
         onConfirm={() => void confirmRevoke()}
         isPending={revoking}
+      />
+      <AlertModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => { if (!deleting) setDeleteId(null); }}
+        type="danger"
+        title={t('subscription.integrations.apiKeys.removeTitle')}
+        message={t('subscription.integrations.apiKeys.removeMessage', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('subscription.integrations.apiKeys.removeConfirm')}
+        cancelLabel={t('subscription.integrations.apiKeys.cancel')}
+        onConfirm={() => void confirmDelete()}
+        isPending={deleting}
       />
     </section>
   );
