@@ -107,10 +107,10 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
 const CV_HONESTY_INSTRUCTIONS = `
 REGLAS DE FIDELIDAD DEL CV:
 - No inventes experiencia, tecnologías, responsabilidades, empresas, fechas, logros ni métricas.
-- No conviertas conocimiento adyacente en experiencia directa. Conserva claramente el nivel de evidencia del CV base.
+- No conviertas conocimiento adyacente en experiencia directa. Conserva claramente el nivel de evidencia respaldado por el CV base o por el perfil profesional del usuario.
 - Mantén todos los logros relevantes existentes y evita lenguaje genérico o clichés propios de textos generados por IA.
 - Reescribe como máximo 6 viñetas del CV completo. El resto debe conservarse sustancialmente igual.
-- Si una palabra clave de la oferta no está respaldada por el CV base, no la añadas como habilidad o experiencia.
+- Si una palabra clave de la oferta no está respaldada ni por el CV base ni por el perfil profesional del usuario, no la añadas como habilidad o experiencia. Puedes incorporar habilidades o competencias reales presentes en el perfil del usuario si son relevantes para la oferta.
 `;
 
 
@@ -175,22 +175,28 @@ export class AIService {
     return resolveAiPrompt(key, promptId);
   }
 
-  static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId }: OptimizeRequest): Promise<string> {
+  static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId, candidateName, careerProfileContext }: OptimizeRequest): Promise<string> {
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
 
     const resolvedPrompt = await this.resolvePrompt('optimize_cv', modeId || promptId);
     const systemPrompt = resolvedPrompt.systemPrompt;
     const userPromptTemplate = resolvedPrompt.userPrompt;
 
+    const resolvedName = this.extractCandidateName(baseCvMarkdown) || candidateName || "Candidato";
+    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
+    const profileDirective = careerProfileContext?.trim()
+      ? `\n\nPERFIL MAESTRO DEL CANDIDATO (fuente de la verdad de trayectoria y objetivo; no inventes fuera de esto ni del CV):\n${careerProfileContext.trim().slice(0, 3200)}`
+      : '';
+
     if (!isPro) {
       // [FREE] Enrutamiento Plan FREE
       const { provider, model } = await this.routeModel(false, 'optimize_cv');
 
       const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
-      const finalUserPrompt = userPromptTemplate
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
+      const finalUserPrompt = (userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`;
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`) + profileDirective;
 
       if (provider === 'gemini') {
         return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
@@ -205,12 +211,12 @@ export class AIService {
 
       const defaultSystem = provider === 'gemini'
         ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
-        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
+        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base o en el perfil del usuario. No inventes experiencias que no estén en el CV base ni en el perfil del usuario, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
 
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS;
-      const finalUserPrompt = userPromptTemplate
+      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
+      const finalUserPrompt = (userPromptTemplate
         ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`;
+        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`) + profileDirective;
 
       if (provider === 'gemini') {
         return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
