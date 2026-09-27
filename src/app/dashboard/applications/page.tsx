@@ -29,9 +29,16 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
     redirect('/dashboard/subscription');
   }
 
+  if (searchParams?.layout) {
+    const params = new URLSearchParams();
+    if (searchParams.view) params.set('view', searchParams.view);
+    if (searchParams.company) params.set('company', searchParams.company);
+    const query = params.toString();
+    redirect(query ? `/dashboard/applications?${query}` : '/dashboard/applications');
+  }
+
   const cookieStore = cookies();
   const cookieView = cookieStore.get('applications_view')?.value;
-  const cookieLayout = cookieStore.get('applications_layout')?.value;
 
   const [userCvs, viewRows, companies] = await timed('nav_queries', { route: '/dashboard/applications', phase: 'aux' }, () =>
     Promise.all([
@@ -68,10 +75,6 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
     ? requestedViewId
     : defaultViewId;
 
-  const requestedLayout = searchParams?.layout || (cookieLayout === 'board' ? 'board' : 'table');
-  const initialLayout = requestedLayout === 'board' ? 'board' : 'table';
-  const isTableLayout = initialLayout === 'table';
-
   const viewConfig = savedViews.find((view) => view.id === initialViewId)?.config
     || SYSTEM_VIEWS.find((view) => view.id === initialViewId)?.config
     || SYSTEM_VIEWS[0].config;
@@ -81,10 +84,9 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
     columnFilters: initialCompanyIdFilters(viewConfig.filters.columnFilters, searchParams?.company),
   };
 
-  const workspace = await timed('nav_queries', { route: '/dashboard/applications', phase: 'list', layout: initialLayout }, () =>
+  const workspace = await timed('nav_queries', { route: '/dashboard/applications', phase: 'list' }, () =>
     loadApplicationsWorkspace({
       userId,
-      layout: initialLayout,
       filters,
       sort: viewConfig.sort,
       page: 1,
@@ -93,19 +95,17 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   );
 
   return (
-    <div className={`relative overflow-x-clip min-h-screen ${isTableLayout ? 'md:h-[100dvh] md:overflow-hidden' : ''}`}>
+    <div className="relative overflow-x-clip min-h-screen md:h-[100dvh] md:overflow-hidden">
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
-      <main className={`max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative ${isTableLayout ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`}>
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative md:h-full md:flex md:flex-col md:min-h-0">
         <ApplicationsClient
           offers={workspace.items}
           filteredTotal={workspace.total}
-          statusCounts={workspace.statusCounts}
           userCvs={userCvs}
           companies={companies}
           savedViews={savedViews}
-          initialLayout={initialLayout}
           initialViewId={initialViewId}
           initialCompanyId={searchParams?.company}
         />

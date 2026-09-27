@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   columnDateRange,
   dateFilterRange,
-  emptyStatusCounts,
   escapeIlikePattern,
   scoreFilterRange,
 } from '../src/lib/application-filter-bounds';
@@ -38,9 +37,4 @@ test('columnDateRange last7Days is inclusive of today', () => {
   const range = columnDateRange({ column: 'createdAt', operator: 'last7Days', value: '' }, now);
   assert.ok(range.start && range.end);
   assert.ok(range.end > range.start);
-});
-
-test('emptyStatusCounts starts at zero', () => {
-  assert.equal(emptyStatusCounts().all, 0);
-  assert.equal(emptyStatusCounts().archived, 0);
 });

@@ -11,7 +11,8 @@ export type SubscriptionFeature =
   | 'advancedAi'
   | 'applications'
   | 'linkedinExtension'
-  | 'deepResearch';
+  | 'deepResearch'
+  | 'agentApi';
 
 type PlanEntitlements = {
   maxCvs: number | null;
@@ -28,6 +29,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       applications: false,
       linkedinExtension: false,
       deepResearch: false,
+      agentApi: false,
     },
   },
   free: {
@@ -38,6 +40,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       applications: false,
       linkedinExtension: false,
       deepResearch: false,
+      agentApi: false,
     },
   },
   pro: {
@@ -48,6 +51,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       applications: true,
       linkedinExtension: true,
       deepResearch: true,
+      agentApi: true,
     },
   },
 };

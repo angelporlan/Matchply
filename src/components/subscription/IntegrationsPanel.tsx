@@ -3,6 +3,8 @@
 import { CheckCircle2, Lock, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { ButtonLink } from '@/components/ui/Button';
+import type { ApiTokenView } from '@/lib/agent-api/scopes';
+import ApiKeysSettingsCard from './ApiKeysSettingsCard';
 import LinkedInExtensionConsole from './LinkedInExtensionConsole';
 
 type Installation = {
@@ -21,12 +23,14 @@ interface IntegrationsPanelProps {
   isPremium: boolean;
   initialInstallations: Installation[];
   initialQuota: { used: number; limit: number };
+  initialApiTokens: ApiTokenView[];
 }
 
 export default function IntegrationsPanel({
   isPremium,
   initialInstallations,
   initialQuota,
+  initialApiTokens,
 }: IntegrationsPanelProps) {
   const { t } = useLanguage();
 
@@ -84,5 +88,10 @@ export default function IntegrationsPanel({
     );
   }
 
-  return <LinkedInExtensionConsole initialInstallations={initialInstallations} initialQuota={initialQuota} />;
+  return (
+    <div className="space-y-6">
+      <LinkedInExtensionConsole initialInstallations={initialInstallations} initialQuota={initialQuota} />
+      <ApiKeysSettingsCard initialTokens={initialApiTokens} />
+    </div>
+  );
 }

@@ -83,21 +83,3 @@ export function scoreFilterRange(filter: ApplicationColumnFilter) {
 
 export const EXPORT_OFFER_ID_LIMIT = 1_000;
 export const SELECT_ALL_ID_LIMIT = 10_000;
-export const BOARD_COLUMN_PAGE_SIZE = 50;
-
-export type ApplicationStatusCounts = Record<
-  'all' | 'interested' | 'applied' | 'interview' | 'offer' | 'rejected' | 'archived',
-  number
->;
-
-export function emptyStatusCounts(): ApplicationStatusCounts {
-  return {
-    all: 0,
-    interested: 0,
-    applied: 0,
-    interview: 0,
-    offer: 0,
-    rejected: 0,
-    archived: 0,
-  };
-}
