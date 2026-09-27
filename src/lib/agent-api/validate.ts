@@ -2,7 +2,9 @@ import { PIPELINE_STATUSES, type PipelineStatus } from '@/lib/application-servic
 import { AgentApiError } from '@/lib/agent-api/errors';
 import { normalizeCareerProfileFields } from '@/lib/career-profile';
 import { COMPANY_NOTE_MAX, normalizeCompanyName } from '@/lib/company-service';
+import { sha256Hex } from '@/lib/crypto-hash';
 import { parseMatchConstraints } from '@/lib/curation-constraints';
+import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
 
 export const CV_CONTENT_MAX = 400_000;
 export const CV_TITLE_MAX = 120;
@@ -10,6 +12,8 @@ export const APPLICATION_DESCRIPTION_MAX = 100_000;
 export const JOB_TITLE_MAX = 200;
 export const EXTERNAL_ID_MAX = 120;
 export const URL_MAX = 2_000;
+export const TLDR_MAX = 1_000;
+export const EVALUATION_BATCH_MAX = 200;
 const LIST_DEFAULT = 50;
 const LIST_MAX = 100;
 
@@ -306,6 +310,62 @@ function parseCvIdValue(value: unknown): string | null {
   return parseUuid(value, 'invalid_cv', 'El currículum indicado no es válido.');
 }
 
+export function parseScoreOverall(value: unknown): number | null {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100) {
+    throw new AgentApiError(400, 'invalid_score', 'La puntuación tiene que ser un entero entre 0 y 100.');
+  }
+  return value;
+}
+
+export function parseTldr(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new AgentApiError(400, 'invalid_tldr', 'El resumen no es válido.');
+  }
+  const text = value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  if (text.length > TLDR_MAX) {
+    throw new AgentApiError(400, 'invalid_tldr', 'El resumen supera los 1000 caracteres.');
+  }
+  return text;
+}
+
+export type AgentMatchScoreWrite = {
+  scoreOverall: number;
+  matchInputHash: string;
+  matchEvidence: {
+    version: string;
+    inputHash: string;
+    score: number;
+    requirements: [];
+    adjustments: [];
+  };
+  matchKind: 'triage';
+};
+
+// The applications board reads scoreOverall only when this hash and version line up.
+export function buildAgentMatchScore(userId: string, offerId: string, score: number): AgentMatchScoreWrite {
+  const inputHash = sha256Hex(`agent_api:${userId}:${offerId}:${score}:${MATCH_PROMPT_VERSION}`);
+  return {
+    scoreOverall: score,
+    matchInputHash: inputHash,
+    matchEvidence: { version: MATCH_PROMPT_VERSION, inputHash, score, requirements: [], adjustments: [] },
+    matchKind: 'triage',
+  };
+}
+
+export function currentMatchScoreValue(row: {
+  scoreOverall: number | null;
+  matchInputHash: string | null;
+  matchEvidence: { version?: string; inputHash?: string } | null;
+}) {
+  if (row.matchInputHash == null || row.matchEvidence == null) return null;
+  if (row.matchEvidence.version !== MATCH_PROMPT_VERSION) return null;
+  if (row.matchEvidence.inputHash !== row.matchInputHash) return null;
+  return row.scoreOverall;
+}
+
 export type CreateApplicationInput = {
   title: string;
   company: string;
@@ -342,7 +402,11 @@ export function parseCreateApplicationBody(value: unknown): CreateApplicationInp
   };
 }
 
-export type PatchApplicationInput = Partial<CreateApplicationInput> & { note?: string };
+export type PatchApplicationInput = Partial<CreateApplicationInput> & {
+  note?: string;
+  scoreOverall?: number | null;
+  tldr?: string | null;
+};
 
 export function parsePatchApplicationBody(value: unknown): PatchApplicationInput {
   const record = asRecord(value);
@@ -356,6 +420,8 @@ export function parsePatchApplicationBody(value: unknown): PatchApplicationInput
   if ('cvId' in record) patch.cvId = parseCvIdValue(record.cvId);
   if ('externalId' in record) patch.externalId = parseExternalIdValue(record.externalId);
   if ('nextFollowupDate' in record) patch.nextFollowupDate = parseFollowupValue(record.nextFollowupDate);
+  if ('scoreOverall' in record) patch.scoreOverall = parseScoreOverall(record.scoreOverall);
+  if ('tldr' in record) patch.tldr = parseTldr(record.tldr);
   if ('note' in record) {
     const note = parseNoteValue(record.note);
     if (note) patch.note = note;
@@ -364,6 +430,41 @@ export function parsePatchApplicationBody(value: unknown): PatchApplicationInput
     throw new AgentApiError(400, 'empty_patch', 'No hay cambios que guardar.');
   }
   return patch;
+}
+
+export type AgentEvaluationInput = {
+  id: string;
+  scoreOverall: number;
+  tldr?: string | null;
+};
+
+export function parseBatchEvaluationsBody(value: unknown): AgentEvaluationInput[] {
+  const record = asRecord(value);
+  const evaluations = record.evaluations;
+  if (!Array.isArray(evaluations) || evaluations.length < 1 || evaluations.length > EVALUATION_BATCH_MAX) {
+    throw new AgentApiError(400, 'invalid_body', 'Hace falta una lista de entre 1 y 200 evaluaciones.');
+  }
+  const seen = new Set<string>();
+  return evaluations.map((item, index) => {
+    const entry = asRecord(item);
+    if (!('id' in entry) || typeof entry.id !== 'string' || !isUuid(entry.id)) {
+      throw new AgentApiError(400, 'invalid_body', `La evaluación ${index + 1} no tiene un identificador válido.`);
+    }
+    if (seen.has(entry.id)) {
+      throw new AgentApiError(400, 'invalid_body', 'La lista repite una candidatura.');
+    }
+    seen.add(entry.id);
+    if (!('scoreOverall' in entry)) {
+      throw new AgentApiError(400, 'invalid_score', 'Cada evaluación necesita una puntuación.');
+    }
+    const scoreOverall = parseScoreOverall(entry.scoreOverall);
+    if (scoreOverall === null) {
+      throw new AgentApiError(400, 'invalid_score', 'La puntuación del lote tiene que ser un entero entre 0 y 100.');
+    }
+    const evaluation: AgentEvaluationInput = { id: entry.id, scoreOverall };
+    if ('tldr' in entry) evaluation.tldr = parseTldr(entry.tldr);
+    return evaluation;
+  });
 }
 
 export type CreateCvInput = {

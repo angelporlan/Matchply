@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { companyNotes, cvs, jobOffers } from '@/db/schema';
@@ -8,14 +8,17 @@ import {
   decodeApplicationCursor,
   encodeApplicationCursor,
   assertResourceId,
+  buildAgentMatchScore,
   parseAgentStatus,
+  type AgentMatchScoreWrite,
+  parseBatchEvaluationsBody,
   parseCreateApplicationBody,
   parsePatchApplicationBody,
   type CreateApplicationInput,
   type PatchApplicationInput,
 } from '@/lib/agent-api/validate';
 import { findOrCreateCompany } from '@/lib/company-service';
-import { applicationSummaryColumns, type ApplicationSummary } from '@/lib/job-offer-queries';
+import { applicationSummaryColumns, currentMatchScore, type ApplicationSummary } from '@/lib/job-offer-queries';
 
 const AGENT_SOURCE = 'agent_api';
 
@@ -30,6 +33,8 @@ const detailColumns = {
   status: jobOffers.status,
   description: jobOffers.description,
   source: jobOffers.source,
+  scoreOverall: currentMatchScore,
+  tldr: jobOffers.tldr,
   nextFollowupDate: jobOffers.nextFollowupDate,
   createdAt: jobOffers.createdAt,
   updatedAt: jobOffers.updatedAt,
@@ -268,6 +273,12 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
     nextFollowupDate?: Date | null;
     externalSource?: string | null;
     externalId?: string | null;
+    scoreOverall?: number | null;
+    matchInputHash?: string | null;
+    matchEvidence?: AgentMatchScoreWrite['matchEvidence'] | null;
+    matchKind?: string | null;
+    matchEvaluatedAt?: Date | null;
+    tldr?: string | null;
   } = { updatedAt: new Date() };
   const changed: string[] = [];
   if (input.title !== undefined) { fields.title = input.title; changed.push('title'); }
@@ -286,6 +297,27 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
     fields.externalSource = input.externalId ? AGENT_SOURCE : null;
     fields.externalId = input.externalId;
     changed.push('externalId');
+  }
+  if (input.scoreOverall !== undefined) {
+    if (input.scoreOverall === null) {
+      fields.scoreOverall = null;
+      fields.matchInputHash = null;
+      fields.matchEvidence = null;
+      fields.matchKind = null;
+      fields.matchEvaluatedAt = null;
+    } else {
+      const scored = buildAgentMatchScore(userId, current.id, input.scoreOverall);
+      fields.scoreOverall = scored.scoreOverall;
+      fields.matchInputHash = scored.matchInputHash;
+      fields.matchEvidence = scored.matchEvidence;
+      fields.matchKind = scored.matchKind;
+      fields.matchEvaluatedAt = new Date();
+    }
+    changed.push('scoreOverall');
+  }
+  if (input.tldr !== undefined) {
+    fields.tldr = input.tldr;
+    changed.push('tldr');
   }
 
   if (input.note && companyId) changed.push('note');
@@ -317,4 +349,42 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
   revalidateApplication(companyId, input.cvId ?? current.cvId);
   const data = await getAgentApplication(userId, offerId);
   return { data, changed };
+}
+
+export async function batchEvaluateAgentApplications(userId: string, body: unknown) {
+  const evaluations = parseBatchEvaluationsBody(body);
+  const ids = evaluations.map((item) => item.id);
+  const owned = await db
+    .select({ id: jobOffers.id })
+    .from(jobOffers)
+    .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, ids)));
+  if (owned.length !== ids.length) {
+    throw new AgentApiError(404, 'not_found', 'Alguna candidatura no existe o no pertenece a esta cuenta.');
+  }
+
+  const now = new Date();
+  const updatedCount = await db.transaction(async (tx) => {
+    let count = 0;
+    for (const item of evaluations) {
+      const scored = buildAgentMatchScore(userId, item.id, item.scoreOverall);
+      const [updated] = await tx
+        .update(jobOffers)
+        .set({
+          scoreOverall: scored.scoreOverall,
+          matchInputHash: scored.matchInputHash,
+          matchEvidence: scored.matchEvidence,
+          matchKind: scored.matchKind,
+          matchEvaluatedAt: now,
+          updatedAt: now,
+          ...(item.tldr !== undefined ? { tldr: item.tldr } : {}),
+        })
+        .where(and(eq(jobOffers.id, item.id), eq(jobOffers.userId, userId)))
+        .returning({ id: jobOffers.id });
+      if (updated) count += 1;
+    }
+    return count;
+  });
+
+  revalidatePath('/dashboard/applications');
+  return { updatedCount };
 }

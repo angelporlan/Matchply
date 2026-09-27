@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AgentApiError } from '@/lib/agent-api/errors';
+import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
 import { publicErrorCode } from '@/lib/agent-api/http';
 import {
   CV_CONTENT_MAX,
@@ -9,8 +10,14 @@ import {
   encodeApplicationCursor,
   mergeCareerProfile,
   parseAgentStatus,
+  buildAgentMatchScore,
+  currentMatchScoreValue,
+  parseBatchEvaluationsBody,
   parseCreateApplicationBody,
   parseCvContent,
+  parsePatchApplicationBody,
+  parseScoreOverall,
+  parseTldr,
   sanitizeCareerProfilePatch,
 } from '@/lib/agent-api/validate';
 
@@ -64,6 +71,92 @@ test('application status is strict and still accepts archived', () => {
     company: 'Acme',
     note: 'a'.repeat(4001),
   }), (error: unknown) => error instanceof AgentApiError && error.code === 'invalid_note');
+});
+
+test('an agent score is stored so the board expression can show it', () => {
+  const offerId = '88d9fa60-677e-48d0-93be-5c2fdd88a468';
+  const userId = '6d9f1c2a-4b7e-4d11-8a55-0c1e2f3a4b5c';
+  const patch = parsePatchApplicationBody({
+    scoreOverall: 95,
+    tldr: 'Excelente match en React y TypeScript.',
+  });
+  assert.equal(patch.scoreOverall, 95);
+  assert.equal(patch.tldr, 'Excelente match en React y TypeScript.');
+
+  const scored = buildAgentMatchScore(userId, offerId, patch.scoreOverall!);
+  assert.equal(scored.matchKind, 'triage');
+  assert.equal(scored.matchEvidence.version, MATCH_PROMPT_VERSION);
+  assert.equal(scored.matchEvidence.inputHash, scored.matchInputHash);
+  assert.equal(scored.matchEvidence.score, 95);
+  assert.deepEqual(scored.matchEvidence.requirements, []);
+  assert.deepEqual(scored.matchEvidence.adjustments, []);
+  assert.equal(currentMatchScoreValue({
+    scoreOverall: scored.scoreOverall,
+    matchInputHash: scored.matchInputHash,
+    matchEvidence: scored.matchEvidence,
+  }), 95);
+  assert.equal(currentMatchScoreValue({
+    scoreOverall: scored.scoreOverall,
+    matchInputHash: scored.matchInputHash,
+    matchEvidence: { ...scored.matchEvidence, version: 'stale' },
+  }), null);
+
+  const cleared = parsePatchApplicationBody({ scoreOverall: null, tldr: '  \n  ' });
+  assert.equal(cleared.scoreOverall, null);
+  assert.equal(cleared.tldr, null);
+  assert.equal(currentMatchScoreValue({
+    scoreOverall: null,
+    matchInputHash: null,
+    matchEvidence: null,
+  }), null);
+});
+
+test('scores outside 0-100 and oversized summaries are rejected', () => {
+  for (const value of [-1, 101, 90.5, '95', true]) {
+    assert.throws(() => parseScoreOverall(value), (error: unknown) => {
+      return error instanceof AgentApiError && error.code === 'invalid_score' && error.status === 400;
+    });
+  }
+  assert.equal(publicErrorCode('invalid_score'), 'invalid_score');
+  assert.equal(publicErrorCode('invalid_tldr'), 'invalid_tldr');
+  assert.equal(parseScoreOverall(0), 0);
+  assert.equal(parseScoreOverall(100), 100);
+  assert.throws(() => parseTldr('a'.repeat(1001)), (error: unknown) => {
+    return error instanceof AgentApiError && error.code === 'invalid_tldr';
+  });
+  assert.equal(parseTldr('Hola\u0000mundo'), 'Hola mundo');
+});
+
+test('a batch evaluation produces a visible score for every owned offer', () => {
+  const userId = '6d9f1c2a-4b7e-4d11-8a55-0c1e2f3a4b5c';
+  const firstId = '88d9fa60-677e-48d0-93be-5c2fdd88a468';
+  const secondId = '11d9fa60-677e-48d0-93be-5c2fdd88a469';
+  const evaluations = parseBatchEvaluationsBody({
+    evaluations: [
+      { id: firstId, scoreOverall: 95, tldr: 'Excelente match en React y TypeScript.' },
+      { id: secondId, scoreOverall: 40 },
+    ],
+  });
+  assert.equal(evaluations.length, 2);
+  assert.equal(evaluations[1].tldr, undefined);
+  const visible = evaluations.map((item) => {
+    const scored = buildAgentMatchScore(userId, item.id, item.scoreOverall);
+    return currentMatchScoreValue(scored);
+  });
+  assert.deepEqual(visible, [95, 40]);
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: [{ id: firstId, scoreOverall: -1 }],
+  }), (error: unknown) => error instanceof AgentApiError && error.code === 'invalid_score');
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: [{ id: firstId, scoreOverall: 150 }],
+  }), (error: unknown) => error instanceof AgentApiError && error.code === 'invalid_score');
+  assert.throws(() => parseBatchEvaluationsBody({ evaluations: [] }), (error: unknown) => error instanceof AgentApiError);
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: Array.from({ length: 201 }, (_, index) => ({
+      id: `88d9fa60-677e-48d0-93be-${String(index).padStart(12, '0')}`,
+      scoreOverall: 10,
+    })),
+  }), (error: unknown) => error instanceof AgentApiError);
 });
 
 test('career profile patches cannot smuggle account fields or hard constraints', () => {
