@@ -827,7 +827,7 @@ export default function LandingPageClient({ session }: { session: any }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <Logo iconSize="md" textSize="lg" className="scale-125 sm:scale-150 transform origin-center" />
+          <Logo iconSize="md" textSize="lg" variant="hero" className="scale-125 sm:scale-150 transform origin-center" />
         </m.div>
 
         {/* 2. Header Container */}

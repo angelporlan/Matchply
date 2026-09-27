@@ -2,9 +2,10 @@ import React from 'react';
 
 interface LogoProps {
   className?: string;
-  iconSize?: 'sm' | 'md';
+  iconSize?: 'sm' | 'md' | 'lg';
   textSize?: 'sm' | 'md' | 'lg';
   iconOnly?: boolean;
+  variant?: 'standard' | 'hero';
 }
 
 export default function Logo({
@@ -12,41 +13,93 @@ export default function Logo({
   iconSize = 'md',
   textSize = 'md',
   iconOnly = false,
+  variant = 'standard',
 }: LogoProps) {
-  const iconHeightClass = iconSize === 'sm' ? 'h-6' : 'h-8 pb-0.5';
-  const leftBarSizeClass = iconSize === 'sm' ? 'w-[7px] h-[13px]' : 'w-[9px] h-[18px]';
-  const rightBarSizeClass = iconSize === 'sm' ? 'w-[7px] h-[19px]' : 'w-[9px] h-[26px]';
-  const gapClass = iconSize === 'sm' ? 'gap-[3px]' : 'gap-[4px]';
+  const iconSizeMap = {
+    sm: 'h-6 w-auto aspect-[29/28]',
+    md: 'h-8 w-auto aspect-[29/28]',
+    lg: 'h-10 w-auto aspect-[29/28]',
+  };
 
   const textClassMap = {
-    sm: 'text-base',
+    sm: 'text-base sm:text-lg',
     md: 'text-lg sm:text-xl',
     lg: 'text-xl sm:text-2xl',
   };
 
+  const isHero = variant === 'hero';
+  const gapClass = isHero ? 'gap-0.5' : 'gap-2 sm:gap-2.5';
+
   return (
-    <div className={`flex items-center gap-2 select-none ${className}`}>
-      {/* Icon: Two rounded rectangles aligning at the bottom */}
-      <div className={`flex items-end ${gapClass} ${iconHeightClass} shrink-0`}>
-        {/* Shorter left rectangle */}
-        <div
-          className={`${leftBarSizeClass} rounded-[2.5px] bg-[#4E46E5] dark:bg-[#B4A9FB] transition-colors duration-300`}
+    <div className={`flex items-center ${gapClass} select-none ${className}`}>
+      {/* Icon: The Match Checkmark (M-Check) */}
+      <svg
+        className={`${iconSizeMap[iconSize]} shrink-0 overflow-visible ${isHero ? '-translate-y-[1px]' : ''}`}
+        viewBox="1.5 2 29 28"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        {/* Left Pillar & Descent */}
+        <path
+          d="M4 27.5V7C4 5.61929 5.11929 4.5 6.5 4.5H7C8.08316 4.5 9.07689 5.18526 9.38212 6.22557L16 22"
+          stroke="currentColor"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-[#1E1B4B] dark:text-[#F3F4F6] transition-colors duration-300"
         />
-        {/* Taller right rectangle */}
-        <div
-          className={`${rightBarSizeClass} rounded-[2.5px] bg-[#8F84F8] dark:bg-[#B4A9FB] transition-colors duration-300`}
+        {/* Right Pillar */}
+        <path
+          d="M28 13.5V27.5"
+          stroke="currentColor"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          className="text-[#1E1B4B] dark:text-[#F3F4F6] transition-colors duration-300"
         />
-      </div>
+        {/* Integrated Emerald Checkmark */}
+        <path
+          d="M10 16.5L16 23L28 6"
+          stroke="#2ECC71"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-colors duration-300"
+        />
+      </svg>
 
       {!iconOnly && (
-        <span className={`font-display font-semibold tracking-tight ${textClassMap[textSize]} flex items-baseline leading-none`}>
-          <span className="font-extrabold text-text transition-colors duration-300">
-            match
-          </span>
-          <span className="font-light text-[#8F84F8] dark:text-[#B4A9FB] ml-[1px] transition-colors duration-300">
-            ply
-          </span>
-        </span>
+        <>
+          {isHero ? (
+            <>
+              {/* Accessible name for screen readers & text selection */}
+              <span className="sr-only">Matchply</span>
+              {/* Visual lockup where M-Check is the capital letter */}
+              <span
+                aria-hidden="true"
+                className={`font-display tracking-tight ${textClassMap[textSize]} flex items-baseline leading-none`}
+              >
+                <span className="font-extrabold text-text transition-colors duration-300">
+                  atch
+                </span>
+                <span className="font-medium text-[#6366F1] dark:text-[#A78BFA] ml-[1px] transition-colors duration-300">
+                  ply
+                </span>
+              </span>
+            </>
+          ) : (
+            <span
+              className={`font-display tracking-tight ${textClassMap[textSize]} flex items-baseline leading-none`}
+            >
+              <span className="font-extrabold text-text transition-colors duration-300">
+                match
+              </span>
+              <span className="font-medium text-[#6366F1] dark:text-[#A78BFA] ml-[1px] transition-colors duration-300">
+                ply
+              </span>
+            </span>
+          )}
+        </>
       )}
     </div>
   );
