@@ -179,6 +179,22 @@ export const extensionPairingCodes = pgTable('extension_pairing_code', {
   userStatusIdx: index('extension_pairing_code_user_status_idx').on(table.userId, table.expiresAt, table.consumedAt),
 }));
 
+// Claves de agente (PAT). Nunca se almacena el secreto, solo su SHA-256.
+export const userApiTokens = pgTable('user_api_token', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  tokenHash: text('tokenHash').notNull().unique(),
+  lastChars: text('lastChars').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  lastUsedAt: timestamp('lastUsedAt', { mode: 'date' }),
+  revokedAt: timestamp('revokedAt', { mode: 'date' }),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }),
+}, (table) => ({
+  userIdx: index('user_api_token_user_idx').on(table.userId, table.createdAt),
+}));
+
 // Sesiones limitadas de la extensión. Nunca se almacena el token en claro.
 export const extensionInstallations = pgTable('extension_installation', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -424,6 +440,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   auditLogs: many(auditLogs),
   extensionPairingCodes: many(extensionPairingCodes),
   extensionInstallations: many(extensionInstallations),
+  apiTokens: many(userApiTokens),
   applicationViews: many(applicationViews),
   jobResearchRuns: many(jobResearchRuns),
   researchQuotaPeriods: many(researchQuotaPeriods),
@@ -470,6 +487,10 @@ export const extensionPairingCodesRelations = relations(extensionPairingCodes, (
 
 export const extensionInstallationsRelations = relations(extensionInstallations, ({ one }) => ({
   user: one(users, { fields: [extensionInstallations.userId], references: [users.id] }),
+}));
+
+export const userApiTokensRelations = relations(userApiTokens, ({ one }) => ({
+  user: one(users, { fields: [userApiTokens.userId], references: [users.id] }),
 }));
 
 export const applicationViewsRelations = relations(applicationViews, ({ one }) => ({
@@ -522,6 +543,7 @@ export type CompanyNote = typeof companyNotes.$inferSelect;
 export type JobOffer = typeof jobOffers.$inferSelect;
 export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;
 export type ExtensionInstallation = typeof extensionInstallations.$inferSelect;
+export type UserApiToken = typeof userApiTokens.$inferSelect;
 export type ApplicationView = typeof applicationViews.$inferSelect;
 export type JobResearchRun = typeof jobResearchRuns.$inferSelect;
 export type JobResearchAgentRun = typeof jobResearchAgentRuns.$inferSelect;
