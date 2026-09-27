@@ -13,6 +13,7 @@ import {
   Sliders,
   Briefcase,
 } from 'lucide-react';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 
 interface AiPreviewModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export default function AiPreviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm animate-in fade-in">
+    <ModalScrim>
       <div className="bg-white dark:bg-surface border border-ai/30 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-5 border-b border-subtle flex items-center justify-between bg-gradient-to-r from-ai/10 to-transparent">
@@ -141,12 +142,12 @@ export default function AiPreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-ai-action hover:bg-ai-hover text-on-ai-action text-xs font-bold transition-all cursor-pointer"
+            className="btn-raised btn-raised--ai btn-raised--sm"
           >
             Entendido
           </button>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import CvCard from '@/components/dashboard/CvCard';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -512,7 +513,7 @@ export default function DashboardClient({
           <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
             {t('dashboard.cvs.title')}
             {principalCv && (
-              <span className="text-[10px] py-0.5 px-2 bg-ai/10 text-ai border border-ai/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
+              <span className="text-[10px] py-0.5 px-2 bg-ai-surface text-ai-text border border-ai/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
                 <Star className="w-2.5 h-2.5 fill-ai" />
                 {t('dashboard.cvs.primary', { title: principalCv.title })}
               </span>
@@ -575,11 +576,7 @@ export default function DashboardClient({
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
                 aria-pressed={activeFilter === filter.key}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  activeFilter === filter.key
-                    ? 'bg-text text-canvas border-text'
-                    : 'bg-surface text-text-muted border-subtle hover:border-control hover:text-text'
-                }`}
+                className="pill-tab"
               >
                 {filter.label}
               </button>
@@ -805,15 +802,15 @@ export default function DashboardClient({
                     >
                       {t('dashboard.cvs.import.cancelCta')}
                     </button>
-                    <button
+                    <Button
                       type="submit"
+                      variant="ai"
+                      size="sm"
                       disabled={!pastedText.trim()}
-                      className={`px-5 py-2.5 text-xs font-bold text-on-ai-action bg-ai-action hover:bg-ai-hover rounded-[8px] shadow-sm flex items-center gap-1.5 transition-all font-display hover:-translate-y-0.5 ${!pastedText.trim() ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
                     >
-                      <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
+                      <Sparkles className="w-4 h-4 stroke-[1.75]" />
                       {t('dashboard.cvs.import.submitCta')}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -834,18 +831,17 @@ export default function DashboardClient({
                       className="bg-canvas border border-control rounded-[8px] px-4 py-2.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all flex-1"
                       disabled={createLoading}
                     />
-                    <button
+                    <Button
                       type="submit"
+                      variant="secondary"
+                      size="sm"
                       disabled={createLoading}
-                      className="bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-bold px-5 py-2.5 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 font-display"
+                      loading={createLoading}
+                      className="shrink-0"
                     >
-                      {createLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4 stroke-[1.75]" />
-                      )}
+                      {!createLoading && <Plus className="w-4 h-4 stroke-[1.75]" />}
                       {t('dashboard.cvs.import.blankCta')}
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )}
@@ -879,7 +875,7 @@ export default function DashboardClient({
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <ModalScrim>
           <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
@@ -1110,18 +1106,14 @@ export default function DashboardClient({
                 {t('dashboard.modal.ai.close')}
               </button>
               {!aiLoading && (
-                <button
-                  type="submit"
-                  onClick={handleAiOptimize}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-on-ai-action bg-ai-action hover:bg-ai-hover rounded-[8px] shadow-sm transition-all"
-                >
-                  <Sparkles className="w-4 h-4 animate-pulse stroke-[1.75]" />
+                <Button type="submit" variant="ai" onClick={handleAiOptimize}>
+                  <Sparkles className="w-4 h-4 stroke-[1.75]" />
                   {t('dashboard.modal.ai.start')}
-                </button>
+                </Button>
               )}
             </div>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {/* AlertModal para advertencia de falta de CV Principal */}
@@ -1151,8 +1143,7 @@ export default function DashboardClient({
 
       {/* Modal para crear un CV en blanco */}
       {isCreateOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+        <ModalScrim
           role="dialog"
           aria-modal="true"
           aria-label={t('dashboard.cvs.create')}
@@ -1207,7 +1198,6 @@ export default function DashboardClient({
                   </button>
                   <Button
                     type="submit"
-                    variant="strong"
                     disabled={createLoading || !newCvTitle.trim()}
                     loading={createLoading}
                   >
@@ -1218,7 +1208,7 @@ export default function DashboardClient({
               </form>
             </div>
           </div>
-        </div>
+        </ModalScrim>
       )}
 
       {previewCv && <CvQuickPreviewModal cv={previewCv} onClose={() => setPreviewCv(null)} />}

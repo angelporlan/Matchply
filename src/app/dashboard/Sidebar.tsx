@@ -114,7 +114,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
       {/* Sidebar Velo overlay on mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-[#1e1b4b]/40 dark:bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-black/60 dark:bg-black/80 z-40 md:hidden backdrop-blur-xs transition-opacity"
           onClick={toggleSidebar}
         />
       )}
@@ -211,7 +211,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                       }}
                       aria-expanded={applicationsOpen}
                       aria-label={t('sidebar.menu.toggleApplications')}
-                      className="shrink-0 mr-1 p-1.5 rounded-[8px] text-text-muted bg-text/[0.04] hover:bg-text/[0.08] hover:text-text transition-colors"
+                      className="shrink-0 mr-1 p-1.5 rounded-[8px] text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
                     >
                       <ChevronDown
                         className={`w-4 h-4 stroke-[1.75] transition-transform ${applicationsOpen ? 'rotate-180' : ''}`}

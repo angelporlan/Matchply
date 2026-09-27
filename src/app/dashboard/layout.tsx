@@ -25,7 +25,7 @@ export default async function DashboardLayout({
     <NavigationPendingProvider>
       <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
         <Sidebar user={{ name: user.name, email: user.email, image: user.image, role: ctx.impersonation ? 'user' : user.role }} isPremium={isPremium} supportMode={Boolean(ctx.impersonation)} />
-        <div className="flex-1 min-w-0 min-h-screen relative z-10">
+        <div className="flex-1 min-w-0 min-h-screen relative">
           {children}
         </div>
       </div>

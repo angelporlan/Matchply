@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Download, Copy, Check, X, Loader2, FileSpreadsheet, CheckSquare, Square } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { Button } from '@/components/ui/Button';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import { getOffersExportDataAction } from '@/app/dashboard/applications/export-actions';
 import { formatDataAsCsv, formatDataAsTsv, triggerCsvDownload, ExportColumnDefinition } from '@/lib/export-helpers';
 
@@ -226,7 +228,7 @@ export default function ExportApplicationsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <ModalScrim>
       <div className="relative w-full max-w-2xl rounded-[16px] border border-subtle bg-surface shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle">
@@ -323,22 +325,20 @@ export default function ExportApplicationsModal({
               <span>{copiedSuccess ? t('applications.table.export.formats.copied') : t('applications.table.export.formats.copyTsv')}</span>
             </button>
 
-            <button
+            <Button
               type="button"
+              variant="strong"
+              size="sm"
               onClick={handleDownloadCsv}
               disabled={isLoading || selectedFields.size === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-text hover:bg-text/90 dark:bg-white dark:hover:bg-surface-muted text-canvas font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              loading={isLoading}
             >
-              {isLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-              )}
+              {!isLoading && <Download className="w-3.5 h-3.5 stroke-[1.75]" />}
               <span>{t('applications.table.export.formats.csv')}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

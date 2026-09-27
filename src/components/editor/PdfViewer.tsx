@@ -172,7 +172,7 @@ export default function PdfViewer({
     : downloadUrl;
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0f1423]/75 border border-subtle dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
+    <div className="flex flex-col h-full bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm relative transition-all duration-300">
       
       {/* Header bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-canvas border-b border-subtle dark:border-slate-900 shrink-0">
@@ -239,7 +239,7 @@ export default function PdfViewer({
             onClick={isGuest ? handleGuestDownload : undefined}
             target={isGuest ? undefined : "_blank"}
             rel={isGuest ? undefined : "noopener noreferrer"}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-sm"
+            className="btn-raised btn-raised--sm"
           >
             <Download className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
@@ -291,7 +291,7 @@ export default function PdfViewer({
           <div className="w-full h-full flex items-center justify-center overflow-auto p-2">
             <iframe
               src={pdfBlobUrl || pdfUrl}
-              className="rounded-2xl border border-subtle dark:border-slate-900 shadow-lg bg-white dark:bg-canvas transition-transform duration-200"
+              className="rounded-2xl border border-subtle shadow-lg bg-white transition-transform duration-200"
               style={{
                 transform: `scale(${zoom / 100})`,
                 transformOrigin: 'center center',

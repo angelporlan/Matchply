@@ -14,7 +14,7 @@ export default function ImpersonationBanner({
 }) {
   const expires = new Date(expiresAt);
   return (
-    <div className="sticky top-0 z-50 border-b border-control bg-warning-surface text-warning-text">
+    <div className="sticky top-0 z-20 border-b border-control bg-warning-surface text-warning-text">
       <div className="mx-auto flex min-h-[44px] max-w-7xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium">
           Sesión de soporte: operas como <strong>{targetName || targetEmail}</strong>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, Bot, LayoutDashboard, ScrollText, Users } from 'lucide-react';
+import { Activity, Bot, FolderOpen, LayoutDashboard, ScrollText, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ITEMS = [
@@ -13,11 +13,14 @@ const ITEMS = [
   { href: '/admin/audit', label: 'Auditoría', icon: ScrollText, match: (path: string) => path.startsWith('/admin/audit') },
 ];
 
-export default function AdminNav() {
+export default function AdminNav({ showGtm = false }: { showGtm?: boolean }) {
   const pathname = usePathname();
+  const items = showGtm
+    ? [...ITEMS, { href: '/gtm', label: 'GTM local', icon: FolderOpen, match: (path: string) => path.startsWith('/gtm') }]
+    : ITEMS;
   return (
     <nav aria-label="Administración" className="flex gap-1 overflow-x-auto pb-1">
-      {ITEMS.map((item) => {
+      {items.map((item) => {
         const active = item.match(pathname);
         const Icon = item.icon;
         return (

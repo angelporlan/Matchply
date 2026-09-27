@@ -69,7 +69,7 @@ export default function ApplicationsBoardView({
   const COLUMN_CAP = 50;
 
   const columns: Column[] = [
-    { id: 'interested', title: t('applications.columns.interested.title'), shortTitle: t('applications.columns.interested.shortTitle'), description: t('applications.columns.interested.desc'), color: 'text-indigo-400 bg-indigo-500/10', borderColor: 'border-indigo-500/20' },
+    { id: 'interested', title: t('applications.columns.interested.title'), shortTitle: t('applications.columns.interested.shortTitle'), description: t('applications.columns.interested.desc'), color: 'text-ai-text bg-ai-surface', borderColor: 'border-ai/20' },
     { id: 'applied', title: t('applications.columns.applied.title'), shortTitle: t('applications.columns.applied.shortTitle'), description: t('applications.columns.applied.desc'), color: 'text-blue-400 bg-blue-500/10', borderColor: 'border-blue-500/20' },
     { id: 'interview', title: t('applications.columns.interview.title'), shortTitle: t('applications.columns.interview.shortTitle'), description: t('applications.columns.interview.desc'), color: 'text-amber-400 bg-amber-500/10', borderColor: 'border-amber-500/20' },
     { id: 'offer', title: t('applications.columns.offer.title'), shortTitle: t('applications.columns.offer.shortTitle'), description: t('applications.columns.offer.desc'), color: 'text-emerald-400 bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
@@ -159,11 +159,11 @@ export default function ApplicationsBoardView({
                       <button
                         type="button"
                         onClick={() => onOpenCurate(false)}
-                        className="flex-1 text-[11px] font-bold py-1.5 px-2 rounded-lg bg-gradient-to-r from-ai to-ai-action text-white shadow-xs shadow-ai/20 hover:opacity-95 active:scale-98 transition-all flex items-center justify-center gap-1.5 font-display min-w-0"
+                        className="btn-raised btn-raised--ai btn-raised--sm flex-1 min-w-0 px-2 text-[11px]"
                       >
-                        <Sparkles className="w-3 h-3 stroke-[2] text-violet-200 shrink-0" />
+                        <Sparkles className="w-3 h-3 stroke-[1.75] shrink-0" />
                         <span className="truncate">Curar con IA</span>
-                        <span className="bg-white/20 px-1.5 py-0.2 rounded text-[10px] shrink-0">
+                        <span className="shrink-0 text-[10px] opacity-80">
                           {rawColumnOffers.length}
                         </span>
                       </button>
@@ -172,20 +172,16 @@ export default function ApplicationsBoardView({
                         type="button"
                         onClick={() => onOpenCurate(true)}
                         title="Probar animación de streaming en vivo sin consumir tokens"
-                        className="text-[10.5px] font-bold px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/25 transition-all flex items-center gap-1 shrink-0"
+                        className="shrink-0 rounded-lg border border-subtle px-2 py-1.5 text-[10.5px] font-bold text-text-muted hover:bg-surface-muted hover:text-text"
                       >
-                        <span>🧪 Test UI</span>
+                        <span>Test UI</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={onToggleInterestedSort}
                         title={interestedSortMode === 'score' ? "Ordenado por Score IA (Click para ordenar por fecha)" : "Ordenado por Fecha (Click para ordenar por Score IA)"}
-                        className={`text-[10.5px] font-bold px-2 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shrink-0 ${
-                          interestedSortMode === 'score'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                            : 'bg-white dark:bg-surface text-slate-500 border-subtle'
-                        }`}
+                        className="flex shrink-0 items-center gap-1 rounded-lg border border-subtle bg-surface px-2 py-1.5 text-[10.5px] font-bold text-text-muted hover:bg-surface-muted hover:text-text"
                       >
                         <ArrowUpDown className="w-3 h-3 stroke-[2]" />
                         <span>{interestedSortMode === 'score' ? 'Score' : 'Fecha'}</span>

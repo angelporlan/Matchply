@@ -138,6 +138,7 @@ export default function LoginPage() {
 
           <Button
             type="submit"
+            variant="strong"
             disabled={loading || googleLoading}
             loading={loading}
             className="w-full"

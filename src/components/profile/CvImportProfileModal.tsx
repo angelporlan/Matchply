@@ -13,6 +13,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 import { getOwnedCvContentAction } from '@/app/dashboard/settings-actions';
 
 interface CvItem {
@@ -134,7 +135,7 @@ export default function CvImportProfileModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm animate-in fade-in">
+    <ModalScrim>
       <div className="bg-white dark:bg-surface border border-subtle rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-5 border-b border-subtle flex items-center justify-between bg-surface-muted/50 dark:bg-surface/50">
@@ -301,7 +302,7 @@ export default function CvImportProfileModal({
             type="button"
             onClick={handleExtract}
             disabled={loading || (tab === 'upload' && !selectedFile) || (tab === 'select' && !selectedCvId) || (tab === 'paste' && !pastedText.trim())}
-            className="px-5 py-2 rounded-xl bg-action hover:bg-action-hover text-on-action text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer active:scale-98"
+            className="btn-raised btn-raised--sm"
           >
             {loading ? (
               <>
@@ -317,6 +318,6 @@ export default function CvImportProfileModal({
           </button>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

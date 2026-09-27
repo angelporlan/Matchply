@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import DropdownMenu, { DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import CvThumbnail from './CvThumbnail';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+import { matchScoreBadgeClass } from '@/components/applications/matchScoreStyle';
 
 interface CvCardProps {
   cv: CvListItem;
@@ -34,12 +35,6 @@ interface CvCardProps {
   onDelete: (cvId: string) => void;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
-}
-
-function matchScoreClass(percent: number) {
-  if (percent >= 75) return 'text-success-text bg-success-surface border-success-text/20';
-  if (percent >= 50) return 'text-warning-text bg-warning-surface border-warning-text/20';
-  return 'text-danger-text bg-danger-surface border-danger-text/20';
 }
 
 export default function CvCard({
@@ -236,17 +231,12 @@ export default function CvCard({
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted font-sans">
           <span
-            className={cn(
-              'inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-[6px] border leading-tight',
-              cv.isBase
-                ? 'bg-ai-surface text-ai-text border-ai/20'
-                : 'bg-surface-muted text-text-muted border-subtle',
-            )}
+            className="inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-[6px] border border-subtle bg-surface-muted text-text-muted leading-tight"
           >
             {cv.isBase ? t('dashboard.cvs.card.base') : t('dashboard.cvs.card.copy')}
           </span>
           {cv.isPrincipal && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-[6px] border border-subtle bg-canvas text-text leading-tight">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-[6px] border border-ai/20 bg-ai-surface text-ai-text leading-tight">
               <Star className="w-3 h-3 fill-current" aria-hidden="true" />
               {t('dashboard.cvs.card.primary')}
             </span>
@@ -276,7 +266,7 @@ export default function CvCard({
                 title={t('dashboard.cvs.card.matchScore')}
                 className={cn(
                   'inline-flex items-center text-xs font-bold px-1.5 py-0.5 rounded-[6px] border shrink-0 font-sans tabular-nums',
-                  matchScoreClass(matchPercent ?? 0),
+                  matchScoreBadgeClass(matchPercent),
                 )}
               >
                 {scoreLabel}

@@ -434,6 +434,7 @@ export default function CareerProfileForm({
         </div>
         <Button
           type="button"
+          variant="strong"
           onClick={() => handleSave()}
           disabled={saving}
           loading={saving}
@@ -859,6 +860,7 @@ export default function CareerProfileForm({
         <div className="flex justify-end">
           <Button
             type="submit"
+            variant="strong"
             disabled={saving}
             loading={saving}
             className="px-8"

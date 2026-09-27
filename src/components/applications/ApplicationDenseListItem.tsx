@@ -3,10 +3,10 @@
 import React, { useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { ApplicationSummary } from '@/lib/job-offer-queries';
-import { Sparkles, ExternalLink, Send, GripVertical } from 'lucide-react';
+import { ExternalLink, Send, GripVertical } from 'lucide-react';
 import { updateJobOfferStatus } from '@/app/dashboard/applications/actions';
-import { scoreToPercent } from '@/lib/application-views';
 import CompanyIcon from '@/components/companies/CompanyIcon';
+import ApplicationScoreBadge from './ApplicationScoreBadge';
 
 interface ApplicationDenseListItemProps {
   offer: ApplicationSummary;
@@ -21,39 +21,6 @@ export default function ApplicationDenseListItem({
   onOpenDetails,
 }: ApplicationDenseListItemProps) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-
-  const rawScore = offer.scoreOverall;
-  const scoreVal = scoreToPercent(rawScore);
-
-  const getScoreBadge = () => {
-    if (scoreVal === null) {
-      return (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface-muted dark:bg-white/5 text-slate-400 border border-slate-200 dark:border-white/10 shrink-0 font-sans">
-          N/D
-        </span>
-      );
-    }
-    if (scoreVal >= 75) {
-      return (
-        <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 flex items-center gap-0.5 font-sans">
-          <Sparkles className="w-2.5 h-2.5 text-emerald-500 stroke-[2]" />
-          {scoreVal}%
-        </span>
-      );
-    }
-    if (scoreVal >= 50) {
-      return (
-        <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 font-sans">
-          {scoreVal}%
-        </span>
-      );
-    }
-    return (
-      <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20 shrink-0 font-sans">
-        {scoreVal}%
-      </span>
-    );
-  };
 
   const handleMoveToApplied = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -89,7 +56,7 @@ export default function ApplicationDenseListItem({
                 <GripVertical className="w-3.5 h-3.5 stroke-[1.75]" />
               </div>
 
-              {getScoreBadge()}
+              <ApplicationScoreBadge score={offer.scoreOverall} />
 
               <h4 
                 className="text-[12.5px] font-bold text-text group-hover:text-ai dark:group-hover:text-violet-400 transition-colors truncate font-display flex-1 leading-tight"

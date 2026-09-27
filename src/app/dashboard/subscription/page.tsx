@@ -24,7 +24,7 @@ export default async function SubscriptionPage() {
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
       {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
 
         {/* HEADER SECTION */}
         <div className="text-center mb-12">
@@ -101,7 +101,7 @@ export default async function SubscriptionPage() {
               <div className="mt-8 font-display">
                 <Link
                   href="/dashboard"
-                  className="w-full bg-surface text-text border border-subtle hover:bg-canvas dark:hover:bg-surface-muted/80 font-semibold py-3 px-4 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  className="btn-raised btn-raised--secondary w-full"
                 >
                   {t('subscription.freeCard.btn')}
                   <ArrowRight className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -162,7 +162,7 @@ export default async function SubscriptionPage() {
               <div className="mt-8 font-display">
                 <a
                   href="/api/stripe/checkout"
-                  className="w-full bg-[#1e1b4b] hover:bg-[#1e1b4b]/90 text-white text-center font-bold py-3 px-4 rounded-[8px] text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
+                  className="btn-raised btn-raised--strong w-full"
                 >
                   <Crown className="w-3.5 h-3.5" />
                   {t('subscription.proCard.btn')}
@@ -222,7 +222,7 @@ export default async function SubscriptionPage() {
                   href="/api/stripe/portal"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto bg-surface border border-subtle hover:bg-canvas dark:hover:bg-surface-muted/80 text-text font-bold py-2.5 px-5 rounded-[8px] text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  className="btn-raised btn-raised--secondary w-full sm:w-auto"
                 >
                   <CreditCard className="w-4 h-4 text-text-muted stroke-[1.75]" />
                   {t('subscription.proActive.manageBillingBtn')}

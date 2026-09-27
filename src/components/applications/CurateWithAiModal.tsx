@@ -5,6 +5,7 @@ import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import type { ApplicationSummary } from '@/lib/job-offer-queries';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { readMatchBatchResult, type MatchBatchScore, type MatchBatchError } from '@/lib/ai-jobs/match-batch-state';
+import { ModalScrim } from '@/components/ui/ModalScrim';
 
 export type CuratedItem = MatchBatchScore;
 
@@ -247,7 +248,7 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
     : phase === 'failed' ? 'Cálculo terminado con incidencias' : phase === 'disconnected' ? 'Conexión interrumpida' : 'Calculando match';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm">
+    <ModalScrim>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="match-batch-title" aria-describedby="match-batch-help"
         className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-control bg-surface shadow-xl">
         <div className="flex items-center justify-between gap-3 border-b border-subtle px-5 py-4">
@@ -303,6 +304,6 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalScrim>
   );
 }

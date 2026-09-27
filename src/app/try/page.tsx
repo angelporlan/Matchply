@@ -9,7 +9,7 @@ import { AccountSuspendedError } from '@/lib/request-errors';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { ButtonLink } from '@/components/ui/Button';
 
 export default async function TryPage() {
   let actor;
@@ -43,12 +43,12 @@ export default async function TryPage() {
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={user} isPremium={false} isGuest={true} />
-      <div className="flex-1 min-h-screen relative z-10 overflow-y-auto">
+      <div className="flex-1 min-h-screen relative overflow-y-auto">
         {/* Background blur */}
         <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
         <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
           {/* Banner calling for registration */}
           <div className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 rounded-[12px] bg-surface border border-subtle shadow-sm">
             <div className="flex items-start gap-4">
@@ -64,12 +64,9 @@ export default async function TryPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/register"
-              className="w-full md:w-auto bg-action hover:bg-action-hover text-on-action font-bold px-6 py-3 rounded-[8px] text-sm transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 font-display text-center"
-            >
+            <ButtonLink href="/register" className="w-full md:w-auto shrink-0">
               Guardar mi CV
-            </Link>
+            </ButtonLink>
           </div>
 
           <DashboardClient 

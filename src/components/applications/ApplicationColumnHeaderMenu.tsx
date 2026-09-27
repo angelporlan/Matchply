@@ -351,19 +351,14 @@ export default function ApplicationColumnHeaderMenu({
           </div>
           {grouping && (
             <div className="mt-1.5 pt-1.5 border-t border-subtle space-y-1.5">
-              <div className="flex items-center gap-1 px-1.5">
+              <div className="segmented w-full">
                 {(['asc', 'desc'] as const).map((direction) => (
                   <button
                     key={direction}
                     type="button"
                     aria-pressed={grouping.direction === direction}
                     onClick={() => onSetGrouping({ column: grouping.column, direction })}
-                    className={cn(
-                      'flex-1 px-2 py-1.5 rounded-[6px] text-[10px] font-bold uppercase tracking-wider transition-colors',
-                      grouping.direction === direction
-                        ? 'bg-text dark:bg-white text-canvas'
-                        : 'text-text-muted hover:text-text hover:bg-canvas dark:hover:bg-surface-muted',
-                    )}
+                    className="segmented__item flex-1 uppercase tracking-wider text-[10px]"
                   >
                     {t(direction === 'asc'
                       ? 'applications.columns.headerMenu.groupAsc'
@@ -437,7 +432,7 @@ export default function ApplicationColumnHeaderMenu({
                 type="button"
                 onClick={applyStatusFilter}
                 disabled={draftValues.length === 0}
-                className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                className="btn-raised btn-raised--secondary btn-raised--sm flex-1 px-3 text-[10px] font-bold uppercase tracking-wider"
               >
                 {t('applications.columns.headerMenu.apply')}
               </button>
@@ -497,7 +492,7 @@ export default function ApplicationColumnHeaderMenu({
                 type="button"
                 onClick={applyStatusFilter}
                 disabled={draftValues.length === 0}
-                className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                className="btn-raised btn-raised--secondary btn-raised--sm flex-1 px-3 text-[10px] font-bold uppercase tracking-wider"
               >
                 {t('applications.columns.headerMenu.apply')}
               </button>
@@ -634,7 +629,7 @@ export default function ApplicationColumnHeaderMenu({
                   type="button"
                   onClick={applyScoreRange}
                   disabled={!draftMinScore.trim() && !draftMaxScore.trim()}
-                  className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                  className="btn-raised btn-raised--secondary btn-raised--sm flex-1 px-3 text-[10px] font-bold uppercase tracking-wider"
                 >
                   {t('applications.columns.headerMenu.apply')}
                 </button>
@@ -721,7 +716,7 @@ export default function ApplicationColumnHeaderMenu({
                   type="button"
                   onClick={applyFilter}
                   disabled={!draftStartDate && !draftEndDate}
-                  className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+                  className="btn-raised btn-raised--secondary btn-raised--sm flex-1 px-3 text-[10px] font-bold uppercase tracking-wider"
                 >
                   {t('applications.columns.headerMenu.apply')}
                 </button>
@@ -788,7 +783,7 @@ export default function ApplicationColumnHeaderMenu({
               type="button"
               onClick={applyFilter}
               disabled={needsValue && !draftValue.trim()}
-              className="flex-1 px-3 py-1.5 rounded-[6px] bg-text dark:bg-white text-canvas text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors"
+              className="btn-raised btn-raised--secondary btn-raised--sm flex-1 px-3 text-[10px] font-bold uppercase tracking-wider"
             >
               {t('applications.columns.headerMenu.apply')}
             </button>
