@@ -132,10 +132,6 @@ function ApplicationsChrome() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <TitleBlock wide />
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <div className="flex items-center gap-1 rounded-[8px] border border-subtle bg-surface p-1 shadow-sm">
-            <Bone className="h-9 w-20" />
-            <Bone className="h-9 w-24" />
-          </div>
           <Bone className="h-11 w-40" />
         </div>
       </div>
@@ -182,90 +178,25 @@ export function ApplicationsTableSkeleton({ rows = 8 }: { rows?: number }) {
   );
 }
 
-function ApplicationCardSkeleton() {
+export function ApplicationsSkeleton() {
   return (
-    <div className="bg-surface border border-subtle rounded-[12px] p-3 shadow-sm space-y-2">
-      <div className="flex items-center justify-between">
-        <Bone className="h-4 w-16 rounded-full" />
-        <Bone className="h-4 w-10 rounded-full" />
-      </div>
-      <Bone className="h-3.5 w-11/12" />
-      <Bone className="h-3 w-1/2" />
-      <div className="flex items-center justify-between pt-1">
-        <Bone className="h-3 w-16" />
-        <Bone className="h-3 w-8" />
-      </div>
-    </div>
-  );
-}
-
-const BOARD_COLUMNS = [
-  { key: 'interested', color: 'bg-violet-500/10', border: 'border-violet-500/20', cards: 3 },
-  { key: 'applied', color: 'bg-blue-500/10', border: 'border-blue-500/20', cards: 2 },
-  { key: 'interview', color: 'bg-amber-500/10', border: 'border-amber-500/20', cards: 2 },
-  { key: 'offer', color: 'bg-emerald-500/10', border: 'border-emerald-500/20', cards: 1 },
-  { key: 'rejected', color: 'bg-rose-500/10', border: 'border-rose-500/20', cards: 1 },
-  { key: 'archived', color: 'bg-slate-500/10', border: 'border-slate-500/20', cards: 1 },
-] as const;
-
-export function ApplicationsBoardSkeleton() {
-  return (
-    <div className="-mx-4 px-4 overflow-x-auto pb-4">
-      <div className="grid min-w-[1480px] grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-start">
-        {BOARD_COLUMNS.map((column) => (
-          <div
-            key={column.key}
-            className={`flex h-[calc(100vh-330px)] min-h-[520px] max-h-[760px] flex-col bg-surface rounded-[12px] border ${column.border} shadow-sm overflow-hidden`}
-          >
-            <div className="shrink-0 p-3.5 pb-3 border-b border-subtle bg-canvas/45">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-2">
-                  <Bone className={`h-6 w-24 rounded-full ${column.color}`} />
-                  <Bone className="h-3 w-28" />
-                </div>
-                <Bone className="h-8 w-10" />
-              </div>
-            </div>
-            <div className="flex-1 p-2.5 space-y-2 overflow-hidden">
-              {times(column.cards).map((index) => (
-                <ApplicationCardSkeleton key={index} />
-              ))}
-            </div>
-            <div className="shrink-0 border-t border-subtle bg-canvas/45 px-3.5 py-2.5 flex items-center justify-between">
-              <Bone className="h-3 w-20" />
-              <Bone className="h-3 w-8" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function ApplicationsSkeleton({ layout = 'table' }: { layout?: 'table' | 'board' }) {
-  return (
-    <div className="w-full" aria-busy="true">
+    <div className="w-full md:flex md:flex-col md:flex-1 md:min-h-0" aria-busy="true">
       <ScreenBusy />
       <ApplicationsChrome />
-      {layout === 'board' ? <ApplicationsBoardSkeleton /> : <ApplicationsTableSkeleton />}
+      <ApplicationsTableSkeleton />
     </div>
   );
 }
 
-export function ApplicationsPageSkeleton({ layout = 'table' }: { layout?: 'table' | 'board' }) {
-  const isTable = layout === 'table';
+export function ApplicationsPageSkeleton() {
   return (
     <div
-      className={`relative overflow-x-clip min-h-screen ${isTable ? 'md:h-[100dvh] md:overflow-hidden' : ''}`}
+      className="relative overflow-x-clip min-h-screen md:h-[100dvh] md:overflow-hidden"
       aria-busy="true"
     >
       <PageGlow />
-      <main
-        className={`max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 ${
-          isTable ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''
-        }`}
-      >
-        <ApplicationsSkeleton layout={layout} />
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 md:h-full md:flex md:flex-col md:min-h-0">
+        <ApplicationsSkeleton />
       </main>
     </div>
   );

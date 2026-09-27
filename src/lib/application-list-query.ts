@@ -3,26 +3,19 @@ import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
 import {
   APPLICATION_PAGE_SIZES,
-  APPLICATION_STATUSES,
   isApplicationDateColumn,
   type ApplicationColumnFilter,
   type ApplicationSortState,
-  type ApplicationStatus,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
 import {
-  BOARD_COLUMN_PAGE_SIZE,
   SELECT_ALL_ID_LIMIT,
   columnDateRange,
   dateFilterRange,
-  emptyStatusCounts,
   escapeIlikePattern,
   scoreFilterRange,
-  type ApplicationStatusCounts,
 } from '@/lib/application-filter-bounds';
 import { applicationSummaryColumns, currentMatchScore, type ApplicationSummary } from '@/lib/job-offer-queries';
-
-export type { ApplicationStatusCounts };
 
 export type ApplicationListQuery = {
   userId: string;
@@ -228,27 +221,6 @@ function normalizeOffer<T extends { status: string }>(offer: T): T {
   return offer;
 }
 
-export async function countApplicationsByStatus(userId: string): Promise<ApplicationStatusCounts> {
-  const rows = await db
-    .select({
-      status: jobOffers.status,
-      count: sql<number>`cast(count(*) as int)`,
-    })
-    .from(jobOffers)
-    .where(eq(jobOffers.userId, userId))
-    .groupBy(jobOffers.status);
-
-  const counts = emptyStatusCounts();
-  for (const row of rows) {
-    const status = row.status.startsWith('archived:') ? 'archived' : row.status;
-    if ((APPLICATION_STATUSES as readonly string[]).includes(status)) {
-      counts[status as ApplicationStatus] += Number(row.count) || 0;
-    }
-    counts.all += Number(row.count) || 0;
-  }
-  return counts;
-}
-
 export async function listApplicationsPage(query: ApplicationListQuery) {
   const now = query.now ?? new Date();
   const pageSize = (APPLICATION_PAGE_SIZES as readonly number[]).includes(query.pageSize || 0)
@@ -294,47 +266,8 @@ export async function listApplicationIds(query: Omit<ApplicationListQuery, 'page
   return rows.map((row) => row.id);
 }
 
-export async function listApplicationsBoard(query: Omit<ApplicationListQuery, 'page' | 'pageSize'> & {
-  limitPerStatus?: number;
-  offsets?: Partial<Record<ApplicationStatus, number>>;
-  statuses?: readonly ApplicationStatus[];
-}) {
-  const now = query.now ?? new Date();
-  const limit = query.limitPerStatus ?? BOARD_COLUMN_PAGE_SIZE;
-  const statuses = query.statuses ?? APPLICATION_STATUSES;
-  const groups = await Promise.all(statuses.map(async (status) => {
-    const offset = query.offsets?.[status] ?? 0;
-    const filters: ApplicationViewFilters = {
-      ...query.filters,
-      status,
-      excludedStatuses: [],
-    };
-    const items = await db
-      .select(applicationSummaryColumns)
-      .from(jobOffers)
-      .where(applicationFilterSql(query.userId, filters, now))
-      .orderBy(...sortClauses(query.sort))
-      .limit(limit)
-      .offset(offset);
-    return items.map(normalizeOffer);
-  }));
-  return groups.flat();
-}
-
-export async function loadApplicationsWorkspace(query: ApplicationListQuery & { layout: 'table' | 'board' }) {
-  const [statusCounts, list] = await Promise.all([
-    countApplicationsByStatus(query.userId),
-    query.layout === 'board'
-      ? listApplicationsBoard(query).then((items) => ({
-        items,
-        total: items.length,
-        page: 1,
-        pageSize: items.length,
-        totalPages: 1,
-      }))
-      : listApplicationsPage(query),
-  ]);
-  return { ...list, statusCounts };
+export async function loadApplicationsWorkspace(query: ApplicationListQuery) {
+  return listApplicationsPage(query);
 }
 
 export type ApplicationWorkspace = Awaited<ReturnType<typeof loadApplicationsWorkspace>>;

@@ -16,7 +16,7 @@ import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer 
 import { queryApplicationIdsAction, queryApplicationsAction } from '@/app/dashboard/applications/query-actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
 import { replaceUrlQuery } from '@/lib/client-url';
-import { EXPORT_OFFER_ID_LIMIT, emptyStatusCounts, type ApplicationStatusCounts } from '@/lib/application-filter-bounds';
+import { EXPORT_OFFER_ID_LIMIT } from '@/lib/application-filter-bounds';
 import {
   DEFAULT_VIEW_CONFIG,
   SYSTEM_VIEWS,
@@ -34,15 +34,11 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, Search, Minimize2, Maximize2, Columns3, Table2, SquareKanban, ChevronLeft, ChevronRight, Trash2, CalendarClock, Sparkles, Download } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, Search, ChevronLeft, ChevronRight, CalendarClock, Sparkles, Download } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
-import { ApplicationsBoardSkeleton, OfferDetailsModalSkeleton } from '@/components/skeletons';
+import { OfferDetailsModalSkeleton } from '@/components/skeletons';
 
-const ApplicationsBoardView = dynamic(() => import('./ApplicationsBoardView'), {
-  ssr: false,
-  loading: () => <ApplicationsBoardSkeleton />,
-});
 const CurateWithAiModal = dynamic(() => import('./CurateWithAiModal'), { ssr: false });
 const JobOfferDetailsModal = dynamic(() => import('./JobOfferDetailsModal'), { ssr: false });
 const ExportApplicationsModal = dynamic(() => import('./ExportApplicationsModal'), { ssr: false });
@@ -64,16 +60,12 @@ interface SavedApplicationView {
   config: ApplicationViewConfig;
 }
 
-type BoardColumnId = 'interested' | 'applied' | 'interview' | 'offer' | 'rejected' | 'archived';
-
 interface ApplicationsClientProps {
   offers: ApplicationSummary[];
   filteredTotal: number;
-  statusCounts: ApplicationStatusCounts;
   userCvs: CvListItem[];
   companies: CompanyLookupItem[];
   savedViews: SavedApplicationView[];
-  initialLayout: 'table' | 'board';
   initialViewId: string;
   initialCompanyId?: string;
 }
@@ -81,11 +73,9 @@ interface ApplicationsClientProps {
 export default function ApplicationsClient({
   offers: rawOffers,
   filteredTotal: initialFilteredTotal,
-  statusCounts: initialStatusCounts,
   userCvs,
   companies,
   savedViews: initialSavedViews,
-  initialLayout,
   initialViewId,
   initialCompanyId,
 }: ApplicationsClientProps) {
@@ -110,7 +100,6 @@ export default function ApplicationsClient({
   })();
 
   const [savedViews, setSavedViews] = useState<SavedApplicationView[]>(initialSavedViews);
-  const [layout, setLayout] = useState<'table' | 'board'>(initialLayout);
   const [activeViewId, setActiveViewId] = useState(initialViewId);
   const [columns, setColumns] = useState<ApplicationColumnId[]>(initialConfig.columns);
   const [sort, setSort] = useState<ApplicationSortState>(initialConfig.sort);
@@ -143,14 +132,11 @@ export default function ApplicationsClient({
   const [searchQuery, setSearchQuery] = useState(initialConfig.filters.search || '');
   const deferredSearch = useDeferredValue(searchQuery);
   const [cvFilter, setCvFilter] = useState<'all' | 'linked' | 'unlinked'>(initialConfig.filters.cv || 'all');
-  const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('compact');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'custom'>(initialConfig.filters.date || 'all');
   const [startDate, setStartDate] = useState(initialConfig.filters.startDate || '');
   const [endDate, setEndDate] = useState(initialConfig.filters.endDate || '');
   const [isCurateModalOpen, setIsCurateModalOpen] = useState(false);
-  const [isSimulationMode, setIsSimulationMode] = useState(false);
   const [curateTargetOffers, setCurateTargetOffers] = useState<ApplicationSummary[] | null>(null);
-  const [interestedSortMode, setInterestedSortMode] = useState<'score' | 'date'>('score');
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
@@ -221,20 +207,11 @@ export default function ApplicationsClient({
     resetPageAndSelection();
   };
 
-  const syncUrl = (patch: { layout?: 'table' | 'board'; view?: string }) => {
+  const syncUrl = (patch: { view?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (patch.layout) params.set('layout', patch.layout);
+    params.delete('layout');
     if (patch.view) params.set('view', patch.view);
     replaceUrlQuery(pathname, params);
-  };
-
-  const handleLayoutChange = (next: 'table' | 'board') => {
-    setLayout(next);
-    try {
-      window.localStorage.setItem('applications.layout', next);
-      document.cookie = `applications_layout=${next}; path=/; max-age=31536000; SameSite=Lax`;
-    } catch {}
-    syncUrl({ layout: next });
   };
 
   const handleSelectView = (id: string, sync = true) => {
@@ -252,10 +229,6 @@ export default function ApplicationsClient({
   };
 
   useEffect(() => {
-    const urlLayout = searchParams.get('layout');
-    if ((urlLayout === 'table' || urlLayout === 'board') && urlLayout !== layout) {
-      setLayout(urlLayout);
-    }
     const urlView = searchParams.get('view');
     if (urlView && urlView !== activeViewId) {
       handleSelectView(urlView, false);
@@ -264,19 +237,6 @@ export default function ApplicationsClient({
   }, [searchParams]);
 
   useEffect(() => {
-    if (!searchParams.get('layout')) {
-      try {
-        const stored = window.localStorage.getItem('applications.layout');
-        if (stored === 'board' && layout !== 'board') {
-          setLayout('board');
-          syncUrl({ layout: 'board' });
-        } else if (stored === 'table' && layout !== 'table') {
-          setLayout('table');
-          syncUrl({ layout: 'table' });
-        }
-      } catch {}
-    }
-
     if (!searchParams.get('view')) {
       try {
         const storedView = window.localStorage.getItem('applications.view');
@@ -551,7 +511,6 @@ export default function ApplicationsClient({
     if (!proceed) return;
 
     setCurateTargetOffers(selectedOffers);
-    setIsSimulationMode(false);
     setIsCurateModalOpen(true);
   };
 
@@ -570,55 +529,13 @@ export default function ApplicationsClient({
 
   const [localOffers, setLocalOffers] = useState(() => hydrateOffers(offers));
   const [filteredTotal, setFilteredTotal] = useState(initialFilteredTotal);
-  const [statusCounts, setStatusCounts] = useState(initialStatusCounts ?? emptyStatusCounts());
   const [listLoading, setListLoading] = useState(false);
-  const [draggingOfferId, setDraggingOfferId] = useState<string | null>(null);
   const skipListFetch = useRef(true);
 
   useEffect(() => {
     setLocalOffers(hydrateOffers(offers));
     setFilteredTotal(initialFilteredTotal);
-    setStatusCounts(initialStatusCounts ?? emptyStatusCounts());
-  }, [offers, initialFilteredTotal, initialStatusCounts]);
-
-  // Drag and Drop Handlers
-  const handleDragStart = (start: any) => {
-    setDraggingOfferId(start.draggableId);
-  };
-
-  const handleDragEnd = async (result: any) => {
-    setDraggingOfferId(null);
-    const { destination, source, draggableId } = result;
-
-    // Dropped outside a column or in the same place
-    if (!destination) return;
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    const targetColumnId = destination.droppableId as BoardColumnId;
-    const offerId = draggableId;
-
-    const offer = localOffers.find(o => o.id === offerId);
-    if (!offer || offer.status === targetColumnId) return;
-
-    // Optimistic UI update
-    const previousOffers = [...localOffers];
-    setLocalOffers(prev => prev.map(o => o.id === offerId ? { ...o, status: targetColumnId, updatedAt: new Date() } : o));
-
-    const actionResult = await updateJobOfferStatus(offerId, targetColumnId);
-    if (actionResult.error) {
-      // Revert if db update fails
-      setLocalOffers(previousOffers);
-    }
-  };
-
-  const handleDeleteOffer = (offerId: string) => {
-    setLocalOffers(prev => prev.filter(o => o.id !== offerId));
-  };
+  }, [offers, initialFilteredTotal]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -629,9 +546,6 @@ export default function ApplicationsClient({
     description: '',
   });
 
-  const boardOffers = localOffers;
-  const filteredOffers = localOffers;
-  const boardFilteredOffers = localOffers;
   const pagination = useMemo(() => {
     const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
@@ -656,7 +570,6 @@ export default function ApplicationsClient({
     let cancelled = false;
     setListLoading(true);
     queryApplicationsAction({
-      layout,
       filters: viewFilters,
       sort,
       page,
@@ -666,7 +579,6 @@ export default function ApplicationsClient({
       if (!('error' in result)) {
         setLocalOffers(hydrateOffers(result.data.items));
         setFilteredTotal(result.data.total);
-        setStatusCounts(result.data.statusCounts);
         if (result.data.page !== page) setPage(result.data.page);
       }
       setListLoading(false);
@@ -674,7 +586,7 @@ export default function ApplicationsClient({
     return () => {
       cancelled = true;
     };
-  }, [layout, viewFilters, sort, page, pageSize]);
+  }, [viewFilters, sort, page, pageSize]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -698,7 +610,6 @@ export default function ApplicationsClient({
     } else {
       skipListFetch.current = false;
       const refreshed = await queryApplicationsAction({
-        layout,
         filters: viewFilters,
         sort,
         page: 1,
@@ -707,7 +618,6 @@ export default function ApplicationsClient({
       if (!('error' in refreshed)) {
         setLocalOffers(hydrateOffers(refreshed.data.items));
         setFilteredTotal(refreshed.data.total);
-        setStatusCounts(refreshed.data.statusCounts);
         setPage(1);
       }
       setIsModalOpen(false);
@@ -722,8 +632,7 @@ export default function ApplicationsClient({
   };
 
   return (
-    <div className={`w-full ${layout === 'table' ? 'md:h-full md:flex md:flex-col md:min-h-0' : ''}`} aria-busy={listLoading || undefined}>
-      {/* Cabecera del Tablero */}
+    <div className="w-full md:h-full md:flex md:flex-col md:min-h-0" aria-busy={listLoading || undefined}>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
@@ -736,27 +645,6 @@ export default function ApplicationsClient({
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <div className="segmented w-full sm:w-auto" role="group" aria-label={`${t('applications.layout.table')} / ${t('applications.layout.board')}`}>
-            <button
-              type="button"
-              onClick={() => handleLayoutChange('table')}
-              className="segmented__item flex-1 sm:flex-none"
-              aria-pressed={layout === 'table'}
-            >
-              <Table2 className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('applications.layout.table')}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLayoutChange('board')}
-              className="segmented__item flex-1 sm:flex-none"
-              aria-pressed={layout === 'board'}
-            >
-              <SquareKanban className="w-3.5 h-3.5 stroke-[1.75]" />
-              {t('applications.layout.board')}
-            </button>
-          </div>
-
           <Button type="button" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 stroke-[1.75]" />
             {t('applications.board.newApplicationBtn')}
@@ -766,21 +654,19 @@ export default function ApplicationsClient({
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-5">
         <div className="flex flex-wrap items-center gap-3">
-          {layout === 'table' && (
-            <ApplicationViewsMenu
-              views={viewOptions}
-              activeViewId={activeViewId}
-              isDirty={isDirty}
-              saving={isSavingView}
-              onSelect={handleSelectView}
-              onSave={handleSaveView}
-              onSaveAs={handleSaveViewAs}
-              onRename={handleRenameView}
-              onSetDefault={handleSetDefaultView}
-              onDelete={handleDeleteView}
-              onRevert={handleRevertView}
-            />
-          )}
+          <ApplicationViewsMenu
+            views={viewOptions}
+            activeViewId={activeViewId}
+            isDirty={isDirty}
+            saving={isSavingView}
+            onSelect={handleSelectView}
+            onSave={handleSaveView}
+            onSaveAs={handleSaveViewAs}
+            onRename={handleRenameView}
+            onSetDefault={handleSetDefaultView}
+            onDelete={handleDeleteView}
+            onRevert={handleRevertView}
+          />
 
           {followupFilter !== 'all' && (
             <button
@@ -796,41 +682,16 @@ export default function ApplicationsClient({
               <X className="w-3 h-3 stroke-[2]" />
             </button>
           )}
-
-          {layout === 'board' && (
-            <div className="segmented" role="group" aria-label={`${t('applications.board.viewCompact')} / ${t('applications.board.viewComfortable')}`}>
-              <button
-                type="button"
-                onClick={() => setViewMode('compact')}
-                className="segmented__item"
-                aria-pressed={viewMode === 'compact'}
-              >
-                <Minimize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                {t('applications.board.viewCompact')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('comfortable')}
-                className="segmented__item"
-                aria-pressed={viewMode === 'comfortable'}
-              >
-                <Maximize2 className="w-3.5 h-3.5 stroke-[1.75]" />
-                {t('applications.board.viewComfortable')}
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          {layout === 'table' && (
-            <ApplicationColumnsMenu
-              visibleColumns={columns}
-              onChange={(nextColumns) => {
-                setColumns(nextColumns);
-                setPage(1);
-              }}
-            />
-          )}
+          <ApplicationColumnsMenu
+            visibleColumns={columns}
+            onChange={(nextColumns) => {
+              setColumns(nextColumns);
+              setPage(1);
+            }}
+          />
 
           <div className="relative flex-1 md:w-80 lg:w-96 min-w-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
@@ -856,39 +717,7 @@ export default function ApplicationsClient({
         </div>
       </div>
 
-      {layout === 'board' ? (
-        <ApplicationsBoardView
-          offers={boardOffers}
-          filteredOffers={boardFilteredOffers}
-          columnCounts={statusCounts}
-          hasActiveFilters={hasActiveFilters}
-          userCvs={userCvs}
-          viewMode={viewMode}
-          interestedSortMode={interestedSortMode}
-          draggingOfferId={draggingOfferId}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onToggleInterestedSort={() => setInterestedSortMode((prev) => (prev === 'score' ? 'date' : 'score'))}
-          onOpenCurate={async (simulation) => {
-            if (!simulation) {
-              const proceed = await inspectOrExecutePrompt({
-                action: 'curate_offers',
-                title: 'Curar y calcular Match con IA (ofertas interesadas)',
-                data: {
-                  targetThreshold: 65,
-                },
-              });
-              if (!proceed) return;
-            }
-            setCurateTargetOffers(null);
-            setIsSimulationMode(simulation);
-            setIsCurateModalOpen(true);
-          }}
-          onOpenDetails={handleOpenDetails}
-          onDelete={handleDeleteOffer}
-        />
-      ) : (
-        <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
+      <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -982,10 +811,10 @@ export default function ApplicationsClient({
             hasActiveFilters={hasActiveFilters}
             onClearFilters={clearFilters}
             onNewApplication={() => setIsModalOpen(true)}
-            attachedFooter={filteredOffers.length > 0}
+            attachedFooter={localOffers.length > 0}
           />
 
-          {filteredOffers.length > 0 && (
+          {localOffers.length > 0 && (
             <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:static md:mt-0 md:shrink-0">
               <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm md:rounded-t-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-display">
                 <p className="text-xs text-text-muted">
@@ -1035,8 +864,6 @@ export default function ApplicationsClient({
             </div>
           )}
         </div>
-      )}
-
 
       {/* Modal Premium para crear Candidatura */}
       {isModalOpen && (
@@ -1234,9 +1061,8 @@ export default function ApplicationsClient({
             outdated.has(offer.id) ? { ...offer, scoreOverall: null } : offer,
           ));
         }}
-        offersCount={(curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')).length}
-        offers={curateTargetOffers ?? boardOffers.filter((o) => o.status === 'interested')}
-        isSimulation={isSimulationMode}
+        offersCount={curateTargetOffers?.length ?? 0}
+        offers={curateTargetOffers ?? []}
       />
 
       {/* Toast Flotante tras Curación Exitosa */}
