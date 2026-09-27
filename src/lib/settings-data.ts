@@ -2,6 +2,8 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, users } from '@/db/schema';
 import { baseCvForAiColumns, cvListColumns } from '@/lib/job-offer-queries';
+import { listUserApiTokens } from '@/lib/agent-api/tokens';
+import type { ApiTokenView } from '@/lib/agent-api/scopes';
 import { listExtensionInstallations } from '@/lib/extension-auth';
 import { getResearchQuota } from '@/lib/research/queue';
 import { hasProAccess } from '@/lib/subscription';
@@ -33,6 +35,7 @@ export type IntegrationsSettingsPayload = {
   isPremium: boolean;
   installations: Awaited<ReturnType<typeof listExtensionInstallations>>;
   quota: { used: number; limit: number };
+  apiTokens: ApiTokenView[];
 };
 
 export type SettingsTabPayload =
@@ -93,13 +96,25 @@ export async function loadProfileSettings(userId: string): Promise<ProfileSettin
 
 export async function loadIntegrationsSettings(user: SessionUser): Promise<IntegrationsSettingsPayload> {
   const isPremium = hasProAccess(user);
-  const [installations, quota] = isPremium
-    ? await Promise.all([listExtensionInstallations(user.id), getResearchQuota(user.id)])
-    : [[], { used: 0, limit: 10, periodStart: new Date() }];
+  if (!isPremium) {
+    return {
+      tab: 'integrations',
+      isPremium,
+      installations: [],
+      quota: { used: 0, limit: 10 },
+      apiTokens: [],
+    };
+  }
+  const [installations, quota, apiTokens] = await Promise.all([
+    listExtensionInstallations(user.id),
+    getResearchQuota(user.id),
+    listUserApiTokens(user.id),
+  ]);
   return {
     tab: 'integrations',
     isPremium,
     installations,
     quota: { used: quota.used, limit: quota.limit },
+    apiTokens,
   };
 }

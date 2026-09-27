@@ -156,6 +156,7 @@ export default function SettingsTabs({
                   isPremium={integrations.isPremium}
                   initialInstallations={integrations.installations}
                   initialQuota={integrations.quota}
+                  initialApiTokens={integrations.apiTokens}
                 />
               ) : activeTab === 'integrations' && loadingTab === 'integrations' ? (
                 <p className="text-sm text-text-muted font-sans" aria-busy="true">{t('settings.loadingTab')}</p>
