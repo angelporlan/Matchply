@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Clipboard, KeyRound } from 'lucide-react';
+import { Check, Clipboard, Info, KeyRound, X } from 'lucide-react';
 import { createApiKeyAction, deleteApiKeyAction, revealApiKeyAction, revokeApiKeyAction } from '@/app/dashboard/profile/api-key-actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import {
   type AgentScope,
   type ApiTokenView,
 } from '@/lib/agent-api/scopes';
+import { AGENT_CV_SYSTEM_PROMPT } from '@/lib/agent-api/cv-system-prompt';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { timeAgo } from '@/lib/time-ago';
 
@@ -27,11 +28,13 @@ const SCOPE_KEYS: Record<AgentScope, string> = {
 function DialogFrame({
   title,
   titleId,
+  maxWidth = 'max-w-md',
   onClose,
   children,
 }: {
   title: string;
   titleId: string;
+  maxWidth?: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -66,9 +69,19 @@ function DialogFrame({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md bg-surface border border-subtle rounded-2xl p-6 shadow-dialog"
+        className={`w-full ${maxWidth} bg-surface border border-subtle rounded-2xl p-6 shadow-dialog max-h-[90vh] overflow-y-auto`}
       >
-        <h3 id={titleId} className="text-base font-bold text-text font-display pr-6">{title}</h3>
+        <div className="flex items-center justify-between pb-1">
+          <h3 id={titleId} className="text-base font-bold text-text font-display pr-4">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-text-muted hover:text-text p-1 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+            aria-label="Cerrar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
         {children}
       </div>
     </div>,
@@ -86,6 +99,7 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
   const { t, language } = useLanguage();
   const [tokens, setTokens] = useState(initialTokens);
   const [createOpen, setCreateOpen] = useState(false);
+  const [promptInfoOpen, setPromptInfoOpen] = useState(false);
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<AgentScope[]>([...AGENT_SCOPES]);
   const [secret, setSecret] = useState<string | null>(null);
@@ -213,10 +227,29 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
             {t('subscription.integrations.apiKeys.description')}
           </p>
         </div>
-        <Button type="button" variant="primary" size="sm" onClick={() => { setError(null); setCreateOpen(true); }}>
-          <KeyRound className="w-3.5 h-3.5 stroke-[1.75]" />
-          {t('subscription.integrations.apiKeys.create')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="inline-flex items-center gap-1">
+            <Button type="button" variant="secondary" size="sm" onClick={() => void copy(AGENT_CV_SYSTEM_PROMPT, 'system-prompt')}>
+              {copied === 'system-prompt' ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+              {copied === 'system-prompt' ? t('subscription.integrations.apiKeys.copyPromptDone') : t('subscription.integrations.apiKeys.copyPrompt')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="px-2 text-text-muted hover:text-text"
+              onClick={() => setPromptInfoOpen(true)}
+              aria-label={t('subscription.integrations.apiKeys.promptInfoBtn')}
+              title={t('subscription.integrations.apiKeys.promptInfoBtn')}
+            >
+              <Info className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          <Button type="button" variant="primary" size="sm" onClick={() => { setError(null); setCreateOpen(true); }}>
+            <KeyRound className="w-3.5 h-3.5 stroke-[1.75]" />
+            {t('subscription.integrations.apiKeys.create')}
+          </Button>
+        </div>
       </div>
 
       {error && !createOpen && (
@@ -352,6 +385,70 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
             <Button type="button" variant="primary" size="sm" onClick={() => { setSecret(null); setCopied(null); }}>
               {t('subscription.integrations.apiKeys.close')}
             </Button>
+          </div>
+        </DialogFrame>
+      )}
+
+      {promptInfoOpen && (
+        <DialogFrame
+          title={t('subscription.integrations.apiKeys.promptInfoTitle')}
+          titleId="api-key-prompt-info-title"
+          maxWidth="max-w-lg"
+          onClose={() => setPromptInfoOpen(false)}
+        >
+          <div className="mt-4 space-y-4 font-sans text-xs text-text">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-text flex items-center gap-1.5 font-display">
+                <span className="w-1.5 h-1.5 rounded-full bg-ai-action shrink-0" />
+                {t('subscription.integrations.apiKeys.promptInfoWhyTitle')}
+              </h4>
+              <ul className="space-y-2 text-text-muted leading-relaxed pl-1">
+                <li className="flex items-start gap-2">
+                  <span className="text-text font-bold leading-none mt-0.5">•</span>
+                  <span>{t('subscription.integrations.apiKeys.promptInfoWhyFidelity')}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-text font-bold leading-none mt-0.5">•</span>
+                  <span>{t('subscription.integrations.apiKeys.promptInfoWhyHarvard')}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-text font-bold leading-none mt-0.5">•</span>
+                  <span>{t('subscription.integrations.apiKeys.promptInfoWhyProfile')}</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-2 pt-3 border-t border-subtle">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-text flex items-center gap-1.5 font-display">
+                <span className="w-1.5 h-1.5 rounded-full bg-action shrink-0" />
+                {t('subscription.integrations.apiKeys.promptInfoHowTitle')}
+              </h4>
+              <ol className="space-y-2 text-text-muted leading-relaxed pl-1 list-decimal list-inside">
+                <li>{t('subscription.integrations.apiKeys.promptInfoHowStep1')}</li>
+                <li>{t('subscription.integrations.apiKeys.promptInfoHowStep2')}</li>
+                <li>{t('subscription.integrations.apiKeys.promptInfoHowStep3')}</li>
+              </ol>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-subtle">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void copy(AGENT_CV_SYSTEM_PROMPT, 'modal-prompt')}
+              >
+                {copied === 'modal-prompt' ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                {copied === 'modal-prompt' ? t('subscription.integrations.apiKeys.copyPromptDone') : t('subscription.integrations.apiKeys.copyPrompt')}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setPromptInfoOpen(false)}
+              >
+                {t('subscription.integrations.apiKeys.promptInfoClose')}
+              </Button>
+            </div>
           </div>
         </DialogFrame>
       )}
