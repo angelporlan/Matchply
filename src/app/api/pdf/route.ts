@@ -8,6 +8,7 @@ import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
+import { countPdfPages } from '@/lib/pdf-pages';
 import { log } from '@/lib/logger';
 import { guestHasPdfDownloadRemaining, recordGuestPdfDownload } from '@/lib/guest-pdf';
 
@@ -56,6 +57,7 @@ function pdfResponse(buffer: Buffer, headers: Record<string, string>) {
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
+      'X-Pdf-Pages': String(countPdfPages(buffer)),
       ...headers,
     },
   });
@@ -144,7 +146,14 @@ export async function GET(req: NextRequest) {
 
     if (!isDownload && req.headers.get('if-none-match') === etag) {
       log({ event: 'pdf_render', route: '/api/pdf', userId: actor.userId, cacheHit, notModified: true, durationMs: Date.now() - started });
-      return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': cacheControl } });
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': cacheControl,
+          'X-Pdf-Pages': String(countPdfPages(buffer)),
+        },
+      });
     }
 
     log({

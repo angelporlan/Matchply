@@ -342,7 +342,7 @@ El barrido púrpura heredado pasa a ser opcional y breve dentro del progreso. Un
 
 ### Editor y PDF
 
-Escritorio: editor y vista previa con divisor ajustable y alternativa de teclado. Móvil: pestañas «Editar» / «Vista previa», sin comprimir ambos paneles. Agrupar formato, plantilla, fuente, escala, margen y acento; plegar controles avanzados.
+Una sola hoja A4: el texto se edita en el documento, no hay un segundo currículum al lado. El PDF real se genera al descargar y para contar páginas; no es otra copia en pantalla. La revisión queda en una columna con scroll propio. Móvil: pestañas «Currículum» y «Revisión». Markdown es una vista alternativa que sustituye a la hoja, no se muestra a la vez. Agrupar fuente, tamaño de impresión, margen, acento y zoom de pantalla; el papel es A4 y se nombra. Plegar controles que el PDF no persiste.
 
 Toolbar neutra, sin relieve en cada icono. Markdown sobrio: no reutilizar púrpura IA para cualquier encabezado. Mostrar «Guardando…», «Guardado» o error real de persistencia.
 
