@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { cvs } from '@/db/schema';
+import { cvs, jobOffers } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { cvListColumns } from '@/lib/job-offer-queries';
 import EditorClient from '@/components/editor/EditorClient';
 import { getAllowedCvTemplate, hasProAccess } from '@/lib/subscription';
 import { getActor } from '@/lib/actor';
@@ -52,6 +53,24 @@ export default async function EditorPage({ params }: EditorPageProps) {
     baseCvContent = baseCv?.content || null;
   }
 
+  const [cvChoices, linkedRows] = await Promise.all([
+    db
+      .select(cvListColumns)
+      .from(cvs)
+      .where(eq(cvs.userId, userId))
+      .orderBy(desc(cvs.isPrincipal), desc(cvs.updatedAt)),
+    db
+      .select({
+        id: jobOffers.id,
+        title: jobOffers.title,
+        company: jobOffers.company,
+      })
+      .from(jobOffers)
+      .where(and(eq(jobOffers.userId, userId), eq(jobOffers.cvId, cvId)))
+      .orderBy(desc(jobOffers.updatedAt))
+      .limit(1),
+  ]);
+
   const isGuest = actor.kind === 'guest';
   const guestCanDownloadPdf = isGuest ? await guestHasPdfDownloadRemaining(userId) : false;
   const subscriptionStatus = actor.subscriptionStatus || 'none';
@@ -76,6 +95,13 @@ export default async function EditorPage({ params }: EditorPageProps) {
       user={user}
       isGuest={isGuest}
       guestCanDownloadPdf={guestCanDownloadPdf}
+      cvChoices={cvChoices.map((item) => ({
+        id: item.id,
+        title: item.title,
+        isBase: item.isBase,
+        isPrincipal: item.isPrincipal,
+      }))}
+      linkedOffer={linkedRows[0] ?? null}
     />
   );
 }

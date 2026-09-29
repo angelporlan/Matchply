@@ -14,12 +14,16 @@ interface MarkdownEditorProps {
   initialContent: string;
   originalContent?: string;
   onSave?: () => void;
+  onContentChange?: (markdown: string) => void;
+  focusRequest?: { id: number; heading: string } | null;
   saveStatus: 'saved' | 'saving' | 'error';
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
   isFullScreen?: boolean;
   onToggleFullScreen?: () => void;
   isAiStreaming?: boolean;
   streamingStep?: string;
+  /** When set, the source or diff view replaces the document instead of offering another visual CV. */
+  forcedMode?: 'markdown' | 'diff';
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -285,14 +289,15 @@ const loadingTipsEn = [
   "Tip: The PRO AI engine offers greater semantic precision."
 ];
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep }: MarkdownEditorProps) {
+export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode }: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
-  const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>('visual');
+  const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>(forcedMode || 'visual');
   const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSaveRef = useRef<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
@@ -307,14 +312,51 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
   // Ref for visual editor
   const editableRef = useRef<HTMLDivElement>(null);
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
+  const lastFocusId = useRef<number | null>(null);
 
   // Synchronize internal content if it changes externally
   useEffect(() => {
     setContent(initialContent);
+    onContentChangeRef.current?.(initialContent);
     if (mode === 'visual' && editableRef.current && document.activeElement !== editableRef.current) {
       editableRef.current.innerHTML = mdToHtml(initialContent);
     }
   }, [initialContent]);
+
+  useEffect(() => {
+    if (!focusRequest || focusRequest.id === lastFocusId.current) return;
+    if (mode === 'diff') {
+      setMode('markdown');
+      return;
+    }
+    lastFocusId.current = focusRequest.id;
+    const heading = focusRequest.heading;
+    if (mode === 'visual' && editableRef.current) {
+      const nodes = Array.from(editableRef.current.querySelectorAll(heading ? 'h2' : 'h1'));
+      const target = heading
+        ? nodes.find((node) => (node.textContent || '').trim() === heading)
+        : nodes[0];
+      target?.scrollIntoView({ block: 'center' });
+      editableRef.current.focus();
+      return;
+    }
+    const field = textareaRef.current;
+    if (!field) return;
+    const source = field.value;
+    let index = 0;
+    if (heading) {
+      const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`^##\\s+${escaped}\\s*$`, 'm').exec(source);
+      index = match ? match.index : source.indexOf(`## ${heading}`);
+      if (index < 0) index = 0;
+    }
+    field.focus();
+    field.setSelectionRange(index, index);
+    const line = source.slice(0, index).split('\n').length;
+    field.scrollTop = Math.max(0, (line - 3) * 22);
+  }, [focusRequest, mode]);
 
   // Rotate loading tips every 2 seconds during AI streaming when empty
   useEffect(() => {
@@ -335,10 +377,12 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
+    pendingSaveRef.current = value;
 
     timerRef.current = setTimeout(async () => {
       try {
         const result = await saveCvContent(cvId, value);
+        if (pendingSaveRef.current === value) pendingSaveRef.current = null;
         if (result.success) {
           setSaveStatus('saved');
           if (onSave) {
@@ -358,6 +402,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setContent(value);
+    onContentChangeRef.current?.(value);
     setSaveStatus('saving');
     triggerAutosave(value);
   };
@@ -368,6 +413,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
       const html = editableRef.current.innerHTML;
       const md = htmlToMd(html);
       setContent(md);
+      onContentChangeRef.current?.(md);
       setSaveStatus('saving');
       triggerAutosave(md);
     }
@@ -421,14 +467,14 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
     }
   }, [content, mode]);
 
-  // Clean timer on unmount
+  // Clean timer on unmount. Flush a pending edit so leaving the source view does not drop it.
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+      const pending = pendingSaveRef.current;
+      if (pending !== null) void saveCvContent(cvId, pending);
     };
-  }, []);
+  }, [cvId]);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-canvas/90 border border-subtle dark:border-slate-900 rounded-2xl overflow-hidden shadow-sm dark:shadow-2xl relative transition-all duration-300">
@@ -444,7 +490,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
         {/* Toggle Mode Switch & Full Screen */}
         <div className="flex items-center gap-3">
-          <div className="flex bg-canvas p-0.5 rounded-[8px] border border-subtle dark:border-slate-800/80">
+          {!forcedMode && <div className="flex bg-canvas p-0.5 rounded-[8px] border border-subtle dark:border-slate-800/80">
             <button
               type="button"
               onClick={() => handleModeChange('visual')}
@@ -471,7 +517,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 {t('editor.markdown.modes.diff')}
               </button>
             )}
-          </div>
+          </div>}
 
           {onToggleFullScreen && (
             <button
@@ -496,7 +542,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           {/* Change Stats */}
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
-              {t('editor.markdown.diff.stats')}
+              {t('editor.markdown.diffToolbar.title')}
             </span>
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
@@ -515,7 +561,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               onClick={() => setDiffView('unified')}
               className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'unified' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
-              {t('editor.markdown.diff.unified')}
+              {t('editor.markdown.diffToolbar.unified')}
             </button>
             <button
               type="button"
@@ -523,7 +569,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
               className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'split' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
             >
               <Columns className="w-2.5 h-2.5 stroke-[1.75]" />
-              {t('editor.markdown.diff.split')}
+              {t('editor.markdown.diffToolbar.split')}
             </button>
           </div>
         </div>
@@ -753,7 +799,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
                   <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 z-10 uppercase select-none">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                    {t('editor.markdown.diff.before')}
+                    {t('editor.markdown.diffLabels.before')}
                   </div>
                   <div className="flex-1 p-2 font-mono text-xs">
                     {diffLines.map((line, idx) => {
@@ -788,7 +834,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
                   <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-450 flex items-center gap-1.5 z-10 uppercase select-none">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    {t('editor.markdown.diff.after')}
+                    {t('editor.markdown.diffLabels.after')}
                   </div>
                   <div className="flex-1 p-2 font-mono text-xs">
                     {diffLines.map((line, idx) => {
