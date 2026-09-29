@@ -1,0 +1,108 @@
+@font-face {
+  font-family: "Cv Sans";
+  src: url("../../assets/fonts/LiberationSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Sans";
+  src: url("../../assets/fonts/LiberationSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Sans";
+  src: url("../../assets/fonts/LiberationSans-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Sans";
+  src: url("../../assets/fonts/LiberationSans-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Serif";
+  src: url("../../assets/fonts/LiberationSerif-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Serif";
+  src: url("../../assets/fonts/LiberationSerif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Serif";
+  src: url("../../assets/fonts/LiberationSerif-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Serif";
+  src: url("../../assets/fonts/LiberationSerif-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Mono";
+  src: url("../../assets/fonts/LiberationMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Mono";
+  src: url("../../assets/fonts/LiberationMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Mono";
+  src: url("../../assets/fonts/LiberationMono-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Cv Mono";
+  src: url("../../assets/fonts/LiberationMono-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+
+.cv-sheet-scroll { scrollbar-gutter: stable; padding: 16px; }
+.cv-sheet { font-synthesis: none; text-rendering: optimizeLegibility; font-kerning: normal; text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+.cv-sheet strong, .cv-sheet b { font-weight: 700; }
+.cv-sheet em, .cv-sheet i { font-style: italic; }
+.cv-field { margin: 0; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit; min-width: 0; white-space: pre-wrap; overflow-wrap: normal; }
+.cv-field:focus { background: rgba(26, 95, 122, 0.06); }
+.cv-field:focus-visible { outline: 1px solid rgba(26, 95, 122, 0.55); outline-offset: 1px; }
+.cv-field.is-empty:before { content: attr(data-placeholder); color: transparent; pointer-events: none; }
+.cv-field.is-empty:focus:before, .cv-group:hover .cv-field.is-empty:before, .cv-group:focus-within .cv-field.is-empty:before { color: #a3a3a3; }
+.cv-chrome { position: absolute; z-index: 3; opacity: 0; pointer-events: none; font-family: var(--font-sans), Inter, Helvetica, Arial, sans-serif; font-synthesis: initial; letter-spacing: 0; text-transform: none; line-height: 1.2; }
+.cv-group:hover > .cv-chrome, .cv-group:focus-within > .cv-chrome, .cv-chrome:focus-within { opacity: 1; pointer-events: auto; }
+.cv-chrome button { background: #fff; border: 1px solid #d4d4d4; border-radius: 6px; color: #525252; font-size: 11px; font-weight: 600; line-height: 1.2; padding: 0 8px; min-height: 44px; }
+.cv-chrome button:hover { color: #111; }
+.cv-chrome button:disabled { opacity: 0.35; }
+.cv-date-empty { width: 0 !important; max-width: 0 !important; overflow: hidden; opacity: 0; }
+.cv-group:hover > .cv-head .cv-date-empty, .cv-group:focus-within > .cv-head .cv-date-empty { width: max-content !important; max-width: 48% !important; overflow: visible; opacity: 1; }
+.cv-collapse { height: 0 !important; min-height: 0 !important; margin: 0 !important; overflow: hidden; opacity: 0; }
+.cv-group:hover > .cv-collapse, .cv-group:focus-within > .cv-collapse { height: auto !important; overflow: visible; opacity: 1; }
+@media (hover: none) {
+  .cv-chrome { opacity: 1; pointer-events: auto; }
+  .cv-date-empty { width: max-content !important; max-width: 48% !important; overflow: visible; opacity: 1; }
+  .cv-collapse { height: auto !important; overflow: visible; opacity: 1; }
+}
