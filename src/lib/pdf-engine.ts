@@ -1,6 +1,9 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { readFileSync } from 'fs';
+import { cleanMarkdownInline, parseCvDocument, type CVContent, type ContactInfo, type Entry, type Section } from '@/lib/cv-document';
+
+export type { CVContent, ContactInfo, Entry, Section };
 
 // Márgenes predeterminados
 const PAGE_MARGIN = 36;
@@ -10,32 +13,6 @@ const COLORS = {
   accent: '#000000',
   rule: '#000000'
 };
-
-export interface ContactInfo {
-  label: string;
-  value: string;
-}
-
-export interface Entry {
-  heading: string;
-  subheading: string;
-  date: string;
-  paragraphs: string[];
-  bullets: string[];
-}
-
-export interface Section {
-  title: string;
-  paragraphs: string[];
-  entries: Entry[];
-  bullets: string[];
-}
-
-export interface CVContent {
-  name: string;
-  contact: ContactInfo[];
-  sections: Section[];
-}
 
 interface FontSet {
   regular: string;
@@ -142,10 +119,6 @@ const SVG_ICONS: Record<string, string> = {
   location: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'
 };
 
-function normalizeLine(line: string): string {
-  return line.replace(/\r/g, '').trimEnd();
-}
-
 function isSkillsSection(title: string): boolean {
   const t = title.toLowerCase();
   return t.includes('skills') || t.includes('habilidades') || t.includes('aptitudes') || t.includes('competencias') || t.includes('habilidad') || t.includes('aptitud');
@@ -200,30 +173,18 @@ function drawIcon(doc: any, type: string, x: number, y: number, size: number, co
   return true;
 }
 
-function cleanMarkdownInline(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .trim();
+function sanitizePdfText(content: string): string {
+  return (content || '')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-')
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
+    .replace(/\u00ad/g, '');
 }
 
-function normalizeMarkdownLabel(text: string): string {
-  if (/^\*\*([^*]+)\*\*/.test(text)) {
-    const match = text.match(/^\*\*([^*]+)\*\*(.*)$/);
-    if (match) {
-      let label = match[1].trim();
-      let value = match[2].trim();
-      
-      if (label.endsWith(':') || value.startsWith(':')) {
-        if (label.endsWith(':')) {
-          label = label.slice(0, -1).trim();
-        }
-        value = value.replace(/^[:\s]+/, '');
-        return `**${label}**: ${value}`;
-      }
-    }
-  }
-  return text;
+export function parseCvMarkdown(content: string): CVContent {
+  const cv = parseCvDocument(sanitizePdfText(content));
+  if (!cv.name.trim()) cv.name = 'Curriculum Vitae';
+  return cv;
 }
 
 function drawMarkdownText(
@@ -289,154 +250,6 @@ function slugifyFile(value: string): string {
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
-}
-
-export function parseCvMarkdown(content: string): CVContent {
-  // Sanitize Unicode characters that are not supported by built-in PDF fonts or cause rendering boxes
-  const sanitizedContent = (content || '')
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-') // replace all variants of dashes/hyphens with a standard ASCII hyphen
-    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')             // replace curly/smart double quotes with straight double quotes
-    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")             // replace curly/smart single quotes with straight single quotes
-    .replace(/\u00ad/g, '');                                 // remove soft hyphens (invisible control characters that render as boxes)
-
-  const lines = sanitizedContent.split('\n').map(normalizeLine);
-  const cv: CVContent = {
-    name: 'Curriculum Vitae',
-    contact: [],
-    sections: []
-  };
-
-  let currentSection: Section | null = null;
-  let currentEntry: Entry | null = null;
-  let currentParagraphs: string[] = [];
-
-  function flushParagraphs(target: any) {
-    if (!currentParagraphs.length || !target) {
-      currentParagraphs = [];
-      return;
-    }
-
-    const rawParagraph = currentParagraphs.join(' ').trim();
-    if (!rawParagraph) {
-      currentParagraphs = [];
-      return;
-    }
-
-    const paragraph = normalizeMarkdownLabel(rawParagraph);
-
-    if (!target.paragraphs) {
-      target.paragraphs = [];
-    }
-
-    target.paragraphs.push(paragraph);
-    currentParagraphs = [];
-  }
-
-  function ensureSection(title: string): Section {
-    const sec: Section = {
-      title: cleanMarkdownInline(title),
-      paragraphs: [],
-      entries: [],
-      bullets: []
-    };
-    cv.sections.push(sec);
-    currentEntry = null;
-    currentParagraphs = [];
-    return sec;
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (!line || line === '---') {
-      flushParagraphs(currentEntry || currentSection);
-      continue;
-    }
-
-    if (line.startsWith('# ')) {
-      cv.name = cleanMarkdownInline(line.slice(2)).replace(/^CV\s*--\s*/i, '').trim() || cv.name;
-      continue;
-    }
-
-    if (!currentSection) {
-      const parts = line.split('|');
-      let isContactLine = false;
-      const parsedItems: ContactInfo[] = [];
-      
-      for (const part of parts) {
-        const match = part.trim().match(/^\*\*([^*]+):\*\*\s*(.+)$/);
-        if (match) {
-          isContactLine = true;
-          parsedItems.push({
-            label: cleanMarkdownInline(match[1]),
-            value: cleanMarkdownInline(match[2])
-          });
-        }
-      }
-      
-      if (isContactLine) {
-        cv.contact.push(...parsedItems);
-        continue;
-      }
-    }
-
-    if (line.startsWith('## ')) {
-      flushParagraphs(currentEntry || currentSection);
-      currentSection = ensureSection(line.slice(3));
-      continue;
-    }
-
-    if (line.startsWith('### ')) {
-      flushParagraphs(currentEntry || currentSection);
-      currentEntry = {
-        heading: cleanMarkdownInline(line.slice(4)),
-        subheading: '',
-        date: '',
-        paragraphs: [],
-        bullets: []
-      };
-      if (currentSection) {
-        currentSection.entries.push(currentEntry);
-      }
-      continue;
-    }
-
-    if (line.startsWith('- ')) {
-      flushParagraphs(currentEntry || currentSection);
-      const content = line.slice(2).trim();
-      
-      const bullet = normalizeMarkdownLabel(content);
-      
-      if (currentEntry) {
-        currentEntry.bullets.push(bullet);
-      } else if (currentSection) {
-        currentSection.bullets.push(bullet);
-      }
-      continue;
-    }
-
-    if (currentEntry && !currentEntry.subheading && line.includes('|')) {
-      const parts = line.split('|');
-      currentEntry.subheading = cleanMarkdownInline(parts[0]);
-      currentEntry.date = cleanMarkdownInline(parts.slice(1).join('|'));
-      continue;
-    }
-
-    if (line.startsWith('**') && line.endsWith('**') && currentEntry && !currentEntry.subheading) {
-      currentEntry.subheading = cleanMarkdownInline(line);
-      continue;
-    }
-
-    if (currentEntry && !currentEntry.date && !line.startsWith('**')) {
-      currentEntry.date = cleanMarkdownInline(line);
-      continue;
-    }
-
-    currentParagraphs.push(line);
-  }
-
-  flushParagraphs(currentEntry || currentSection);
-  return cv;
 }
 
 // ==========================================
