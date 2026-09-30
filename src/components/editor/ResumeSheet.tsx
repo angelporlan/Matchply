@@ -270,7 +270,8 @@ export default function ResumeSheet({
       const pad = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
       const pagePx = (210 / 25.4) * 96;
       const available = Math.max(160, scroller.clientWidth - pad);
-      setFitScale(available / pagePx);
+      // A wide pane must not magnify the sheet. Percentage zoom does that.
+      setFitScale(Math.min(1, available / pagePx));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -416,7 +417,7 @@ export default function ResumeSheet({
   };
 
   return (
-    <div ref={scrollerRef} className="cv-sheet-scroll h-full min-h-0 overflow-auto bg-surface-muted">
+    <div ref={scrollerRef} className="cv-sheet-scroll h-full min-h-0 w-full min-w-0 overflow-auto bg-surface-muted">
       <div style={{ width: `calc(210mm * ${factor})`, height: (pageHeight || fallbackHeight) * factor, margin: '0 auto', position: 'relative' }}>
         <article
           ref={pageRef}

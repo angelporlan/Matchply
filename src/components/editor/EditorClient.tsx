@@ -6,10 +6,11 @@ import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
 import { PdfDownloadLink, type PdfZoom } from './PdfViewer';
 import ResumeSheet from './ResumeSheet';
+import SectionForm from './SectionForm';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { cvSectionChips } from '@/lib/cv-review';
+import { cvSectionChips, type CvSectionChip } from '@/lib/cv-review';
 import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
@@ -23,6 +24,10 @@ import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+
+function sectionChipTarget(chip: CvSectionChip): 'contact' | number {
+  return chip.kind === 'contact' ? 'contact' : Number(chip.id.slice('section-'.length));
+}
 
 interface EditorClientProps {
   cv: CV;
@@ -75,7 +80,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [pageMargin, setPageMargin] = useState(cv.pageMargin || 36);
   const [scale, setScale] = useState(cv.scale || 1.0);
   const [cvTitle, setCvTitle] = useState(cv.title);
-  const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
+  const [surface, setSurface] = useState<'document' | 'source' | 'diff' | 'form'>('document');
+  const [formTarget, setFormTarget] = useState<'contact' | number | null>(null);
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -416,7 +422,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const showDocument = (isLg || mobilePane === 'document') && surface === 'document';
-  const showSource = (isLg || mobilePane === 'document') && surface !== 'document';
+  const showForm = (isLg || mobilePane === 'document') && surface === 'form' && formTarget !== null;
+  const showSource = (isLg || mobilePane === 'document') && (surface === 'source' || surface === 'diff');
   const showReview = isLg || mobilePane === 'review';
 
   useEffect(() => {
@@ -546,17 +553,24 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         <div className="mt-2 flex items-center gap-2 overflow-x-auto" role="toolbar" aria-label={t('editor.sections.label')}>
           {cvSectionChips(reviewContent).map((chip) => {
             const label = chip.kind === 'contact' ? t('editor.sections.contact') : chip.title;
+            const target = sectionChipTarget(chip);
+            const open = surface === 'form' && formTarget === target;
             return (
               <button
                 key={chip.id}
                 type="button"
                 aria-label={label}
-                className="min-h-11 shrink-0 rounded-full border border-control bg-canvas px-3 text-xs font-semibold text-text hover:bg-surface-muted"
+                aria-pressed={open}
+                className={`min-h-11 shrink-0 rounded-full border px-3 text-xs text-text hover:bg-surface-muted ${open ? 'border-text bg-surface-muted font-bold' : 'border-control bg-canvas font-semibold'}`}
                 onClick={() => {
-                  setSurface('document');
                   setMobilePane('document');
                   setFullscreenPanel('none');
-                  setScrollTarget(chip.kind === 'contact' ? 'cv-contact' : `cv-${chip.id}`);
+                  if (open) {
+                    setSurface('document');
+                    return;
+                  }
+                  setFormTarget(target);
+                  setSurface('form');
                 }}
               >
                 {label}
@@ -635,7 +649,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       )}
 
       <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
-        {(showDocument || showSource) && (
+        {(showDocument || showForm || showSource) && (
           <div className={`h-full min-h-0 min-w-0 flex flex-col ${showReview && isLg ? 'flex-1' : 'flex-1'} ${showSource ? 'p-4 sm:p-6' : ''}`}>
             {showDocument && (
               <ResumeSheet
@@ -646,6 +660,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 scale={scale}
                 accentColor={accentColor}
                 zoom={zoom}
+                onContentChange={setReviewContent}
+                setSaveStatus={setSaveStatus}
+              />
+            )}
+            {showForm && formTarget !== null && (
+              <SectionForm
+                cvId={cv.id}
+                content={reviewContent}
+                target={formTarget}
                 onContentChange={setReviewContent}
                 setSaveStatus={setSaveStatus}
               />
@@ -943,7 +966,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </ModalScrim>
       )}
 
-      {surface !== 'document' && (
+      {(surface === 'source' || surface === 'diff') && (
       <footer className="w-full h-9 bg-white/95 dark:bg-canvas/90 border-t border-subtle px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-text-muted font-medium transition-colors">
         <div className="flex items-center gap-1.5">
           <span className="font-bold text-text-muted">{t('editor.footer.quickGuide')}</span>
