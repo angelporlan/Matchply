@@ -278,16 +278,22 @@ function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) 
 
   doc.font(ff.bold)
     .fontSize(layout.headingSize)
-    .fillColor(COLORS.text)
-    .text(entry.heading, margin, startY, {
-      width: cWidth * CV_METRICS.entryHeadingRatio
-    });
+    .fillColor(COLORS.text);
+  // PDFKit moves the heading when it does not fit. Reusing startY for the date
+  // then draws the date past the bottom of the new page and opens a blank one.
+  const headingStartsOnNextPage = startY > doc.page.maxY()
+    || startY + doc.currentLineHeight(true) > doc.page.maxY();
+
+  doc.text(entry.heading, margin, startY, {
+    width: cWidth * CV_METRICS.entryHeadingRatio
+  });
 
   if (entry.date) {
+    const dateY = headingStartsOnNextPage ? doc.page.margins.top : startY;
     doc.font(ff.regular)
       .fontSize(layout.metaSize)
       .fillColor(COLORS.muted)
-      .text(entry.date, margin, startY, {
+      .text(entry.date, margin, dateY, {
         width: cWidth,
         align: 'right'
       });
@@ -501,7 +507,29 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
 // INTEGRATED GENERATOR
 // ==========================================
 
-export function generatePdfBuffer(markdown: string, options: any = {}): Promise<Buffer> {
+export type PdfBufferResult = {
+  buffer: Buffer;
+  /** Y of each new page in the continuous flow, in points from the top of page 1. */
+  pageBreaks: number[];
+};
+
+function trackPageBreaks(doc: PDFKit.PDFDocument): number[] {
+  const breaks: number[] = [];
+  let origin = 0;
+  const target = doc as PDFKit.PDFDocument & {
+    continueOnNewPage: (options?: PDFKit.PDFDocumentOptions) => PDFKit.PDFDocument;
+  };
+  const original = target.continueOnNewPage.bind(target);
+  target.continueOnNewPage = (options) => {
+    const at = origin + doc.y;
+    if (at > origin) breaks.push(at);
+    origin += doc.y;
+    return original(options);
+  };
+  return breaks;
+}
+
+export function generatePdfBuffer(markdown: string, options: any = {}): Promise<PdfBufferResult> {
   return new Promise((resolve, reject) => {
     try {
       const cv = parseCvMarkdown(markdown);
@@ -524,10 +552,10 @@ export function generatePdfBuffer(markdown: string, options: any = {}): Promise<
       // (read from disk once per process, not once per render).
       registerFontFamily(doc, customize.fontFamily);
 
-
+      const pageBreaks = trackPageBreaks(doc);
       const chunks: Buffer[] = [];
       doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), pageBreaks }));
       doc.on('error', (err) => reject(err));
 
       renderCvPdf(doc, cv, layout, options.showIcons !== false, customize);

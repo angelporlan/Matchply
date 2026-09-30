@@ -16,11 +16,11 @@ const port = parentPort;
 port.on('message', async (message: RenderRequest) => {
   const { id, content, options } = message;
   try {
-    const buffer = await generatePdfBuffer(content, options);
+    const { buffer, pageBreaks } = await generatePdfBuffer(content, options);
     // Copy into a standalone ArrayBuffer so it can be transferred (Buffer may share the pool).
     const data = new Uint8Array(buffer.byteLength);
     data.set(buffer);
-    port.postMessage({ id, ok: true, data }, [data.buffer]);
+    port.postMessage({ id, ok: true, data, pageBreaks }, [data.buffer]);
   } catch (error) {
     port.postMessage({
       id,

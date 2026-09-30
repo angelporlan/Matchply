@@ -13,8 +13,10 @@ test('pdf cache returns the same buffer for an identical render key', () => {
     fontSize: 12.5,
   });
   const buffer = Buffer.from('pdf-bytes');
-  setCachedPdf(key, buffer);
-  assert.equal(getCachedPdf(key)?.equals(buffer), true);
+  setCachedPdf(key, buffer, [420]);
+  const cached = getCachedPdf(key);
+  assert.equal(cached?.buffer.equals(buffer), true);
+  assert.deepEqual(cached?.pageBreaks, [420]);
 });
 
 test('pdf cache keys change when styling options change', () => {

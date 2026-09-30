@@ -6,7 +6,9 @@ const MAX_ENTRIES = Math.max(4, Number(process.env.PDF_CACHE_MAX_ENTRIES || 64))
 const MAX_BYTES = Math.max(1_000_000, Number(process.env.PDF_CACHE_MAX_BYTES || 48 * 1024 * 1024));
 const TTL_MS = Math.max(10_000, Number(process.env.PDF_CACHE_TTL_MS || 30 * 60_000));
 
-type Entry = { buffer: Buffer; storedAt: number };
+type Entry = { buffer: Buffer; pageBreaks: number[]; storedAt: number };
+
+export type CachedPdf = { buffer: Buffer; pageBreaks: number[] };
 
 const cache = new Map<string, Entry>();
 let totalBytes = 0;
@@ -31,7 +33,7 @@ function remove(key: string) {
   totalBytes -= entry.buffer.byteLength;
 }
 
-export function getCachedPdf(key: string): Buffer | undefined {
+export function getCachedPdf(key: string): CachedPdf | undefined {
   const entry = cache.get(key);
   if (!entry) return undefined;
   if (Date.now() - entry.storedAt > TTL_MS) {
@@ -41,13 +43,13 @@ export function getCachedPdf(key: string): Buffer | undefined {
   // Refresh LRU position.
   cache.delete(key);
   cache.set(key, entry);
-  return entry.buffer;
+  return { buffer: entry.buffer, pageBreaks: entry.pageBreaks };
 }
 
-export function setCachedPdf(key: string, buffer: Buffer) {
+export function setCachedPdf(key: string, buffer: Buffer, pageBreaks: number[] = []) {
   remove(key);
   if (buffer.byteLength > MAX_BYTES) return; // never cache something larger than the whole budget
-  cache.set(key, { buffer, storedAt: Date.now() });
+  cache.set(key, { buffer, pageBreaks, storedAt: Date.now() });
   totalBytes += buffer.byteLength;
   while (cache.size > MAX_ENTRIES || totalBytes > MAX_BYTES) {
     const oldest = cache.keys().next().value;
