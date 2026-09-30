@@ -346,7 +346,7 @@ Una sola hoja A4: el texto se edita en el documento, no hay un segundo currícul
 
 Toolbar neutra, sin relieve en cada icono. Markdown sobrio: no reutilizar púrpura IA para cualquier encabezado. Mostrar «Guardando…», «Guardado» o error real de persistencia.
 
-Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. La hoja usa la misma fuente, los mismos iconos, el cuerpo y los saltos de línea que el PDF; el zoom de pantalla escala la página y no recompone el texto. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
+Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. La hoja usa la misma fuente, los mismos iconos, el cuerpo y los saltos de línea que el PDF; el zoom de pantalla escala la página y no recompone el texto. Pulsar una sección de la barra (Contacto, Experiencia, etc.) sustituye la hoja por el formulario de esa sección; Documento vuelve al currículum. No abre un segundo documento al lado. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
 
 ### Candidaturas / Postulaciones
 
