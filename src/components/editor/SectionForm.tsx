@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X } from 'lucide-react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
 import {
@@ -43,12 +43,14 @@ export default function SectionForm({
   target,
   onContentChange,
   setSaveStatus,
+  onBack,
 }: {
   cvId: string;
   content: string;
   target: 'contact' | number;
   onContentChange: (markdown: string) => void;
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
+  onBack: () => void;
 }) {
   const { t } = useLanguage();
   const [doc, setDoc] = useState<CVContent>(() => parseCvDocument(content));
@@ -107,10 +109,18 @@ export default function SectionForm({
   const heading = target === 'contact' ? t('editor.sections.contact') : (section?.title || t('editor.sheet.section'));
 
   return (
-    <div className="h-full min-h-0 overflow-auto bg-surface-muted">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6">
+    <div className="h-full min-h-0 overflow-auto bg-surface">
+      <div className="flex w-full flex-col gap-4 p-4 sm:p-5">
         <div>
-          <h2 className="font-display text-lg font-semibold text-text">{heading}</h2>
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex min-h-11 items-center gap-2 rounded-[8px] px-1 text-sm font-semibold text-text hover:bg-surface-muted"
+          >
+            <ArrowLeft className="h-4 w-4 stroke-[1.75]" aria-hidden />
+            {t('editor.sections.back')}
+          </button>
+          <h2 className="mt-2 font-display text-sm font-bold text-text">{heading}</h2>
           <p className="mt-1 text-xs text-text-muted">{t('editor.form.hint')}</p>
         </div>
         {target === 'contact' ? (
@@ -154,7 +164,7 @@ function ContactFields({
         />
       </Label>
       {doc.contact.map((item, index) => (
-        <div key={`contact-${index}`} className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] sm:items-end">
+        <div key={`contact-${index}`} className="grid gap-3">
           <Label label={t('editor.sheet.contactLabel')}>
             <input
               value={item.label}
@@ -261,7 +271,7 @@ function SectionFields({
       {skills ? (
         <SkillFields section={section} patchSection={patchSection} />
       ) : !textOnly ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="flex flex-col items-stretch gap-4">
           <div className="flex flex-col gap-2 rounded-xl border border-subtle bg-surface p-2">
             <p className="px-2 pt-1 text-xs font-semibold text-text-muted">{t('editor.form.entries')}</p>
             {section.entries.map((item, index) => (
@@ -373,7 +383,7 @@ function SkillFields({
           );
         }
         return (
-          <div key={key} className="grid gap-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_auto] sm:items-end">
+          <div key={key} className="grid gap-3">
             <Label label={t('editor.sheet.contactLabel')}>
               <input
                 value={parts.label}
@@ -445,7 +455,7 @@ function EntryFields({
           onChange={(event) => onChange((draft) => { draft.heading = event.target.value; })}
         />
       </Label>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         <Label label={labels.place}>
           <input
             value={entry.subheading}

@@ -969,9 +969,10 @@ const en = {
       sections: {
         label: 'Sections',
         contact: 'Contact',
+        back: 'Back',
       },
       form: {
-        hint: 'Changes save on their own. Document returns to the page.',
+        hint: 'Changes save on their own and show on the page.',
         degree: 'Degree',
         school: 'School',
         projectTitle: 'Project title',

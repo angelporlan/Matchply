@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, type Ref } from 'react';
+import { useEffect, useMemo, useState, type Ref } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { cvSectionChips, reviewCvMarkdown, type CvReviewIssue } from '@/lib/cv-review';
+import { cvSectionChips, reviewCvMarkdown, type CvReviewIssue, type CvSectionChip } from '@/lib/cv-review';
+import SectionForm from './SectionForm';
 
 export type AdaptDraft = {
   jobTitle: string;
@@ -22,6 +23,10 @@ export type LinkedOffer = {
   title: string;
   company: string;
 };
+
+function sectionTarget(chip: CvSectionChip): 'contact' | number {
+  return chip.kind === 'contact' ? 'contact' : Number(chip.id.slice('section-'.length));
+}
 
 function issueText(issue: CvReviewIssue, t: (key: string, replacements?: Record<string, string | number>) => string) {
   const section = issue.section ?? '';
@@ -49,7 +54,10 @@ function issueText(issue: CvReviewIssue, t: (key: string, replacements?: Record<
 }
 
 export default function EditorReviewRail({
+  cvId,
   content,
+  onContentChange,
+  setSaveStatus,
   isBase,
   linkedOffer,
   pageCount,
@@ -62,7 +70,10 @@ export default function EditorReviewRail({
   onSubmit,
   titleInputRef,
 }: {
+  cvId: string;
   content: string;
+  onContentChange: (markdown: string) => void;
+  setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
   isBase: boolean;
   linkedOffer: LinkedOffer | null;
   pageCount: number | null;
@@ -76,8 +87,22 @@ export default function EditorReviewRail({
   titleInputRef?: Ref<HTMLInputElement>;
 }) {
   const { t } = useLanguage();
+  const [openSection, setOpenSection] = useState<'contact' | number | null>(null);
+  const chips = useMemo(() => cvSectionChips(content), [content]);
   const issues = useMemo(() => reviewCvMarkdown(content), [content]);
-  const hasSections = cvSectionChips(content).some((chip) => chip.kind === 'section');
+  const hasSections = chips.some((chip) => chip.kind === 'section');
+
+  useEffect(() => {
+    if (openSection === null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      setOpenSection(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openSection]);
   const structural = issues.filter((issue) => !issue.code.startsWith('entry_'));
   const entries = issues.filter((issue) => issue.code.startsWith('entry_'));
   const shownEntries = entries.slice(0, 8);
@@ -110,8 +135,39 @@ export default function EditorReviewRail({
   };
 
   return (
-    <aside className="h-full min-h-0 overflow-y-auto bg-surface border-l border-subtle" aria-label={t('editor.review.title')}>
+    <aside className="h-full min-h-0 overflow-hidden bg-surface border-l border-subtle" aria-label={t('editor.review.title')}>
+      {openSection !== null ? (
+        <SectionForm
+          cvId={cvId}
+          content={content}
+          target={openSection}
+          onContentChange={onContentChange}
+          setSaveStatus={setSaveStatus}
+          onBack={() => setOpenSection(null)}
+        />
+      ) : (
+      <div className="h-full min-h-0 overflow-y-auto">
       <div className="p-4 sm:p-5 space-y-5">
+        <nav aria-label={t('editor.sections.label')} className="space-y-2">
+          <h2 className="font-display text-sm font-bold text-text">{t('editor.sections.label')}</h2>
+          <ul className="space-y-2">
+            {chips.map((chip) => {
+              const label = chip.kind === 'contact' ? t('editor.sections.contact') : chip.title;
+              return (
+                <li key={chip.id}>
+                  <button
+                    type="button"
+                    data-section-id={chip.id}
+                    className="flex min-h-11 w-full items-center rounded-[8px] border border-control bg-canvas px-3 text-left text-sm font-semibold text-text hover:bg-surface-muted"
+                    onClick={() => setOpenSection(sectionTarget(chip))}
+                  >
+                    {label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
         <div>
           <h2 className="font-display text-sm font-bold text-text">{t('editor.review.title')}</h2>
           <p className="mt-1 text-xs leading-5 text-text-muted">{t('editor.review.disclaimer')}</p>
@@ -246,6 +302,8 @@ export default function EditorReviewRail({
           </Button>
         </form>
       </div>
+      </div>
+      )}
     </aside>
   );
 }

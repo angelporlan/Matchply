@@ -1017,9 +1017,10 @@ const es = {
       sections: {
         label: 'Secciones',
         contact: 'Contacto',
+        back: 'Atrás',
       },
       form: {
-        hint: 'Los cambios se guardan solos. Documento vuelve a la hoja.',
+        hint: 'Los cambios se guardan solos y se ven en la hoja.',
         degree: 'Título',
         school: 'Centro',
         projectTitle: 'Título del proyecto',
