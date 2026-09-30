@@ -426,9 +426,9 @@ export default function ApplicationsTable({
   }
 
   return (
-    <div className="md:flex md:flex-col md:min-h-0">
+    <div className="md:flex md:flex-col md:min-h-0 md:flex-1">
       {/* Tabla de escritorio */}
-      <div className={`hidden md:flex md:flex-col md:min-h-0 border border-subtle bg-surface shadow-sm overflow-hidden ${attachedFooter ? 'rounded-t-[12px] border-b-0' : 'rounded-[12px]'}`}>
+      <div className={`hidden md:flex md:flex-col md:min-h-0 md:flex-1 border border-subtle bg-surface shadow-sm overflow-hidden ${attachedFooter ? 'rounded-t-[12px] border-b-0' : 'rounded-[12px]'}`}>
         <div className="overflow-x-auto scrollbar-custom md:min-h-0 md:grow md:overflow-y-auto">
           <table className="min-w-full text-left text-xs font-sans">
             <caption className="sr-only">{t('applications.table.caption')}</caption>
