@@ -2,7 +2,20 @@
 
 import { useEffect, useMemo, useState, type Ref } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import {
+  AlertTriangle,
+  Award,
+  Briefcase,
+  CheckCircle2,
+  FileText,
+  FolderGit2,
+  GraduationCap,
+  Info,
+  Languages,
+  Layers,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { cvSectionChips, reviewCvMarkdown, type CvReviewIssue, type CvSectionChip } from '@/lib/cv-review';
@@ -26,6 +39,36 @@ export type LinkedOffer = {
 
 function sectionTarget(chip: CvSectionChip): 'contact' | number {
   return chip.kind === 'contact' ? 'contact' : Number(chip.id.slice('section-'.length));
+}
+
+function getSectionIcon(kind: 'contact' | 'section', title: string) {
+  if (kind === 'contact') return User;
+  const lower = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (lower.includes('perfil') || lower.includes('resumen') || lower.includes('summary') || lower.includes('about')) {
+    return FileText;
+  }
+  if (lower.includes('experiencia') || lower.includes('experience') || lower.includes('laboral') || lower.includes('trabajo')) {
+    return Briefcase;
+  }
+  if (lower.includes('proyecto') || lower.includes('project')) {
+    return FolderGit2;
+  }
+  if (lower.includes('educaci') || lower.includes('education') || lower.includes('formaci') || lower.includes('estudios') || lower.includes('academ')) {
+    return GraduationCap;
+  }
+  if (lower.includes('habilidad') || lower.includes('skill') || lower.includes('competencia') || lower.includes('tecnic') || lower.includes('stack')) {
+    return Sparkles;
+  }
+  if (lower.includes('idioma') || lower.includes('language')) {
+    return Languages;
+  }
+  if (lower.includes('certifica') || lower.includes('premio') || lower.includes('award') || lower.includes('logro')) {
+    return Award;
+  }
+  return Layers;
 }
 
 function issueText(issue: CvReviewIssue, t: (key: string, replacements?: Record<string, string | number>) => string) {
@@ -149,19 +192,30 @@ export default function EditorReviewRail({
       <div className="h-full min-h-0 overflow-y-auto">
       <div className="p-4 sm:p-5 space-y-5">
         <nav aria-label={t('editor.sections.label')} className="space-y-2">
-          <h2 className="font-display text-sm font-bold text-text">{t('editor.sections.label')}</h2>
-          <ul className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <h2 className="font-display text-sm font-bold text-text">
+              {t('editor.sections.label')}
+            </h2>
+            <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded-full bg-surface-muted text-text-muted border border-subtle">
+              {chips.length}
+            </span>
+          </div>
+
+          <ul className="flex flex-wrap gap-1.5 pt-0.5">
             {chips.map((chip) => {
               const label = chip.kind === 'contact' ? t('editor.sections.contact') : chip.title;
+              const Icon = getSectionIcon(chip.kind, label);
               return (
                 <li key={chip.id}>
                   <button
                     type="button"
                     data-section-id={chip.id}
-                    className="flex min-h-11 w-full items-center rounded-[8px] border border-control bg-canvas px-3 text-left text-sm font-semibold text-text hover:bg-surface-muted"
+                    title={label}
                     onClick={() => setOpenSection(sectionTarget(chip))}
+                    className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-control bg-canvas text-xs font-semibold text-text hover:bg-surface-muted hover:border-text-muted/40 transition-colors shadow-2xs max-w-full"
                   >
-                    {label}
+                    <Icon className="w-3.5 h-3.5 text-text-muted group-hover:text-text shrink-0 stroke-[1.75]" aria-hidden />
+                    <span className="truncate max-w-[140px]">{label}</span>
                   </button>
                 </li>
               );
