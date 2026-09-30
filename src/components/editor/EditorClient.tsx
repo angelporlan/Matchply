@@ -20,6 +20,7 @@ import {
 import LinkNext from 'next/link';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { parsePdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
@@ -81,6 +82,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [reviewContent, setReviewContent] = useState(cv.content);
   const [zoom, setZoom] = useState<PdfZoom>('fit');
   const [pageCount, setPageCount] = useState<number | null>(null);
+  const [pageBreaks, setPageBreaks] = useState<number[] | null>(null);
   const [focusAdapt, setFocusAdapt] = useState(false);
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const styleRef = useRef({ accentColor: cv.accentColor || '#1a5f7a', fontFamily: cv.fontFamily || 'helvetica', pageMargin: cv.pageMargin || 36, scale: cv.scale || 1.0 });
@@ -431,7 +433,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   useEffect(() => {
     const text = reviewContent;
     if (isStreaming || !text.trim()) {
-      if (!text.trim()) setPageCount(null);
+      if (!text.trim()) {
+        setPageCount(null);
+        setPageBreaks(null);
+      }
       return;
     }
     const controller = new AbortController();
@@ -453,8 +458,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         });
         if (!response.ok) return;
         const pages = Number(response.headers.get('X-Pdf-Pages'));
+        const breaks = parsePdfBreakHeader(response.headers.get('X-Pdf-Breaks'));
         await response.body?.cancel();
-        if (Number.isFinite(pages) && pages >= 1) setPageCount(pages);
+        if (Number.isFinite(pages) && pages >= 1) {
+          setPageCount(pages);
+          setPageBreaks(breaks);
+        }
       } catch {
         // Aborted renders and failed counts leave the previous page total in place.
       }
@@ -624,6 +633,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 scale={scale}
                 accentColor={accentColor}
                 zoom={zoom}
+                pageBreaks={pageBreaks}
                 onContentChange={setReviewContent}
                 setSaveStatus={setSaveStatus}
               />

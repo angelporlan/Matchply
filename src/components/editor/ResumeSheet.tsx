@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   htmlToInlineMarkdown,
@@ -30,16 +30,25 @@ import {
   splitSkillItem,
   wrapContactItems,
 } from '@/lib/cv-layout';
+import { SHEET_PAGE_GAP_PX, sheetPagePx } from '@/lib/pdf-page-breaks';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { PdfZoom } from './PdfViewer';
+import { applyLineSpans, measureSheetPages, type FlowPushMap } from './sheet-pages';
 import './cv-fonts.css';
 
 function pt(value: number): string {
   return `${value}pt`;
 }
 
+function PageGap({ id, pushes }: { id: string; pushes: FlowPushMap }) {
+  const height = pushes[id];
+  if (!height) return null;
+  return <div aria-hidden data-page-gap="" style={{ height }} />;
+}
+
 function Field({
   id,
+  flowId,
   value,
   rich = false,
   placeholder,
@@ -50,6 +59,7 @@ function Field({
   onEmptyBackspace,
 }: {
   id?: string;
+  flowId?: string;
   value: string;
   rich?: boolean;
   placeholder: string;
@@ -92,6 +102,7 @@ function Field({
   return (
     <div
       id={id}
+      data-flow={flowId}
       ref={ref}
       role="textbox"
       aria-label={placeholder}
@@ -182,6 +193,7 @@ export default function ResumeSheet({
   scale,
   accentColor,
   zoom,
+  pageBreaks,
   onContentChange,
   onSave,
   setSaveStatus,
@@ -193,6 +205,7 @@ export default function ResumeSheet({
   scale: number;
   accentColor: string;
   zoom: PdfZoom;
+  pageBreaks: number[] | null;
   onContentChange: (markdown: string) => void;
   onSave?: () => void;
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
@@ -215,6 +228,8 @@ export default function ResumeSheet({
   const [contactLines, setContactLines] = useState<number[][]>(() => (
     doc.contact.length ? [doc.contact.map((_, index) => index)] : []
   ));
+  const [pagePlan, setPagePlan] = useState<{ flows: FlowPushMap; spans: { flowId: string; offset: number; pushPx: number }[] }>({ flows: {}, spans: [] });
+  const [planKey, setPlanKey] = useState('');
   onChangeRef.current = onContentChange;
   onSaveRef.current = onSave;
   setSaveStatusRef.current = setSaveStatus;
@@ -344,6 +359,45 @@ export default function ResumeSheet({
   };
 
   const factor = zoom === 'fit' ? fitScale : zoom / 100;
+  const pagePx = sheetPagePx();
+  const breakKey = pageBreaks == null ? 'pending' : pageBreaks.map((value) => value.toFixed(2)).join(',');
+  // The key already folds in every input that changes line tops. Extra deps would
+  // remeasure when the PDF returns the same cuts and jump the caret.
+  const measureKey = [
+    breakKey,
+    factor,
+    pageMargin,
+    scale,
+    fontFamily,
+    serializeCvDocument(doc),
+    contactLines.map((line) => line.join('.')).join('/'),
+    ready ? '1' : '0',
+  ].join('|');
+  const planActive = planKey === measureKey && pageBreaks != null;
+  const pushes = planActive ? pagePlan.flows : {};
+  const pages = pageBreaks == null ? 1 : pageBreaks.length + 1;
+  const framed = pageBreaks != null && pages > 1;
+  const stackHeight = framed ? pages * pagePx + pages * SHEET_PAGE_GAP_PX : pagePx;
+
+  useLayoutEffect(() => {
+    const article = pageRef.current;
+    if (!article || !ready || factor <= 0) return;
+    applyLineSpans(article, []);
+    if (!pageBreaks || pageBreaks.length === 0) {
+      setPagePlan({ flows: {}, spans: [] });
+      setPlanKey(measureKey);
+      return;
+    }
+    setPagePlan(measureSheetPages(article, factor, pageBreaks));
+    setPlanKey(measureKey);
+  }, [measureKey]);
+
+  useLayoutEffect(() => {
+    const article = pageRef.current;
+    if (!article || planKey !== measureKey) return;
+    applyLineSpans(article, pagePlan.spans);
+  }, [planKey, measureKey, pagePlan]);
+
   const fallbackHeight = A4_HEIGHT_PT * CSS_PX_PER_PT;
   const iconSize = layout.contactSize * CV_METRICS.contactIconScale;
 
@@ -362,18 +416,22 @@ export default function ResumeSheet({
     onEnter?: () => void,
     onEmptyBackspace?: () => void,
   ) => (
-    <div key={bulletId} style={{ position: 'relative', paddingLeft: pt(CV_METRICS.bulletText), marginBottom: pt(bulletGapPt), ...bodyStyle }}>
-      <span aria-hidden style={{ position: 'absolute', left: pt(CV_METRICS.bulletMark), top: 0 }}>{'\u2022'}</span>
-      <Field
-        id={bulletId}
-        rich
-        value={bullet}
-        placeholder={t('editor.sheet.bullet')}
-        onCommit={onCommit}
-        onEnter={onEnter}
-        onEmptyBackspace={onEmptyBackspace}
-      />
-    </div>
+    <Fragment key={bulletId}>
+      <PageGap id={bulletId} pushes={pushes} />
+      <div data-flow={bulletId} style={{ position: 'relative', paddingLeft: pt(CV_METRICS.bulletText), marginBottom: pt(bulletGapPt), ...bodyStyle }}>
+        <span aria-hidden style={{ position: 'absolute', left: pt(CV_METRICS.bulletMark), top: 0 }}>{'\u2022'}</span>
+        <Field
+          id={bulletId}
+          flowId={`${bulletId}-text`}
+          rich
+          value={bullet}
+          placeholder={t('editor.sheet.bullet')}
+          onCommit={onCommit}
+          onEnter={onEnter}
+          onEmptyBackspace={onEmptyBackspace}
+        />
+      </div>
+    </Fragment>
   );
 
   const renderSkill = (item: string, itemId: string, onCommit: (next: string) => void) => {
@@ -386,39 +444,93 @@ export default function ResumeSheet({
     };
     if (!parts) {
       return (
-        <div key={itemId} style={rowStyle}>
-          <Field id={itemId} rich value={item} placeholder={t('editor.sheet.bullet')} onCommit={onCommit} />
-        </div>
+        <Fragment key={itemId}>
+          <PageGap id={itemId} pushes={pushes} />
+          <div data-flow={itemId} style={rowStyle}>
+            <Field id={itemId} flowId={`${itemId}-text`} rich value={item} placeholder={t('editor.sheet.bullet')} onCommit={onCommit} />
+          </div>
+        </Fragment>
       );
     }
     const labelStyle: CSSProperties = { display: 'inline' };
     return (
-      <div key={itemId} style={rowStyle}>
-        {[
-          <div key={`${itemId}-label`} style={{ float: 'left', whiteSpace: 'pre', fontWeight: 700, color: accentColor }}>
+      <Fragment key={itemId}>
+        <PageGap id={itemId} pushes={pushes} />
+        <div data-flow={itemId} style={rowStyle}>
+          {[
+            <div key={`${itemId}-label`} style={{ float: 'left', whiteSpace: 'pre', fontWeight: 700, color: accentColor }}>
+              <Field
+                id={itemId}
+                value={parts.label}
+                placeholder={t('editor.sheet.contactLabel')}
+                onCommit={(label) => onCommit(joinSkillItem(label, parts.value))}
+                style={labelStyle}
+              />{': '}
+            </div>,
             <Field
-              id={itemId}
-              value={parts.label}
-              placeholder={t('editor.sheet.contactLabel')}
-              onCommit={(label) => onCommit(joinSkillItem(label, parts.value))}
-              style={labelStyle}
-            />{': '}
-          </div>,
-          <Field
-            key={`${itemId}-value`}
-            rich
-            value={parts.value}
-            placeholder={t('editor.sheet.contactValue')}
-            onCommit={(value) => onCommit(joinSkillItem(parts.label, value))}
-          />,
-        ]}
-      </div>
+              key={`${itemId}-value`}
+              flowId={`${itemId}-text`}
+              rich
+              value={parts.value}
+              placeholder={t('editor.sheet.contactValue')}
+              onCommit={(value) => onCommit(joinSkillItem(parts.label, value))}
+            />,
+          ]}
+        </div>
+      </Fragment>
     );
   };
 
+  const pagesLabel = pageBreaks == null
+    ? t('editor.sheet.pagesPending')
+    : pages <= 1
+      ? t('editor.sheet.pagesOne')
+      : t('editor.sheet.pagesMany', { count: pages });
+  const sheetHeight = framed ? Math.max(stackHeight, pageHeight || 0) : (pageHeight || fallbackHeight);
+
   return (
     <div ref={scrollerRef} className="cv-sheet-scroll h-full min-h-0 w-full min-w-0 overflow-auto bg-surface-muted">
-      <div style={{ width: `calc(210mm * ${factor})`, height: (pageHeight || fallbackHeight) * factor, margin: '0 auto', position: 'relative' }}>
+      <p className="mb-3 text-center text-xs font-medium text-text-muted" aria-live="polite">{pagesLabel}</p>
+      <div style={{ width: `calc(210mm * ${factor})`, height: sheetHeight * factor, margin: '0 auto', position: 'relative' }}>
+        <div style={{ width: '210mm', transform: `scale(${factor})`, transformOrigin: 'top left', position: 'absolute', left: 0, top: 0 }}>
+        {framed && Array.from({ length: pages }, (_, index) => {
+          const top = index * (pagePx + SHEET_PAGE_GAP_PX);
+          return (
+            <Fragment key={`page-${index}`}>
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  top,
+                  left: 0,
+                  width: '210mm',
+                  height: pagePx,
+                  background: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+                }}
+              />
+              <p
+                className="text-text-muted"
+                style={{
+                  position: 'absolute',
+                  top: top + pagePx,
+                  left: 0,
+                  width: '210mm',
+                  height: SHEET_PAGE_GAP_PX,
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 2,
+                  fontSize: 11,
+                  lineHeight: 1,
+                }}
+              >
+                {t('editor.sheet.pageMark', { page: index + 1, total: pages })}
+              </p>
+            </Fragment>
+          );
+        })}
         <article
           ref={pageRef}
           className="cv-sheet"
@@ -426,24 +538,23 @@ export default function ResumeSheet({
           aria-label={t('editor.header.document')}
           style={{
             width: '210mm',
-            minHeight: '297mm',
+            minHeight: framed ? undefined : '297mm',
             boxSizing: 'border-box',
             padding: `${pt(pageMargin)} ${pt(pageMargin)} 0`,
-            background: '#ffffff',
+            background: framed ? 'transparent' : '#ffffff',
             color: PDF_COLORS.text,
             fontFamily: CV_FONT_STACK[family],
             fontWeight: 400,
             fontSynthesis: 'none',
-            transform: `scale(${factor})`,
-            transformOrigin: 'top left',
-            position: 'absolute',
-            left: 0,
-            top: 0,
+            position: 'relative',
+            zIndex: 1,
             visibility: ready ? 'visible' : 'hidden',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+            boxShadow: framed ? undefined : '0 1px 3px rgba(0, 0, 0, 0.12)',
           }}
         >
+          <PageGap id="name" pushes={pushes} />
           <Field
+            flowId="name"
             value={doc.name}
             placeholder={t('editor.sheet.name')}
             onCommit={(name) => edit((draft) => { draft.name = name; })}
@@ -462,8 +573,10 @@ export default function ResumeSheet({
           <div id="cv-contact" className="cv-group" style={{ position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', rowGap: pt(CV_METRICS.contactLineExtra) }}>
               {visibleContactLines.map((line) => (
+                <Fragment key={`contact-line-${line.join('-')}`}>
+                <PageGap id={`contact-${line[0]}`} pushes={pushes} />
                 <div
-                  key={`contact-line-${line.join('-')}`}
+                  data-flow={`contact-${line[0]}`}
                   style={{
                     height: pt(layout.contactSize),
                     display: 'flex',
@@ -511,6 +624,7 @@ export default function ResumeSheet({
                     return nodes;
                   })}
                 </div>
+                </Fragment>
               ))}
             </div>
             <div className="cv-chrome" style={{ left: '100%', top: 0, paddingLeft: 6 }}>
@@ -563,7 +677,9 @@ export default function ResumeSheet({
                   </button>
                 </div>
 
+                <PageGap id={`section-title-${sectionIndex}`} pushes={pushes} />
                 <Field
+                  flowId={`section-title-${sectionIndex}`}
                   value={section.title}
                   placeholder={t('editor.sheet.section')}
                   onCommit={(title) => edit((draft) => { draft.sections[sectionIndex].title = title; })}
@@ -598,16 +714,22 @@ export default function ResumeSheet({
                   </>
                 ) : (
                   <>
-                    {section.paragraphs.map((paragraph, paragraphIndex) => (
-                      <Field
-                        key={`p-${sectionIndex}-${paragraphIndex}`}
-                        rich
-                        value={paragraph}
-                        placeholder={t('editor.sheet.paragraph')}
-                        onCommit={(next) => edit((draft) => { draft.sections[sectionIndex].paragraphs[paragraphIndex] = next; })}
-                        style={paragraphStyle}
-                      />
-                    ))}
+                    {section.paragraphs.map((paragraph, paragraphIndex) => {
+                      const flowId = `p-${sectionIndex}-${paragraphIndex}`;
+                      return (
+                        <Fragment key={flowId}>
+                          <PageGap id={flowId} pushes={pushes} />
+                          <Field
+                            flowId={flowId}
+                            rich
+                            value={paragraph}
+                            placeholder={t('editor.sheet.paragraph')}
+                            onCommit={(next) => edit((draft) => { draft.sections[sectionIndex].paragraphs[paragraphIndex] = next; })}
+                            style={paragraphStyle}
+                          />
+                        </Fragment>
+                      );
+                    })}
                   </>
                 )}
 
@@ -623,13 +745,16 @@ export default function ResumeSheet({
                 )}
 
                 {section.entries.map((entry, entryIndex) => {
+                  const entryFlow = `entry-${sectionIndex}-${entryIndex}`;
                   const hasDate = entry.date.trim().length > 0;
                   const hasCompany = entry.subheading.trim().length > 0;
                   const preSize = hasCompany || hasDate ? layout.metaSize : layout.headingSize;
                   const preBullet = CV_METRICS.entryPreBullet * fontLine(preSize, family);
                   const headHeight = hasDate ? fontLine(layout.metaSize, family) + CV_METRICS.entryDateNudge : undefined;
                   return (
-                    <div key={`e-${sectionIndex}-${entryIndex}`} className="cv-group" style={{ position: 'relative', paddingBottom: pt(entryGapPt) }}>
+                    <Fragment key={entryFlow}>
+                    <PageGap id={entryFlow} pushes={pushes} />
+                    <div data-flow={entryFlow} className="cv-group" style={{ position: 'relative', paddingBottom: pt(entryGapPt) }}>
                       <div className="cv-chrome" style={{ left: '100%', bottom: 0, paddingLeft: 6 }}>
                         <button
                           type="button"
@@ -675,22 +800,28 @@ export default function ResumeSheet({
                         />
                       </div>
                       {hasCompany ? (
-                        <Field
-                          value={entry.subheading}
-                          placeholder={t('editor.sheet.company')}
-                          onCommit={(subheading) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].subheading = subheading; })}
-                          style={{
-                            fontSize: pt(layout.metaSize),
-                            lineHeight: em,
-                            fontStyle: 'italic',
-                            fontWeight: 400,
-                            color: PDF_COLORS.text,
-                            marginBottom: pt(preBullet),
-                          }}
-                        />
+                        <>
+                          <PageGap id={`company-${sectionIndex}-${entryIndex}`} pushes={pushes} />
+                          <Field
+                            flowId={`company-${sectionIndex}-${entryIndex}`}
+                            value={entry.subheading}
+                            placeholder={t('editor.sheet.company')}
+                            onCommit={(subheading) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].subheading = subheading; })}
+                            style={{
+                              fontSize: pt(layout.metaSize),
+                              lineHeight: em,
+                              fontStyle: 'italic',
+                              fontWeight: 400,
+                              color: PDF_COLORS.text,
+                              marginBottom: pt(preBullet),
+                            }}
+                          />
+                        </>
                       ) : (
                         <>
+                          <PageGap id={`company-${sectionIndex}-${entryIndex}`} pushes={pushes} />
                           <Field
+                            flowId={`company-${sectionIndex}-${entryIndex}`}
                             value={entry.subheading}
                             placeholder={t('editor.sheet.company')}
                             className="cv-collapse"
@@ -706,16 +837,22 @@ export default function ResumeSheet({
                           <div aria-hidden style={{ height: pt(preBullet) }} />
                         </>
                       )}
-                      {entry.paragraphs.map((paragraph, paragraphIndex) => (
-                        <Field
-                          key={`ep-${sectionIndex}-${entryIndex}-${paragraphIndex}`}
-                          rich
-                          value={paragraph}
-                          placeholder={t('editor.sheet.paragraph')}
-                          onCommit={(next) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].paragraphs[paragraphIndex] = next; })}
-                          style={paragraphStyle}
-                        />
-                      ))}
+                      {entry.paragraphs.map((paragraph, paragraphIndex) => {
+                        const flowId = `ep-${sectionIndex}-${entryIndex}-${paragraphIndex}`;
+                        return (
+                          <Fragment key={flowId}>
+                            <PageGap id={flowId} pushes={pushes} />
+                            <Field
+                              flowId={flowId}
+                              rich
+                              value={paragraph}
+                              placeholder={t('editor.sheet.paragraph')}
+                              onCommit={(next) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].paragraphs[paragraphIndex] = next; })}
+                              style={paragraphStyle}
+                            />
+                          </Fragment>
+                        );
+                      })}
                       {entry.bullets.map((bullet, bulletIndex) => renderBullet(
                         bullet,
                         `cv-bullet-${sectionIndex}-${entryIndex}-${bulletIndex}`,
@@ -731,6 +868,7 @@ export default function ResumeSheet({
                         }, bulletIndex > 0 ? `cv-bullet-${sectionIndex}-${entryIndex}-${bulletIndex - 1}` : undefined),
                       ))}
                     </div>
+                    </Fragment>
                   );
                 })}
 
@@ -749,6 +887,7 @@ export default function ResumeSheet({
             );
           })}
         </article>
+        </div>
       </div>
       <div className="flex justify-center pt-4 pb-6">
         <button

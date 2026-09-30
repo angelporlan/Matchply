@@ -1013,6 +1013,10 @@ const es = {
         addContact: 'Añadir dato',
         moveUp: 'Subir sección',
         moveDown: 'Bajar sección',
+        pagesPending: 'Calculando las páginas del PDF…',
+        pagesOne: '1 página A4',
+        pagesMany: '{count} páginas A4',
+        pageMark: 'Página {page} de {total}',
       },
       sections: {
         label: 'Secciones',

@@ -965,6 +965,10 @@ const en = {
         addContact: 'Add detail',
         moveUp: 'Move section up',
         moveDown: 'Move section down',
+        pagesPending: 'Calculating PDF pages…',
+        pagesOne: '1 A4 page',
+        pagesMany: '{count} A4 pages',
+        pageMark: 'Page {page} of {total}',
       },
       sections: {
         label: 'Sections',
