@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Copy, Check, Play, X, Loader2, Terminal, Code, AlignLeft } from 'lucide-react';
+import { Sparkles, Copy, Check, Play, X, Loader2, Terminal, Code, AlignLeft, UserPlus } from 'lucide-react';
 import type { AiPromptDebugResponse } from '@/lib/ai-prompts-debug';
+import { startSimulationAction } from '@/app/dashboard/profile/simulation-actions';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 
 interface AiPromptDebugModalProps {
@@ -190,13 +191,27 @@ export default function AiPromptDebugModal({
 
         {/* Footer actions */}
         <div className="px-5 py-3.5 border-t border-subtle bg-surface-hover/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="w-full sm:w-auto px-4 py-2 rounded-lg border border-subtle text-xs font-semibold text-text-muted hover:text-text hover:bg-subtle transition-colors cursor-pointer"
-          >
-            Cancelar
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 rounded-lg border border-subtle text-xs font-semibold text-text-muted hover:text-text hover:bg-subtle transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                onCancel();
+                await startSimulationAction();
+              }}
+              title="Simular primer contacto de nuevo cliente (0 datos)"
+              className="px-3 py-2 rounded-lg border border-ai/30 text-xs font-semibold text-ai hover:bg-ai/10 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Simular nuevo cliente</span>
+            </button>
+          </div>
 
           <div className="w-full sm:w-auto flex items-center gap-2">
             <button

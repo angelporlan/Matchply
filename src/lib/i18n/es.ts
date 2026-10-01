@@ -272,6 +272,10 @@ const es = {
         manageBilling: 'Gestionar facturación',
         upgrade: 'Mejorar a PRO',
         memberSince: 'Miembro desde {date}',
+        debugSectionTitle: 'Depuración y Pruebas',
+        simulateNewUserTitle: 'Simular primer contacto de nuevo cliente',
+        simulateNewUserDesc: 'Inicia una sesión aislada con un usuario sandbox que empieza desde cero (0 CVs, 0 ofertas y plan gratuito). Te permite probar el flujo de onboarding completo tal como lo ve un usuario nuevo, sin modificar tu cuenta real.',
+        simulateNewUserButton: 'Simular primer contacto',
       },
     },
     dashboard: {

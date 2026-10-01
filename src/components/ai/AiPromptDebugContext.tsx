@@ -39,7 +39,16 @@ export function AiPromptDebugProvider({
   useEffect(() => {
     if (typeof initialDebugEnabled === 'boolean') {
       setIsDebugEnabled(initialDebugEnabled);
+      if (initialDebugEnabled) return;
     }
+    fetch('/api/ai/debug-prompt')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.enabled) {
+          setIsDebugEnabled(true);
+        }
+      })
+      .catch(() => {});
   }, [initialDebugEnabled]);
 
   const inspectOrExecutePrompt = useCallback(

@@ -5,6 +5,7 @@ import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import type { Language } from '@/lib/i18n/types';
 import SessionChrome from '@/components/session/SessionChrome';
 import { AiPromptDebugProvider } from '@/components/ai/AiPromptDebugContext';
+import { isAiPromptsDebugEnabled } from '@/lib/ai-prompts-debug';
 import './globals.css';
 
 const inter = Inter({
@@ -33,9 +34,7 @@ export default async function RootLayout({
   const cookieLang = cookieStore.get('lang')?.value;
   const initialLanguage: Language = (cookieLang === 'es' || cookieLang === 'en') ? cookieLang : 'es';
 
-  const isDebugEnabled =
-    process.env.AI_PROMPTS_DEBUG === 'true' ||
-    process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG === 'true';
+  const isDebugEnabled = isAiPromptsDebugEnabled();
 
   return (
     <html lang={initialLanguage} className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>

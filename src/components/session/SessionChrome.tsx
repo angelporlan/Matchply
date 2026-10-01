@@ -1,5 +1,6 @@
 import ActorEpochGuard from '@/components/session/ActorEpochGuard';
 import ImpersonationBanner from '@/components/session/ImpersonationBanner';
+import SimulationBanner from '@/components/session/SimulationBanner';
 import UmamiTracker from '@/components/analytics/UmamiTracker';
 import { getRequestContext } from '@/lib/request-context';
 import { isUmamiCollectionEnabled } from '@/lib/flags';
@@ -16,11 +17,14 @@ export default async function SessionChrome({ children }: { children: React.Reac
           expiresAt={ctx.impersonation.expiresAt.toISOString()}
         />
       )}
+      {ctx.simulation && (
+        <SimulationBanner />
+      )}
       <UmamiTracker
         enabled={isUmamiCollectionEnabled()}
         websiteId={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID || process.env.UMAMI_WEBSITE_ID || ''}
         scriptUrl={process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL || ''}
-        impersonating={Boolean(ctx.impersonation)}
+        impersonating={Boolean(ctx.impersonation || ctx.simulation)}
       />
       {children}
     </>

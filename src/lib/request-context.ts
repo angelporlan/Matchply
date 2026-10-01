@@ -26,6 +26,12 @@ import type { SubscriptionFeature } from '@/lib/subscription';
 import { canAccessFeature } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
 
+import {
+  isNewUserSimulationEnabled,
+  readSimulationSession,
+  stopNewUserSimulation,
+} from '@/lib/debug-simulation';
+
 export type SupportSessionView = {
   id: string;
   actorUserId: string;
@@ -34,12 +40,18 @@ export type SupportSessionView = {
   expiresAt: Date;
 };
 
+export type SimulationSessionView = {
+  sandboxUserId: string;
+  originalUserId: string;
+};
+
 export type RequestContext = {
   realUser: SessionUser | null;
   effectiveUser: SessionUser | null;
   impersonation: SupportSessionView | null;
   impersonationInvalid: boolean;
   actorEpoch: string;
+  simulation?: SimulationSessionView | null;
 };
 
 function mapUser(row: {
@@ -135,7 +147,26 @@ export const getRequestContext = requestCache(async (): Promise<RequestContext> 
     }
   }
 
-  if (realUser && !impersonation) {
+  let simulation: SimulationSessionView | null = null;
+  if (!impersonation && realUser) {
+    const sim = readSimulationSession();
+    if (sim) {
+      if (!isNewUserSimulationEnabled()) {
+        stopNewUserSimulation();
+      } else if (sim.originalUserId === realUser.id) {
+        const sandboxTarget = await loadUser(sim.sandboxUserId);
+        if (sandboxTarget) {
+          effectiveUser = sandboxTarget;
+          simulation = {
+            sandboxUserId: sim.sandboxUserId,
+            originalUserId: sim.originalUserId,
+          };
+        }
+      }
+    }
+  }
+
+  if (realUser && !impersonation && !simulation) {
     void touchLastSeenAt(realUser.id);
   }
 
@@ -145,6 +176,7 @@ export const getRequestContext = requestCache(async (): Promise<RequestContext> 
     impersonation,
     impersonationInvalid,
     actorEpoch: actorEpochFor(impersonation?.id),
+    simulation,
   };
 });
 
@@ -201,6 +233,9 @@ export async function requireAdminContext() {
   if (ctx.impersonation) {
     throw new SupportActionBlockedError('Sal de la sesión de soporte para usar administración.');
   }
+  if (ctx.simulation) {
+    throw new SupportActionBlockedError('Sal de la simulación de nuevo usuario para usar administración.');
+  }
   assertActorEpoch(ctx);
   const admin = ctx.realUser;
   if (!admin || admin.role !== 'admin' || admin.accountStatus !== 'active' || admin.isGuest) {
@@ -214,6 +249,9 @@ export async function requireAccountContext() {
   if (ctx.impersonation) {
     throw new SupportActionBlockedError();
   }
+  if (ctx.simulation) {
+    throw new SupportActionBlockedError('Sal de la simulación de nuevo usuario para editar tu cuenta.');
+  }
   const realUser = ctx.realUser;
   if (!realUser) throw new Error('Unauthorized');
   return { ...ctx, realUser };
@@ -224,6 +262,9 @@ export async function requireBillingContext() {
   if (ctx.impersonationInvalid) throw new ImpersonationEndedError();
   if (ctx.impersonation) {
     throw new SupportActionBlockedError('No puedes gestionar la facturación durante una sesión de soporte.');
+  }
+  if (ctx.simulation) {
+    throw new SupportActionBlockedError('No puedes gestionar la facturación durante una simulación.');
   }
   const realUser = ctx.realUser;
   if (!realUser) throw new Error('Unauthorized');
