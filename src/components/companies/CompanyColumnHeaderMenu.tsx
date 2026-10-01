@@ -392,13 +392,25 @@ export default function CompanyColumnHeaderMenu({
       );
     }
 
+    const sortAscLabel = countColumn
+      ? t('companies.table.columns.menu.sortCountAsc')
+      : column === 'updatedAt'
+        ? t('companies.table.columns.menu.sortDateAsc')
+        : t('companies.table.columns.menu.sortAsc');
+
+    const sortDescLabel = countColumn
+      ? t('companies.table.columns.menu.sortCountDesc')
+      : column === 'updatedAt'
+        ? t('companies.table.columns.menu.sortDateDesc')
+        : t('companies.table.columns.menu.sortDesc');
+
     return (
       <div>
         {sortable && column !== 'actions' && (
           <>
             <MenuItem
               icon={<ArrowUp className="w-4 h-4 stroke-[1.75]" />}
-              label={t('companies.table.columns.menu.sortAsc')}
+              label={sortAscLabel}
               active={isSorted && sort.direction === 'asc'}
               onClick={() => {
                 onSetSort(column as CompanySortKey, 'asc');
@@ -407,7 +419,7 @@ export default function CompanyColumnHeaderMenu({
             />
             <MenuItem
               icon={<ArrowDown className="w-4 h-4 stroke-[1.75]" />}
-              label={t('companies.table.columns.menu.sortDesc')}
+              label={sortDescLabel}
               active={isSorted && sort.direction === 'desc'}
               onClick={() => {
                 onSetSort(column as CompanySortKey, 'desc');
