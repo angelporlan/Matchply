@@ -14,6 +14,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { companyCountMatches, isCompanyCountColumn } from '@/lib/company-column-filter';
 import type { CompanyListRow } from '@/lib/job-offer-queries';
 import {
   createCompanyAction,
@@ -106,6 +107,10 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
     if (columnFilters.length > 0) {
       rows = rows.filter((company) =>
         columnFilters.every((filter) => {
+          if (isCompanyCountColumn(filter.column)) {
+            const count = filter.column === 'applicationCount' ? company.applicationCount : company.noteCount;
+            return companyCountMatches(count, filter.operator, filter.value);
+          }
           const val = (() => {
             switch (filter.column) {
               case 'name':
@@ -116,10 +121,6 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
                 return company.sector ?? '';
               case 'website':
                 return company.website ?? '';
-              case 'applicationCount':
-                return String(company.applicationCount);
-              case 'noteCount':
-                return String(company.noteCount);
               case 'updatedAt':
                 return new Date(company.updatedAt).toISOString();
               default:
