@@ -18,6 +18,7 @@ import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { decideFreeOverwrite } from '@/lib/free-overwrite-guard';
 
 export async function POST(req: NextRequest) {
   try {
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
         .select({
           id: cvs.id,
           userId: cvs.userId,
+          isBase: cvs.isBase,
           content: cvs.content,
           templateName: cvs.templateName,
           accentColor: cvs.accentColor,
@@ -117,8 +119,18 @@ export async function POST(req: NextRequest) {
           return new NextResponse('Guest CV limit reached', { status: 403 });
         }
 
+        const decision = decideFreeOverwrite({
+          isGuest: false,
+          canCreate: false,
+          replacesBase: baseCv.isBase,
+          confirmed: body.confirmOverwrite === true,
+        });
+        if (decision.action === 'confirm') {
+          return new NextResponse('CV_OVERWRITE_CONFIRM', { status: 409 });
+        }
+
         // La optimización básica de Free sustituye su único CV en lugar de
-        // crear una segunda versión guardada.
+        // crear una segunda versión guardada, solo tras confirmación.
         targetCvId = baseCv.id;
       }
     }

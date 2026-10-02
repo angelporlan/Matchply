@@ -354,6 +354,16 @@ const en = {
         genericAiError: 'Error processing the resume with Artificial Intelligence.',
         dbSaveError: 'Error saving your base resume to the database.',
       },
+      overwrite: {
+        title: 'Your free plan keeps 1 resume',
+        body: 'Your free plan keeps 1 resume. Tailoring it to this job will replace the current one.',
+        bodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Tailoring it to this job will replace it.',
+        importBody: 'Your free plan keeps 1 resume. Importing another one will replace the current one.',
+        importBodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Importing another one will replace it.',
+        replace: 'Replace',
+        upgrade: 'Upgrade to PRO',
+        cancel: 'Cancel',
+      },
       modes: {
         fidelity: {
           name: 'Fidelity Mode',

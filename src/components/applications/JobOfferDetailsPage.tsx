@@ -13,6 +13,7 @@ import {
   evaluateSingleOfferMatchAction,
 } from '@/app/dashboard/applications/actions';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
+import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -222,7 +223,9 @@ export default function JobOfferDetailsPage({
   const statusConfig = getStatusConfig(offer.status);
 
   // Handle Create & Optimize CV for this offer with AI
-  const handleOptimizeCvForOffer = async () => {
+  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
+
+  const handleOptimizeCvForOffer = async (confirmed = false) => {
     setOptimizingCv(true);
     setError(null);
     try {
@@ -235,7 +238,14 @@ export default function JobOfferDetailsPage({
         title: `CV - ${offer.title} (${offer.company})`,
         isBase: false,
         isPrincipal: false,
+        confirmOverwrite: confirmed,
       });
+
+      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
+        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
+        setOptimizingCv(false);
+        return;
+      }
 
       if (!placeholderRes.success || !placeholderRes.cvId) {
         throw new Error(placeholderRes.error || 'Error al crear el nuevo currículum.');
@@ -395,6 +405,16 @@ export default function JobOfferDetailsPage({
 
   return (
     <div className="space-y-6">
+      <OverwriteGuardDialog
+        open={Boolean(overwriteGuard)}
+        replacesBase={Boolean(overwriteGuard?.replacesBase)}
+        intent="adapt"
+        onReplace={() => {
+          setOverwriteGuard(null);
+          void handleOptimizeCvForOffer(true);
+        }}
+        onClose={() => setOverwriteGuard(null)}
+      />
       {/* Botón Volver y cabecera móvil */}
       <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
         <button
@@ -428,7 +448,7 @@ export default function JobOfferDetailsPage({
             type="button"
             variant="ai"
             size="sm"
-            onClick={handleOptimizeCvForOffer}
+            onClick={() => { void handleOptimizeCvForOffer(); }}
             disabled={optimizingCv || loading}
             loading={optimizingCv}
           >
@@ -619,7 +639,7 @@ export default function JobOfferDetailsPage({
                   </a>
                   <button
                     type="button"
-                    onClick={handleOptimizeCvForOffer}
+                    onClick={() => { void handleOptimizeCvForOffer(); }}
                     disabled={optimizingCv || loading}
                     className="btn-raised btn-raised--secondary btn-raised--sm w-full"
                   >
@@ -630,7 +650,7 @@ export default function JobOfferDetailsPage({
               ) : (
                 <button
                   type="button"
-                  onClick={handleOptimizeCvForOffer}
+                  onClick={() => { void handleOptimizeCvForOffer(); }}
                   disabled={optimizingCv || loading}
                   className="btn-raised btn-raised--secondary mt-1 w-full"
                 >

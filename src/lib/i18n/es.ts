@@ -402,6 +402,16 @@ const es = {
         genericAiError: 'Error al procesar el currículum con Inteligencia Artificial.',
         dbSaveError: 'Error al guardar tu currículum base en la base de datos.',
       },
+      overwrite: {
+        title: 'Tu plan gratuito guarda 1 CV',
+        body: 'Tu plan gratuito guarda 1 CV. Adaptarlo a esta oferta reemplazará el actual.',
+        bodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Adaptarlo a esta oferta lo reemplazará.',
+        importBody: 'Tu plan gratuito guarda 1 CV. Importar otro reemplazará el actual.',
+        importBodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Importar otro lo reemplazará.',
+        replace: 'Reemplazar',
+        upgrade: 'Pasar a PRO',
+        cancel: 'Cancelar',
+      },
       modes: {
         fidelity: {
           name: 'Modo Fidelidad',

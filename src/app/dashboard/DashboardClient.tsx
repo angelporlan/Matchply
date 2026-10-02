@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
@@ -118,6 +119,11 @@ export default function DashboardClient({
   const [isPending, startTransition] = useTransition();
   const [userCvs, setUserCvs] = useState<CvListItem[]>(initialCvs);
   const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
+  const [overwriteGuard, setOverwriteGuard] = useState<{
+    replacesBase: boolean;
+    intent: 'adapt' | 'import';
+    retry: () => void;
+  } | null>(null);
   const { t, language } = useLanguage();
 
   const targetByCvId = useMemo(() => {
@@ -226,8 +232,8 @@ export default function DashboardClient({
   };
 
   // Manejar importación inteligente con IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleImportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleImportSubmit = async (e?: React.FormEvent, confirmed = false) => {
+    e?.preventDefault();
     if (importLoading) return;
 
     setImportError(null);
@@ -275,8 +281,19 @@ export default function DashboardClient({
       const placeholderRes = await createCvPlaceholder({
         title: cvTitle,
         isBase: true,
-        isPrincipal: true
+        isPrincipal: true,
+        confirmOverwrite: confirmed,
       });
+
+      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
+        setOverwriteGuard({
+          replacesBase: Boolean(placeholderRes.replacesBase),
+          intent: 'import',
+          retry: () => { void handleImportSubmit(undefined, true); },
+        });
+        setImportLoading(false);
+        return;
+      }
 
       if (!placeholderRes.success || !placeholderRes.cvId) {
         throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
@@ -452,8 +469,8 @@ export default function DashboardClient({
   };
 
   // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
+    e?.preventDefault();
     setAiError(null);
 
     if (!principalCv) {
@@ -479,8 +496,19 @@ export default function DashboardClient({
       const placeholderRes = await createCvPlaceholder({
         title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
         isBase: false,
-        isPrincipal: false
+        isPrincipal: false,
+        confirmOverwrite: confirmed,
       });
+
+      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
+        setOverwriteGuard({
+          replacesBase: Boolean(placeholderRes.replacesBase),
+          intent: 'adapt',
+          retry: () => { void handleAiOptimize(undefined, true); },
+        });
+        setAiLoading(false);
+        return;
+      }
 
       if (!placeholderRes.success || !placeholderRes.cvId) {
         throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
@@ -513,6 +541,17 @@ export default function DashboardClient({
 
   return (
     <div>
+      <OverwriteGuardDialog
+        open={Boolean(overwriteGuard)}
+        replacesBase={Boolean(overwriteGuard?.replacesBase)}
+        intent={overwriteGuard?.intent || 'adapt'}
+        onReplace={() => {
+          const retry = overwriteGuard?.retry;
+          setOverwriteGuard(null);
+          retry?.();
+        }}
+        onClose={() => setOverwriteGuard(null)}
+      />
       {/* Cabecera Tus Currículums */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>

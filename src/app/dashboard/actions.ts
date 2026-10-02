@@ -12,6 +12,7 @@ import {
   canUseCvTemplate,
 } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
+import { decideFreeOverwrite } from "@/lib/free-overwrite-guard";
 import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
 import { requireAccountContext, requireProductContext, auditActorFields } from "@/lib/request-context";
 import { cvMetaColumns } from "@/lib/job-offer-queries";
@@ -336,6 +337,7 @@ export async function createCvPlaceholder(updates: {
   title: string;
   isBase: boolean;
   isPrincipal: boolean;
+  confirmOverwrite?: boolean;
 }) {
   try {
     const actor = await getActor({ allowGuest: true });
@@ -354,7 +356,7 @@ export async function createCvPlaceholder(updates: {
       // Free mantiene un único CV: importaciones y optimizaciones básicas
       // reutilizan el CV existente en vez de crear una copia adicional.
       const [existingCv] = await db
-        .select({ id: cvs.id })
+        .select({ id: cvs.id, isBase: cvs.isBase })
         .from(cvs)
         .where(eq(cvs.userId, userId))
         .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt))
@@ -362,6 +364,21 @@ export async function createCvPlaceholder(updates: {
 
       if (!existingCv) {
         throw new Error(cvLimitMessage(false));
+      }
+
+      const decision = decideFreeOverwrite({
+        isGuest: false,
+        canCreate: false,
+        replacesBase: existingCv.isBase,
+        confirmed: Boolean(updates.confirmOverwrite),
+      });
+      if (decision.action === 'confirm') {
+        return {
+          success: false,
+          needsConfirm: true,
+          replacesBase: decision.replacesBase,
+          cvId: existingCv.id,
+        };
       }
 
       return { success: true, cvId: existingCv.id, reused: true };

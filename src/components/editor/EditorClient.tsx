@@ -11,6 +11,7 @@ import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorRev
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -79,6 +80,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
   const [diffLayout, setDiffLayout] = useState<'unified' | 'split'>('split');
   const [contentVersion, setContentVersion] = useState(0);
+  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -395,7 +397,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   }, [focusAdapt, mobilePane, surface]);
 
   // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e?: React.FormEvent) => {
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
     e?.preventDefault();
     setAiError(null);
     if (!aiFormData.jobDescription.trim()) {
@@ -416,8 +418,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const placeholderRes = await createCvPlaceholder({
         title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
         isBase: false,
-        isPrincipal: false
+        isPrincipal: false,
+        confirmOverwrite: confirmed,
       });
+
+      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
+        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
+        setAiLoading(false);
+        return;
+      }
 
       if (!placeholderRes.success || !placeholderRes.cvId) {
         throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
@@ -736,6 +745,16 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       </div>
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
+      <OverwriteGuardDialog
+        open={Boolean(overwriteGuard)}
+        replacesBase={Boolean(overwriteGuard?.replacesBase)}
+        intent="adapt"
+        onReplace={() => {
+          setOverwriteGuard(null);
+          void handleAiOptimize(undefined, true);
+        }}
+        onClose={() => setOverwriteGuard(null)}
+      />
       {isAiOpen && (
         <ModalScrim>
           <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
