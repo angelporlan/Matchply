@@ -973,6 +973,8 @@ const es = {
         write: 'Escribir',
         adapt: 'Adaptar a esta oferta',
         document: 'Documento',
+        edit: 'Editar',
+        revert: 'Revertir',
         markdown: 'Markdown',
         changes: 'Cambios',
       },

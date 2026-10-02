@@ -925,6 +925,8 @@ const en = {
         write: 'Write',
         adapt: 'Tailor to this job',
         document: 'Document',
+        edit: 'Edit',
+        revert: 'Revert',
         markdown: 'Markdown',
         changes: 'Changes',
       },

@@ -9,7 +9,7 @@ import ResumeSheet from './ResumeSheet';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
+import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -76,6 +76,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [scale, setScale] = useState(cv.scale || 1.0);
   const [cvTitle, setCvTitle] = useState(cv.title);
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
+  const [diffLayout, setDiffLayout] = useState<'unified' | 'split'>('split');
+  const [contentVersion, setContentVersion] = useState(0);
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -136,6 +138,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     const searchParams = new URLSearchParams(window.location.search);
     const shouldOptimize = searchParams.get('optimize') === 'true';
     const shouldImport = searchParams.get('importing') === 'true';
+
+    if (searchParams.get('diff') === '1' && baseCvContent) {
+      setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+      setSurface('diff');
+      setMobilePane('document');
+      if (!shouldOptimize && !shouldImport) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
 
     if (shouldOptimize) {
       window.history.replaceState(null, '', window.location.pathname);
@@ -226,6 +237,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
+      if (baseCvContent) {
+        setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+        setSurface('diff');
+        setMobilePane('document');
+      }
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
       router.refresh();
       setTimeout(() => {
@@ -316,6 +332,16 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setSaveStatus('error');
       setIsStreaming(false);
     }
+  };
+
+  const revertToBase = async () => {
+    if (!baseCvContent) return;
+    setCvContent(baseCvContent);
+    setReviewContent(baseCvContent);
+    setContentVersion((version) => version + 1);
+    setSaveStatus('saving');
+    const result = await saveCvContent(cv.id, baseCvContent);
+    setSaveStatus(result.success ? 'saved' : 'error');
   };
 
   const scheduleStyleSave = () => {
@@ -505,11 +531,29 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 max-w-full">
-            {surface !== 'document' && (
+            {surface === 'diff' && (
+              <PdfDownloadLink
+                cvId={cv.id}
+                isGuest={isGuest}
+                guestCanDownload={guestCanDownload}
+                onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+                className="btn-raised"
+              />
+            )}
+            {surface === 'diff' ? (
+              <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
+                {t('editor.header.edit')}
+              </Button>
+            ) : surface !== 'document' ? (
               <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
                 {t('editor.header.document')}
               </Button>
-            )}
+            ) : null}
+            {surface === 'diff' && baseCvContent ? (
+              <Button type="button" variant="ghost" onClick={() => { void revertToBase(); }}>
+                {t('editor.header.revert')}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant={surface === 'source' ? 'secondary' : 'ghost'}
@@ -527,6 +571,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 variant={surface === 'diff' ? 'secondary' : 'ghost'}
                 aria-pressed={surface === 'diff'}
                 onClick={() => {
+                  setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
                   setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
                   setMobilePane('document');
                 }}
@@ -534,13 +579,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 {t('editor.header.changes')}
               </Button>
             ) : null}
-            <PdfDownloadLink
-              cvId={cv.id}
-              isGuest={isGuest}
-              guestCanDownload={guestCanDownload}
-              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
-              className="btn-raised"
-            />
+            {surface !== 'diff' && (
+              <PdfDownloadLink
+                cvId={cv.id}
+                isGuest={isGuest}
+                guestCanDownload={guestCanDownload}
+                onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+                className="btn-raised"
+              />
+            )}
             <Button type="button" variant="ai" onClick={() => {
               setMobilePane('review');
               setFocusAdapt(true);
@@ -639,11 +686,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             )}
             {showSource && (
               <MarkdownEditor
-                key={surface}
+                key={`${surface}-${contentVersion}`}
                 cvId={cv.id}
                 initialContent={reviewContent}
                 originalContent={baseCvContent || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
+                initialDiffView={diffLayout}
                 onContentChange={setReviewContent}
                 saveStatus={saveStatus}
                 setSaveStatus={setSaveStatus}

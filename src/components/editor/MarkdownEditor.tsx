@@ -24,6 +24,7 @@ interface MarkdownEditorProps {
   streamingStep?: string;
   /** When set, the source or diff view replaces the document instead of offering another visual CV. */
   forcedMode?: 'markdown' | 'diff';
+  initialDiffView?: 'unified' | 'split';
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -289,12 +290,12 @@ const loadingTipsEn = [
   "Tip: The PRO AI engine offers greater semantic precision."
 ];
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode }: MarkdownEditorProps) {
+export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode, initialDiffView = 'unified' }: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>(forcedMode || 'visual');
-  const [diffView, setDiffView] = useState<'unified' | 'split'>('unified');
+  const [diffView, setDiffView] = useState<'unified' | 'split'>(initialDiffView);
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSaveRef = useRef<string | null>(null);
