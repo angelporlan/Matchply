@@ -17,6 +17,7 @@ import { ModalScrim } from '@/components/ui/ModalScrim';
 import CvCard from '@/components/dashboard/CvCard';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 const CvQuickPreviewModal = dynamic(() => import('@/components/dashboard/CvQuickPreviewModal'), { ssr: false });
 
@@ -514,7 +515,7 @@ export default function DashboardClient({
         throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
       }
 
-      // 2. Guardar los parámetros de optimización en sessionStorage
+      trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: principalCv.id,
         jobTitle: identity.jobTitle,

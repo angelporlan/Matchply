@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { cvs, jobOffers, users } from '@/db/schema';
+import { auditLogs, cvs, jobOffers, users } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
@@ -268,6 +268,11 @@ export async function claimGuestDataForUser(userId: string) {
       .update(jobOffers)
       .set({ userId })
       .where(eq(jobOffers.userId, guest.id));
+
+    // Guest deletion nulls audit userId. Keep optimize/download on the new account.
+    await tx.update(auditLogs).set({ userId }).where(eq(auditLogs.userId, guest.id));
+    await tx.update(auditLogs).set({ actorUserId: userId }).where(eq(auditLogs.actorUserId, guest.id));
+    await tx.update(auditLogs).set({ affectedUserId: userId }).where(eq(auditLogs.affectedUserId, guest.id));
 
     await tx.delete(users).where(eq(users.id, guest.id));
   });

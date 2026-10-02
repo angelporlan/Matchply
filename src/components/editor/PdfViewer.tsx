@@ -6,6 +6,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { A4PageSkeleton } from '@/components/skeletons';
 import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
 import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 export type PdfZoom = 'fit' | number;
 
@@ -97,6 +98,7 @@ export function PdfDownloadLink({
       link.remove();
       URL.revokeObjectURL(objectUrl);
       onGuestDownloadConsumed?.();
+      trackUmamiConversion('cv_downloaded');
       onDownloaded?.();
       if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
     } catch {
@@ -119,6 +121,7 @@ export function PdfDownloadLink({
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
+      trackUmamiConversion('cv_downloaded');
       onDownloaded();
     } catch {
       // Leave the candidacy untouched if the file never arrived.

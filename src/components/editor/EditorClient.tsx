@@ -98,6 +98,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const styleRef = useRef({ accentColor: cv.accentColor || '#1a5f7a', fontFamily: cv.fontFamily || 'helvetica', pageMargin: cv.pageMargin || 36, scale: cv.scale || 1.0 });
   const adaptTitleRef = useRef<HTMLInputElement>(null);
+  const diffViewedRef = useRef(false);
+  const noteDiffViewed = () => {
+    if (diffViewedRef.current) return;
+    diffViewedRef.current = true;
+    trackUmamiConversion('diff_viewed');
+  };
 
   // Estado del Cajón de Optimización por IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -150,6 +156,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
     if (searchParams.get('diff') === '1' && baseCvContent) {
       setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+      noteDiffViewed();
       setSurface('diff');
       setMobilePane('document');
       if (!shouldOptimize && !shouldImport) {
@@ -253,6 +260,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         || (typeof params.activationBase === 'string' && params.activationBase.trim().length > 0);
       if (canDiff) {
         setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+        noteDiffViewed();
         setSurface('diff');
         setMobilePane('document');
       }
@@ -467,6 +475,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       }
 
       // 2. Guardar los parámetros de optimización en sessionStorage
+      trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: cv.id,
         jobTitle: identity.jobTitle,
@@ -622,6 +631,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 aria-pressed={surface === 'diff'}
                 onClick={() => {
                   setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+                  if (surface !== 'diff') noteDiffViewed();
                   setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
                   setMobilePane('document');
                 }}

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { trialCvMarkdown } from '@/lib/try-entry';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 export default function TryEntry() {
   const { t } = useLanguage();
@@ -93,6 +94,7 @@ export default function TryEntry() {
         targetCvId = adapted.cvId;
       }
 
+      trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: base.cvId,
         targetCvId,
