@@ -346,7 +346,7 @@ const en = {
       },
       errors: {
         noPrimary: 'No primary CV has been designated.',
-        required: 'The position, company, and job description are required.',
+        required: 'Paste the job description. Title and company are optional.',
         unexpected: 'An unexpected error occurred.',
         createFail: 'Error creating resume.',
         pdfReadError: 'Error reading the PDF file. It may be corrupted or protected.',
@@ -1131,7 +1131,7 @@ const en = {
         descPlaceholder: 'Paste here the detailed description of the job offer, including the required responsibilities and skills.',
         close: 'Close',
         start: 'Start AI Optimization',
-        requiredError: 'Job title, company, and description are required.',
+        requiredError: 'Paste the job description. Title and company are optional.',
         steps: {
           keywords: 'Extracting keywords from the job offer...',
           analyze: 'Analyzing your experience and skills from the Base CV...',

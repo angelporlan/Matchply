@@ -9,6 +9,7 @@ import {
   Crown, Lock, Upload, Clipboard, Search
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
+import { resolveOfferIdentity } from '@/lib/offer-fields';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
@@ -460,10 +461,15 @@ export default function DashboardClient({
       return;
     }
 
-    if (!aiFormData.jobTitle || !aiFormData.company || !aiFormData.jobDescription) {
+    if (!aiFormData.jobDescription.trim()) {
       setAiError(t('dashboard.errors.required'));
       return;
     }
+    const identity = resolveOfferIdentity({
+      jobTitle: aiFormData.jobTitle,
+      company: aiFormData.company,
+      jobDescription: aiFormData.jobDescription,
+    });
 
     setAiLoading(true);
     setAiStep(t('dashboard.steps.keywords'));
@@ -471,7 +477,7 @@ export default function DashboardClient({
     try {
       // 1. Crear el currículum placeholder para la optimización
       const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${aiFormData.jobTitle} (${aiFormData.company})`,
+        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
         isBase: false,
         isPrincipal: false
       });
@@ -483,8 +489,8 @@ export default function DashboardClient({
       // 2. Guardar los parámetros de optimización en sessionStorage
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: principalCv.id,
-        jobTitle: aiFormData.jobTitle,
-        company: aiFormData.company,
+        jobTitle: identity.jobTitle,
+        company: identity.company,
         url: aiFormData.url,
         platform: aiFormData.platform,
         jobDescription: aiFormData.jobDescription,
@@ -943,7 +949,6 @@ export default function DashboardClient({
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder={t('dashboard.modal.ai.jobTitlePlaceholder')}
@@ -958,7 +963,6 @@ export default function DashboardClient({
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder={t('dashboard.modal.ai.companyPlaceholder')}

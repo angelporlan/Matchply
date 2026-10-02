@@ -10,6 +10,7 @@ import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
+import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -397,10 +398,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const handleAiOptimize = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setAiError(null);
-    if (!aiFormData.jobTitle || !aiFormData.company || !aiFormData.jobDescription) {
+    if (!aiFormData.jobDescription.trim()) {
       setAiError(t('editor.aiModal.requiredError'));
       return;
     }
+    const identity = resolveOfferIdentity({
+      jobTitle: aiFormData.jobTitle,
+      company: aiFormData.company,
+      jobDescription: aiFormData.jobDescription,
+    });
 
     setAiLoading(true);
     setAiStep(t('editor.aiModal.steps.keywords'));
@@ -408,7 +414,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     try {
       // 1. Crear el currículum placeholder para la optimización
       const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${aiFormData.jobTitle} (${aiFormData.company})`,
+        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
         isBase: false,
         isPrincipal: false
       });
@@ -420,8 +426,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       // 2. Guardar los parámetros de optimización en sessionStorage
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: cv.id,
-        jobTitle: aiFormData.jobTitle,
-        company: aiFormData.company,
+        jobTitle: identity.jobTitle,
+        company: identity.company,
         url: aiFormData.url,
         platform: aiFormData.platform,
         jobDescription: aiFormData.jobDescription,
@@ -798,7 +804,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder={t('editor.aiModal.jobTitlePlaceholder')}
@@ -813,7 +818,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder={t('editor.aiModal.companyPlaceholder')}

@@ -271,7 +271,6 @@ export default function EditorReviewRail({
               onChange={(event) => onFormChange({ ...form, jobTitle: event.target.value })}
               placeholder={t('editor.aiModal.jobTitlePlaceholder')}
               className="w-full min-h-11 bg-canvas border border-control rounded-[8px] px-3 text-sm text-text"
-              required
             />
           </label>
           <label className="block space-y-1">
@@ -281,7 +280,6 @@ export default function EditorReviewRail({
               onChange={(event) => onFormChange({ ...form, company: event.target.value })}
               placeholder={t('editor.aiModal.companyPlaceholder')}
               className="w-full min-h-11 bg-canvas border border-control rounded-[8px] px-3 text-sm text-text"
-              required
             />
           </label>
           <label className="block space-y-1">

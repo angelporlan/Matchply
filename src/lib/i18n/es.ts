@@ -394,7 +394,7 @@ const es = {
       },
       errors: {
         noPrimary: 'No hay ningún CV principal designado.',
-        required: 'El puesto, empresa y descripción de la oferta son obligatorios.',
+        required: 'Pega la descripción de la oferta. El puesto y la empresa son opcionales.',
         unexpected: 'Ocurrió un error inesperado.',
         createFail: 'Error al crear el currículum.',
         pdfReadError: 'Error al leer el archivo PDF. Puede estar corrupto o protegido.',
@@ -1179,7 +1179,7 @@ const es = {
         descPlaceholder: 'Pega aquí la descripción detallada de la oferta, incluyendo las responsabilidades y habilidades requeridas.',
         close: 'Cerrar',
         start: 'Iniciar Optimización por IA',
-        requiredError: 'El puesto, empresa y descripción de la oferta son requeridos.',
+        requiredError: 'Pega la descripción de la oferta. El puesto y la empresa son opcionales.',
         steps: {
           keywords: 'Extrayendo palabras clave de la oferta...',
           analyze: 'Analizando tu experiencia y habilidades del CV Base...',
