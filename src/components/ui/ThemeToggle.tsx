@@ -17,7 +17,7 @@ export default function ThemeToggle() {
     setMounted(true);
     // Sync state with what was set by the blocking inline head script
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (savedTheme === 'dark') {
       setTheme('dark');
     } else {
       setTheme('light');
