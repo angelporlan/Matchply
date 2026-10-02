@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { Calendar, CheckCircle2, CreditCard, Crown, Lock, Mail, ShieldCheck, Sparkles, Play, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, CheckCircle2, CreditCard, Crown, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
-import { startSimulationAction } from '@/app/dashboard/profile/simulation-actions';
 import NameForm from '@/components/account/NameForm';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { ButtonLink } from '@/components/ui/Button';
 
 interface AccountSettingsProps {
   user: {
@@ -44,14 +42,6 @@ function Avatar({ image, name, email }: { image?: string | null; name: string; e
 
 export default function AccountSettings({ user, isPremium, memberSince }: AccountSettingsProps) {
   const { t, language } = useLanguage();
-  const { isDebugEnabled } = useAiPromptDebug();
-  const [isSimulating, startSimulationTransition] = useTransition();
-
-  const handleStartSimulation = () => {
-    startSimulationTransition(async () => {
-      await startSimulationAction();
-    });
-  };
 
   const memberSinceLabel = memberSince
     ? new Date(memberSince).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
@@ -147,40 +137,6 @@ export default function AccountSettings({ user, isPremium, memberSince }: Accoun
           </ButtonLink>
         </div>
       </section>
-
-      {/* Herramientas de Desarrollador (AI_PROMPT_DEBUG) */}
-      {isDebugEnabled && (
-        <section className="bg-surface border border-ai/30 rounded-[12px] p-6 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 px-3 py-1 bg-ai/10 text-ai text-[10px] font-bold uppercase tracking-wider rounded-bl-[8px] font-mono">
-            AI_PROMPT_DEBUG
-          </div>
-          <h2 className="text-sm font-bold text-text uppercase tracking-wider font-display border-b border-subtle pb-3 mb-5 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-ai" />
-            <span>{t('settings.account.debugSectionTitle')}</span>
-          </h2>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-text font-display">
-                {t('settings.account.simulateNewUserTitle')}
-              </p>
-              <p className="text-xs text-text-muted font-sans max-w-xl leading-relaxed">
-                {t('settings.account.simulateNewUserDesc')}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleStartSimulation}
-              disabled={isSimulating}
-              className="shrink-0 flex items-center gap-1.5 border-ai/40 text-ai hover:bg-ai/10 font-bold"
-            >
-              {isSimulating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{t('settings.account.simulateNewUserButton')}</span>
-            </Button>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

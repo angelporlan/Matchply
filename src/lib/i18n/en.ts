@@ -224,10 +224,6 @@ const en = {
         manageBilling: 'Manage billing',
         upgrade: 'Upgrade to PRO',
         memberSince: 'Member since {date}',
-        debugSectionTitle: 'Debugging & Testing',
-        simulateNewUserTitle: 'Simulate new client first contact',
-        simulateNewUserDesc: 'Starts an isolated session with a sandbox user starting from scratch (0 resumes, 0 jobs, and free plan). Allows you to test the full onboarding flow just as a brand new user would, without modifying your real account.',
-        simulateNewUserButton: 'Simulate first contact',
       },
     },
     dashboard: {
