@@ -66,7 +66,7 @@ export default function LandingHeader({
               >
                 {navLogin}
               </Link>
-              <ButtonLink href="/try" variant="secondary" size="sm">
+              <ButtonLink href="/register" variant="secondary" size="sm">
                 {navRegister}
               </ButtonLink>
             </>
@@ -137,7 +137,7 @@ export default function LandingHeader({
                 <ButtonLink href="/login" variant="secondary" className="w-full" onClick={() => setIsOpen(false)}>
                   {navLogin}
                 </ButtonLink>
-                <ButtonLink href="/try" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
+                <ButtonLink href="/register" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
                   {navRegister}
                 </ButtonLink>
               </>
