@@ -12,6 +12,9 @@ import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
+import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
+import { markApplicationSent } from '@/app/dashboard/applications/actions';
+import { sentPromptKey, shouldAskIfSent } from '@/lib/application-sent';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -82,6 +85,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [contentVersion, setContentVersion] = useState(0);
   const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
   const [sessionBase, setSessionBase] = useState<string | null>(null);
+  const [sentPromptOpen, setSentPromptOpen] = useState(false);
   const diffBase = baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
@@ -344,6 +348,29 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
   };
 
+  useEffect(() => {
+    if (!linkedOffer?.id || !linkedOffer.status) return;
+    const mark = sessionStorage.getItem(sentPromptKey(linkedOffer.id));
+    if (shouldAskIfSent({ status: linkedOffer.status, mark }) && mark === 'pending') {
+      setSentPromptOpen(true);
+    }
+  }, [linkedOffer?.id, linkedOffer?.status]);
+
+  const notePdfDownloaded = () => {
+    if (!linkedOffer?.id || !linkedOffer.status) return;
+    const key = sentPromptKey(linkedOffer.id);
+    const mark = sessionStorage.getItem(key);
+    if (!shouldAskIfSent({ status: linkedOffer.status, mark })) return;
+    sessionStorage.setItem(key, 'pending');
+    setSentPromptOpen(true);
+  };
+
+  const closeSentPrompt = (answer: 'yes' | 'no' | 'later') => {
+    if (linkedOffer?.id) sessionStorage.setItem(sentPromptKey(linkedOffer.id), 'done');
+    setSentPromptOpen(false);
+    if (answer === 'yes') void markApplicationSent(linkedOffer!.id);
+  };
+
   const revertToBase = async () => {
     if (!diffBase) return;
     setCvContent(diffBase);
@@ -559,6 +586,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 isGuest={isGuest}
                 guestCanDownload={guestCanDownload}
                 onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+                onDownloaded={notePdfDownloaded}
                 className="btn-raised"
               />
             )}
@@ -607,6 +635,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 isGuest={isGuest}
                 guestCanDownload={guestCanDownload}
                 onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+                onDownloaded={notePdfDownloaded}
                 className="btn-raised"
               />
             )}
@@ -752,6 +781,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       </div>
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
+      <ApplicationSentPrompt
+        open={sentPromptOpen}
+        onYes={() => closeSentPrompt('yes')}
+        onNo={() => closeSentPrompt('no')}
+        onDismiss={() => closeSentPrompt('later')}
+      />
       <OverwriteGuardDialog
         open={Boolean(overwriteGuard)}
         replacesBase={Boolean(overwriteGuard?.replacesBase)}

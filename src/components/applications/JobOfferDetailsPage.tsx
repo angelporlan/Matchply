@@ -11,9 +11,12 @@ import {
   updateJobOfferCv, 
   updateJobOfferStatus,
   evaluateSingleOfferMatchAction,
+  markApplicationSent,
 } from '@/app/dashboard/applications/actions';
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
+import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
+import { sentPromptKey, shouldAskIfSent } from '@/lib/application-sent';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -94,6 +97,12 @@ export default function JobOfferDetailsPage({
   const router = useRouter();
   const { t, language } = useLanguage();
   const [offer, setOffer] = useState<JobOffer>(initialOffer);
+  const [sentPromptOpen, setSentPromptOpen] = useState(false);
+
+  useEffect(() => {
+    const mark = sessionStorage.getItem(sentPromptKey(offer.id));
+    setSentPromptOpen(shouldAskIfSent({ status: offer.status, mark }) && mark === 'pending');
+  }, [offer.id, offer.status]);
   
   const [isEditing, setIsEditing] = useState(false);
   const [evaluatingMatch, setEvaluatingMatch] = useState(false);
@@ -405,6 +414,27 @@ export default function JobOfferDetailsPage({
 
   return (
     <div className="space-y-6">
+      <ApplicationSentPrompt
+        open={sentPromptOpen}
+        onYes={() => {
+          sessionStorage.setItem(sentPromptKey(offer.id), 'done');
+          setSentPromptOpen(false);
+          void markApplicationSent(offer.id).then((result) => {
+            if ('success' in result && result.success) {
+              setOffer((prev) => ({ ...prev, status: 'applied' }));
+              router.refresh();
+            }
+          });
+        }}
+        onNo={() => {
+          sessionStorage.setItem(sentPromptKey(offer.id), 'done');
+          setSentPromptOpen(false);
+        }}
+        onDismiss={() => {
+          sessionStorage.setItem(sentPromptKey(offer.id), 'done');
+          setSentPromptOpen(false);
+        }}
+      />
       <OverwriteGuardDialog
         open={Boolean(overwriteGuard)}
         replacesBase={Boolean(overwriteGuard?.replacesBase)}

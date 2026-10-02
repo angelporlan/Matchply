@@ -962,6 +962,12 @@ const en = {
         markdown: 'Markdown',
         changes: 'Changes',
       },
+      sentPrompt: {
+        question: 'Have you already sent it?',
+        yes: 'Yes',
+        no: 'No',
+        later: 'Not now',
+      },
       toolbar: {
         design: 'Design',
         font: 'Font',

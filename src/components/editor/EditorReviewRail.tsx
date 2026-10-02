@@ -35,6 +35,7 @@ export type LinkedOffer = {
   id: string;
   title: string;
   company: string;
+  status?: string;
 };
 
 function sectionTarget(chip: CvSectionChip): 'contact' | number {

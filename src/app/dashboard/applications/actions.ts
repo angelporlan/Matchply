@@ -12,6 +12,7 @@ import { persistMatchResult } from "@/lib/match-persistence";
 import { baseCvForAiColumns, curateOfferColumns, jobOfferOwnershipColumns } from "@/lib/job-offer-queries";
 import { auditActorFields, requireProductContext } from "@/lib/request-context";
 import { effectiveSubscriptionStatus } from "@/lib/subscription";
+import { decideApplicationSent } from "@/lib/application-sent";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
   revalidatePath("/dashboard/applications");
@@ -48,6 +49,50 @@ export async function getOwnedJobOffer(offerId: string) {
   } catch (error: any) {
     console.error("Error loading job offer:", error);
     return { error: error.message || "Failed to load offer" };
+  }
+}
+
+export async function markApplicationSent(offerId: string) {
+  try {
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
+    const [offer] = await db
+      .select(jobOfferOwnershipColumns)
+      .from(jobOffers)
+      .where(eq(jobOffers.id, offerId))
+      .limit(1);
+
+    if (!offer || offer.userId !== userId) {
+      throw new Error("Forbidden or Offer not found");
+    }
+    if (offer.status !== "interested") {
+      return { success: true, status: offer.status };
+    }
+
+    const decision = decideApplicationSent("yes");
+    await db
+      .update(jobOffers)
+      .set({
+        status: decision.status,
+        nextFollowupDate: decision.nextFollowupDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobOffers.id, offerId));
+
+    await createAuditLog("job_offer_status_change", userId, ctx.effectiveUser!.email || null, {
+      offerId: offer.id,
+      title: offer.title,
+      company: offer.company,
+      oldStatus: offer.status,
+      newStatus: decision.status,
+      source: "application_sent",
+    }, auditActorFields(ctx));
+
+    revalidateApplicationPaths(offer.companyId);
+    return { success: true, status: decision.status };
+  } catch (error: any) {
+    console.error("Error marking application sent:", error);
+    return { error: error.message || "Failed to update status" };
   }
 }
 

@@ -1010,6 +1010,12 @@ const es = {
         markdown: 'Markdown',
         changes: 'Cambios',
       },
+      sentPrompt: {
+        question: '¿Ya la enviaste?',
+        yes: 'Sí',
+        no: 'No',
+        later: 'Ahora no',
+      },
       toolbar: {
         design: 'Diseño',
         font: 'Fuente',

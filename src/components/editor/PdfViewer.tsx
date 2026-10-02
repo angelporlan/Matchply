@@ -34,6 +34,7 @@ interface PdfViewerProps {
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
+  onDownloaded?: () => void;
   /** Debounced unsaved preview. When set, the sheet is rendered from this payload instead of the database. */
   livePreview?: PdfLivePreview | null;
   zoom?: PdfZoom;
@@ -46,6 +47,7 @@ export function PdfDownloadLink({
   isGuest = false,
   guestCanDownload = false,
   onGuestDownloadConsumed,
+  onDownloaded,
   className,
   children,
 }: {
@@ -53,6 +55,7 @@ export function PdfDownloadLink({
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
+  onDownloaded?: () => void;
   className?: string;
   children?: React.ReactNode;
 }) {
@@ -94,9 +97,31 @@ export function PdfDownloadLink({
       link.remove();
       URL.revokeObjectURL(objectUrl);
       onGuestDownloadConsumed?.();
+      onDownloaded?.();
       if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
     } catch {
       // Keep the free download if the file never reached the browser.
+    }
+  };
+
+  const handleAccountDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onDownloaded) return;
+    event.preventDefault();
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) return;
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'CV.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      onDownloaded();
+    } catch {
+      // Leave the candidacy untouched if the file never arrived.
     }
   };
 
@@ -104,7 +129,7 @@ export function PdfDownloadLink({
     <>
       <a
         href={downloadHref}
-        onClick={isGuest ? handleGuestDownload : undefined}
+        onClick={isGuest ? handleGuestDownload : (onDownloaded ? handleAccountDownload : undefined)}
         target={isGuest ? undefined : '_blank'}
         rel={isGuest ? undefined : 'noopener noreferrer'}
         className={className ?? 'btn-raised btn-raised--sm'}
@@ -157,6 +182,7 @@ export default function PdfViewer({
   isGuest = false,
   guestCanDownload = false,
   onGuestDownloadConsumed,
+  onDownloaded,
   livePreview = null,
   zoom = 'fit',
   variant = 'card',
@@ -335,6 +361,7 @@ export default function PdfViewer({
               isGuest={isGuest}
               guestCanDownload={guestCanDownload}
               onGuestDownloadConsumed={onGuestDownloadConsumed}
+              onDownloaded={onDownloaded}
             />
           </div>
         </div>
