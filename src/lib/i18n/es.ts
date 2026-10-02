@@ -1156,6 +1156,12 @@ const es = {
         retry: 'Reintentar Carga',
         directPdfBtn: 'Ver PDF Directo',
         direct: 'Ver PDF Directo',
+        savePrompt: {
+          body: 'Guarda esta candidatura: tu borrador se borra en 7 días',
+          google: 'Continuar con Google',
+          email: 'Continuar con email',
+          dismiss: 'Ahora no',
+        },
       },
       footer: {
         quickGuide: 'Guía rápida:',

@@ -1108,6 +1108,12 @@ const en = {
         retry: 'Retry Load',
         directPdfBtn: 'View Direct PDF',
         direct: 'View Direct PDF',
+        savePrompt: {
+          body: 'Save this application: your draft is deleted in 7 days',
+          google: 'Continue with Google',
+          email: 'Continue with email',
+          dismiss: 'Not now',
+        },
       },
       footer: {
         quickGuide: 'Quick guide:',

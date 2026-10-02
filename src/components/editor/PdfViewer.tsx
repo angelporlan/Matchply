@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Eye, Download, Loader2, AlertTriangle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { A4PageSkeleton } from '@/components/skeletons';
+import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
+import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
 
 export type PdfZoom = 'fit' | number;
 
@@ -55,6 +57,7 @@ export function PdfDownloadLink({
   children?: React.ReactNode;
 }) {
   const { t } = useLanguage();
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
   const downloadUrl = `/api/pdf?cvId=${cvId}&download=true`;
   const guestRegisterHref = '/register?source=guest-pdf';
   const guestDownloadLabel = guestCanDownload
@@ -91,26 +94,30 @@ export function PdfDownloadLink({
       link.remove();
       URL.revokeObjectURL(objectUrl);
       onGuestDownloadConsumed?.();
+      if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
     } catch {
       // Keep the free download if the file never reached the browser.
     }
   };
 
   return (
-    <a
-      href={downloadHref}
-      onClick={isGuest ? handleGuestDownload : undefined}
-      target={isGuest ? undefined : '_blank'}
-      rel={isGuest ? undefined : 'noopener noreferrer'}
-      className={className ?? 'btn-raised btn-raised--sm'}
-    >
-      {children ?? (
-        <>
-          <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-          <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
-        </>
-      )}
-    </a>
+    <>
+      <a
+        href={downloadHref}
+        onClick={isGuest ? handleGuestDownload : undefined}
+        target={isGuest ? undefined : '_blank'}
+        rel={isGuest ? undefined : 'noopener noreferrer'}
+        className={className ?? 'btn-raised btn-raised--sm'}
+      >
+        {children ?? (
+          <>
+            <Download className="w-3.5 h-3.5 stroke-[1.75]" />
+            <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
+          </>
+        )}
+      </a>
+      <GuestSavePrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} />
+    </>
   );
 }
 
