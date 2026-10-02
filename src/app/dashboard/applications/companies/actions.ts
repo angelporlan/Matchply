@@ -26,7 +26,7 @@ function mapCompanyError(error: unknown): { error: string; applicationCount?: nu
 }
 
 async function requireCompanyUser() {
-  return requireProductContext({ feature: 'applications' });
+  return requireProductContext({ allowGuest: true, feature: 'applications' });
 }
 
 function revalidateCompanies(companyId?: string) {

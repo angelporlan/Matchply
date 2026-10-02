@@ -28,7 +28,9 @@ export interface AiPromptDebugResponse {
 
 export function isAiPromptsDebugEnabled(): boolean {
   return (
+    process.env.AI_PROMPT_DEBUG === 'true' ||
     process.env.AI_PROMPTS_DEBUG === 'true' ||
+    process.env.NEXT_PUBLIC_AI_PROMPT_DEBUG === 'true' ||
     process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG === 'true'
   );
 }

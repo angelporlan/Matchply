@@ -6,15 +6,13 @@ import { cvs, jobOffers, users } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
 import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
-import { formatPromptForClipboard, type AiPromptDebugAction } from '@/lib/ai-prompts-debug';
+import { formatPromptForClipboard, isAiPromptsDebugEnabled, type AiPromptDebugAction } from '@/lib/ai-prompts-debug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const enabled =
-    process.env.AI_PROMPTS_DEBUG === 'true' ||
-    process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG === 'true';
+  const enabled = isAiPromptsDebugEnabled();
   return NextResponse.json({ enabled });
 }
 

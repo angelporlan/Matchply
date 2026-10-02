@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { hasProAccess } from '@/lib/subscription';
-import { getSessionUser } from '@/lib/session';
+import { getDashboardViewer } from '@/lib/session';
 import {
   CompanyNotFoundError,
   getOwnedCompany,
@@ -17,15 +17,13 @@ interface CompanyPageProps {
 }
 
 export default async function CompanyDetailPage({ params }: CompanyPageProps) {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
+  const dbUser = viewer.user;
 
   const userId = dbUser.id;
-  if (!hasProAccess(dbUser)) {
-    redirect('/dashboard/subscription');
-  }
 
   try {
     const [company, notes, offers, statusRows] = await Promise.all([

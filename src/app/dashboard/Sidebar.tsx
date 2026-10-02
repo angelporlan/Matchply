@@ -54,13 +54,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
   );
   const { t, language } = useLanguage();
 
-  const menuItems: SidebarMenuItem[] = isGuest ? [
-    {
-      name: language === 'es' ? 'Nueva prueba' : 'New trial',
-      href: '/try',
-      icon: FileText,
-    },
-  ] : [
+  const menuItems: SidebarMenuItem[] = [
     {
       name: t('sidebar.menu.cvs'),
       href: '/dashboard',
@@ -96,7 +90,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
     <>
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between h-16 px-4 bg-canvas border-b border-subtle w-full sticky top-0 z-40 transition-colors duration-300">
-        <Link href={isGuest ? "/try" : "/dashboard"} className="hover:opacity-90 transition-opacity">
+        <Link href="/dashboard" className="hover:opacity-90 transition-opacity">
           <Logo iconSize="sm" textSize="sm" />
         </Link>
         <div className="flex items-center gap-2">

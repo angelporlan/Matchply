@@ -202,6 +202,8 @@ export class AIService {
         return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else if (provider === 'deepseek') {
         return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openai') {
+        return await this.callOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else {
         return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
@@ -222,6 +224,8 @@ export class AIService {
         return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else if (provider === 'openrouter') {
         return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openai') {
+        return await this.callOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else {
         return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
@@ -243,6 +247,8 @@ export class AIService {
       return await this.callGeminiOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     } else if (provider === 'deepseek') {
       return await this.callDeepSeekOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else if (provider === 'openai') {
+      return await this.callOpenAIOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     } else {
       return await this.callOpenRouter(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     }
@@ -274,6 +280,8 @@ export class AIService {
         return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else if (provider === 'deepseek') {
         return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openai') {
+        return await this.streamOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else {
         return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
@@ -293,6 +301,8 @@ export class AIService {
         return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else if (provider === 'openrouter') {
         return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
+      } else if (provider === 'openai') {
+        return await this.streamOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       } else {
         return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
       }
@@ -317,6 +327,8 @@ export class AIService {
       return await this.streamGeminiOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     } else if (provider === 'deepseek') {
       return await this.streamDeepSeekOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
+    } else if (provider === 'openai') {
+      return await this.streamOpenAIOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     } else {
       return await this.streamOpenRouter(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     }
@@ -353,6 +365,9 @@ export class AIService {
     }
     if (provider === 'deepseek') {
       return this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt);
+    }
+    if (provider === 'openai') {
+      return this.callOpenAIOficial('', '', model, systemPrompt, userPrompt);
     }
     return this.callOpenRouter('', '', model, systemPrompt, userPrompt);
   }
@@ -548,6 +563,107 @@ export class AIService {
       console.error("Gemini error:", e);
       throw new Error(`Ha ocurrido un error al optimizar el CV con Gemini: ${e.message}`);
     }
+  }
+
+  private static async callOpenAIOficial(
+    cv: string, 
+    job: string, 
+    model: string, 
+    systemPrompt: string, 
+    userPrompt: string
+  ): Promise<string> {
+    const key = this.resolveProviderApiKey('OPENAI_API_KEY', 'OpenAI');
+    if (!key) {
+      return this.getMockCvResponse(cv, job, `OpenAI Oficial (Modelo: ${model})`);
+    }
+
+    const isFixedTemp = /luna|o1|o3/i.test(model);
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt && systemPrompt.trim()) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+    if (userPrompt && userPrompt.trim()) {
+      messages.push({ role: 'user', content: userPrompt });
+    }
+
+    try {
+      const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model,
+          ...(isFixedTemp ? {} : { temperature: 0.2 }),
+          messages,
+        })
+      }, AI_FETCH_TIMEOUT_MS);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error de API de OpenAI (${response.status}): ${response.statusText || errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
+        throw new Error('La respuesta recibida de OpenAI no tiene el formato esperado.');
+      }
+      log({
+        event: 'ai_usage',
+        provider: 'openai',
+        model,
+        inputTokens: data.usage?.prompt_tokens,
+        outputTokens: data.usage?.completion_tokens,
+      });
+      return data.choices[0].message.content || '';
+    } catch (e: any) {
+      console.error('OpenAI error:', e);
+      throw new Error(`Ha ocurrido un error al procesar con OpenAI: ${e.message}`);
+    }
+  }
+
+  private static async streamOpenAIOficial(
+    cv: string,
+    job: string,
+    model: string,
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<ReadableStream<Uint8Array>> {
+    const key = this.resolveProviderApiKey('OPENAI_API_KEY', 'OpenAI');
+    if (!key) {
+      return this.streamMockResponse(cv, job, `OpenAI Oficial (Modelo: ${model})`);
+    }
+
+    const isFixedTemp = /luna|o1|o3/i.test(model);
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt && systemPrompt.trim()) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+    if (userPrompt && userPrompt.trim()) {
+      messages.push({ role: 'user', content: userPrompt });
+    }
+
+    const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        ...(isFixedTemp ? {} : { temperature: 0.2 }),
+        stream: true,
+        messages,
+      })
+    }, AI_STREAM_CONNECT_TIMEOUT_MS);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error de API de OpenAI (${response.status}): ${response.statusText || errorText}`);
+    }
+
+    return this.createUnifiedSseStream(response.body!);
   }
 
   private static async streamOpenRouter(
@@ -977,6 +1093,8 @@ Descripción: ${jobDescription}`;
       rawResponse = await this.callGeminiOficial(cvContent, jobDescription, model, systemPrompt, userPrompt);
     } else if (provider === 'deepseek') {
       rawResponse = await this.callDeepSeekOficial(cvContent, jobDescription, model, systemPrompt, userPrompt);
+    } else if (provider === 'openai') {
+      rawResponse = await this.callOpenAIOficial(cvContent, jobDescription, model, systemPrompt, userPrompt);
     } else {
       rawResponse = await this.callOpenRouter(cvContent, jobDescription, model, systemPrompt, userPrompt);
     }
@@ -1123,14 +1241,22 @@ Descripción: ${jobDescription}`;
   }
 
   private static async callMatchText(provider: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
-    const envName = provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'OPENROUTER_API_KEY';
+    const envName = provider === 'gemini'
+      ? 'GEMINI_API_KEY'
+      : provider === 'deepseek'
+        ? 'DEEPSEEK_API_KEY'
+        : provider === 'openai'
+          ? 'OPENAI_API_KEY'
+          : 'OPENROUTER_API_KEY';
     if (!this.resolveProviderApiKey(envName, provider)) throw new Error('AI_PROVIDER_NOT_CONFIGURED');
     const started = Date.now();
     const result = provider === 'gemini'
       ? await this.callGeminiOficial('', '', model, systemPrompt, userPrompt)
       : provider === 'deepseek'
         ? await this.callDeepSeekOficial('', '', model, systemPrompt, userPrompt)
-        : await this.callOpenRouter('', '', model, systemPrompt, userPrompt);
+        : provider === 'openai'
+          ? await this.callOpenAIOficial('', '', model, systemPrompt, userPrompt)
+          : await this.callOpenRouter('', '', model, systemPrompt, userPrompt);
     log({ event: 'match_llm_finished', provider, model, durationMs: Date.now() - started,
       inputCharacters: systemPrompt.length + userPrompt.length, outputCharacters: result.length });
     return result;
@@ -1154,6 +1280,8 @@ Descripción: ${jobDescription}`;
       return await this.callGeminiOficial("", "", model, systemPrompt, userPrompt);
     } else if (provider === 'deepseek') {
       return await this.callDeepSeekOficial("", "", model, systemPrompt, userPrompt);
+    } else if (provider === 'openai') {
+      return await this.callOpenAIOficial("", "", model, systemPrompt, userPrompt);
     } else {
       return await this.callOpenRouter("", "", model, systemPrompt, userPrompt);
     }

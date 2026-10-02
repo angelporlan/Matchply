@@ -8,6 +8,8 @@ import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
+import { countPdfPages } from '@/lib/pdf-pages';
+import { formatPdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { log } from '@/lib/logger';
 import { guestHasPdfDownloadRemaining, recordGuestPdfDownload } from '@/lib/guest-pdf';
 
@@ -43,19 +45,22 @@ async function renderWithCache(content: string, pdfOptions: PdfOptions) {
     pageMargin: pdfOptions.pageMargin,
     fontSize: pdfOptions.fontSize,
   });
-  let buffer = getCachedPdf(cacheKey);
-  const cacheHit = Boolean(buffer);
-  if (!buffer) {
-    buffer = await renderPdf(content, pdfOptions);
-    setCachedPdf(cacheKey, buffer);
+  let cached = getCachedPdf(cacheKey);
+  const cacheHit = Boolean(cached);
+  if (!cached) {
+    const rendered = await renderPdf(content, pdfOptions);
+    setCachedPdf(cacheKey, rendered.buffer, rendered.pageBreaks);
+    cached = { buffer: rendered.buffer, pageBreaks: rendered.pageBreaks };
   }
-  return { buffer, cacheKey, cacheHit };
+  return { buffer: cached.buffer, pageBreaks: cached.pageBreaks, cacheKey, cacheHit };
 }
 
-function pdfResponse(buffer: Buffer, headers: Record<string, string>) {
+function pdfResponse(buffer: Buffer, pageBreaks: number[], headers: Record<string, string>) {
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
+      'X-Pdf-Pages': String(countPdfPages(buffer)),
+      'X-Pdf-Breaks': formatPdfBreakHeader(pageBreaks),
       ...headers,
     },
   });
@@ -130,7 +135,7 @@ export async function GET(req: NextRequest) {
       showIcons: true
     };
 
-    const { buffer, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
+    const { buffer, pageBreaks, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
     const etag = `"${cacheKey.slice(0, 32)}"`;
 
     // Thumbnails and the editor preview pass `v=<updatedAt>`: the URL changes whenever the CV
@@ -144,7 +149,15 @@ export async function GET(req: NextRequest) {
 
     if (!isDownload && req.headers.get('if-none-match') === etag) {
       log({ event: 'pdf_render', route: '/api/pdf', userId: actor.userId, cacheHit, notModified: true, durationMs: Date.now() - started });
-      return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': cacheControl } });
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': cacheControl,
+          'X-Pdf-Pages': String(countPdfPages(buffer)),
+          'X-Pdf-Breaks': formatPdfBreakHeader(pageBreaks),
+        },
+      });
     }
 
     log({
@@ -167,7 +180,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return pdfResponse(buffer, {
+    return pdfResponse(buffer, pageBreaks, {
       'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       'Cache-Control': cacheControl,
       ETag: etag,
@@ -213,7 +226,7 @@ export async function POST(req: NextRequest) {
       fontSize: (scale || 1.0) * 12.5,
       showIcons: true
     };
-    const { buffer, cacheHit } = await renderWithCache(content, pdfOptions);
+    const { buffer, pageBreaks, cacheHit } = await renderWithCache(content, pdfOptions);
 
     log({
       event: 'pdf_preview',
@@ -223,7 +236,7 @@ export async function POST(req: NextRequest) {
       durationMs: Date.now() - started,
     });
 
-    return pdfResponse(buffer, {
+    return pdfResponse(buffer, pageBreaks, {
       'Content-Disposition': 'inline; filename="preview.pdf"',
       'Cache-Control': 'no-store, max-age=0',
     });

@@ -342,11 +342,11 @@ El barrido púrpura heredado pasa a ser opcional y breve dentro del progreso. Un
 
 ### Editor y PDF
 
-Escritorio: editor y vista previa con divisor ajustable y alternativa de teclado. Móvil: pestañas «Editar» / «Vista previa», sin comprimir ambos paneles. Agrupar formato, plantilla, fuente, escala, margen y acento; plegar controles avanzados.
+El editor muestra el mismo documento en páginas A4 apiladas, cortadas donde corta el PDF descargado, e indica cuántas páginas ocupa. No hay un segundo currículum al lado. El PDF se genera al descargar y para medir esos cortes. La revisión queda en una columna con scroll propio. Móvil: pestañas «Currículum» y «Revisión». Markdown es una vista alternativa que sustituye a la hoja, no se muestra a la vez. Agrupar fuente, tamaño de impresión, margen, acento y zoom de pantalla; el papel es A4 y se nombra. Plegar controles que el PDF no persiste.
 
 Toolbar neutra, sin relieve en cada icono. Markdown sobrio: no reutilizar púrpura IA para cualquier encabezado. Mostrar «Guardando…», «Guardado» o error real de persistencia.
 
-Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
+Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. La hoja usa la misma fuente, los mismos iconos, el cuerpo, los saltos de línea y los saltos de página que el PDF; el zoom de pantalla escala la página y no recompone el texto. Las secciones (Contacto, Experiencia, etc.) están en la columna de revisión. Pulsar una sustituye esa columna por los campos de la sección y un botón para volver; la hoja sigue visible. No abre un segundo documento al lado. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
 
 ### Candidaturas / Postulaciones
 

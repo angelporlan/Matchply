@@ -1,6 +1,19 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import { readFileSync } from 'fs';
+import { cleanMarkdownInline, parseCvDocument, type CVContent, type ContactInfo, type Entry, type Section } from '@/lib/cv-document';
+import {
+  CV_METRICS,
+  SVG_ICONS,
+  contentWidthPt,
+  getFontScale,
+  getIconType,
+  isSkillsSection,
+  sanitizePdfText,
+  scaleLayout,
+} from '@/lib/cv-layout';
+
+export type { CVContent, ContactInfo, Entry, Section };
 
 // Márgenes predeterminados
 const PAGE_MARGIN = 36;
@@ -10,32 +23,6 @@ const COLORS = {
   accent: '#000000',
   rule: '#000000'
 };
-
-export interface ContactInfo {
-  label: string;
-  value: string;
-}
-
-export interface Entry {
-  heading: string;
-  subheading: string;
-  date: string;
-  paragraphs: string[];
-  bullets: string[];
-}
-
-export interface Section {
-  title: string;
-  paragraphs: string[];
-  entries: Entry[];
-  bullets: string[];
-}
-
-export interface CVContent {
-  name: string;
-  contact: ContactInfo[];
-  sections: Section[];
-}
 
 interface FontSet {
   regular: string;
@@ -98,71 +85,6 @@ function buildCustomize(options: any): CustomizeOptions {
   return { fontFamily, pageMargin, accentColor };
 }
 
-const BASE_LAYOUT = {
-  nameSize: 20,
-  contactSize: 8.5,
-  sectionSize: 11,
-  headingSize: 10,
-  metaSize: 9,
-  bodySize: 9,
-  bulletSize: 9,
-  lineGap: 1.5,
-  sectionGap: 0.5,
-  paragraphGap: 0.2,
-  bulletGap: 0.15,
-  entryGap: 0.4
-};
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function getFontScale(fontSize: any): number {
-  const numeric = Number(fontSize);
-  if (!Number.isFinite(numeric)) {
-    return 1;
-  }
-  return clamp(numeric / 12.5, 0.75, 1.8);
-}
-
-function buildLayout(scale: number) {
-  const layout = { ...BASE_LAYOUT };
-  for (const [key, value] of Object.entries(BASE_LAYOUT)) {
-    layout[key as keyof typeof BASE_LAYOUT] = value * scale;
-  }
-  return layout;
-}
-
-const SVG_ICONS: Record<string, string> = {
-  linkedIn: 'M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z',
-  github: 'M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12',
-  web: 'M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
-  email: 'M0 3v18h24v-18h-24zm6.623 7.929l-4.623 5.712v-9.458l4.623 3.746zm-4.141-5.929h19.035l-9.517 7.713-9.518-7.713zm5.694 7.188l3.824 3.099 3.83-3.104 5.612 8.817h-18.779l5.513-8.812zm9.208-1.264l4.616-3.741v9.348l-4.616-5.607z',
-  phone: 'M20 15.5c-1.25 0-2.45-.2-3.57-.57-.35-.11-.75-.03-1.02.24l-2.2 2.2c-2.83-1.44-5.15-3.75-6.59-6.59l2.2-2.21c.28-.26.36-.65.25-1C8.7 6.45 8.5 5.25 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z',
-  location: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'
-};
-
-function normalizeLine(line: string): string {
-  return line.replace(/\r/g, '').trimEnd();
-}
-
-function isSkillsSection(title: string): boolean {
-  const t = title.toLowerCase();
-  return t.includes('skills') || t.includes('habilidades') || t.includes('aptitudes') || t.includes('competencias') || t.includes('habilidad') || t.includes('aptitud');
-}
-
-function getIconType(label: string, value: string = ''): string | null {
-  const nl = label.toLowerCase();
-  const nv = value.toLowerCase();
-  if (nl.includes('linkedin')) return 'linkedIn';
-  if (nl.includes('github')) return 'github';
-  if (nl.includes('portfolio') || nl.includes('web') || nv.includes('http')) return 'web';
-  if (nl.includes('phone') || nl.includes('teléfono') || /^\+?[0-9\s-]{7,}$/.test(nv)) return 'phone';
-  if (nl.includes('email') || nl.includes('correo') || nv.includes('@')) return 'email';
-  if (nl.includes('location') || nl.includes('ubicación')) return 'location';
-  return null;
-}
-
 function getLinkUrl(value: string, label: string = ''): string | null {
   const v = value.trim();
   const l = label.toLowerCase();
@@ -200,30 +122,10 @@ function drawIcon(doc: any, type: string, x: number, y: number, size: number, co
   return true;
 }
 
-function cleanMarkdownInline(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .trim();
-}
-
-function normalizeMarkdownLabel(text: string): string {
-  if (/^\*\*([^*]+)\*\*/.test(text)) {
-    const match = text.match(/^\*\*([^*]+)\*\*(.*)$/);
-    if (match) {
-      let label = match[1].trim();
-      let value = match[2].trim();
-      
-      if (label.endsWith(':') || value.startsWith(':')) {
-        if (label.endsWith(':')) {
-          label = label.slice(0, -1).trim();
-        }
-        value = value.replace(/^[:\s]+/, '');
-        return `**${label}**: ${value}`;
-      }
-    }
-  }
-  return text;
+export function parseCvMarkdown(content: string): CVContent {
+  const cv = parseCvDocument(sanitizePdfText(content));
+  if (!cv.name.trim()) cv.name = 'Curriculum Vitae';
+  return cv;
 }
 
 function drawMarkdownText(
@@ -291,154 +193,6 @@ function slugifyFile(value: string): string {
     .toLowerCase();
 }
 
-export function parseCvMarkdown(content: string): CVContent {
-  // Sanitize Unicode characters that are not supported by built-in PDF fonts or cause rendering boxes
-  const sanitizedContent = (content || '')
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-') // replace all variants of dashes/hyphens with a standard ASCII hyphen
-    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')             // replace curly/smart double quotes with straight double quotes
-    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")             // replace curly/smart single quotes with straight single quotes
-    .replace(/\u00ad/g, '');                                 // remove soft hyphens (invisible control characters that render as boxes)
-
-  const lines = sanitizedContent.split('\n').map(normalizeLine);
-  const cv: CVContent = {
-    name: 'Curriculum Vitae',
-    contact: [],
-    sections: []
-  };
-
-  let currentSection: Section | null = null;
-  let currentEntry: Entry | null = null;
-  let currentParagraphs: string[] = [];
-
-  function flushParagraphs(target: any) {
-    if (!currentParagraphs.length || !target) {
-      currentParagraphs = [];
-      return;
-    }
-
-    const rawParagraph = currentParagraphs.join(' ').trim();
-    if (!rawParagraph) {
-      currentParagraphs = [];
-      return;
-    }
-
-    const paragraph = normalizeMarkdownLabel(rawParagraph);
-
-    if (!target.paragraphs) {
-      target.paragraphs = [];
-    }
-
-    target.paragraphs.push(paragraph);
-    currentParagraphs = [];
-  }
-
-  function ensureSection(title: string): Section {
-    const sec: Section = {
-      title: cleanMarkdownInline(title),
-      paragraphs: [],
-      entries: [],
-      bullets: []
-    };
-    cv.sections.push(sec);
-    currentEntry = null;
-    currentParagraphs = [];
-    return sec;
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    if (!line || line === '---') {
-      flushParagraphs(currentEntry || currentSection);
-      continue;
-    }
-
-    if (line.startsWith('# ')) {
-      cv.name = cleanMarkdownInline(line.slice(2)).replace(/^CV\s*--\s*/i, '').trim() || cv.name;
-      continue;
-    }
-
-    if (!currentSection) {
-      const parts = line.split('|');
-      let isContactLine = false;
-      const parsedItems: ContactInfo[] = [];
-      
-      for (const part of parts) {
-        const match = part.trim().match(/^\*\*([^*]+):\*\*\s*(.+)$/);
-        if (match) {
-          isContactLine = true;
-          parsedItems.push({
-            label: cleanMarkdownInline(match[1]),
-            value: cleanMarkdownInline(match[2])
-          });
-        }
-      }
-      
-      if (isContactLine) {
-        cv.contact.push(...parsedItems);
-        continue;
-      }
-    }
-
-    if (line.startsWith('## ')) {
-      flushParagraphs(currentEntry || currentSection);
-      currentSection = ensureSection(line.slice(3));
-      continue;
-    }
-
-    if (line.startsWith('### ')) {
-      flushParagraphs(currentEntry || currentSection);
-      currentEntry = {
-        heading: cleanMarkdownInline(line.slice(4)),
-        subheading: '',
-        date: '',
-        paragraphs: [],
-        bullets: []
-      };
-      if (currentSection) {
-        currentSection.entries.push(currentEntry);
-      }
-      continue;
-    }
-
-    if (line.startsWith('- ')) {
-      flushParagraphs(currentEntry || currentSection);
-      const content = line.slice(2).trim();
-      
-      const bullet = normalizeMarkdownLabel(content);
-      
-      if (currentEntry) {
-        currentEntry.bullets.push(bullet);
-      } else if (currentSection) {
-        currentSection.bullets.push(bullet);
-      }
-      continue;
-    }
-
-    if (currentEntry && !currentEntry.subheading && line.includes('|')) {
-      const parts = line.split('|');
-      currentEntry.subheading = cleanMarkdownInline(parts[0]);
-      currentEntry.date = cleanMarkdownInline(parts.slice(1).join('|'));
-      continue;
-    }
-
-    if (line.startsWith('**') && line.endsWith('**') && currentEntry && !currentEntry.subheading) {
-      currentEntry.subheading = cleanMarkdownInline(line);
-      continue;
-    }
-
-    if (currentEntry && !currentEntry.date && !line.startsWith('**')) {
-      currentEntry.date = cleanMarkdownInline(line);
-      continue;
-    }
-
-    currentParagraphs.push(line);
-  }
-
-  flushParagraphs(currentEntry || currentSection);
-  return cv;
-}
-
 // ==========================================
 // TEMPLATE: HARVARD (DEFAULT CLASSIC)
 // ==========================================
@@ -448,12 +202,12 @@ function drawSmallCapsText(doc: any, text: string, x: number, y: number, baseSiz
   doc.font(fontBold).fontSize(baseSize).fillColor(color);
   doc.text(text.toUpperCase(), x, y, { lineBreak: false });
   doc.fontSize(baseSize);
-  doc.y = y + baseSize + 2;
+  doc.y = y + baseSize + CV_METRICS.sectionTitleExtra;
 }
 
 function drawSectionHeading(doc: any, title: string, layout: any, cust: CustomizeOptions) {
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const accent = cust.accentColor || COLORS.accent;
 
@@ -462,20 +216,20 @@ function drawSectionHeading(doc: any, title: string, layout: any, cust: Customiz
   const startY = doc.y;
   drawSmallCapsText(doc, title, margin, startY, layout.sectionSize, ff.bold, accent);
 
-  const ruleY = doc.y + 2.5;
+  const ruleY = doc.y + CV_METRICS.sectionRuleGap;
   doc.moveTo(margin, ruleY)
     .lineTo(margin + cWidth, ruleY)
     .strokeColor(accent)
-    .lineWidth(1.5)
+    .lineWidth(CV_METRICS.sectionRuleWidth)
     .stroke();
 
-  doc.y = ruleY + 4.5;
+  doc.y = ruleY + CV_METRICS.afterSectionRule;
 }
 
 function drawParagraph(doc: any, text: string, layout: any, options: any = {}, cust: CustomizeOptions) {
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
   const size = options.size || layout.bodySize;
   const color = options.color || COLORS.text;
   const gap = options.gap ?? layout.paragraphGap;
@@ -494,10 +248,10 @@ function drawParagraph(doc: any, text: string, layout: any, options: any = {}, c
 function drawBullet(doc: any, text: string, layout: any, cust: CustomizeOptions) {
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
 
-  const bulletX = margin + 8;
-  const textX = margin + 18;
+  const bulletX = margin + CV_METRICS.bulletMark;
+  const textX = margin + CV_METRICS.bulletText;
   const startY = doc.y;
 
   doc.font(ff.regular)
@@ -505,7 +259,7 @@ function drawBullet(doc: any, text: string, layout: any, cust: CustomizeOptions)
     .fillColor(COLORS.text)
     .text('\u2022', bulletX, startY);
 
-  drawMarkdownText(doc, text, textX, startY, cWidth - 18, cust, layout, {
+  drawMarkdownText(doc, text, textX, startY, cWidth - CV_METRICS.bulletText, cust, layout, {
     size: layout.bodySize,
     color: COLORS.text,
     align: 'left',
@@ -518,29 +272,35 @@ function drawBullet(doc: any, text: string, layout: any, cust: CustomizeOptions)
 function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) {
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
 
   const startY = doc.y;
 
   doc.font(ff.bold)
     .fontSize(layout.headingSize)
-    .fillColor(COLORS.text)
-    .text(entry.heading, margin, startY, {
-      width: cWidth * 0.7
-    });
+    .fillColor(COLORS.text);
+  // PDFKit moves the heading when it does not fit. Reusing startY for the date
+  // then draws the date past the bottom of the new page and opens a blank one.
+  const headingStartsOnNextPage = startY > doc.page.maxY()
+    || startY + doc.currentLineHeight(true) > doc.page.maxY();
+
+  doc.text(entry.heading, margin, startY, {
+    width: cWidth * CV_METRICS.entryHeadingRatio
+  });
 
   if (entry.date) {
+    const dateY = headingStartsOnNextPage ? doc.page.margins.top : startY;
     doc.font(ff.regular)
       .fontSize(layout.metaSize)
       .fillColor(COLORS.muted)
-      .text(entry.date, margin, startY, {
+      .text(entry.date, margin, dateY, {
         width: cWidth,
         align: 'right'
       });
   }
 
   if (entry.subheading) {
-    doc.y += 1;
+    doc.y += CV_METRICS.entryDateNudge;
     doc.font(ff.italic)
       .fontSize(layout.metaSize)
       .fillColor(COLORS.text)
@@ -549,7 +309,7 @@ function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) 
       });
   }
 
-  doc.moveDown(0.15);
+  doc.moveDown(CV_METRICS.entryPreBullet);
 
   for (const paragraph of entry.paragraphs || []) {
     drawParagraph(doc, paragraph, layout, { gap: layout.paragraphGap }, cust);
@@ -567,10 +327,10 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
 
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
-  const sep = '   ·   ';
-  const iconSize = layout.contactSize * 0.9;
-  const iconGap = 3;
+  const cWidth = contentWidthPt(margin);
+  const sep = CV_METRICS.contactSeparator;
+  const iconSize = layout.contactSize * CV_METRICS.contactIconScale;
+  const iconGap = CV_METRICS.iconGap;
 
   doc.font(ff.regular)
     .fontSize(layout.contactSize)
@@ -615,7 +375,7 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
     let currentX = margin + (cWidth - line.width) / 2;
     line.items.forEach((data) => {
       if (data.iconType) {
-        drawIcon(doc, data.iconType, currentX, currentY - 0.5, iconSize, COLORS.muted);
+        drawIcon(doc, data.iconType, currentX, currentY - CV_METRICS.iconLift, iconSize, COLORS.muted);
         currentX += data.iconWidth;
       }
       
@@ -635,16 +395,16 @@ function drawContactLines(doc: any, contact: ContactInfo[], layout: any, showIco
         currentX += data.sepWidth;
       }
     });
-    currentY += layout.contactSize + 2.5;
+    currentY += layout.contactSize + CV_METRICS.contactLineExtra;
   });
 
-  doc.y = currentY - 2.5;
+  doc.y = currentY - CV_METRICS.contactLineExtra;
 }
 
 function drawSkillsSection(doc: any, section: Section, layout: any, cust: CustomizeOptions) {
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
   const accent = cust.accentColor || COLORS.accent;
 
   drawSectionHeading(doc, section.title, layout, cust);
@@ -663,25 +423,25 @@ function drawSkillsSection(doc: any, section: Section, layout: any, cust: Custom
       doc.font(ff.bold)
         .fontSize(layout.bodySize)
         .fillColor(accent)
-        .text(cleanLabel + ': ', margin + 6, startY, {
+        .text(cleanLabel + ': ', margin + CV_METRICS.skillIndent, startY, {
           continued: true,
-          width: cWidth - 6
+          width: cWidth - CV_METRICS.skillIndent
         });
 
-      drawMarkdownText(doc, value, null, null, cWidth - 6, cust, layout, {
+      drawMarkdownText(doc, value, null, null, cWidth - CV_METRICS.skillIndent, cust, layout, {
         size: layout.bodySize,
         color: COLORS.text,
         lineGap: layout.lineGap
       });
 
-      doc.moveDown(0.08);
+      doc.moveDown(CV_METRICS.skillMoveDown);
     } else {
-      drawMarkdownText(doc, item, margin + 6, doc.y, cWidth - 6, cust, layout, {
+      drawMarkdownText(doc, item, margin + CV_METRICS.skillIndent, doc.y, cWidth - CV_METRICS.skillIndent, cust, layout, {
         size: layout.bodySize,
         color: COLORS.text,
         lineGap: layout.lineGap
       });
-      doc.moveDown(0.08);
+      doc.moveDown(CV_METRICS.skillMoveDown);
     }
   }
 }
@@ -689,7 +449,7 @@ function drawSkillsSection(doc: any, section: Section, layout: any, cust: Custom
 function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, cust: CustomizeOptions) {
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
-  const cWidth = 595.28 - margin * 2;
+  const cWidth = contentWidthPt(margin);
   const accent = cust.accentColor || COLORS.accent;
 
   doc.info.Title = `CV - ${cv.name}`;
@@ -702,20 +462,20 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
     .text(cv.name.toUpperCase(), margin, margin || PAGE_MARGIN, {
       width: cWidth,
       align: 'center',
-      characterSpacing: 1.2
+      characterSpacing: CV_METRICS.nameCharacterSpacing
     });
 
-  doc.moveDown(0.2);
+  doc.moveDown(CV_METRICS.nameMoveDown);
   drawContactLines(doc, cv.contact, layout, showIcons, cust);
 
-  const headerRuleY = doc.y + 12;
+  const headerRuleY = doc.y + CV_METRICS.headerRuleGap;
   doc.moveTo(margin, headerRuleY)
     .lineTo(margin + cWidth, headerRuleY)
     .strokeColor(accent)
-    .lineWidth(0.8)
+    .lineWidth(CV_METRICS.headerRuleWidth)
     .stroke();
 
-  doc.y = headerRuleY + 10;
+  doc.y = headerRuleY + CV_METRICS.afterHeaderRule;
 
   for (const section of cv.sections) {
     if (isSkillsSection(section.title)) {
@@ -747,12 +507,34 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
 // INTEGRATED GENERATOR
 // ==========================================
 
-export function generatePdfBuffer(markdown: string, options: any = {}): Promise<Buffer> {
+export type PdfBufferResult = {
+  buffer: Buffer;
+  /** Y of each new page in the continuous flow, in points from the top of page 1. */
+  pageBreaks: number[];
+};
+
+function trackPageBreaks(doc: PDFKit.PDFDocument): number[] {
+  const breaks: number[] = [];
+  let origin = 0;
+  const target = doc as PDFKit.PDFDocument & {
+    continueOnNewPage: (options?: PDFKit.PDFDocumentOptions) => PDFKit.PDFDocument;
+  };
+  const original = target.continueOnNewPage.bind(target);
+  target.continueOnNewPage = (options) => {
+    const at = origin + doc.y;
+    if (at > origin) breaks.push(at);
+    origin += doc.y;
+    return original(options);
+  };
+  return breaks;
+}
+
+export function generatePdfBuffer(markdown: string, options: any = {}): Promise<PdfBufferResult> {
   return new Promise((resolve, reject) => {
     try {
       const cv = parseCvMarkdown(markdown);
       const fontScale = getFontScale(options.fontSize || 12.5);
-      const layout = buildLayout(fontScale);
+      const layout = scaleLayout(fontScale);
       const customize = buildCustomize(options);
 
       const doc = new PDFDocument({
@@ -770,10 +552,10 @@ export function generatePdfBuffer(markdown: string, options: any = {}): Promise<
       // (read from disk once per process, not once per render).
       registerFontFamily(doc, customize.fontFamily);
 
-
+      const pageBreaks = trackPageBreaks(doc);
       const chunks: Buffer[] = [];
       doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('end', () => resolve({ buffer: Buffer.concat(chunks), pageBreaks }));
       doc.on('error', (err) => reject(err));
 
       renderCvPdf(doc, cv, layout, options.showIcons !== false, customize);

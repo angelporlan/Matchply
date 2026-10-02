@@ -14,6 +14,13 @@ import {
   Filter,
   MoveHorizontal,
 } from 'lucide-react';
+import {
+  COMPANY_COUNT_OPERATORS,
+  isCompanyCountColumn,
+  isCompanyCountOperator,
+  parseCompanyCount,
+  type CompanyCountOperator,
+} from '@/lib/company-column-filter';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { cn } from '@/lib/utils';
 
@@ -32,9 +39,11 @@ export type CompanySortState = { key: CompanySortKey; direction: CompanySortDire
 export type CompanyColumnWidth = 'auto' | 'sm' | 'md' | 'lg';
 export type CompanyColumnWidths = Partial<Record<CompanyColumnId | 'actions', CompanyColumnWidth>>;
 
+export type CompanyColumnFilterOperator = 'contains' | 'equals' | CompanyCountOperator;
+
 export type CompanyColumnFilter = {
   column: CompanyColumnId;
-  operator: 'contains' | 'equals';
+  operator: CompanyColumnFilterOperator;
   value: string;
 };
 
@@ -48,6 +57,14 @@ export const COMPANY_COLUMN_WIDTH_PX: Record<CompanyColumnWidth, number | undefi
 };
 
 const MENU_WIDTH = 232;
+
+const COUNT_OPERATOR_LABEL: Record<CompanyCountOperator, string> = {
+  eq: 'filterEquals',
+  gt: 'filterGt',
+  gte: 'filterGte',
+  lt: 'filterLt',
+  lte: 'filterLte',
+};
 
 type Panel = 'root' | 'filter' | 'width';
 
@@ -146,7 +163,7 @@ export default function CompanyColumnHeaderMenu({
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>('root');
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const [draftOperator, setDraftOperator] = useState<'contains' | 'equals'>('contains');
+  const [draftOperator, setDraftOperator] = useState<CompanyColumnFilterOperator>('contains');
   const [draftValue, setDraftValue] = useState('');
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -208,6 +225,10 @@ export default function CompanyColumnHeaderMenu({
     if (!open) return;
     computePosition();
     const timer = window.setTimeout(() => {
+      if (panel === 'filter') {
+        filterInputRef.current?.focus();
+        return;
+      }
       menuRef.current
         ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
         ?.focus();
@@ -215,8 +236,13 @@ export default function CompanyColumnHeaderMenu({
     return () => window.clearTimeout(timer);
   }, [open, panel, computePosition]);
 
+  const countColumn = column !== 'actions' && isCompanyCountColumn(column);
+
   const openMenu = () => {
-    if (columnFilter) {
+    if (countColumn) {
+      setDraftOperator(columnFilter && isCompanyCountOperator(columnFilter.operator) ? columnFilter.operator : 'eq');
+      setDraftValue(columnFilter?.value ?? '');
+    } else if (columnFilter && (columnFilter.operator === 'contains' || columnFilter.operator === 'equals')) {
       setDraftOperator(columnFilter.operator);
       setDraftValue(columnFilter.value);
     } else {
@@ -229,10 +255,22 @@ export default function CompanyColumnHeaderMenu({
 
   const applyTextFilter = () => {
     if (column === 'actions') return;
+    if (countColumn) {
+      if (!draftValue.trim()) {
+        onSetColumnFilter(null);
+        close(true);
+        return;
+      }
+      const count = parseCompanyCount(draftValue);
+      if (count == null || !isCompanyCountOperator(draftOperator)) return;
+      onSetColumnFilter({ column, operator: draftOperator, value: String(count) });
+      close(true);
+      return;
+    }
     const trimmed = draftValue.trim();
     if (!trimmed) {
       onSetColumnFilter(null);
-    } else {
+    } else if (draftOperator === 'contains' || draftOperator === 'equals') {
       onSetColumnFilter({
         column,
         operator: draftOperator,
@@ -250,6 +288,7 @@ export default function CompanyColumnHeaderMenu({
 
   const renderPanel = () => {
     if (panel === 'filter' && column !== 'actions') {
+      const invalidCount = countColumn && draftValue.trim() !== '' && parseCompanyCount(draftValue) == null;
       return (
         <div className="p-1 space-y-2.5">
           <PanelHeader
@@ -262,15 +301,33 @@ export default function CompanyColumnHeaderMenu({
             </label>
             <select
               value={draftOperator}
-              onChange={(e) => setDraftOperator(e.target.value as 'contains' | 'equals')}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (countColumn) {
+                  if (isCompanyCountOperator(next)) setDraftOperator(next);
+                  return;
+                }
+                if (next === 'contains' || next === 'equals') setDraftOperator(next);
+              }}
               className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1.5 text-xs text-text focus:outline-none focus:border-ai font-sans"
             >
-              <option value="contains">{t('companies.table.columns.menu.filterContains')}</option>
-              <option value="equals">{t('companies.table.columns.menu.filterEquals')}</option>
+              {countColumn ? COMPANY_COUNT_OPERATORS.map((operator) => (
+                <option key={operator} value={operator}>
+                  {t(`companies.table.columns.menu.${COUNT_OPERATOR_LABEL[operator]}`)}
+                </option>
+              )) : (
+                <>
+                  <option value="contains">{t('companies.table.columns.menu.filterContains')}</option>
+                  <option value="equals">{t('companies.table.columns.menu.filterEquals')}</option>
+                </>
+              )}
             </select>
             <input
               ref={filterInputRef}
-              type="text"
+              type={countColumn ? 'number' : 'text'}
+              inputMode={countColumn ? 'numeric' : undefined}
+              min={countColumn ? 0 : undefined}
+              step={countColumn ? 1 : undefined}
               value={draftValue}
               onChange={(e) => setDraftValue(e.target.value)}
               onKeyDown={(e) => {
@@ -279,7 +336,9 @@ export default function CompanyColumnHeaderMenu({
                   applyTextFilter();
                 }
               }}
-              placeholder={t('companies.table.columns.menu.filterPlaceholder')}
+              placeholder={countColumn
+                ? t('companies.table.columns.menu.filterNumberPlaceholder')
+                : t('companies.table.columns.menu.filterPlaceholder')}
               className="w-full bg-canvas border border-control rounded-[6px] px-2 py-1.5 text-xs text-text focus:outline-none focus:border-ai font-sans"
             />
           </div>
@@ -287,7 +346,8 @@ export default function CompanyColumnHeaderMenu({
             <button
               type="button"
               onClick={applyTextFilter}
-              className="flex-1 px-3 py-1.5 rounded-[6px] bg-ai text-white text-xs font-bold font-display shadow-xs hover:opacity-90 transition-opacity"
+              disabled={invalidCount}
+              className="flex-1 px-3 py-1.5 rounded-[6px] bg-ai text-white text-xs font-bold font-display shadow-xs hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('companies.table.columns.menu.applyFilter')}
             </button>
@@ -332,13 +392,25 @@ export default function CompanyColumnHeaderMenu({
       );
     }
 
+    const sortAscLabel = countColumn
+      ? t('companies.table.columns.menu.sortCountAsc')
+      : column === 'updatedAt'
+        ? t('companies.table.columns.menu.sortDateAsc')
+        : t('companies.table.columns.menu.sortAsc');
+
+    const sortDescLabel = countColumn
+      ? t('companies.table.columns.menu.sortCountDesc')
+      : column === 'updatedAt'
+        ? t('companies.table.columns.menu.sortDateDesc')
+        : t('companies.table.columns.menu.sortDesc');
+
     return (
       <div>
         {sortable && column !== 'actions' && (
           <>
             <MenuItem
               icon={<ArrowUp className="w-4 h-4 stroke-[1.75]" />}
-              label={t('companies.table.columns.menu.sortAsc')}
+              label={sortAscLabel}
               active={isSorted && sort.direction === 'asc'}
               onClick={() => {
                 onSetSort(column as CompanySortKey, 'asc');
@@ -347,7 +419,7 @@ export default function CompanyColumnHeaderMenu({
             />
             <MenuItem
               icon={<ArrowDown className="w-4 h-4 stroke-[1.75]" />}
-              label={t('companies.table.columns.menu.sortDesc')}
+              label={sortDescLabel}
               active={isSorted && sort.direction === 'desc'}
               onClick={() => {
                 onSetSort(column as CompanySortKey, 'desc');

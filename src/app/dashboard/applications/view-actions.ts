@@ -20,7 +20,7 @@ function cleanViewName(name: unknown) {
 }
 
 async function requireViewUser() {
-  return requireProductContext({ feature: 'applications' });
+  return requireProductContext({ allowGuest: true, feature: 'applications' });
 }
 
 export async function createApplicationView(name: string, config: ApplicationViewConfig) {

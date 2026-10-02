@@ -8,7 +8,7 @@ import { hasProAccess } from '@/lib/subscription';
 import { cvListColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
 import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
-import { getSessionUser } from '@/lib/session';
+import { getDashboardViewer } from '@/lib/session';
 import { loadApplicationsWorkspace } from '@/lib/application-list-query';
 import { timed } from '@/lib/logger';
 
@@ -17,17 +17,14 @@ interface ApplicationsPageProps {
 }
 
 export default async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
+  const dbUser = viewer.user;
 
   const userId = dbUser.id;
   const isPremium = hasProAccess(dbUser);
-
-  if (!isPremium) {
-    redirect('/dashboard/subscription');
-  }
 
   if (searchParams?.layout) {
     const params = new URLSearchParams();
@@ -95,11 +92,11 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   );
 
   return (
-    <div className="relative overflow-x-clip min-h-screen md:h-[100dvh] md:overflow-hidden">
+    <div className="relative overflow-x-clip min-h-screen">
       <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
 
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative md:h-full md:flex md:flex-col md:min-h-0">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <ApplicationsClient
           offers={workspace.items}
           filteredTotal={workspace.total}

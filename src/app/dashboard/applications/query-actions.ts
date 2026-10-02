@@ -20,7 +20,7 @@ export async function queryApplicationsAction(
   input: ApplicationsQueryInput,
 ): Promise<{ success: true; data: ApplicationWorkspace } | { error: string }> {
   try {
-    const ctx = await requireProductContext({ feature: 'applications' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'applications' });
     const data = await timed('nav_queries', { route: '/dashboard/applications' }, () =>
       loadApplicationsWorkspace({
         userId: ctx.effectiveUser!.id,
@@ -40,7 +40,7 @@ export async function queryApplicationIdsAction(
   input: Pick<ApplicationsQueryInput, 'filters' | 'sort'>,
 ): Promise<{ success: true; ids: string[]; truncated: boolean } | { error: string }> {
   try {
-    const ctx = await requireProductContext({ feature: 'applications' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'applications' });
     const ids = await listApplicationIds({
       userId: ctx.effectiveUser!.id,
       filters: input.filters,

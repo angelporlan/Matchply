@@ -1,17 +1,15 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { hasProAccess } from '@/lib/subscription';
-import { getRequestContext } from '@/lib/request-context';
+import { GUEST_UPGRADE_HREF, getDashboardViewer } from '@/lib/session';
 import { Sparkles, Crown, CreditCard, ArrowLeft, CheckCircle2, Lock, ArrowRight, ShieldCheck, Zap, Lightbulb } from 'lucide-react';
 import { getServerTranslations } from '@/lib/i18n/server';
 
 export default async function SubscriptionPage() {
-  const ctx = await getRequestContext();
-  if (ctx.impersonation) redirect('/dashboard');
-  const dbUser = ctx.effectiveUser;
-  if (!dbUser) {
-    redirect('/login');
-  }
+  const viewer = await getDashboardViewer();
+  if (!viewer) redirect('/login');
+  if (viewer.impersonation) redirect('/dashboard');
+  const dbUser = viewer.user;
 
   const { t } = getServerTranslations();
   const isPremium = hasProAccess(dbUser);
@@ -161,7 +159,7 @@ export default async function SubscriptionPage() {
 
               <div className="mt-8 font-display">
                 <a
-                  href="/api/stripe/checkout"
+                  href={viewer.isGuest ? GUEST_UPGRADE_HREF : '/api/stripe/checkout'}
                   className="btn-raised btn-raised--strong w-full"
                 >
                   <Crown className="w-3.5 h-3.5" />

@@ -43,7 +43,7 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   ]);
   const user = userRows[0];
   if (!user) throw new Error('USER_NOT_FOUND');
-  if (!canAccessFeature(user.subscriptionStatus, 'applications', { isGuest: user.isGuest, proGrantedUntil: user.proGrantedUntil })) throw new SubscriptionAccessError('applications');
+  if (!canAccessFeature(user.subscriptionStatus, 'advancedAi', { isGuest: user.isGuest, proGrantedUntil: user.proGrantedUntil })) throw new SubscriptionAccessError('advancedAi');
 
   // AI micro-batches complete concurrently; serialize saves so progress cannot lose another batch's items.
   let progressTail: Promise<void> = Promise.resolve();

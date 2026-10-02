@@ -51,10 +51,10 @@ export const AI_FUNCTION_LABELS: Record<AiFunctionKey, { es: string; needs: Arra
   research: { es: 'Investigación', needs: [] },
 };
 
-const PROVIDERS: AiProvider[] = ['gemini', 'deepseek', 'openrouter'];
+const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'deepseek', 'openrouter'];
 
 function isProvider(value: unknown): value is AiProvider {
-  return value === 'gemini' || value === 'deepseek' || value === 'openrouter';
+  return value === 'openai' || value === 'gemini' || value === 'deepseek' || value === 'openrouter';
 }
 
 function parseModelRef(value: unknown, fallback: AiModelRef): AiModelRef {
@@ -73,7 +73,9 @@ export function defaultAiRuntimeConfig(): AiRuntimeConfig {
       pro: { provider: DEFAULT_PRO_PROVIDER, model: DEFAULT_PRO_MODEL },
     },
     overrides: {},
-    tested: [],
+    tested: [
+      { provider: 'openai', model: 'gpt-6-luna', testedAt: '2026-10-02T00:00:00.000Z', ok: true },
+    ],
   };
 }
 

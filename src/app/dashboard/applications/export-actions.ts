@@ -9,7 +9,7 @@ export async function getOffersExportDataAction(
   offerIds: string[],
 ): Promise<{ success: boolean; data?: Record<string, unknown>[]; error?: string }> {
   try {
-    const ctx = await requireProductContext({ feature: 'applications' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'applications' });
     const userId = ctx.effectiveUser!.id;
 
     if (!offerIds || offerIds.length === 0) {

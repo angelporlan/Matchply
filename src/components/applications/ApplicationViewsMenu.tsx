@@ -99,31 +99,61 @@ export default function ApplicationViewsMenu({
 
   return (
     <div ref={containerRef} className="relative font-display">
-      <button
-        type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        className="group flex items-center gap-2 px-2 py-1.5 -ml-2 rounded-[8px] hover:bg-surface-muted/60 dark:hover:bg-white/5 transition-colors cursor-pointer select-none"
-      >
-        <span className="text-lg sm:text-xl font-bold text-text dark:text-white tracking-tight max-w-[240px] sm:max-w-[360px] truncate">
-          {activeView?.name || t('applications.views.label')}
-        </span>
-        {isDirty && (
-          <span className="text-ai text-lg font-bold -ml-1" title={t('applications.views.modified')}>
-            *
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          className="group flex items-center gap-2 px-2 py-1.5 -ml-2 rounded-[8px] hover:bg-surface-muted/60 dark:hover:bg-white/5 transition-colors cursor-pointer select-none"
+        >
+          <span className="text-lg sm:text-xl font-bold text-text dark:text-white tracking-tight max-w-[240px] sm:max-w-[360px] truncate">
+            {activeView?.name || t('applications.views.label')}
           </span>
+          {isDirty && (
+            <span className="text-ai text-lg font-bold -ml-1" title={t('applications.views.modified')}>
+              *
+            </span>
+          )}
+          {saving && !isDirty ? (
+            <Loader2 className="w-4 h-4 animate-spin text-ai shrink-0" aria-hidden="true" />
+          ) : (
+            <ChevronDown
+              className={`w-4.5 h-4.5 text-text-muted group-hover:text-text dark:group-hover:text-white stroke-[2] transition-transform duration-200 shrink-0 ${
+                isOpen ? 'rotate-180 text-text dark:text-white' : ''
+              }`}
+              aria-hidden="true"
+            />
+          )}
+        </button>
+
+        {isDirty && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!activeView?.isSystem) {
+                onSave();
+              } else {
+                setName('');
+                setNamingMode('saveAs');
+                setIsOpen(true);
+              }
+            }}
+            disabled={saving}
+            aria-busy={saving || undefined}
+            title={activeView?.isSystem ? t('applications.views.saveAs') : t('applications.views.save')}
+            aria-label={activeView?.isSystem ? t('applications.views.saveAs') : t('applications.views.save')}
+            className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-[8px] hover:bg-surface-muted/60 dark:hover:bg-white/5 text-text-muted hover:text-ai dark:hover:text-ai transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+          >
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-ai" aria-hidden="true" />
+            ) : (
+              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[1.75]" aria-hidden="true" />
+            )}
+          </button>
         )}
-        {saving ? (
-          <Loader2 className="w-4 h-4 animate-spin text-ai shrink-0" />
-        ) : (
-          <ChevronDown
-            className={`w-4.5 h-4.5 text-text-muted group-hover:text-text dark:group-hover:text-white stroke-[2] transition-transform duration-200 shrink-0 ${
-              isOpen ? 'rotate-180 text-text dark:text-white' : ''
-            }`}
-          />
-        )}
-      </button>
+      </div>
 
       {isOpen && (
         <div role="menu" className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-[12px] border border-subtle bg-surface p-2 shadow-xl animate-in fade-in duration-100">
@@ -218,6 +248,7 @@ export default function ApplicationViewsMenu({
                       type="button"
                       onClick={() => {
                         onSave();
+                        setIsOpen(false);
                       }}
                       disabled={saving}
                       className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:bg-canvas dark:hover:bg-surface-muted hover:text-text transition-colors disabled:opacity-50"

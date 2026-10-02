@@ -1,7 +1,7 @@
 import path from 'path';
 import { existsSync } from 'fs';
 import { Worker } from 'worker_threads';
-import { generatePdfBuffer } from '@/lib/pdf-engine';
+import { generatePdfBuffer, type PdfBufferResult } from '@/lib/pdf-engine';
 import { log } from '@/lib/logger';
 
 /**
@@ -22,7 +22,7 @@ type Job = {
   id: number;
   content: string;
   options: Record<string, unknown>;
-  resolve: (buffer: Buffer) => void;
+  resolve: (result: PdfBufferResult) => void;
   reject: (error: Error) => void;
   timer?: NodeJS.Timeout;
 };
@@ -57,13 +57,17 @@ function spawnWorker(): PooledWorker {
   });
   const pooled: PooledWorker = { worker, busy: null };
 
-  worker.on('message', (message: { id: number; ok: boolean; data?: Uint8Array; error?: string }) => {
+  worker.on('message', (message: { id: number; ok: boolean; data?: Uint8Array; pageBreaks?: number[]; error?: string }) => {
     const job = pooled.busy;
     if (!job || job.id !== message.id) return;
     pooled.busy = null;
     if (job.timer) clearTimeout(job.timer);
     if (message.ok && message.data) {
-      job.resolve(Buffer.from(message.data.buffer, message.data.byteOffset, message.data.byteLength));
+      const pageBreaks = Array.isArray(message.pageBreaks) ? message.pageBreaks : [];
+      job.resolve({
+        buffer: Buffer.from(message.data.buffer, message.data.byteOffset, message.data.byteLength),
+        pageBreaks,
+      });
     } else {
       job.reject(new Error(message.error || 'PDF worker failed'));
     }
@@ -113,14 +117,14 @@ function pump() {
   }
 }
 
-export function renderPdf(content: string, options: Record<string, unknown> = {}): Promise<Buffer> {
+export function renderPdf(content: string, options: Record<string, unknown> = {}): Promise<PdfBufferResult> {
   if (!workersAvailable()) {
     return generatePdfBuffer(content, options);
   }
   if (queue.length >= MAX_QUEUE) {
     return Promise.reject(new Error('PDF renderer is busy; try again shortly'));
   }
-  return new Promise<Buffer>((resolve, reject) => {
+  return new Promise<PdfBufferResult>((resolve, reject) => {
     queue.push({ id: nextJobId++, content, options, resolve, reject });
     pump();
   });

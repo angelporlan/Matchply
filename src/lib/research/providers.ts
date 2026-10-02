@@ -207,6 +207,29 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     if (!response.ok) throw new Error(`LLM_HTTP_${response.status}`);
     const body = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     text = body.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
+  } else if (provider === 'openai') {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) throw new Error('LLM_NOT_CONFIGURED');
+    const isFixedTemp = /luna|o1|o3/i.test(model);
+    const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        ...(isFixedTemp ? {} : { temperature: 0.1 }),
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    });
+    if (!response.ok) throw new Error(`LLM_HTTP_${response.status}`);
+    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    text = body.choices?.[0]?.message?.content || '';
   } else {
     const key = provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY : process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error('LLM_NOT_CONFIGURED');

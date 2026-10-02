@@ -6,7 +6,8 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   env: {
-    AI_PROMPTS_DEBUG: process.env.AI_PROMPTS_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG || '',
+    AI_PROMPT_DEBUG: process.env.AI_PROMPT_DEBUG || process.env.AI_PROMPTS_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPT_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG || '',
+    AI_PROMPTS_DEBUG: process.env.AI_PROMPTS_DEBUG || process.env.AI_PROMPT_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG || process.env.NEXT_PUBLIC_AI_PROMPT_DEBUG || '',
   },
   async redirects() {
     return [

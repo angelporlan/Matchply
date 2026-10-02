@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Calendar, CheckCircle2, CreditCard, Crown, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import NameForm from '@/components/account/NameForm';

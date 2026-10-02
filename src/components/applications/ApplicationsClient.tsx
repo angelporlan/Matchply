@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useDeferredValue, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { JobOffer } from '@/db/schema';
@@ -632,7 +633,7 @@ export default function ApplicationsClient({
   };
 
   return (
-    <div className="w-full md:h-full md:flex md:flex-col md:min-h-0" aria-busy={listLoading || undefined}>
+    <div className="w-full" aria-busy={listLoading || undefined}>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
@@ -717,7 +718,7 @@ export default function ApplicationsClient({
         </div>
       </div>
 
-      <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
+      <div className="w-full">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1066,7 +1067,7 @@ export default function ApplicationsClient({
       />
 
       {/* Toast Flotante tras Curación Exitosa */}
-      {curationToast && (
+      {curationToast && typeof document !== 'undefined' && createPortal(
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className="bg-text dark:bg-white text-canvas px-5 py-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/10 flex items-center gap-3 font-display text-xs font-bold">
             <div className="w-6 h-6 rounded-full bg-action/20 text-success-text flex items-center justify-center shrink-0">
@@ -1080,7 +1081,8 @@ export default function ApplicationsClient({
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Modal de Exportación de Datos */}

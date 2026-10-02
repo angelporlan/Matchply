@@ -1,21 +1,26 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
-import PdfViewer from './PdfViewer';
+import { PdfDownloadLink, type PdfZoom } from './PdfViewer';
+import ResumeSheet from './ResumeSheet';
+import EditorFormatBar from './EditorFormatBar';
+import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
+import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
-  Sparkles, ArrowLeft, Settings, Type, Layout, Grid, Sliders, Palette,
-  Crown, Briefcase, Building2, Link, FileText, CheckCircle2, ChevronRight, X, Play, RefreshCw,
+  Sparkles, ArrowLeft,
+  Crown, Briefcase, Building2, Link, FileText, CheckCircle2, X, RefreshCw,
   AlertCircle
 } from 'lucide-react';
 import LinkNext from 'next/link';
 import Sidebar from '@/app/dashboard/Sidebar';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { parsePdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
@@ -39,15 +44,13 @@ interface EditorClientProps {
   };
   isGuest?: boolean;
   guestCanDownloadPdf?: boolean;
+  cvChoices?: EditorCvChoice[];
+  linkedOffer?: LinkedOffer | null;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false }: EditorClientProps) {
+export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const [isPending, startTransition] = useTransition();
-  const [pdfVersion, setPdfVersion] = useState(0);
-  // Epoch estable durante la sesión: junto con pdfVersion forma la URL versionada (cacheable) del PDF.
-  const [contentEpoch] = useState(() => new Date(cv.updatedAt).getTime());
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
@@ -63,8 +66,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     };
   };
 
-  // Estado de Pantalla Completa ('none', 'editor', 'pdf')
-  const [fullscreenPanel, setFullscreenPanel] = useState<'none' | 'editor' | 'pdf'>('none');
+  const [fullscreenPanel, setFullscreenPanel] = useState<'none' | 'editor'>('none');
 
   // Estados de Estilo
   const templateName = cv.templateName || 'harvard';
@@ -72,6 +74,19 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [fontFamily, setFontFamily] = useState(cv.fontFamily || 'helvetica');
   const [pageMargin, setPageMargin] = useState(cv.pageMargin || 36);
   const [scale, setScale] = useState(cv.scale || 1.0);
+  const [cvTitle, setCvTitle] = useState(cv.title);
+  const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
+  const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reviewContent, setReviewContent] = useState(cv.content);
+  const [zoom, setZoom] = useState<PdfZoom>('fit');
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  const [pageBreaks, setPageBreaks] = useState<number[] | null>(null);
+  const [focusAdapt, setFocusAdapt] = useState(false);
+  const styleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const styleRef = useRef({ accentColor: cv.accentColor || '#1a5f7a', fontFamily: cv.fontFamily || 'helvetica', pageMargin: cv.pageMargin || 36, scale: cv.scale || 1.0 });
+  const adaptTitleRef = useRef<HTMLInputElement>(null);
 
   // Estado del Cajón de Optimización por IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -87,6 +102,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   
   useEffect(() => {
     setCvContent(cv.content);
+    setReviewContent(cv.content);
   }, [cv.content]);
   const [aiFormData, setAiFormData] = useState({
     jobTitle: '',
@@ -98,10 +114,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     addToApplications: 'true',
   });
 
-  // Resizer Split Screen states
-  const [leftWidth, setLeftWidth] = useState(50);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isResizing, setIsResizing] = useState(false);
   const [isLg, setIsLg] = useState(true);
 
   useEffect(() => {
@@ -187,7 +199,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const decoder = new TextDecoder();
       let done = false;
       let accumulatedText = '';
-      let lastPdfReload = Date.now();
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
@@ -206,21 +217,14 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         }
 
         setCvContent(accumulatedText);
+        setReviewContent(accumulatedText);
         if (accumulatedText.length > 50) {
           setStreamingStep(t('editor.aiModal.steps.generate'));
-        }
-
-        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
-        const now = Date.now();
-        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
-          lastPdfReload = now;
-          setPdfVersion(prev => prev + 1);
         }
       }
 
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
-      setPdfVersion(prev => prev + 1);
       trackUmamiConversion('cv_optimized');
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
       router.refresh();
@@ -275,7 +279,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const decoder = new TextDecoder();
       let done = false;
       let accumulatedText = '';
-      let lastPdfReload = Date.now();
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -295,19 +298,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         }
 
         setCvContent(accumulatedText);
+        setReviewContent(accumulatedText);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
-
-        // Recargar PDF cada 5 segundos si ya hay contenido razonable (cada recarga es un render PDFKit)
-        const now = Date.now();
-        if (now - lastPdfReload > 5000 && accumulatedText.length > 50) {
-          lastPdfReload = now;
-          setPdfVersion(prev => prev + 1);
-        }
       }
 
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
-      setPdfVersion(prev => prev + 1);
       trackUmamiConversion('cv_imported');
       router.refresh();
       setTimeout(() => {
@@ -322,91 +318,58 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
+  const scheduleStyleSave = () => {
+    if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+    styleTimerRef.current = setTimeout(async () => {
+      const style = styleRef.current;
+      setSaveStatus('saving');
+      const result = await updateCvStyling(cv.id, style);
+      if (!result.success) {
+        setSaveStatus('error');
+        return;
+      }
+      setSaveStatus((current) => (current === 'saving' ? 'saved' : current));
+    }, 400);
   };
 
-  const handleDoubleClick = () => {
-    setLeftWidth(50);
+  const applyStyle = (partial: Partial<{ accentColor: string; fontFamily: string; pageMargin: number; scale: number }>) => {
+    const next = { ...styleRef.current, ...partial };
+    styleRef.current = next;
+    if (partial.fontFamily !== undefined) setFontFamily(partial.fontFamily);
+    if (partial.pageMargin !== undefined) setPageMargin(partial.pageMargin);
+    if (partial.scale !== undefined) setScale(partial.scale);
+    if (partial.accentColor !== undefined) setAccentColor(partial.accentColor);
+    scheduleStyleSave();
   };
 
   useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const relativeX = e.clientX - rect.left;
-      const percentage = (relativeX / rect.width) * 100;
-      const boundedPercentage = Math.max(25, Math.min(percentage, 75));
-      setLeftWidth(boundedPercentage);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
     };
-  }, [isResizing]);
+  }, []);
 
-  // Efecto para actualizar el PDF al guardar cambios de Markdown
-  const handleEditorSave = () => {
-    setPdfVersion((prev) => prev + 1);
-  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || surface === 'document') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [role="dialog"], [role="menu"], [contenteditable="true"]')) return;
+      if (menuOpen || isAiOpen) return;
+      setSurface('document');
+      setMobilePane('document');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [surface, menuOpen, isAiOpen]);
 
-  // Función para guardar cambios de estilo en la BD
-  const saveStyling = async (updates: Parameters<typeof updateCvStyling>[1]) => {
-    startTransition(async () => {
-      const result = await updateCvStyling(cv.id, updates);
-      if (result.success) {
-        setPdfVersion((prev) => prev + 1);
-      }
-    });
-  };
-
-  const handleFontChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setFontFamily(val);
-    saveStyling({ fontFamily: val });
-  };
-
-  const handleMarginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setPageMargin(val);
-    saveStyling({ pageMargin: val });
-  };
-
-  const handleScaleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setScale(val);
-    saveStyling({ scale: val });
-  };
-
-  const handleAccentChange = (color: string) => {
-    setAccentColor(color);
-    saveStyling({ accentColor: color });
-  };
-
-  // Paleta de colores preestablecidos premium
-  const colorPresets = [
-    { name: 'Classic Blue', hex: '#1e3a8a' },
-    { name: 'Teal Depth', hex: '#0f766e' },
-    { name: 'Emerald', hex: '#047857' },
-    { name: 'Burgundy', hex: '#881337' },
-    { name: 'Slate Gray', hex: '#334155' },
-    { name: 'Warm Amber', hex: '#b45309' },
-  ];
+  useEffect(() => {
+    if (!focusAdapt) return;
+    adaptTitleRef.current?.focus();
+    setFocusAdapt(false);
+  }, [focusAdapt, mobilePane, surface]);
 
   // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAiOptimize = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setAiError(null);
     if (!aiFormData.jobTitle || !aiFormData.company || !aiFormData.jobDescription) {
       setAiError(t('editor.aiModal.requiredError'));
@@ -453,145 +416,161 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
   };
 
+  const showDocument = (isLg || mobilePane === 'document') && surface === 'document';
+  const showSource = (isLg || mobilePane === 'document') && (surface === 'source' || surface === 'diff');
+  const showReview = isLg || mobilePane === 'review';
+
+  useEffect(() => {
+    if (!scrollTarget || surface !== 'document') return;
+    const id = scrollTarget;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ block: 'center' });
+      setScrollTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollTarget, surface]);
+
+  useEffect(() => {
+    const text = reviewContent;
+    if (isStreaming || !text.trim()) {
+      if (!text.trim()) {
+        setPageCount(null);
+        setPageBreaks(null);
+      }
+      return;
+    }
+    const controller = new AbortController();
+    const handle = setTimeout(async () => {
+      try {
+        const style = styleRef.current;
+        const response = await fetch('/api/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: text,
+            template: templateName,
+            accentColor: style.accentColor || null,
+            fontFamily: style.fontFamily || 'helvetica',
+            pageMargin: style.pageMargin || 36,
+            scale: style.scale || 1,
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const pages = Number(response.headers.get('X-Pdf-Pages'));
+        const breaks = parsePdfBreakHeader(response.headers.get('X-Pdf-Breaks'));
+        await response.body?.cancel();
+        if (Number.isFinite(pages) && pages >= 1) {
+          setPageCount(pages);
+          setPageBreaks(breaks);
+        }
+      } catch {
+        // Aborted renders and failed counts leave the previous page total in place.
+      }
+    }, 700);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [reviewContent, accentColor, fontFamily, pageMargin, scale, templateName, isStreaming]);
+
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
       <Sidebar user={user} isPremium={isPremium} isGuest={isGuest} />
-      <div className="flex-1 h-screen flex flex-col relative overflow-hidden">
-        {/* Background glow effects */}
-      <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-ai/3 dark:bg-ai/5 blur-[120px] pointer-events-none" />
-
-      {/* Cabecera del Editor */}
-      <header className="bg-white/80 dark:bg-canvas/80 backdrop-blur-md border-b border-subtle px-6 py-4 flex items-center justify-between shrink-0 relative z-30 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <LinkNext
-            href={isGuest ? "/try" : "/dashboard"}
-            className="text-text-muted hover:text-text dark:hover:text-white p-2 rounded-xl hover:bg-surface-muted dark:hover:bg-surface transition-colors"
-            title={t('editor.header.backToDashboard')}
-          >
-            <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
-          </LinkNext>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-text tracking-wide font-display">{cv.title}</h1>
-              <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>
-                {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
-              </span>
+      <div className="flex-1 h-[calc(100dvh-4rem)] md:h-screen flex flex-col relative overflow-hidden">
+      <header className="bg-surface border-b border-subtle px-4 sm:px-6 py-3 shrink-0 relative z-30">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <LinkNext
+              href="/dashboard"
+              className="text-text-muted hover:text-text min-h-11 min-w-11 inline-flex items-center justify-center rounded-[8px] hover:bg-surface-muted"
+              aria-label={t('editor.header.backToDashboard')}
+            >
+              <ArrowLeft className="w-4 h-4 stroke-[1.75]" aria-hidden />
+            </LinkNext>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <EditorCvMenu
+                  cvId={cv.id}
+                  title={cvTitle}
+                  choices={cvChoices.length > 0 ? cvChoices : [{ id: cv.id, title: cvTitle, isBase: cv.isBase, isPrincipal: cv.isPrincipal }]}
+                  onTitleChange={setCvTitle}
+                  onOpenChange={setMenuOpen}
+                />
+                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-surface-muted text-text-muted border-subtle' : 'bg-warning-surface text-warning-text border-warning-text/20'}`}>
+                  {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
+                </span>
+              </div>
+              <p className="text-[11px] text-text-muted mt-0.5">{t('editor.header.subtitle')}</p>
             </div>
-            <p className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
-              {t('editor.header.subtitle')}
-            </p>
           </div>
-        </div>
-
-        {/* Botones de acción principal */}
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="ai" size="sm" onClick={() => setIsAiOpen(true)}>
-            <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
-            {t('editor.header.optimizeBtn')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 max-w-full">
+            {surface !== 'document' && (
+              <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
+                {t('editor.header.document')}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant={surface === 'source' ? 'secondary' : 'ghost'}
+              aria-pressed={surface === 'source'}
+              onClick={() => {
+                setSurface((current) => (current === 'source' ? 'document' : 'source'));
+                setMobilePane('document');
+              }}
+            >
+              {t('editor.header.markdown')}
+            </Button>
+            {baseCvContent ? (
+              <Button
+                type="button"
+                variant={surface === 'diff' ? 'secondary' : 'ghost'}
+                aria-pressed={surface === 'diff'}
+                onClick={() => {
+                  setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
+                  setMobilePane('document');
+                }}
+              >
+                {t('editor.header.changes')}
+              </Button>
+            ) : null}
+            <PdfDownloadLink
+              cvId={cv.id}
+              isGuest={isGuest}
+              guestCanDownload={guestCanDownload}
+              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+              className="btn-raised"
+            />
+            <Button type="button" variant="ai" onClick={() => {
+              setMobilePane('review');
+              setFocusAdapt(true);
+            }}>
+              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden />
+              {t('editor.header.adapt')}
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Toolbar Flotante de Estilos (Supercompacta) */}
-      <div className="w-full bg-white/90 dark:bg-canvas/90 backdrop-blur-md border-b border-subtle px-6 py-2 flex flex-wrap items-center justify-between gap-4 shrink-0 relative z-20 transition-colors duration-300">
-        <div className="flex flex-wrap items-center">
-          {/* Selector de Plantilla */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
-              <Layout className="w-3 h-3 text-text-muted stroke-[1.75]" />
-              {t('editor.toolbar.design')}
-            </span>
-            <div className="bg-canvas border border-control rounded-[8px] px-2 h-7 flex items-center text-xs text-text font-medium shadow-sm">
-              {t('editor.toolbar.templates.harvard')}
-            </div>
-          </div>
-
-          {/* Selector de Fuente */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
-              <Type className="w-3 h-3 text-text-muted stroke-[1.75]" />
-              {t('editor.toolbar.font')}
-            </span>
-            <select
-              value={fontFamily}
-              onChange={handleFontChange}
-              className="bg-canvas border border-control rounded-[8px] px-2 py-1 text-xs text-text font-medium focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer capitalize h-7 shadow-sm"
-            >
-              <option value="helvetica">{t('editor.toolbar.fonts.helvetica')}</option>
-              <option value="times">{t('editor.toolbar.fonts.times')}</option>
-              <option value="courier">{t('editor.toolbar.fonts.courier')}</option>
-            </select>
-          </div>
-
-          {/* Selector de Margen */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
-              <Sliders className="w-3 h-3 text-text-muted stroke-[1.75]" />
-              {t('editor.toolbar.margin').replace('{margin}', pageMargin.toString())}
-            </span>
-            <div className="flex items-center h-7">
-              <input
-                type="range"
-                min="18"
-                max="72"
-                step="6"
-                value={pageMargin}
-                onChange={handleMarginChange}
-                className="w-24 accent-ai bg-canvas border border-control rounded-[8px] h-1.5 cursor-pointer shadow-sm"
-              />
-            </div>
-          </div>
-
-          {/* Selector de Escala */}
-          <div className="flex flex-col gap-1 pr-5 mr-5 border-r border-subtle dark:border-slate-800/85">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
-              <Grid className="w-3 h-3 text-text-muted stroke-[1.75]" />
-              {t('editor.toolbar.scale').replace('{scale}', scale.toFixed(1))}
-            </span>
-            <div className="flex items-center h-7">
-              <input
-                type="range"
-                min="0.6"
-                max="1.4"
-                step="0.1"
-                value={scale}
-                onChange={handleScaleChange}
-                className="w-24 accent-ai bg-canvas border border-control rounded-[8px] h-1.5 cursor-pointer shadow-sm"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Selector de Color de Acento */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 font-display">
-            <Palette className="w-3 h-3 text-text-muted stroke-[1.75]" />
-            {t('editor.toolbar.accent')}
-          </span>
-          <div className="flex items-center gap-1.5 bg-canvas border border-control px-2 py-0.5 rounded-[8px] h-7 shadow-sm">
-            {colorPresets.map((preset) => (
-              <button
-                key={preset.hex}
-                onClick={() => handleAccentChange(preset.hex)}
-                className={`w-4 h-4 rounded-full border border-black/15 transition-transform hover:scale-125 shrink-0 ${accentColor === preset.hex ? 'ring-2 ring-ai ring-offset-1 ring-offset-white dark:ring-offset-[#0b0f19]' : ''}`}
-                style={{ backgroundColor: preset.hex }}
-                title={preset.name}
-              />
-            ))}
-            <div className="relative w-4 h-4 rounded-full border border-control dark:border-white/20 overflow-hidden cursor-pointer hover:scale-125 transition-all shrink-0">
-              <input
-                type="color"
-                value={accentColor}
-                onChange={(e) => handleAccentChange(e.target.value)}
-                className="absolute inset-0 w-8 h-8 -translate-x-2 -translate-y-2 cursor-pointer bg-transparent border-0 p-0"
-                title={t('editor.toolbar.customColor')}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <EditorFormatBar
+        fontFamily={fontFamily}
+        pageMargin={pageMargin}
+        scale={scale}
+        accentColor={accentColor}
+        onFontChange={(value) => applyStyle({ fontFamily: value })}
+        onMarginChange={(value) => applyStyle({ pageMargin: value })}
+        onScaleChange={(value) => applyStyle({ scale: value })}
+        onAccentChange={(value) => applyStyle({ accentColor: value })}
+        zoom={zoom}
+        onZoomChange={setZoom}
+        saveLabel={
+          saveStatus === 'saving'
+            ? t('editor.footer.saving')
+            : saveStatus === 'error'
+              ? t('editor.footer.error')
+              : (isGuest ? t('editor.footer.savedGuest') : t('editor.footer.saved'))
+        }
+      />
 
       {isStreaming && (
         <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-ai text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
@@ -624,64 +603,79 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </div>
       )}
 
-      {/* Panel del Editor y Visor en Split Screen */}
-      <div 
-        ref={containerRef}
-        className={`flex-1 min-h-0 flex flex-col lg:flex-row p-6 overflow-y-auto lg:overflow-hidden editor-scrollbar transition-colors duration-300 ${isResizing ? 'select-none' : ''}`}
-      >
-        {fullscreenPanel !== 'pdf' && (
-          <div 
-            style={{ width: isLg && fullscreenPanel === 'none' ? `${leftWidth}%` : '100%' }}
-            className="h-full min-h-[350px] lg:min-h-0 flex flex-col"
-          >
-            <MarkdownEditor
-              cvId={cv.id}
-              initialContent={cvContent}
-              originalContent={baseCvContent || undefined}
-              onSave={handleEditorSave}
-              saveStatus={saveStatus}
-              setSaveStatus={setSaveStatus}
-              isFullScreen={fullscreenPanel === 'editor'}
-              onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'editor' ? 'none' : 'editor')}
-              isAiStreaming={isStreaming}
-              streamingStep={streamingStep}
-            />
+      {!isLg && (
+        <div role="tablist" aria-label={cvTitle} className="flex shrink-0 border-b border-subtle bg-surface">
+          {(['document', 'review'] as const).map((pane) => (
+            <button
+              key={pane}
+              type="button"
+              role="tab"
+              aria-selected={mobilePane === pane}
+              className={`min-h-11 flex-1 text-sm font-semibold ${mobilePane === pane ? 'text-text border-b-2 border-text' : 'text-text-muted'}`}
+              onClick={() => setMobilePane(pane)}
+            >
+              {t(`editor.tabs.${pane}`)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
+        {(showDocument || showSource) && (
+          <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 ${showSource ? 'p-4 sm:p-6' : ''}`}>
+            {showDocument && (
+              <ResumeSheet
+                cvId={cv.id}
+                content={reviewContent}
+                fontFamily={fontFamily}
+                pageMargin={pageMargin}
+                scale={scale}
+                accentColor={accentColor}
+                zoom={zoom}
+                pageBreaks={pageBreaks}
+                onContentChange={setReviewContent}
+                setSaveStatus={setSaveStatus}
+              />
+            )}
+            {showSource && (
+              <MarkdownEditor
+                key={surface}
+                cvId={cv.id}
+                initialContent={reviewContent}
+                originalContent={baseCvContent || undefined}
+                forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
+                onContentChange={setReviewContent}
+                saveStatus={saveStatus}
+                setSaveStatus={setSaveStatus}
+                isFullScreen={fullscreenPanel === 'editor'}
+                onToggleFullScreen={() => setFullscreenPanel((prev) => (prev === 'editor' ? 'none' : 'editor'))}
+                isAiStreaming={isStreaming}
+                streamingStep={streamingStep}
+              />
+            )}
           </div>
         )}
 
-        {isLg && fullscreenPanel === 'none' ? (
-          <div
-            onMouseDown={handleMouseDown}
-            onDoubleClick={handleDoubleClick}
-            className="w-2 hover:bg-ai/30 bg-text/5 dark:bg-white/5 cursor-col-resize h-full transition-all flex items-center justify-center group relative z-10 mx-2 rounded-xl shrink-0"
-            title={t('editor.resizerTitle')}
-          >
-            <div className="w-[2px] h-6 bg-text/20 dark:bg-white/20 group-hover:bg-ai-action dark:group-hover:bg-ai-action rounded-full transition-colors" />
-          </div>
-        ) : fullscreenPanel === 'none' ? (
-          <div className="h-6 shrink-0" />
-        ) : null}
-
-        {fullscreenPanel !== 'editor' && (
-          <div 
-            style={{ width: isLg && fullscreenPanel === 'none' ? `${100 - leftWidth}%` : '100%' }}
-            className={`h-full min-h-[400px] lg:min-h-0 flex flex-col ${isResizing ? 'pointer-events-none' : ''}`}
-          >
-            <PdfViewer
+        {showReview && (
+          <div className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
+            <EditorReviewRail
               cvId={cv.id}
-              version={`${contentEpoch}-${pdfVersion}`}
-              isFullScreen={fullscreenPanel === 'pdf'}
-              onToggleFullScreen={() => setFullscreenPanel(prev => prev === 'pdf' ? 'none' : 'pdf')}
-              liveContent={cvContent}
-              templateName={templateName}
-              accentColor={accentColor}
-              fontFamily={fontFamily}
-              pageMargin={pageMargin}
-              scale={scale}
-              isAiStreaming={isStreaming}
-              isGuest={isGuest}
-              guestCanDownload={guestCanDownload}
-              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+              content={reviewContent}
+              onContentChange={setReviewContent}
+              setSaveStatus={setSaveStatus}
+              isBase={cv.isBase}
+              linkedOffer={linkedOffer}
+              pageCount={pageCount}
+              form={aiFormData}
+              onFormChange={setAiFormData}
+              promptOptions={availablePrompts.map((prompt) => ({
+                id: prompt.id,
+                label: language === 'en' && prompt.nameEn ? prompt.nameEn : prompt.name,
+              }))}
+              aiError={aiError}
+              aiLoading={aiLoading}
+              onSubmit={() => { void handleAiOptimize(); }}
+              titleInputRef={adaptTitleRef}
             />
           </div>
         )}
@@ -690,7 +684,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <ModalScrim>
-          <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
+          <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
             <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
@@ -698,7 +692,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                <h3 id="ai-optimize-title" className="text-lg font-bold text-text flex items-center gap-2 font-display">
                   <Sparkles className="w-5 h-5 text-ai animate-pulse stroke-[1.75]" />
                   {t('editor.aiModal.title')}
                 </h3>
@@ -938,7 +932,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </ModalScrim>
       )}
 
-      {/* Barra de estado inferior fija */}
+      {(surface === 'source' || surface === 'diff') && (
       <footer className="w-full h-9 bg-white/95 dark:bg-canvas/90 border-t border-subtle px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-text-muted font-medium transition-colors">
         <div className="flex items-center gap-1.5">
           <span className="font-bold text-text-muted">{t('editor.footer.quickGuide')}</span>
@@ -975,6 +969,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           )}
         </div>
       </footer>
+      )}
       </div>
     </div>
   );
