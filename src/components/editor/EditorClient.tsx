@@ -81,6 +81,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [diffLayout, setDiffLayout] = useState<'unified' | 'split'>('split');
   const [contentVersion, setContentVersion] = useState(0);
   const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
+  const [sessionBase, setSessionBase] = useState<string | null>(null);
+  const diffBase = baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -158,6 +160,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         sessionStorage.removeItem('matchply_optimize_params');
         try {
           const params = JSON.parse(paramsStr);
+          if (typeof params.activationBase === 'string' && params.activationBase.trim()) {
+            setSessionBase(params.activationBase);
+          }
           runOptimizeStream(params);
         } catch (e) {
           console.error("Error parsing optimize params from session:", e);
@@ -240,7 +245,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
-      if (baseCvContent) {
+      const canDiff = Boolean(baseCvContent)
+        || (typeof params.activationBase === 'string' && params.activationBase.trim().length > 0);
+      if (canDiff) {
         setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
         setSurface('diff');
         setMobilePane('document');
@@ -338,12 +345,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const revertToBase = async () => {
-    if (!baseCvContent) return;
-    setCvContent(baseCvContent);
-    setReviewContent(baseCvContent);
+    if (!diffBase) return;
+    setCvContent(diffBase);
+    setReviewContent(diffBase);
     setContentVersion((version) => version + 1);
     setSaveStatus('saving');
-    const result = await saveCvContent(cv.id, baseCvContent);
+    const result = await saveCvContent(cv.id, diffBase);
     setSaveStatus(result.success ? 'saved' : 'error');
   };
 
@@ -564,7 +571,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 {t('editor.header.document')}
               </Button>
             ) : null}
-            {surface === 'diff' && baseCvContent ? (
+            {surface === 'diff' && diffBase ? (
               <Button type="button" variant="ghost" onClick={() => { void revertToBase(); }}>
                 {t('editor.header.revert')}
               </Button>
@@ -580,7 +587,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             >
               {t('editor.header.markdown')}
             </Button>
-            {baseCvContent ? (
+            {diffBase ? (
               <Button
                 type="button"
                 variant={surface === 'diff' ? 'secondary' : 'ghost'}
@@ -704,7 +711,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 key={`${surface}-${contentVersion}`}
                 cvId={cv.id}
                 initialContent={reviewContent}
-                originalContent={baseCvContent || undefined}
+                originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
                 initialDiffView={diffLayout}
                 onContentChange={setReviewContent}

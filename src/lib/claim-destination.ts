@@ -15,14 +15,16 @@ export function isDefaultClaimNext(nextPath: string): boolean {
 
 /**
  * After a successful claim, a plain /dashboard next opens the adapted CV.
- * Any other next (checkout, a chosen page) is kept. A failed claim stays on next.
+ * A claim with no CV opens the activation screen. Any other next (checkout, a
+ * chosen page) is kept. A failed claim stays on next.
  */
 export function resolveClaimRedirect(input: {
   claimed: boolean;
   cvId: string | null;
   nextPath: string;
 }): string {
-  if (!input.claimed || !input.cvId) return input.nextPath;
+  if (!input.claimed) return input.nextPath;
   if (!isDefaultClaimNext(input.nextPath)) return input.nextPath;
+  if (!input.cvId) return '/try';
   return `/editor/${input.cvId}`;
 }

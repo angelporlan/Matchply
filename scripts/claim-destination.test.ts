@@ -20,6 +20,21 @@ test('claim with an explicit checkout next keeps checkout', () => {
   );
 });
 
+test('a claimed account with no CV opens the activation screen', () => {
+  assert.equal(
+    resolveClaimRedirect({ claimed: true, cvId: null, nextPath: '/dashboard' }),
+    '/try',
+  );
+  assert.equal(
+    resolveClaimRedirect({
+      claimed: true,
+      cvId: null,
+      nextPath: '/api/stripe/checkout?source=landing-pricing',
+    }),
+    '/api/stripe/checkout?source=landing-pricing',
+  );
+});
+
 test('claim without a cookie stays on the default next', () => {
   assert.equal(
     resolveClaimRedirect({ claimed: false, cvId: null, nextPath: safeInternalPath(null) }),

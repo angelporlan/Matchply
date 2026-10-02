@@ -5,6 +5,28 @@ const es = {
       understood: 'Entendido',
       close: 'Cerrar',
     },
+    try: {
+      entry: {
+        title: 'Adapta tu CV a una oferta',
+        subtitle: 'Pega tu currículum, o sube el PDF, y la descripción del puesto. Verás los cambios y podrás descargar el PDF.',
+        cvLabel: 'Tu CV',
+        cvPlaceholder: 'Pega aquí el texto de tu currículum',
+        cvFile: 'o sube un PDF',
+        jobLabel: 'Descripción de la oferta',
+        jobPlaceholder: 'Pega la oferta. El puesto y la empresa son opcionales.',
+        submit: 'Adaptar mi CV',
+        working: 'Adaptando tu CV...',
+        baseTitle: 'CV base',
+        errors: {
+          cv: 'Pega tu CV o sube un PDF.',
+          job: 'Pega la descripción de la oferta.',
+          pdf: 'No se pudo leer ese PDF.',
+          pdfType: 'Solo se admiten archivos PDF.',
+          limit: 'Tu plan no puede crear otro CV desde aquí.',
+          generic: 'No se pudo empezar la adaptación.',
+        },
+      },
+    },
     auth: {
       login: {
         welcomeBack: 'Bienvenido de nuevo',

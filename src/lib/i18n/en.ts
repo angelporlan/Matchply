@@ -5,6 +5,28 @@ const en = {
       understood: 'Got it',
       close: 'Close',
     },
+    try: {
+      entry: {
+        title: 'Tailor your resume to a job',
+        subtitle: 'Paste your resume, or upload the PDF, and the job description. You will see the changes and can download the PDF.',
+        cvLabel: 'Your resume',
+        cvPlaceholder: 'Paste your resume text here',
+        cvFile: 'or upload a PDF',
+        jobLabel: 'Job description',
+        jobPlaceholder: 'Paste the job. Title and company are optional.',
+        submit: 'Tailor my resume',
+        working: 'Tailoring your resume...',
+        baseTitle: 'Base resume',
+        errors: {
+          cv: 'Paste your resume or upload a PDF.',
+          job: 'Paste the job description.',
+          pdf: 'That PDF could not be read.',
+          pdfType: 'Only PDF files are supported.',
+          limit: 'Your plan cannot create another resume from here.',
+          generic: 'The adaptation could not be started.',
+        },
+      },
+    },
     auth: {
       login: {
         welcomeBack: 'Welcome back',
