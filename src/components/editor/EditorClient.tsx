@@ -262,14 +262,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
-      const canDiff = Boolean(baseCvContent)
-        || (typeof params.activationBase === 'string' && params.activationBase.trim().length > 0);
-      if (canDiff) {
-        setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
-        noteDiffViewed();
-        setSurface('diff');
-        setMobilePane('document');
-      }
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
       router.refresh();
       setTimeout(() => {

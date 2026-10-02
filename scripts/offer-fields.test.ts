@@ -37,6 +37,29 @@ test('adapt modals mark only the job description as required', () => {
   assert.equal(es.applications.modal.companyField.includes('*'), true);
 });
 
+test('a linkedin header paste keeps the role and the company, not the logo line', () => {
+  const resolved = resolveOfferIdentity({
+    jobDescription: [
+      'Logotipo de NTT DATA Europe & Latam',
+      'NTT DATA Europe & Latam',
+      'Compartir',
+      'Mostrar más opciones',
+      'AI Full Stack Engineer – GenAI & Agentic AI',
+      'Madrid, Comunidad de Madrid, España · hace 1 hora · 4 solicitudes',
+      'Promocionado por técnico de selección · Aún no hay información disponible sobre respuestas',
+      'Híbrido',
+      'Jornada completa',
+      'Solicitud sencilla',
+      'Guardar',
+      'Guardar «AI Full Stack Engineer – GenAI & Agentic AI » en NTT DATA Europe & Latam',
+      'AI Full Stack Engineer – GenAI & Agentic AI',
+      'NTT DATA Europe & Latam · Madrid, Comunidad de Madrid, España (Híbrido)',
+    ].join('\n'),
+  });
+  assert.equal(resolved.jobTitle, 'AI Full Stack Engineer – GenAI & Agentic AI');
+  assert.equal(resolved.company, 'NTT DATA Europe & Latam');
+});
+
 test('an explicit title is kept and a missing company stays neutral', () => {
   const resolved = resolveOfferIdentity({
     jobTitle: 'Controller',
