@@ -8,6 +8,47 @@ export function sentPromptKey(offerId: string) {
   return `matchply_sent_${offerId}`;
 }
 
+/** Download finished before optimize inserted the candidacy. Keyed by CV so a refresh can still find it. */
+export function sentDownloadCvKey(cvId: string) {
+  return `matchply_sent_cv_${cvId}`;
+}
+
+export type DownloadSentNote =
+  | { scope: 'cv'; key: string; mark: 'pending'; open: false }
+  | { scope: 'offer'; key: string; mark: 'pending'; open: true }
+  | { scope: 'none'; open: false };
+
+/** Remember a completed download. Without an offer yet, keep it on the CV. With an interested offer, mark that offer. */
+export function noteDownloadForSentPrompt(input: {
+  cvId: string;
+  offerId: string | null;
+  offerStatus: string | null;
+  offerMark: string | null;
+}): DownloadSentNote {
+  if (!input.offerId || !input.offerStatus) {
+    return { scope: 'cv', key: sentDownloadCvKey(input.cvId), mark: 'pending', open: false };
+  }
+  if (!shouldAskIfSent({ status: input.offerStatus, mark: input.offerMark })) {
+    return { scope: 'none', open: false };
+  }
+  return { scope: 'offer', key: sentPromptKey(input.offerId), mark: 'pending', open: true };
+}
+
+/** Move a remembered download onto the offer the detail page already reads. */
+export function claimWaitedDownload(input: {
+  cvMark: string | null;
+  offerId: string;
+  offerStatus: string;
+  offerMark: string | null;
+}): { offerKey: string; offerMark: 'pending'; writeOffer: boolean; clearCv: true } | null {
+  if (input.cvMark !== 'pending') return null;
+  const offerKey = sentPromptKey(input.offerId);
+  if (!shouldAskIfSent({ status: input.offerStatus, mark: input.offerMark })) {
+    return { offerKey, offerMark: 'pending', writeOffer: false, clearCv: true };
+  }
+  return { offerKey, offerMark: 'pending', writeOffer: true, clearCv: true };
+}
+
 /** The question is only for an interested candidacy that has not been answered yet. */
 export function shouldAskIfSent(input: { status: string; mark: string | null }): boolean {
   return input.status === 'interested' && input.mark !== 'done';

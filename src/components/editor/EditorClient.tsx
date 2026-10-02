@@ -14,7 +14,13 @@ import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
-import { sentPromptKey, shouldAskIfSent, shouldOpenSentPrompt } from '@/lib/application-sent';
+import {
+  claimWaitedDownload,
+  noteDownloadForSentPrompt,
+  sentDownloadCvKey,
+  sentPromptKey,
+  shouldOpenSentPrompt,
+} from '@/lib/application-sent';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -358,20 +364,35 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
   useEffect(() => {
     if (!linkedOffer?.id || !linkedOffer.status) return;
-    const mark = sessionStorage.getItem(sentPromptKey(linkedOffer.id));
+    const offerKey = sentPromptKey(linkedOffer.id);
+    const cvKey = sentDownloadCvKey(cv.id);
+    const claimed = claimWaitedDownload({
+      cvMark: sessionStorage.getItem(cvKey),
+      offerId: linkedOffer.id,
+      offerStatus: linkedOffer.status,
+      offerMark: sessionStorage.getItem(offerKey),
+    });
+    if (claimed) {
+      if (claimed.writeOffer) sessionStorage.setItem(claimed.offerKey, claimed.offerMark);
+      sessionStorage.removeItem(cvKey);
+    }
+    const mark = sessionStorage.getItem(offerKey);
     const requested = new URLSearchParams(window.location.search).get('sent') === '1';
     if (shouldOpenSentPrompt({ status: linkedOffer.status, mark, requested })) {
       setSentPromptOpen(true);
     }
-  }, [linkedOffer?.id, linkedOffer?.status]);
+  }, [linkedOffer?.id, linkedOffer?.status, cv.id]);
 
   const notePdfDownloaded = () => {
-    if (!linkedOffer?.id || !linkedOffer.status) return;
-    const key = sentPromptKey(linkedOffer.id);
-    const mark = sessionStorage.getItem(key);
-    if (!shouldAskIfSent({ status: linkedOffer.status, mark })) return;
-    sessionStorage.setItem(key, 'pending');
-    setSentPromptOpen(true);
+    const decision = noteDownloadForSentPrompt({
+      cvId: cv.id,
+      offerId: linkedOffer?.id ?? null,
+      offerStatus: linkedOffer?.status ?? null,
+      offerMark: linkedOffer?.id ? sessionStorage.getItem(sentPromptKey(linkedOffer.id)) : null,
+    });
+    if (decision.scope === 'none') return;
+    sessionStorage.setItem(decision.key, decision.mark);
+    if (decision.open) setSentPromptOpen(true);
   };
 
   const closeSentPrompt = (answer: 'yes' | 'no' | 'later') => {

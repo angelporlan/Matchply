@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { NEUTRAL_COMPANY, NEUTRAL_JOB_TITLE, resolveOfferIdentity } from '@/lib/offer-fields';
+import es from '@/lib/i18n/es';
+import en from '@/lib/i18n/en';
 
 test('a description alone fills neutral title and company when nothing can be inferred', () => {
   const resolved = resolveOfferIdentity({
@@ -18,6 +20,21 @@ test('labeled lines in the description become the title and company', () => {
   });
   assert.equal(resolved.jobTitle, 'Analista de datos');
   assert.equal(resolved.company, 'Norte Retail');
+});
+
+test('adapt modals mark only the job description as required', () => {
+  for (const labels of [
+    es.dashboard.modal.ai,
+    es.editor.aiModal,
+    en.dashboard.modal.ai,
+    en.editor.aiModal,
+  ]) {
+    assert.equal(labels.jobTitle.includes('*'), false);
+    assert.equal(labels.company.includes('*'), false);
+    assert.equal(labels.descLabel.includes('*'), true);
+  }
+  assert.equal(es.applications.modal.jobField.includes('*'), true);
+  assert.equal(es.applications.modal.companyField.includes('*'), true);
 });
 
 test('an explicit title is kept and a missing company stays neutral', () => {
