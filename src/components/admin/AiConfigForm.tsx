@@ -11,7 +11,7 @@ type CatalogState = {
   credentials: Record<AiProvider, boolean>;
 };
 
-const PROVIDERS: AiProvider[] = ['gemini', 'deepseek', 'openrouter'];
+const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'deepseek', 'openrouter'];
 
 export default function AiConfigForm({
   initialConfig,
@@ -30,7 +30,7 @@ export default function AiConfigForm({
   const [testResult, setTestResult] = useState<string | null>(null);
 
   const modelsByProvider = useMemo(() => {
-    const map: Record<string, Array<{ id: string; name: string }>> = { gemini: [], deepseek: [], openrouter: [] };
+    const map: Record<string, Array<{ id: string; name: string }>> = { openai: [], gemini: [], deepseek: [], openrouter: [] };
     for (const provider of PROVIDERS) {
       map[provider] = catalogs.catalogs[provider]?.value || [];
     }

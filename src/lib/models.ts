@@ -1,4 +1,4 @@
-export type AiProvider = 'openrouter' | 'deepseek' | 'gemini';
+export type AiProvider = 'openai' | 'openrouter' | 'deepseek' | 'gemini';
 
 export interface ModelOption {
   value: string;
@@ -16,6 +16,12 @@ export interface CustomModelConfig {
 }
 
 export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
+  openai: [
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna (OpenAI)' },
+    { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (OpenAI)' },
+    { value: 'gpt-4o', label: 'GPT-4o (OpenAI)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (OpenAI)' }
+  ],
   openrouter: [
     { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (OpenRouter)' },
     { value: 'openrouter/free', label: 'OpenRouter Auto (Gratuito)' },
@@ -36,6 +42,12 @@ export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
 };
 
 export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
+  openai: [
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna (OpenAI)' },
+    { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (OpenAI)' },
+    { value: 'gpt-4o', label: 'GPT-4o (OpenAI)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (OpenAI)' }
+  ],
   openrouter: [
     { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (OpenRouter)' },
     { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 (OpenRouter)' },
@@ -57,18 +69,18 @@ export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
 };
 
 // Defaults
-export const DEFAULT_FREE_PROVIDER = 'gemini';
-export const DEFAULT_FREE_MODEL = 'gemini-3.5-flash-lite';
+export const DEFAULT_FREE_PROVIDER = 'openai';
+export const DEFAULT_FREE_MODEL = 'gpt-6-luna';
 
-export const DEFAULT_PRO_PROVIDER = 'gemini';
-export const DEFAULT_PRO_MODEL = 'gemini-3.5-flash-lite';
+export const DEFAULT_PRO_PROVIDER = 'openai';
+export const DEFAULT_PRO_MODEL = 'gpt-6-luna';
 
 /**
  * Builds the initial default model catalog from GLOBAL_FREE_MODELS and GLOBAL_PRO_MODELS
  */
 export function getDefaultModelCatalog(): CustomModelConfig[] {
   const map = new Map<string, CustomModelConfig>();
-  const providers: AiProvider[] = ['openrouter', 'deepseek', 'gemini'];
+  const providers: AiProvider[] = ['openai', 'openrouter', 'deepseek', 'gemini'];
 
   for (const provider of providers) {
     const freeList = GLOBAL_FREE_MODELS[provider] || [];
@@ -123,9 +135,9 @@ export function parseModelCatalog(raw: string | null | undefined): CustomModelCo
       for (let i = 0; i < parsed.length; i++) {
         const item = parsed[i];
         const val = String(item?.value || '').trim();
-        const prov = (item?.provider === 'openrouter' || item?.provider === 'deepseek' || item?.provider === 'gemini')
+        const prov = (item?.provider === 'openai' || item?.provider === 'openrouter' || item?.provider === 'deepseek' || item?.provider === 'gemini')
           ? (item.provider as AiProvider)
-          : 'openrouter';
+          : 'openai';
 
         if (!val) continue;
         const dedupeKey = `${prov}:${val}`;
