@@ -158,9 +158,12 @@ El segundo PDF del invitado sigue en 403 hacia `/register?source=guest-pdf`.
 
 ## 4. Lint, typecheck y tests
 
-- Lint: sin config de ESLint. `next lint` sale 1 en el asistente de instalación. No se creó config.
-- Typecheck: `npx tsc --noEmit` sale 0 después de la fase 9.
-- Tests: `npm test` → 249 pruebas, 247 pasan, 2 se saltan (integración de matching que ya estaba así), 0 fallos. Duración aproximada 1,5 s.
+Segunda pasada, sobre el árbol de `0f306b0` más este informe:
+
+- Tests de fase (`npx tsx --test` de `claim-destination`, `free-overwrite-guard`, `offer-fields`, `guest-save-prompt`, `try-entry`, `application-sent`, `umami`, `activation-funnel` y `activation-email`): 30 pruebas, 30 pasan, 0 fallos, salida 0. Duración 246 ms.
+- `npm run typecheck` (`tsc --noEmit`): salida 0, sin errores.
+- `npm run lint` (`next lint`): salida 1. El repo no tiene config de ESLint, así que Next abre el asistente «How would you like to configure ESLint?» y termina. No se creó `.eslintrc` ni `eslint.config.*`. ESLint no llegó a leer el código nuevo; el fallo es anterior a esta rama.
+- `npm test` completo, en la fase 9: 249 pruebas, 247 pasan, 2 se saltan (integración de matching que ya estaba así), 0 fallos. Duración aproximada 1,5 s.
 - Embudo local (`scripts/activation-funnel.sql` contra Postgres de docker en el puerto 5433): `registered 2`, `optimized 1`, `downloaded 1`, `activated_within_5_min 0`, `activated_pct 0.0`.
 - HTTP local (contenedor `nextprof_web`, no producción):
   - `GET /try` sin cookie: el payload RSC redirige a `/api/guest?redirect=/try`.
