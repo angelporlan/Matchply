@@ -18,7 +18,6 @@ export interface CustomModelConfig {
 export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
   openai: [
     { value: 'gpt-6-luna', label: 'GPT-6 Luna (OpenAI)' },
-    { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (OpenAI)' },
     { value: 'gpt-4o', label: 'GPT-4o (OpenAI)' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini (OpenAI)' }
   ],
@@ -44,7 +43,6 @@ export const GLOBAL_FREE_MODELS: Record<string, ModelOption[]> = {
 export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
   openai: [
     { value: 'gpt-6-luna', label: 'GPT-6 Luna (OpenAI)' },
-    { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (OpenAI)' },
     { value: 'gpt-4o', label: 'GPT-4o (OpenAI)' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini (OpenAI)' }
   ],
@@ -71,6 +69,16 @@ export const GLOBAL_PRO_MODELS: Record<string, ModelOption[]> = {
 // Defaults
 export const DEFAULT_FREE_PROVIDER = 'openai';
 export const DEFAULT_FREE_MODEL = 'gpt-6-luna';
+
+/** Models that must not be called. A saved value is read as the current default. */
+const RETIRED_AI_MODELS: Record<string, string> = {
+  'gpt-5.6-luna': DEFAULT_FREE_MODEL,
+};
+
+export function canonicalAiModel(model: string): string {
+  const trimmed = model.trim();
+  return RETIRED_AI_MODELS[trimmed] || trimmed;
+}
 
 export const DEFAULT_PRO_PROVIDER = 'openai';
 export const DEFAULT_PRO_MODEL = 'gpt-6-luna';
@@ -134,7 +142,7 @@ export function parseModelCatalog(raw: string | null | undefined): CustomModelCo
 
       for (let i = 0; i < parsed.length; i++) {
         const item = parsed[i];
-        const val = String(item?.value || '').trim();
+        const val = canonicalAiModel(String(item?.value || ''));
         const prov = (item?.provider === 'openai' || item?.provider === 'openrouter' || item?.provider === 'deepseek' || item?.provider === 'gemini')
           ? (item.provider as AiProvider)
           : 'openai';

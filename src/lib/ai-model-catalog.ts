@@ -42,6 +42,7 @@ async function fetchOpenAI(): Promise<CatalogModel[]> {
         lower.includes('audio') || lower.includes('babbage') || lower.includes('davinci')) {
       return false;
     }
+    if (lower === 'gpt-5.6-luna') return false;
     return lower.includes('gpt') || lower.includes('luna') || lower.includes('o1') || lower.includes('o3') || lower.includes('chat');
   });
 
@@ -56,7 +57,7 @@ async function fetchOpenAI(): Promise<CatalogModel[]> {
   return filtered.map((id) => ({
     id,
     provider: 'openai' as const,
-    name: id === 'gpt-6-luna' ? 'GPT-6 Luna (OpenAI)' : id === 'gpt-5.6-luna' ? 'GPT-5.6 Luna (OpenAI)' : id,
+    name: id === 'gpt-6-luna' ? 'GPT-6 Luna (OpenAI)' : id,
   }));
 }
 
