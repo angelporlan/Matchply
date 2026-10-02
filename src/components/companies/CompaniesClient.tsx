@@ -311,7 +311,7 @@ export default function CompaniesClient({ companies: initialCompanies }: Compani
   const hasActiveFilters = Boolean(search.trim() || columnFilters.length > 0);
 
   return (
-    <div className="w-full md:flex md:flex-col md:flex-1 md:min-h-0">
+    <div className="w-full">
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 rounded-[10px] bg-text text-canvas dark:bg-white dark:text-canvas px-4 py-2.5 text-xs font-semibold shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2">

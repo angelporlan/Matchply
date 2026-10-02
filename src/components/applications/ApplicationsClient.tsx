@@ -633,7 +633,7 @@ export default function ApplicationsClient({
   };
 
   return (
-    <div className="w-full md:h-full md:flex md:flex-col md:min-h-0" aria-busy={listLoading || undefined}>
+    <div className="w-full" aria-busy={listLoading || undefined}>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
           <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
@@ -718,7 +718,7 @@ export default function ApplicationsClient({
         </div>
       </div>
 
-      <div className="md:flex md:flex-col md:flex-1 md:min-h-0">
+      <div className="w-full">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
               <div className="flex items-center gap-2 flex-wrap">

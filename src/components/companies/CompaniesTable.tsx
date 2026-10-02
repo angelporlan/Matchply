@@ -295,10 +295,10 @@ export default function CompaniesTable({
   }
 
   return (
-    <div className="md:flex md:flex-col md:min-h-0 md:flex-1">
+    <div className="w-full">
       {/* Desktop Table */}
-      <div className={`hidden md:flex md:flex-col md:min-h-0 md:flex-1 border border-subtle bg-surface shadow-sm overflow-hidden ${attachedFooter ? 'rounded-t-[12px] border-b-0' : 'rounded-[12px]'}`}>
-        <div className="overflow-x-auto scrollbar-custom md:min-h-0 md:grow md:overflow-y-auto">
+      <div className={`hidden md:block border border-subtle bg-surface shadow-sm overflow-hidden ${attachedFooter ? 'rounded-t-[12px] border-b-0' : 'rounded-[12px]'}`}>
+        <div className="overflow-x-auto scrollbar-custom max-h-[calc(100vh-300px)] overflow-y-auto">
           <table className="min-w-full text-left text-xs font-sans">
             <caption className="sr-only">{t('companies.table.caption')}</caption>
             <thead className="bg-surface-muted/70 dark:bg-canvas/40 text-[10px] uppercase tracking-wider text-text-muted font-display md:sticky md:top-0 md:z-10 md:bg-surface-muted md:dark:bg-canvas">

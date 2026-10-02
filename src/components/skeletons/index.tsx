@@ -191,11 +191,11 @@ export function ApplicationsSkeleton() {
 export function ApplicationsPageSkeleton() {
   return (
     <div
-      className="relative overflow-x-clip min-h-screen md:h-[100dvh] md:overflow-hidden"
+      className="relative overflow-x-clip min-h-screen"
       aria-busy="true"
     >
       <PageGlow />
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 md:h-full md:flex md:flex-col md:min-h-0">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <ApplicationsSkeleton />
       </main>
     </div>
@@ -243,9 +243,9 @@ export function CompaniesSkeleton() {
 
 export function CompaniesPageSkeleton() {
   return (
-    <div className="relative overflow-x-clip min-h-screen md:h-[100dvh] md:overflow-hidden" aria-busy="true">
+    <div className="relative overflow-x-clip min-h-screen" aria-busy="true">
       <PageGlow />
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 md:h-full md:flex md:flex-col md:min-h-0">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <CompaniesSkeleton />
       </main>
     </div>
