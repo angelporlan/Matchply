@@ -1234,6 +1234,20 @@ const es = {
         },
       },
     },
+    emails: {
+      activation: {
+        day1Subject: 'Tu CV adaptado sigue aquí',
+        day1Intro: 'Ayer descargaste un CV adaptado a una oferta.',
+        day1Question: '¿Ya la enviaste?',
+        openCv: 'Abrir el CV',
+        followupSubject: 'Hoy toca el seguimiento de tu candidatura',
+        followupIntro: 'Marcaste esta candidatura como enviada. Hoy es el día de seguimiento.',
+        openOffer: 'Abrir la candidatura',
+        optOut: 'Darme de baja de estos correos',
+        optedOut: 'Ya no te enviaremos correos de seguimiento.',
+        optOutInvalid: 'Este enlace de baja no es válido.',
+      },
+    },
     notFound: {
       badge: 'Error 404',
       title: 'Página no encontrada',

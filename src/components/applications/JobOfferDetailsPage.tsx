@@ -16,7 +16,7 @@ import {
 import { createCvPlaceholder } from '@/app/dashboard/actions';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
-import { sentPromptKey, shouldAskIfSent } from '@/lib/application-sent';
+import { sentPromptKey, shouldOpenSentPrompt } from '@/lib/application-sent';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -101,7 +101,8 @@ export default function JobOfferDetailsPage({
 
   useEffect(() => {
     const mark = sessionStorage.getItem(sentPromptKey(offer.id));
-    setSentPromptOpen(shouldAskIfSent({ status: offer.status, mark }) && mark === 'pending');
+    const requested = new URLSearchParams(window.location.search).get('sent') === '1';
+    setSentPromptOpen(shouldOpenSentPrompt({ status: offer.status, mark, requested }));
   }, [offer.id, offer.status]);
   
   const [isEditing, setIsEditing] = useState(false);

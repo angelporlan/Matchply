@@ -13,6 +13,11 @@ export function shouldAskIfSent(input: { status: string; mark: string | null }):
   return input.status === 'interested' && input.mark !== 'done';
 }
 
+/** Download leaves a pending mark. The day-1 email opens the same question with ?sent=1. */
+export function shouldOpenSentPrompt(input: { status: string; mark: string | null; requested: boolean }): boolean {
+  return shouldAskIfSent(input) && (input.mark === 'pending' || input.requested);
+}
+
 function addCalendarDays(ymd: string, days: number): string {
   const parsed = parseYmd(ymd);
   if (!parsed) return ymd;

@@ -14,7 +14,7 @@ import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
-import { sentPromptKey, shouldAskIfSent } from '@/lib/application-sent';
+import { sentPromptKey, shouldAskIfSent, shouldOpenSentPrompt } from '@/lib/application-sent';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -359,7 +359,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   useEffect(() => {
     if (!linkedOffer?.id || !linkedOffer.status) return;
     const mark = sessionStorage.getItem(sentPromptKey(linkedOffer.id));
-    if (shouldAskIfSent({ status: linkedOffer.status, mark }) && mark === 'pending') {
+    const requested = new URLSearchParams(window.location.search).get('sent') === '1';
+    if (shouldOpenSentPrompt({ status: linkedOffer.status, mark, requested })) {
       setSentPromptOpen(true);
     }
   }, [linkedOffer?.id, linkedOffer?.status]);

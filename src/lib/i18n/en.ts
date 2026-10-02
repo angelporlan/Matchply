@@ -1186,6 +1186,20 @@ const en = {
         },
       },
     },
+    emails: {
+      activation: {
+        day1Subject: 'Your tailored resume is still here',
+        day1Intro: 'Yesterday you downloaded a resume tailored to a job.',
+        day1Question: 'Have you already sent it?',
+        openCv: 'Open the resume',
+        followupSubject: 'Today is the follow-up for your application',
+        followupIntro: 'You marked this application as sent. Today is the follow-up day.',
+        openOffer: 'Open the application',
+        optOut: 'Unsubscribe from these emails',
+        optedOut: 'We will no longer send you follow-up emails.',
+        optOutInvalid: 'This unsubscribe link is not valid.',
+      },
+    },
     notFound: {
       badge: '404 Error',
       title: 'Page not found',

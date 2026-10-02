@@ -14,6 +14,7 @@
     "test": "tsx --test scripts/*.test.ts",
     "research:worker": "tsx scripts/research-worker.ts",
     "ai:worker": "tsx scripts/ai-worker.ts",
+    "activation:emails": "tsx scripts/activation-emails.ts",
     "gtm:run": "tsx scripts/gtm-run.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
