@@ -1,14 +1,15 @@
 import { redirect } from 'next/navigation';
 import { hasProAccess } from '@/lib/subscription';
 import { listCompaniesForUser } from '@/lib/company-service';
-import { getSessionUser } from '@/lib/session';
+import { getDashboardViewer } from '@/lib/session';
 import CompaniesClient from '@/components/companies/CompaniesClient';
 
 export default async function CompaniesPage() {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
+  const dbUser = viewer.user;
 
   const userId = dbUser.id;
   if (!hasProAccess(dbUser)) {

@@ -3,6 +3,8 @@ import { cvs, jobOffers, users } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { sessionUserWithGuestColumns } from '@/lib/job-offer-queries';
+import { requestCache } from '@/lib/request-cache';
 import { GUEST_MAX_CVS } from '@/lib/subscription';
 import { assertMutableActor, getRequestContext } from '@/lib/request-context';
 import { AccountSuspendedError } from '@/lib/request-errors';
@@ -49,17 +51,14 @@ export function clearGuestCookie() {
   cookies().delete(GUEST_COOKIE_NAME);
 }
 
-async function getGuestActorFromCookie(): Promise<RequestActor | null> {
+/** Guest row for the dashboard shell. Null when the cookie is missing or expired. */
+export const loadGuestSessionUser = requestCache(async () => {
   const token = getGuestTokenFromCookie();
   if (!token) return null;
 
   const [guest] = await db
     .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      subscriptionStatus: users.subscriptionStatus,
+      ...sessionUserWithGuestColumns,
       guestExpiresAt: users.guestExpiresAt,
     })
     .from(users)
@@ -69,6 +68,23 @@ async function getGuestActorFromCookie(): Promise<RequestActor | null> {
   if (!guest || !guest.guestExpiresAt || guest.guestExpiresAt.getTime() < Date.now()) {
     return null;
   }
+
+  return {
+    id: guest.id,
+    name: guest.name,
+    email: guest.email,
+    image: guest.image,
+    role: guest.role,
+    subscriptionStatus: guest.subscriptionStatus,
+    isGuest: guest.isGuest,
+    accountStatus: guest.accountStatus,
+    proGrantedUntil: guest.proGrantedUntil,
+  };
+});
+
+async function getGuestActorFromCookie(): Promise<RequestActor | null> {
+  const guest = await loadGuestSessionUser();
+  if (!guest) return null;
 
   return {
     kind: 'guest',

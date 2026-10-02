@@ -39,7 +39,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
   const availablePrompts = publicOptimizeModes();
 
   if (!cv) {
-    redirect(actor.kind === 'guest' ? '/try' : '/dashboard');
+    redirect('/dashboard');
   }
 
   let baseCvContent: string | null = null;

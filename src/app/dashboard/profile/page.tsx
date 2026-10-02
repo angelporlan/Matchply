@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getRequestContext } from '@/lib/request-context';
+import { getDashboardViewer } from '@/lib/session';
 import { getServerTranslations } from '@/lib/i18n/server';
 import SettingsTabs, { type SettingsTab } from '@/components/profile/SettingsTabs';
 import { Sparkles } from 'lucide-react';
@@ -17,6 +18,9 @@ export default async function ProfileSettingsPage({
 }: {
   searchParams?: { tab?: string };
 }) {
+  const viewer = await getDashboardViewer();
+  if (viewer?.isGuest) redirect('/dashboard');
+
   const ctx = await getRequestContext();
   const sessionUser = ctx.effectiveUser;
   if (!sessionUser) {

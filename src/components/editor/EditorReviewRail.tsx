@@ -104,7 +104,6 @@ export default function EditorReviewRail({
   isBase,
   linkedOffer,
   pageCount,
-  isGuest,
   form,
   onFormChange,
   promptOptions,
@@ -120,7 +119,6 @@ export default function EditorReviewRail({
   isBase: boolean;
   linkedOffer: LinkedOffer | null;
   pageCount: number | null;
-  isGuest: boolean;
   form: AdaptDraft;
   onFormChange: (next: AdaptDraft) => void;
   promptOptions: { id: string; label: string }[];
@@ -230,7 +228,7 @@ export default function EditorReviewRail({
         {!hasSections && (
           <p className="text-sm text-text">
             {t('editor.review.empty')}{' '}
-            <Link href={isGuest ? '/try' : '/dashboard'} className="underline font-semibold">
+            <Link href="/dashboard" className="underline font-semibold">
               {t('editor.review.emptyLink')}
             </Link>
           </p>

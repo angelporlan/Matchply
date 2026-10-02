@@ -482,7 +482,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <LinkNext
-              href={isGuest ? "/try" : "/dashboard"}
+              href="/dashboard"
               className="text-text-muted hover:text-text min-h-11 min-w-11 inline-flex items-center justify-center rounded-[8px] hover:bg-surface-muted"
               aria-label={t('editor.header.backToDashboard')}
             >
@@ -493,7 +493,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 <EditorCvMenu
                   cvId={cv.id}
                   title={cvTitle}
-                  isGuest={isGuest}
                   choices={cvChoices.length > 0 ? cvChoices : [{ id: cv.id, title: cvTitle, isBase: cv.isBase, isPrincipal: cv.isPrincipal }]}
                   onTitleChange={setCvTitle}
                   onOpenChange={setMenuOpen}
@@ -667,7 +666,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               isBase={cv.isBase}
               linkedOffer={linkedOffer}
               pageCount={pageCount}
-              isGuest={isGuest}
               form={aiFormData}
               onFormChange={setAiFormData}
               promptOptions={availablePrompts.map((prompt) => ({

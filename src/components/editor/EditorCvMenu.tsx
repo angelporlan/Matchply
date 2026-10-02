@@ -20,14 +20,12 @@ export type EditorCvChoice = {
 export default function EditorCvMenu({
   cvId,
   title,
-  isGuest,
   choices,
   onTitleChange,
   onOpenChange,
 }: {
   cvId: string;
   title: string;
-  isGuest: boolean;
   choices: EditorCvChoice[];
   onTitleChange: (title: string) => void;
   onOpenChange?: (open: boolean) => void;
@@ -111,7 +109,7 @@ export default function EditorCvMenu({
     const result = await deleteCv(cvId);
     setPending(null);
     if (result.success) {
-      router.push(isGuest ? '/try' : '/dashboard');
+      router.push('/dashboard');
     }
   };
 

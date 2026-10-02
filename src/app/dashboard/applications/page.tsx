@@ -8,7 +8,7 @@ import { hasProAccess } from '@/lib/subscription';
 import { cvListColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
 import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
-import { getSessionUser } from '@/lib/session';
+import { getDashboardViewer } from '@/lib/session';
 import { loadApplicationsWorkspace } from '@/lib/application-list-query';
 import { timed } from '@/lib/logger';
 
@@ -17,10 +17,11 @@ interface ApplicationsPageProps {
 }
 
 export default async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
+  const dbUser = viewer.user;
 
   const userId = dbUser.id;
   const isPremium = hasProAccess(dbUser);

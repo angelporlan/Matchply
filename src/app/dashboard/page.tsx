@@ -7,7 +7,8 @@ import { CreditCard, Crown } from 'lucide-react';
 import { hasProAccess } from '@/lib/subscription';
 import { stripe } from '@/lib/stripe';
 import { syncStripeSubscription } from '@/lib/stripe-subscription-sync';
-import { getSessionUser } from '@/lib/session';
+import { GUEST_UPGRADE_HREF, getDashboardViewer } from '@/lib/session';
+import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import DashboardClient from './DashboardClient';
 import { getServerTranslations } from '@/lib/i18n/server';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
@@ -22,17 +23,19 @@ interface DashboardPageProps {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
 
+  const dbUser = viewer.user;
+  const isGuest = viewer.isGuest;
   const userId = dbUser.id;
   const { t } = getServerTranslations();
 
   let subscriptionStatus = dbUser.subscriptionStatus || 'none';
 
-  if (searchParams?.checkout === 'success' && searchParams.session_id) {
+  if (!isGuest && searchParams?.checkout === 'success' && searchParams.session_id) {
     const checkoutSession = await stripe.checkout.sessions.retrieve(searchParams.session_id);
     if (
       checkoutSession.metadata?.userId === userId &&
@@ -45,6 +48,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const isPremium = hasProAccess({ ...dbUser, subscriptionStatus });
+  const guestCanDownloadPdf = isGuest ? await guestHasPdfDownloadRemaining(userId) : false;
 
   const [userCvs, cvTargets] = await timed('nav_queries', { route: '/dashboard' }, () => Promise.all([
     db
@@ -83,7 +87,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
             <a
-              href="/api/stripe/checkout"
+              href={isGuest ? GUEST_UPGRADE_HREF : '/api/stripe/checkout'}
               className="w-full md:w-auto bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold px-6 py-3 rounded-[8px] text-sm transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 font-display"
             >
               <Crown className="w-4 h-4" />
@@ -94,11 +98,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <CheckoutConversionBeacon checkout={searchParams?.checkout} />
         {/* Sección de Currículums */}
-        <DashboardClient 
-          initialCvs={userCvs} 
-          cvTargets={cvTargets} 
-          isPremium={isPremium} 
-          availablePrompts={availablePrompts || []} 
+        <DashboardClient
+          initialCvs={userCvs}
+          cvTargets={cvTargets}
+          isPremium={isPremium}
+          isGuest={isGuest}
+          guestCanDownloadPdf={guestCanDownloadPdf}
+          availablePrompts={availablePrompts || []}
         />
       </main>
     </div>

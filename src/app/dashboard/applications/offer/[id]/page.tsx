@@ -7,7 +7,7 @@ import JobOfferDetailsPage from '@/components/applications/JobOfferDetailsPage';
 import { getResearchRunForUser } from '@/lib/research/queue';
 import { cvListColumns } from '@/lib/job-offer-queries';
 import { listCompanyLookups } from '@/lib/company-service';
-import { getSessionUser } from '@/lib/session';
+import { getDashboardViewer } from '@/lib/session';
 
 interface OfferPageProps {
   params: {
@@ -16,10 +16,11 @@ interface OfferPageProps {
 }
 
 export default async function OfferDetailsPage({ params }: OfferPageProps) {
-  const dbUser = await getSessionUser();
-  if (!dbUser) {
+  const viewer = await getDashboardViewer();
+  if (!viewer) {
     redirect('/login');
   }
+  const dbUser = viewer.user;
 
   const userId = dbUser.id;
   const offerId = params.id;
