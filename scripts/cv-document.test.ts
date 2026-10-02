@@ -45,6 +45,9 @@ test('the sheet parser keeps dashes and does not invent a name', () => {
   assert.equal(parsed.sections[2]?.bullets[0], '**Frontend**: React');
   assert.equal(parseCvDocument('').name, '');
   assert.equal(parseCvDocument('# \n').name, '');
+  const loose = parseCvDocument('# Ana\n\nBackend');
+  assert.equal(loose.name, 'Ana');
+  assert.equal(loose.sections[0]?.paragraphs[0], 'Backend');
 });
 
 test('inline bold and italic survive the editable field', () => {

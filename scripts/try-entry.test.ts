@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { parseCvDocument } from '@/lib/cv-document';
 import { coldRegisterDestination, resolveTryGate, trialCvMarkdown } from '@/lib/try-entry';
 
 test('a visitor without a session is sent to create a guest and return to /try', () => {
@@ -33,8 +34,46 @@ test('a cold register with no guest draft opens /try', () => {
   assert.equal(coldRegisterDestination({ hasSession: true, hasGuestCookie: false }), null);
 });
 
-test('plain pasted text becomes markdown and an existing heading is kept', () => {
-  assert.equal(trialCvMarkdown('  Ana Ruiz\nBackend  '), '# CV\n\nAna Ruiz\nBackend');
+test('plain pasted text becomes a visible resume and an existing heading is kept', () => {
+  const plain = trialCvMarkdown('  Ana Ruiz\nBackend  ', 'Resume');
+  assert.match(plain, /^# Ana Ruiz\n/);
+  assert.match(plain, /## Resume\n\nBackend/);
+  assert.equal(parseCvDocument(plain).name, 'Ana Ruiz');
+  assert.equal(parseCvDocument(plain).sections[0]?.paragraphs[0], 'Backend');
+
   assert.equal(trialCvMarkdown('# Ana\n\nBackend'), '# Ana\n\nBackend');
   assert.equal(trialCvMarkdown('   '), '');
+});
+
+test('a PDF extract becomes the base resume the template can draw', () => {
+  const markdown = trialCvMarkdown(`ANA RUIZ
+Email: ana@example.com · Teléfono: +34 600 000 000
+PERFIL PROFESIONAL
+Ingeniera backend con experiencia en APIs.
+Trabaja con Node.js.
+EXPERIENCIA PROFESIONAL
+Desarrolladora
+2020 - 2024
+Ejemplo SL
+•Hice APIs
+de pagos.
+HABILIDADES TÉCNICAS
+Backend: Node.js, PostgreSQL
+`);
+  const cv = parseCvDocument(markdown);
+  assert.equal(cv.name, 'ANA RUIZ');
+  assert.equal(cv.contact[0]?.label, 'Email');
+  assert.equal(cv.contact[1]?.value, '+34 600 000 000');
+  assert.deepEqual(cv.sections.map((section) => section.title), [
+    'Perfil profesional',
+    'Experiencia profesional',
+    'Habilidades técnicas',
+  ]);
+  assert.match(cv.sections[0].paragraphs[0], /Ingeniera backend/);
+  assert.match(cv.sections[0].paragraphs[0], /Node\.js/);
+  assert.equal(cv.sections[1].entries[0]?.heading, 'Desarrolladora');
+  assert.equal(cv.sections[1].entries[0]?.subheading, 'Ejemplo SL');
+  assert.equal(cv.sections[1].entries[0]?.date, '2020 - 2024');
+  assert.equal(cv.sections[1].entries[0]?.bullets[0], 'Hice APIs de pagos.');
+  assert.match(cv.sections[2].bullets[0], /Node\.js, PostgreSQL/);
 });

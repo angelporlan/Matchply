@@ -68,16 +68,19 @@ export function parseCvDocument(content: string): CVContent {
   let currentSection: Section | null = null;
   let currentEntry: Entry | null = null;
   let currentParagraphs: string[] = [];
+  const looseParagraphs: string[] = [];
 
   function flushParagraphs(target: Section | Entry | null) {
-    if (!currentParagraphs.length || !target) {
-      currentParagraphs = [];
-      return;
-    }
+    if (!currentParagraphs.length) return;
     const rawParagraph = currentParagraphs.join(' ').trim();
     currentParagraphs = [];
     if (!rawParagraph) return;
-    target.paragraphs.push(normalizeMarkdownLabel(rawParagraph));
+    const text = normalizeMarkdownLabel(rawParagraph);
+    if (!target) {
+      if (!/^#+$/.test(text)) looseParagraphs.push(text);
+      return;
+    }
+    target.paragraphs.push(text);
   }
 
   function ensureSection(title: string): Section {
@@ -162,6 +165,14 @@ export function parseCvDocument(content: string): CVContent {
   }
 
   flushParagraphs(currentEntry || currentSection);
+  if (looseParagraphs.length) {
+    cv.sections.unshift({
+      title: 'Currículum',
+      paragraphs: looseParagraphs,
+      entries: [],
+      bullets: [],
+    });
+  }
   return cv;
 }
 

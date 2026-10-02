@@ -17,6 +17,7 @@ const en = {
         submit: 'Tailor my resume',
         working: 'Tailoring your resume...',
         baseTitle: 'Base resume',
+        untitledSection: 'Resume',
         errors: {
           cv: 'Paste your resume or upload a PDF.',
           job: 'Paste the job description.',

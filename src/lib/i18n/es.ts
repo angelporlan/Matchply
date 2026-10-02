@@ -17,6 +17,7 @@ const es = {
         submit: 'Adaptar mi CV',
         working: 'Adaptando tu CV...',
         baseTitle: 'CV base',
+        untitledSection: 'Currículum',
         errors: {
           cv: 'Pega tu CV o sube un PDF.',
           job: 'Pega la descripción de la oferta.',

@@ -60,7 +60,7 @@ export default function TryEntry() {
         raw = parsed.text;
       }
 
-      const markdown = trialCvMarkdown(raw);
+      const markdown = trialCvMarkdown(raw, t('try.entry.untitledSection'));
       if (!markdown) throw new Error(t('try.entry.errors.cv'));
 
       const identity = resolveOfferIdentity({ jobDescription: description });
