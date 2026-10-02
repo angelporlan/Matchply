@@ -127,6 +127,30 @@ El segundo PDF del invitado sigue en 403 hacia `/register?source=guest-pdf`.
 - `src/lib/i18n/en.ts`
 - `package.json` (`activation:emails`)
 
+### `0f306b0` docs: report the same-session activation flow
+
+- `docs/activation-same-session.md`
+
+### `dde82ea` docs: record the activation verification rerun
+
+- `docs/activation-same-session.md`
+
+### `b7801f9` docs: record the full suite and non-interactive lint
+
+- `docs/activation-same-session.md`
+
+### `1bb6f16` fix(activation): open the sent question after the offer exists
+
+- `src/lib/application-sent.ts`
+- `src/components/editor/EditorClient.tsx`
+- `src/lib/i18n/es.ts`
+- `src/lib/i18n/en.ts`
+- `scripts/application-sent.test.ts`
+- `scripts/offer-fields.test.ts`
+- `docs/activation-same-session.md`
+
+La descarga de `/try` puede ocurrir antes de que exista la oferta. Se recuerda en el CV y, al llegar la candidatura en `interested`, se escribe `matchply_sent_<offerId>`. Los rótulos de puesto y empresa del modal de adaptación dejan de llevar asterisco.
+
 ## 2. Decisiones
 
 - `createTrialCv` se eliminó. Escribía el CV por su cuenta, parseaba el PDF con `pdf-parse` y no llamaba a `/api/ai/optimize`. Se conservó `trialCvMarkdown`.
@@ -159,12 +183,13 @@ El segundo PDF del invitado sigue en 403 hacia `/register?source=guest-pdf`.
 
 ## 4. Lint, typecheck y tests
 
-Segunda pasada, sobre el árbol de `0f306b0` más este informe:
+Pasada sobre `1bb6f16`:
 
-- Tests de fase (`npx tsx --test` de `claim-destination`, `free-overwrite-guard`, `offer-fields`, `guest-save-prompt`, `try-entry`, `application-sent`, `umami`, `activation-funnel` y `activation-email`): 30 pruebas, 30 pasan, 0 fallos, salida 0. Duración 246 ms.
+- `npx tsx --test scripts/claim-destination.test.ts scripts/free-overwrite-guard.test.ts`: 9 pruebas, 9 pasan, 0 fallos, `duration_ms` 113.0885, salida 0.
 - `npm run typecheck` (`tsc --noEmit`): salida 0, sin errores.
-- `CI=1 npx next lint`: salida 1. Imprime el asistente «How would you like to configure ESLint?» (Strict, Base, Cancel) y termina. No se creó `.eslintrc` ni `eslint.config.*`. ESLint no llegó a leer el código; el repo sigue sin config.
-- `npm test` (`tsx --test scripts/*.test.ts`), esta pasada: 249 pruebas, 247 pasan, 2 se saltan, 0 fallos, `duration_ms` 1518.837125, salida 0.
+- `npm run lint` (`next lint`): salida 1. Imprime «How would you like to configure ESLint?» (Strict, Base, Cancel) y termina. No se creó `.eslintrc` ni `eslint.config.*`.
+- Pasada anterior de la suite completa, `npm test` (`tsx --test scripts/*.test.ts`): 249 pruebas, 247 pasan, 2 se saltan, 0 fallos, `duration_ms` 1518.837125, salida 0.
+- `CI=1 npx next lint`, en esa misma pasada: salida 1, el mismo asistente, sin crear config.
 - Embudo local (`scripts/activation-funnel.sql` contra Postgres de docker en el puerto 5433): `registered 2`, `optimized 1`, `downloaded 1`, `activated_within_5_min 0`, `activated_pct 0.0`.
 - HTTP local (contenedor `nextprof_web`, no producción):
   - `GET /try` sin cookie: el payload RSC redirige a `/api/guest?redirect=/try`.
