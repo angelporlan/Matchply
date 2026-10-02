@@ -25,6 +25,7 @@ import { touchLastSeenAt } from '@/lib/user-activity';
 import type { SubscriptionFeature } from '@/lib/subscription';
 import { canAccessFeature } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
+import { loadGuestSessionUser } from '@/lib/actor';
 
 export type SupportSessionView = {
   id: string;
@@ -187,10 +188,23 @@ export async function requireProductContext(options: {
     return ctx;
   }
 
-  if (!options.allowGuest) {
-    throw new Error('Unauthorized');
+  if (options.allowGuest) {
+    const guest = await loadGuestSessionUser();
+    if (guest) {
+      if (options.feature && !canAccessFeature(guest.subscriptionStatus, options.feature, {
+        isGuest: true,
+        proGrantedUntil: guest.proGrantedUntil,
+      })) {
+        throw new SubscriptionAccessError(options.feature);
+      }
+      return {
+        ...ctx,
+        effectiveUser: guest,
+      };
+    }
   }
-  return ctx;
+
+  throw new Error('Unauthorized');
 }
 
 export async function requireAdminContext() {

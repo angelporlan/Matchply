@@ -26,7 +26,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      applications: false,
+      applications: true,
       linkedinExtension: false,
       deepResearch: false,
       agentApi: false,
@@ -37,7 +37,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      applications: false,
+      applications: true,
       linkedinExtension: false,
       deepResearch: false,
       agentApi: false,

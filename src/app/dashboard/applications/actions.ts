@@ -22,7 +22,7 @@ function revalidateApplicationPaths(...companyIds: Array<string | null | undefin
 }
 
 async function requireApplicationContext() {
-  return requireProductContext({ feature: "applications" });
+  return requireProductContext({ allowGuest: true, feature: "applications" });
 }
 
 export async function getOwnedJobOffer(offerId: string) {

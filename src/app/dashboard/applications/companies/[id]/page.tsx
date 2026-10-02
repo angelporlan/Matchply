@@ -24,9 +24,6 @@ export default async function CompanyDetailPage({ params }: CompanyPageProps) {
   const dbUser = viewer.user;
 
   const userId = dbUser.id;
-  if (!hasProAccess(dbUser)) {
-    redirect('/dashboard/subscription');
-  }
 
   try {
     const [company, notes, offers, statusRows] = await Promise.all([

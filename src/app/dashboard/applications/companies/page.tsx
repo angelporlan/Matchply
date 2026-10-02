@@ -12,9 +12,6 @@ export default async function CompaniesPage() {
   const dbUser = viewer.user;
 
   const userId = dbUser.id;
-  if (!hasProAccess(dbUser)) {
-    redirect('/dashboard/subscription');
-  }
 
   const companies = await listCompaniesForUser(userId);
 

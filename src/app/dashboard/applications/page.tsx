@@ -26,10 +26,6 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
   const userId = dbUser.id;
   const isPremium = hasProAccess(dbUser);
 
-  if (!isPremium) {
-    redirect('/dashboard/subscription');
-  }
-
   if (searchParams?.layout) {
     const params = new URLSearchParams();
     if (searchParams.view) params.set('view', searchParams.view);

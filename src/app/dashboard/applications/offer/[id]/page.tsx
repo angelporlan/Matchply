@@ -26,10 +26,6 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
   const offerId = params.id;
   const isPremium = hasProAccess(dbUser);
 
-  if (!isPremium) {
-    redirect('/dashboard/subscription');
-  }
-
   // Detalle completo de la oferta (tabla ancha: solo aquí), CVs, empresas e investigación en paralelo.
   const [[offer], userCvs, companies, initialResearch] = await Promise.all([
     db
