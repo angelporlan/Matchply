@@ -19,14 +19,14 @@ export async function GET() {
 export async function POST(req: Request) {
   let userId: string;
   try {
-    const ctx = await requireProductContext();
+    const ctx = await requireProductContext({ allowGuest: true });
     userId = ctx.effectiveUser!.id;
   } catch {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) {
-    return new NextResponse('User not found', { status: 404 });
+    return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
   }
 
   try {

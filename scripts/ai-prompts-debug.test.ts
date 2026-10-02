@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   isAiPromptsDebugEnabled,
   formatPromptForClipboard,
+  parseDebugPromptBody,
 } from '@/lib/ai-prompts-debug';
 import { AIService } from '@/lib/ai-service';
 
@@ -31,6 +32,32 @@ test('isAiPromptsDebugEnabled reads AI_PROMPTS_DEBUG environment variable', () =
     if (originalPublicEnv !== undefined) process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG = originalPublicEnv;
     else delete process.env.NEXT_PUBLIC_AI_PROMPTS_DEBUG;
   }
+});
+
+test('parseDebugPromptBody keeps a plain-text Unauthorized body readable', () => {
+  const denied = parseDebugPromptBody('Unauthorized');
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.error, 'Unauthorized');
+
+  const empty = parseDebugPromptBody('   ');
+  assert.equal(empty.ok, false);
+
+  const failed = parseDebugPromptBody(JSON.stringify({ success: false, error: 'Acción requerida' }));
+  assert.equal(failed.ok, false);
+  if (!failed.ok) assert.equal(failed.error, 'Acción requerida');
+
+  const ready = parseDebugPromptBody(JSON.stringify({
+    success: true,
+    action: 'optimize_cv',
+    actionTitle: 'Optimización de CV con IA',
+    provider: 'openai',
+    model: 'gpt-6-luna',
+    systemPrompt: 'system',
+    userPrompt: 'user',
+    fullPromptText: 'full',
+  }));
+  assert.equal(ready.ok, true);
+  if (ready.ok) assert.equal(ready.data.model, 'gpt-6-luna');
 });
 
 test('formatPromptForClipboard outputs structured markdown for clipboard', () => {
