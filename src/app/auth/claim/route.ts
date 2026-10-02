@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { claimGuestDataForUser } from '@/lib/actor';
+import { resolveClaimRedirect } from '@/lib/claim-destination';
 import { buildAuthPath, getAuthIntent, safeInternalPath } from '@/lib/auth-intent';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,8 +14,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL(buildAuthPath(intent, '/login'), baseUrl));
   }
 
-  await claimGuestDataForUser(session.user.id);
-  return NextResponse.redirect(new URL(nextPath, baseUrl));
+  const claim = await claimGuestDataForUser(session.user.id);
+  const destination = resolveClaimRedirect({
+    claimed: claim.claimed,
+    cvId: claim.cvId,
+    nextPath,
+  });
+  return NextResponse.redirect(new URL(destination, baseUrl));
 }
 
 export const dynamic = 'force-dynamic';
