@@ -612,44 +612,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 className="btn-raised"
               />
             )}
-            {surface === 'diff' ? (
-              <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
-                {t('editor.header.edit')}
-              </Button>
-            ) : surface !== 'document' ? (
-              <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
-                {t('editor.header.document')}
-              </Button>
-            ) : null}
             {surface === 'diff' && diffBase ? (
               <Button type="button" variant="ghost" onClick={() => { void revertToBase(); }}>
                 {t('editor.header.revert')}
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant={surface === 'source' ? 'secondary' : 'ghost'}
-              aria-pressed={surface === 'source'}
-              onClick={() => {
-                setSurface((current) => (current === 'source' ? 'document' : 'source'));
-                setMobilePane('document');
-              }}
-            >
-              {t('editor.header.markdown')}
-            </Button>
-            {diffBase ? (
-              <Button
-                type="button"
-                variant={surface === 'diff' ? 'secondary' : 'ghost'}
-                aria-pressed={surface === 'diff'}
-                onClick={() => {
-                  setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
-                  if (surface !== 'diff') noteDiffViewed();
-                  setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
-                  setMobilePane('document');
-                }}
-              >
-                {t('editor.header.changes')}
               </Button>
             ) : null}
             {surface !== 'diff' && (
@@ -677,6 +642,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         onAccentChange={(value) => applyStyle({ accentColor: value })}
         zoom={zoom}
         onZoomChange={setZoom}
+        surface={surface}
+        onToggleMarkdown={() => {
+          setSurface((current) => (current === 'source' ? 'document' : 'source'));
+          setMobilePane('document');
+        }}
+        hasDiff={Boolean(diffBase)}
+        onToggleDiff={() => {
+          setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
+          if (surface !== 'diff') noteDiffViewed();
+          setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
+          setMobilePane('document');
+        }}
         saveLabel={
           saveStatus === 'saving'
             ? t('editor.footer.saving')

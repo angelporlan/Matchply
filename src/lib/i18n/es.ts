@@ -1000,7 +1000,6 @@ const es = {
         backToDashboard: 'Volver al Panel',
         titleBase: 'CV Base',
         titleOptimized: 'CV Optimizado',
-        subtitle: 'Edita el texto en la hoja. El PDF se genera al descargar.',
         optimizeBtn: 'Optimizar con IA',
         finish: 'Cerrar y previsualizar',
         write: 'Escribir',

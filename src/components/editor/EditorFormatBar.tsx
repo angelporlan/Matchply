@@ -7,7 +7,9 @@ import {
   Type, 
   MoveHorizontal, 
   ChevronDown,
-  Maximize2
+  Maximize2,
+  FileCode2,
+  GitCompare
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { PdfZoom } from './PdfViewer';
@@ -38,6 +40,10 @@ export default function EditorFormatBar({
   zoom,
   onZoomChange,
   saveLabel,
+  surface = 'document',
+  onToggleMarkdown,
+  hasDiff = false,
+  onToggleDiff,
 }: {
   fontFamily: string;
   pageMargin: number;
@@ -50,6 +56,10 @@ export default function EditorFormatBar({
   zoom: PdfZoom;
   onZoomChange: (zoom: PdfZoom) => void;
   saveLabel: string;
+  surface?: 'document' | 'source' | 'diff';
+  onToggleMarkdown?: () => void;
+  hasDiff?: boolean;
+  onToggleDiff?: () => void;
 }) {
   const { t } = useLanguage();
 
@@ -294,6 +304,49 @@ export default function EditorFormatBar({
             <span>{t('editor.toolbar.fit')}</span>
           </button>
         </div>
+
+        {/* Modos de visualización: Markdown y Cambios (Diff) como iconos */}
+        {(onToggleMarkdown || (hasDiff && onToggleDiff)) && (
+          <>
+            <div className="w-px h-4 bg-subtle" />
+
+            <div className="flex items-center gap-1">
+              {onToggleMarkdown && (
+                <button
+                  type="button"
+                  onClick={onToggleMarkdown}
+                  aria-pressed={surface === 'source'}
+                  className={`h-7 px-2 rounded-md border flex items-center gap-1.5 transition-all text-xs font-medium ${
+                    surface === 'source'
+                      ? 'border-ai-action bg-ai-surface text-ai-action shadow-xs font-semibold'
+                      : 'border-control/50 hover:border-text text-text-muted hover:text-text bg-canvas'
+                  }`}
+                  title={surface === 'source' ? 'Volver al diseño del documento' : 'Ver editor Markdown'}
+                >
+                  <FileCode2 className="w-3.5 h-3.5" />
+                  <span className="sr-only">Markdown</span>
+                </button>
+              )}
+
+              {hasDiff && onToggleDiff && (
+                <button
+                  type="button"
+                  onClick={onToggleDiff}
+                  aria-pressed={surface === 'diff'}
+                  className={`h-7 px-2 rounded-md border flex items-center gap-1.5 transition-all text-xs font-medium ${
+                    surface === 'diff'
+                      ? 'border-ai-action bg-ai-surface text-ai-action shadow-xs font-semibold'
+                      : 'border-control/50 hover:border-text text-text-muted hover:text-text bg-canvas'
+                  }`}
+                  title={surface === 'diff' ? 'Volver al diseño del documento' : 'Ver comparativa de cambios'}
+                >
+                  <GitCompare className="w-3.5 h-3.5" />
+                  <span className="sr-only">Cambios</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Estado de guardado / persistencia */}

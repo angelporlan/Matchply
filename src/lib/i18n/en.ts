@@ -952,7 +952,6 @@ const en = {
         backToDashboard: 'Back to Dashboard',
         titleBase: 'Base CV',
         titleOptimized: 'Optimized CV',
-        subtitle: 'Edit the text on the page. The PDF is created when you download.',
         optimizeBtn: 'Optimize with AI',
         finish: 'Finish and preview',
         write: 'Write',
