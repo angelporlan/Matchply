@@ -1,8 +1,12 @@
+import { and, eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { jobOffers } from '@/db/schema';
+import { capturePeople } from '@/lib/people/service';
+import { captureInput } from '@/lib/people/validation';
+import { PeopleError } from '@/lib/people/types';
 import { createAuditLog } from '@/lib/audit';
 import { upsertExternalApplication } from '@/lib/application-service';
 import { markExtensionCapture } from '@/lib/extension-auth';
-import { enqueueResearchForOffer } from '@/lib/research/queue';
-import { ResearchStatus } from '@/lib/research/types';
 
 const MAX_TITLE_LENGTH = 240;
 const MAX_COMPANY_LENGTH = 240;
@@ -30,6 +34,7 @@ export type LinkedInIngestPayload = {
   description?: unknown;
   rawText?: unknown;
   sourceMetadata?: unknown;
+  people?: unknown;
 };
 
 function boundedText(value: unknown, field: string, maxLength: number, required = false) {
@@ -123,7 +128,11 @@ export async function ingestLinkedInOffer(
   const rawText = boundedText(input.rawText, 'rawText', MAX_RAW_TEXT_LENGTH);
   const sourceMetadata = normalizeSourceMetadata(input.sourceMetadata, location, workplaceType, employmentType);
 
-  const { offer, created } = await upsertExternalApplication(userId, {
+  let captures;
+  try { captures = captureInput(input.people); } catch (error) { throw new ExtensionPayloadError(error instanceof PeopleError ? error.message : 'Invalid people'); }
+  const [existing] = await db.select({ id: jobOffers.id }).from(jobOffers).where(and(eq(jobOffers.userId, userId), eq(jobOffers.externalSource, 'linkedin'), eq(jobOffers.externalId, sourceJobId))).limit(1);
+  // Recapture is additive: preserve existing analysis, CV, letters and user edits.
+  const { offer, created } = existing ? { offer: existing, created: false } : await upsertExternalApplication(userId, {
     title,
     company,
     url: canonicalUrl,
@@ -136,6 +145,9 @@ export async function ingestLinkedInOffer(
     status: 'interested',
   });
 
+  let peopleResult: { created: number; captured: number } | undefined;
+  let peopleError: string | undefined;
+  if (captures.length) { try { peopleResult = await capturePeople(userId, sourceJobId, captures); } catch { peopleError = 'PEOPLE_CAPTURE_FAILED'; } }
   await markExtensionCapture(installationId);
   await createAuditLog(created ? 'extension_job_capture_create' : 'extension_job_capture_update', userId, null, {
     offerId: offer.id,
@@ -146,5 +158,7 @@ export async function ingestLinkedInOffer(
     success: true,
     created,
     application: { id: offer.id },
+    ...(peopleResult ? { people: peopleResult } : {}),
+    ...(peopleError ? { peopleError } : {}),
   };
 }

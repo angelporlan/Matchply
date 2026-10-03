@@ -16,6 +16,7 @@ export const AI_FUNCTION_KEYS = [
   'matching',
   'outreach',
   'research',
+  'networking',
 ] as const;
 
 export type AiFunctionKey = typeof AI_FUNCTION_KEYS[number];
@@ -50,6 +51,7 @@ export const AI_FUNCTION_LABELS: Record<AiFunctionKey, { es: string; needs: Arra
   matching: { es: 'Matching', needs: ['json'] },
   outreach: { es: 'Cartas y entrevistas', needs: [] },
   research: { es: 'Investigación', needs: [] },
+  networking: { es: 'Networking', needs: ['json'] },
 };
 
 const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'deepseek', 'openrouter'];
@@ -75,7 +77,7 @@ export function defaultAiRuntimeConfig(): AiRuntimeConfig {
       free: { provider: DEFAULT_FREE_PROVIDER, model: DEFAULT_FREE_MODEL },
       pro: { provider: DEFAULT_PRO_PROVIDER, model: DEFAULT_PRO_MODEL },
     },
-    overrides: {},
+    overrides: { networking: { free: { provider: 'openai', model: 'gpt-6-luna' }, pro: { provider: 'openai', model: 'gpt-6-luna' } } },
     tested: [
       { provider: 'openai', model: 'gpt-6-luna', testedAt: '2026-10-02T00:00:00.000Z', ok: true },
     ],
@@ -92,7 +94,7 @@ export function parseAiRuntimeConfig(raw: unknown): AiRuntimeConfig {
   const overridesRaw = (value.overrides && typeof value.overrides === 'object')
     ? value.overrides as Record<string, unknown>
     : {};
-  const overrides: AiRuntimeConfig['overrides'] = {};
+  const overrides: AiRuntimeConfig['overrides'] = { ...fallback.overrides };
   for (const key of AI_FUNCTION_KEYS) {
     const item = overridesRaw[key];
     if (!item || typeof item !== 'object') continue;

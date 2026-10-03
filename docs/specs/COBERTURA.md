@@ -150,3 +150,8 @@ Inventario operativo y de pruebas; no se ejecutaron por el hecho de aparecer aqu
 | [scripts/stripe-subscription.test.ts](<../../scripts/stripe-subscription.test.ts>) | [F04 Planes, límites y permisos funcionales](planes-y-permisos/estado-actual.md) · [F22 Suscripción, Checkout y portal de facturación](facturacion-stripe/estado-actual.md) |
 | [scripts/subscription.test.ts](<../../scripts/subscription.test.ts>) | [F03 Prueba sin cuenta y recuperación al registrarse](prueba-invitado/estado-actual.md) · [F04 Planes, límites y permisos funcionales](planes-y-permisos/estado-actual.md) · [F09 Optimización de CV para una oferta](optimizacion-cv/estado-actual.md) |
 | [scripts/user-name.test.ts](<../../scripts/user-name.test.ts>) | [F02 Registro, acceso, cierre de sesión y datos de cuenta](autenticacion-y-cuenta/estado-actual.md) |
+
+## Personas y networking (03/10/2026)
+
+- `/dashboard/applications/people` y `/[id]`, Server Actions y vínculos desde empresas/ofertas: [contrato](networking-personas/spec.md).
+- `/api/ai/networking`, worker `networking` y `/api/extension/linkedin/people`: [expectativas](networking-personas/expectations.md), [plan](networking-personas/plan.md), [evidencias](networking-personas/evidence.md).

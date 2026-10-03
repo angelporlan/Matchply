@@ -9,6 +9,7 @@ export const ALL_CV_TEMPLATES = [HARVARD_TEMPLATE] as const;
 export type AccessTier = 'guest' | 'free' | 'pro';
 export type SubscriptionFeature =
   | 'advancedAi'
+  | 'networking'
   | 'applications'
   | 'linkedinExtension'
   | 'deepResearch'
@@ -26,6 +27,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
+      networking: false,
       applications: true,
       linkedinExtension: false,
       deepResearch: false,
@@ -37,8 +39,9 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
+      networking: true,
       applications: true,
-      linkedinExtension: false,
+      linkedinExtension: true,
       deepResearch: false,
       agentApi: false,
     },
@@ -48,6 +51,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: ALL_CV_TEMPLATES,
     features: {
       advancedAi: true,
+      networking: true,
       applications: true,
       linkedinExtension: true,
       deepResearch: true,

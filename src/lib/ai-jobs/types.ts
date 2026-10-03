@@ -1,8 +1,10 @@
+import type { NetworkingPayload } from '@/lib/people/types';
 export const AI_JOB_KINDS = [
   'match_batch',
   'evaluate',
   'optimize_application',
   'import_offer',
+  'networking',
 ] as const;
 
 export type AiJobKind = typeof AI_JOB_KINDS[number];
@@ -30,4 +32,4 @@ export type MatchBatchPayload = {
 };
 
 export type ImportOfferPayload = { url: string; requestId: string };
-export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload | MatchBatchPayload | ImportOfferPayload;
+export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload | MatchBatchPayload | ImportOfferPayload | NetworkingPayload;

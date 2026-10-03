@@ -3,7 +3,7 @@ import { createAuditLog } from '@/lib/audit';
 import { resolveExtensionSession, ExtensionAuthError, rateLimitExtensionRequest } from '@/lib/extension-auth';
 import { extensionJson, extensionOptions } from '@/lib/extension-http';
 import { ExtensionPayloadError, ingestLinkedInOffer } from '@/lib/extension-service';
-import { SubscriptionAccessError } from '@/lib/permissions';
+import { requireUserFeature, SubscriptionAccessError } from '@/lib/permissions';
 
 export async function OPTIONS() {
   return extensionOptions();
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const contentLength = Number(req.headers.get('content-length') || 0);
     if (contentLength > 220_000) return extensionJson({ error: 'Payload too large' }, { status: 413 });
     session = await resolveExtensionSession(req);
+    await requireUserFeature(session.user.id, 'linkedinExtension');
     rateLimitExtensionRequest(`${session.user.id}:ingest`);
     if (session.scope !== 'linkedin:ingest') throw new ExtensionAuthError(403, 'Insufficient extension scope');
     const body = await req.json();

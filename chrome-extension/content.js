@@ -30,6 +30,8 @@
     mode: "auto",
     delay: 3,
     showWidget: true,
+    capturePeople: false,
+    installationId: "",
   };
 
   let jobWatchTimer = null;
@@ -45,6 +47,8 @@
   let shadowRoot = null;
   let widgetCard = null;
   let widgetKind = "";
+  let capturedPeople = new Set();
+  let peopleRetryAt = 0;
 
   function clampDelay(value) {
     const n = Number(value);
@@ -60,25 +64,29 @@
       "matchplyCaptureMode",
       "matchplyCaptureDelay",
       "matchplyShowWidget",
+      "matchplyCapturePeople",
+      "matchplyExtensionInstallation",
     ]);
-    config.mode = stored.captureMode || stored.matchplyCaptureMode || "auto";
-    config.delay = clampDelay(stored.captureDelaySec ?? stored.matchplyCaptureDelay ?? 3);
-    config.showWidget = stored.showWidget ?? stored.matchplyShowWidget ?? true;
+    config.mode = stored.matchplyCaptureMode || stored.captureMode || "auto";
+    config.delay = clampDelay(stored.matchplyCaptureDelay ?? stored.captureDelaySec ?? 3);
+    config.showWidget = stored.matchplyShowWidget ?? stored.showWidget ?? true;
+    config.capturePeople = stored.matchplyCapturePeople === true;
+    config.installationId = stored.matchplyExtensionInstallation?.id || "";
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     let restart = false;
-    if (changes.captureMode) {
-      config.mode = changes.captureMode.newValue || "auto";
-      restart = true;
-    }
-    if (changes.captureDelaySec) {
-      config.delay = clampDelay(changes.captureDelaySec.newValue);
-      restart = true;
-    }
-    if (changes.showWidget !== undefined) {
-      config.showWidget = changes.showWidget.newValue !== false;
+    const mode = changes.matchplyCaptureMode || changes.captureMode;
+    const delay = changes.matchplyCaptureDelay || changes.captureDelaySec;
+    const widget = changes.matchplyShowWidget || changes.showWidget;
+    if (mode) { config.mode = mode.newValue || "auto"; restart = true; }
+    if (delay) { config.delay = clampDelay(delay.newValue); restart = true; }
+    if (widget) config.showWidget = widget.newValue !== false;
+    if (changes.matchplyCapturePeople) { config.capturePeople = changes.matchplyCapturePeople.newValue === true; restart = true; }
+    if (changes.matchplyExtensionInstallation) {
+      config.installationId = changes.matchplyExtensionInstallation.newValue?.id || "";
+      lastCompletedJobId = ""; capturedPeople.clear(); restart = true;
     }
     if (restart) {
       candidateJobId = "";
@@ -126,7 +134,17 @@
     return /^\d+$/.test(candidate || "") ? candidate : "";
   }
 
+  function newPeople() {
+    return config.capturePeople ? MatchplyPeople.extract(document).filter(p => !capturedPeople.has(MatchplyPeople.signature(p))).slice(0, 20) : [];
+  }
+  function captureKey(jobId) { return `matchply_capture_${config.installationId}_${jobId}`; }
+  function detailMatches(jobId) {
+    const anchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a[href*="/jobs/view/"], .jobs-unified-top-card__job-title a[href*="/jobs/view/"]');
+    const detailId = anchor?.getAttribute('href')?.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1];
+    return !detailId || detailId === jobId;
+  }
   function buildPayload(jobId) {
+    if (!detailMatches(jobId)) return null;
     const title = firstText(selectors.title);
     const company = firstText(selectors.company);
     const locationMetadata = firstText(selectors.location);
@@ -150,6 +168,7 @@
       employment_type: employmentType,
       description,
       raw_text: rawText,
+      ...(config.capturePeople ? { people: newPeople() } : {}),
     };
   }
 
@@ -347,7 +366,7 @@
     const skipSvg = `<svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
     const blocks = {
-      saved: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status ok">${checkSvg} Guardada</span></div>`,
+      saved: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status ok">${checkSvg} Guardada</span></div>${newPeople().length ? `<div class="actions"><button class="save" data-action="save" type="button">Capturar personas (${newPeople().length})</button></div>` : ""}`,
       saving: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status">⏳ Guardando…</span></div>`,
       waiting: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status">Leyendo oferta…</span></div>`,
       error: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status err">⚠️ Error</span></div><div class="status err" style="margin-bottom:6px">${escapeHtml(state.error || "No se pudo guardar")}</div><div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Reintentar</button></div>`,
@@ -419,11 +438,28 @@
     return null;
   }
 
+  async function attemptPeople(jobId, force) {
+    if (captureInProgress || !config.capturePeople || (!force && (config.mode !== "auto" || Date.now() < peopleRetryAt))) return { ok: true };
+    const people = newPeople();
+    if (!people.length || currentJobId() !== jobId || !detailMatches(jobId)) return { ok: true };
+    captureInProgress = true; peopleRetryAt = Date.now() + 30000;
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "capture-linkedin-people", payload: { sourceJobId: jobId, people } });
+      if (response?.ok) {
+        people.forEach(p => capturedPeople.add(MatchplyPeople.signature(p)));
+        renderWidget({ saved: true });
+      } else renderWidget({ error: response?.error || "No se pudieron guardar las personas." });
+      return response || { ok: false };
+    } catch { renderWidget({ error: "No se pudieron guardar las personas. Reintenta." }); return { ok: false }; }
+    finally { captureInProgress = false; }
+  }
+
   async function attemptCapture(jobId, force) {
     if (captureInProgress) return { ok: false, error: "Captura en curso" };
     if (!jobId) return { ok: false, error: "No hay oferta visible" };
     if (!force && skippedJobs.has(jobId)) return { ok: false, error: "Oferta omitida" };
 
+    if (jobId === lastCompletedJobId) return attemptPeople(jobId, force);
     clearInterval(countdownInterval);
     countdownInterval = null;
     clearTimeout(captureRetryTimer);
@@ -453,7 +489,8 @@
       const result = await chrome.runtime.sendMessage({ type: "capture-linkedin-job", payload });
       if (result?.ok) {
         lastCompletedJobId = jobId;
-        renderWidget({ saved: true });
+        if (!result.result?.peopleError) (payload.people || []).forEach(p => capturedPeople.add(MatchplyPeople.signature(p)));
+        renderWidget(result.result?.peopleError ? { error: "Oferta guardada; reintenta la captura de personas." } : { saved: true });
         return { ok: true, result };
       }
       const error = result?.error || "No se pudo guardar.";
@@ -477,6 +514,7 @@
       return;
     }
     if (jobId === lastCompletedJobId) {
+      if (config.mode === "auto") await attemptPeople(jobId, false);
       renderWidget({ saved: true });
       return;
     }
@@ -488,9 +526,14 @@
     countdownInterval = null;
     clearTimeout(captureRetryTimer);
 
-    const stored = await chrome.storage.local.get(`captured_${jobId}`);
-    if (stored[`captured_${jobId}`]) {
+    capturedPeople.clear(); peopleRetryAt = 0;
+    const key = captureKey(jobId);
+    const stored = await chrome.storage.local.get(key);
+    if (currentJobId() !== jobId) return;
+    capturedPeople = new Set(stored[key]?.people || []);
+    if (stored[key]?.offer) {
       lastCompletedJobId = jobId;
+      if (config.mode === "auto") await attemptPeople(jobId, false);
       renderWidget({ saved: true });
       return;
     }
@@ -518,6 +561,5 @@
   window.addEventListener("popstate", () => schedule(200));
   setInterval(() => schedule(200), 2000);
 
-  void loadConfig();
-  schedule(500);
+  void loadConfig().then(() => schedule(500));
 })();

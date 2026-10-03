@@ -16,7 +16,7 @@ async function setBadge(tabId, text, color) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "capture-linkedin-job") {
+  if (["capture-linkedin-job", "capture-linkedin-people"].includes(message?.type)) {
     (async () => {
       try {
         const token = await getSession();
@@ -38,12 +38,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           description: raw.description || null,
           rawText: raw.rawText || raw.raw_text || null,
           sourceMetadata: raw.sourceMetadata || null,
+          ...(Array.isArray(raw.people) ? { people: raw.people } : {}),
         };
 
-        const response = await fetch(INGEST_ENDPOINT, {
+        const response = await fetch(message.type === "capture-linkedin-people" ? `${API_BASE}/api/extension/linkedin/people` : INGEST_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(message.type === "capture-linkedin-people" ? { sourceJobId: payload.sourceJobId, people: payload.people || [] } : payload),
         });
 
         if (!response.ok) {
@@ -59,8 +60,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         const result = await response.json();
         const jobId = payload.sourceJobId;
-        if (jobId) {
-          await chrome.storage.local.set({ [`captured_${jobId}`]: true });
+        const stored = await chrome.storage.local.get("matchplyExtensionInstallation");
+        const installationId = stored.matchplyExtensionInstallation?.id;
+        if (jobId && installationId) {
+          const key = `matchply_capture_${installationId}_${jobId}`;
+          const previous = (await chrome.storage.local.get(key))[key] || {};
+          const people = result.peopleError ? (previous.people || []) : Array.from(new Set([...(previous.people || []), ...(payload.people || []).map(p => JSON.stringify([p.profileUrl, p.name, p.headline, p.connectionDegree, p.source]))]));
+          await chrome.storage.local.set({ [key]: { offer: true, people } });
         }
         await setBadge(sender.tab?.id, "✓", "#10b981");
         sendResponse({ ok: true, result });

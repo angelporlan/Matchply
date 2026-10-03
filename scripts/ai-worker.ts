@@ -15,7 +15,7 @@ async function processRun() {
   try {
     // Batches renew their lease and bound individual LLM requests. A timer must
     // not requeue a still-running batch after it has saved partial results.
-    if (job.kind === 'match_batch' || job.kind === 'import_offer') {
+    if (job.kind === 'match_batch' || job.kind === 'import_offer' || job.kind === 'networking') {
       await processAiJob(job);
       return true;
     }

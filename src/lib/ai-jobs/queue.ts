@@ -122,7 +122,7 @@ export async function claimNextAiJob(): Promise<AiJob | null> {
     await tx.execute(sql`
       UPDATE "ai_job" SET "status" = 'failed', "leaseUntil" = NULL,
         "lastError" = 'AI_JOB_LEASE_EXPIRED', "completedAt" = ${now.toISOString()}, "updatedAt" = ${now.toISOString()}
-      WHERE "kind" IN ('match_batch', 'import_offer') AND "status" = 'running'
+      WHERE "kind" IN ('match_batch', 'import_offer', 'networking') AND "status" = 'running'
         AND "leaseUntil" < ${now.toISOString()} AND "attempt" >= ${MAX_ATTEMPTS}
     `);
     const result = await tx.execute(sql`
@@ -196,13 +196,13 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
     leaseUntil: null,
     completedAt: now,
     updatedAt: now,
-  }).where(owner && ['match_batch', 'import_offer'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer')`)).returning();
+  }).where(owner && ['match_batch', 'import_offer', 'networking'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer', 'networking')`)).returning();
   return updated;
 }
 
 export async function failAiJob(job: AiJob, error: unknown) {
   const retryableImport = error instanceof Error && 'retryable' in error && error.retryable === true;
-  const terminal = job.attempt >= MAX_ATTEMPTS || (job.kind === 'import_offer' && !retryableImport);
+  const terminal = job.attempt >= MAX_ATTEMPTS || (['import_offer', 'networking'].includes(job.kind) && !retryableImport);
   const now = new Date();
   const [updated] = await db.update(aiJobs).set({
     status: terminal ? 'failed' : 'queued',
@@ -211,7 +211,7 @@ export async function failAiJob(job: AiJob, error: unknown) {
     leaseUntil: null,
     completedAt: terminal ? now : null,
     updatedAt: now,
-  }).where(['match_batch', 'import_offer'].includes(job.kind) ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
+  }).where(['match_batch', 'import_offer', 'networking'].includes(job.kind) ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
   return updated;
 }
 

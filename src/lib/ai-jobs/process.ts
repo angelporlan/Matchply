@@ -1,3 +1,4 @@
+import { processNetworking } from '@/lib/people/ai';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, type AiJob, users } from '@/db/schema';
@@ -123,7 +124,7 @@ export async function processAiJob(job: AiJob) {
   return bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const importController = new AbortController();
-  const heartbeat = ['match_batch', 'import_offer'].includes(job.kind) ? setInterval(() => {
+  const heartbeat = ['match_batch', 'import_offer', 'networking'].includes(job.kind) ? setInterval(() => {
     if (renewing) return;
     renewing = true;
     void renewAiJobLease(job).then(owned => {
@@ -136,6 +137,9 @@ export async function processAiJob(job: AiJob) {
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
+      case 'networking':
+        result = await processNetworking(job, importController.signal);
+        break;
       case 'import_offer': {
         const payload = job.payload as ImportOfferPayload;
         result = await importOffer(payload.url, {
@@ -165,7 +169,7 @@ export async function processAiJob(job: AiJob) {
     }
     const completed = await completeAiJob(job.id, result, job);
     if (!completed) return;
-    void recordAiRunStat({
+    if (job.kind !== 'networking') void recordAiRunStat({
       functionKey: job.kind,
       provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
       model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
@@ -192,7 +196,7 @@ export async function processAiJob(job: AiJob) {
       durationMs: Date.now() - started,
       error,
     });
-    void recordAiRunStat({
+    if (job.kind !== 'networking') void recordAiRunStat({
       functionKey: job.kind,
       provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
       model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,

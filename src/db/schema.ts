@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
+import type { NetworkingAdvice, ProposedMessage } from '@/lib/people/types';
 import { relations } from 'drizzle-orm';
 
 // Tabla de Usuarios (Compatible con NextAuth)
@@ -146,6 +147,7 @@ export const jobOffers = pgTable('job_offer', {
   externalIdentityIdx: uniqueIndex('job_offer_external_identity_idx')
     .on(table.userId, table.externalSource, table.externalId),
   userUpdatedIdx: index('job_offer_user_updated_idx').on(table.userId, table.updatedAt),
+  ownerIdentityIdx: uniqueIndex('job_offer_owner_identity_idx').on(table.id, table.userId),
   userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
   userCompanyIdx: index('job_offer_user_company_id_idx').on(table.userId, table.companyId),
   // Dedupe on upsert from the extension / import (findExisting by URL).
@@ -153,6 +155,85 @@ export const jobOffers = pgTable('job_offer', {
   // Dedupe fallback by title + company, and dashboard "latest offer per CV".
   userTitleCompanyIdx: index('job_offer_user_title_company_idx').on(table.userId, table.title, table.company),
   cvIdx: index('job_offer_cv_id_idx').on(table.cvId),
+}));
+
+export const people = pgTable('person', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(), linkedinUrl: text('linkedinUrl'), email: text('email'),
+  role: text('role'), headline: text('headline'), location: text('location'),
+  kind: text('kind').notNull().default('other'), status: text('status').notNull().default('pending'),
+  origin: text('origin'), objective: text('objective'), topics: text('topics'), notes: text('notes'),
+  nextAction: text('nextAction'), nextFollowupAt: timestamp('nextFollowupAt', { mode: 'date' }),
+  language: text('language').notNull().default('es'), tone: text('tone').notNull().default('professional'),
+  connectionDegree: text('connectionDegree'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  ownerIdentity: uniqueIndex('person_owner_identity_idx').on(t.id, t.userId),
+  profileIdentity: uniqueIndex('person_user_linkedin_idx').on(t.userId, t.linkedinUrl),
+  updated: index('person_user_updated_idx').on(t.userId, t.updatedAt),
+  status: index('person_user_status_idx').on(t.userId, t.status),
+  followup: index('person_user_followup_idx').on(t.userId, t.nextFollowupAt),
+}));
+
+export const personCompanies = pgTable('person_company', {
+  personId: uuid('personId').notNull(), userId: uuid('userId').notNull(), companyId: uuid('companyId').notNull(),
+  relation: text('relation').notNull().default('unconfirmed'),
+}, t => ({
+  pk: primaryKey({ columns: [t.personId, t.companyId, t.relation] }),
+  owner: foreignKey({ columns: [t.personId, t.userId], foreignColumns: [people.id, people.userId] }).onDelete('cascade'),
+  company: foreignKey({ columns: [t.userId, t.companyId], foreignColumns: [userCompanies.userId, userCompanies.companyId] }).onDelete('cascade'),
+  user: index('person_company_user_idx').on(t.userId, t.companyId),
+}));
+export const personOffers = pgTable('person_offer', {
+  personId: uuid('personId').notNull(), userId: uuid('userId').notNull(), offerId: uuid('offerId').notNull(),
+}, t => ({
+  pk: primaryKey({ columns: [t.personId, t.offerId] }),
+  owner: foreignKey({ columns: [t.personId, t.userId], foreignColumns: [people.id, people.userId] }).onDelete('cascade'),
+  offer: foreignKey({ columns: [t.offerId, t.userId], foreignColumns: [jobOffers.id, jobOffers.userId] }).onDelete('cascade'),
+  user: index('person_offer_user_idx').on(t.userId, t.offerId),
+}));
+export const personThreads = pgTable('person_thread', {
+  id: uuid('id').defaultRandom().primaryKey(), personId: uuid('personId').notNull(), userId: uuid('userId').notNull(),
+  title: text('title').notNull(), channel: text('channel').notNull().default('linkedin'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  identity: uniqueIndex('person_thread_owner_idx').on(t.id, t.personId, t.userId),
+  owner: foreignKey({ columns: [t.personId, t.userId], foreignColumns: [people.id, people.userId] }).onDelete('cascade'),
+  user: index('person_thread_user_idx').on(t.userId, t.personId),
+}));
+export const personImports = pgTable('person_import', {
+  id: uuid('id').defaultRandom().primaryKey(), personId: uuid('personId').notNull(), userId: uuid('userId').notNull(), threadId: uuid('threadId').notNull(),
+  rawText: text('rawText').notNull(), rawHash: text('rawHash').notNull(),
+  proposed: jsonb('proposed').$type<ProposedMessage[]>(), status: text('status').notNull().default('pending'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  thread: foreignKey({ columns: [t.threadId, t.personId, t.userId], foreignColumns: [personThreads.id, personThreads.personId, personThreads.userId] }).onDelete('cascade'),
+  dedupe: uniqueIndex('person_import_hash_idx').on(t.threadId, t.rawHash),
+  user: index('person_import_user_idx').on(t.userId, t.personId),
+}));
+export const personMessages = pgTable('person_message', {
+  id: uuid('id').defaultRandom().primaryKey(), personId: uuid('personId').notNull(), userId: uuid('userId').notNull(), threadId: uuid('threadId').notNull(),
+  importId: uuid('importId').references(() => personImports.id, { onDelete: 'set null' }),
+  author: text('author').notNull(), content: text('content').notNull(), position: integer('position').notNull(),
+  sentAt: timestamp('sentAt', { mode: 'date' }), createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  thread: foreignKey({ columns: [t.threadId, t.personId, t.userId], foreignColumns: [personThreads.id, personThreads.personId, personThreads.userId] }).onDelete('cascade'),
+  position: uniqueIndex('person_message_position_idx').on(t.threadId, t.position),
+  user: index('person_message_user_idx').on(t.userId, t.personId, t.sentAt),
+}));
+export const personAiResults = pgTable('person_ai_result', {
+  id: uuid('id').defaultRandom().primaryKey(), jobId: uuid('jobId').notNull().unique(),
+  personId: uuid('personId').notNull(), userId: uuid('userId').notNull(),
+  action: text('action').notNull(), inputHash: text('inputHash').notNull(),
+  context: jsonb('context').$type<{ threadId?: string; offerId?: string; includeCandidate?: boolean }>().notNull(),
+  advice: jsonb('advice').$type<NetworkingAdvice>().notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  owner: foreignKey({ columns: [t.personId, t.userId], foreignColumns: [people.id, people.userId] }).onDelete('cascade'),
+  user: index('person_ai_result_user_idx').on(t.userId, t.personId, t.createdAt),
 }));
 
 export const companyNotes = pgTable('company_note', {

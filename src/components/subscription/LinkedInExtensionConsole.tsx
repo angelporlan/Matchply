@@ -125,10 +125,10 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
               <Link2 className="w-5 h-5 text-ai stroke-[1.75]" /> Extensión de LinkedIn
             </h3>
             <p className="text-xs text-text-muted font-sans font-light mt-1 max-w-xl">
-              Captura ofertas desde LinkedIn y deja que Matchply las investigue. La extensión solo recibe una sesión limitada de ingesta.
+              Captura ofertas y, si activas «Capturar personas», los contactos visibles. La investigación profunda sigue disponible en PRO.
             </p>
           </div>
-          <span className="text-[9px] uppercase tracking-wider font-extrabold text-ai bg-ai/10 border border-ai/35 px-2.5 py-1 rounded-full">PRO · 10/mes</span>
+          <span className="text-[9px] uppercase tracking-wider font-extrabold text-ai bg-ai/10 border border-ai/35 px-2.5 py-1 rounded-full">Todos los registrados</span>
         </div>
 
         {error && <div className="p-3 rounded-[8px] bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs">{error}</div>}
@@ -151,12 +151,12 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
             )}
           </div>
 
-          <div className="rounded-xl border border-subtle p-5 space-y-3">
+          {quota.limit > 0 && <div className="rounded-xl border border-subtle p-5 space-y-3">
             <div className="flex items-center justify-between"><span className="text-sm font-bold text-text">Cuota de investigación</span><button type="button" onClick={() => void refresh()} className="text-ai" title="Actualizar"><RefreshCw className="w-4 h-4" /></button></div>
             <div className="text-3xl font-bold text-text">{quota.used}<span className="text-base text-slate-400"> / {quota.limit}</span></div>
             <div className="h-2 bg-subtle dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-ai-action rounded-full" style={{ width: `${Math.min(100, (quota.used / Math.max(1, quota.limit)) * 100)}%` }} /></div>
             <p className="text-[11px] text-slate-500 dark:text-text-muted">Se cuentan ofertas distintas por mes UTC. Los reintentos técnicos no consumen cuota.</p>
-          </div>
+          </div>}
         </div>
 
         <div className="space-y-3">
@@ -183,7 +183,7 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-slate-500 dark:text-text-muted flex items-start gap-2"><Trash2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Matchply no guarda API keys en la extensión ni envía candidaturas, mensajes o contactos automáticamente.</p>
+        <p className="text-[10px] text-slate-500 dark:text-text-muted flex items-start gap-2"><Trash2 className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Matchply no guarda API keys en la extensión ni envía candidaturas o mensajes automáticamente. Los contactos capturados no generan llamadas a IA.</p>
       </div>
       <AlertModal
         isOpen={Boolean(deleteId)}
