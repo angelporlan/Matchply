@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { cvs, jobOffers, users } from '@/db/schema';
+import { auditLogs, cvs, jobOffers, users } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
@@ -187,9 +187,11 @@ export async function getGuestCvCount(userId: string) {
   return Number(row?.count) || 0;
 }
 
+const emptyClaim = { claimed: false, cvCount: 0, cvId: null, offerId: null };
+
 export async function claimGuestDataForUser(userId: string) {
   const token = getGuestTokenFromCookie();
-  if (!token) return { claimed: false, cvCount: 0 };
+  if (!token) return emptyClaim;
 
   const [guest] = await db
     .select({ id: users.id, guestExpiresAt: users.guestExpiresAt })
@@ -199,18 +201,18 @@ export async function claimGuestDataForUser(userId: string) {
 
   if (!guest || !guest.guestExpiresAt) {
     clearGuestCookie();
-    return { claimed: false, cvCount: 0 };
+    return emptyClaim;
   }
 
   if (guest.guestExpiresAt.getTime() < Date.now()) {
     await db.delete(users).where(eq(users.id, guest.id));
     clearGuestCookie();
-    return { claimed: false, cvCount: 0 };
+    return emptyClaim;
   }
 
   if (guest.id === userId) {
     clearGuestCookie();
-    return { claimed: false, cvCount: 0 };
+    return emptyClaim;
   }
 
   const guestCvs = await db
@@ -218,6 +220,23 @@ export async function claimGuestDataForUser(userId: string) {
     .from(cvs)
     .where(eq(cvs.userId, guest.id))
     .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt));
+
+  const [latestOffer] = await db
+    .select({ id: jobOffers.id, cvId: jobOffers.cvId })
+    .from(jobOffers)
+    .where(eq(jobOffers.userId, guest.id))
+    .orderBy(desc(jobOffers.updatedAt), desc(jobOffers.createdAt))
+    .limit(1);
+
+  const [latestCv] = await db
+    .select({ id: cvs.id })
+    .from(cvs)
+    .where(eq(cvs.userId, guest.id))
+    .orderBy(desc(cvs.updatedAt))
+    .limit(1);
+
+  const cvId = latestOffer?.cvId || latestCv?.id || null;
+  const offerId = latestOffer?.id || null;
 
   const [currentPrincipal] = await db
     .select({ id: cvs.id })
@@ -250,9 +269,14 @@ export async function claimGuestDataForUser(userId: string) {
       .set({ userId })
       .where(eq(jobOffers.userId, guest.id));
 
+    // Guest deletion nulls audit userId. Keep optimize/download on the new account.
+    await tx.update(auditLogs).set({ userId }).where(eq(auditLogs.userId, guest.id));
+    await tx.update(auditLogs).set({ actorUserId: userId }).where(eq(auditLogs.actorUserId, guest.id));
+    await tx.update(auditLogs).set({ affectedUserId: userId }).where(eq(auditLogs.affectedUserId, guest.id));
+
     await tx.delete(users).where(eq(users.id, guest.id));
   });
 
   clearGuestCookie();
-  return { claimed: true, cvCount: guestCvs.length };
+  return { claimed: true, cvCount: guestCvs.length, cvId, offerId };
 }

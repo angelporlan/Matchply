@@ -153,11 +153,11 @@ export default function NotFound() {
           <span>{t('notFound.supportPrompt')}</span>
           <span>{t('notFound.supportContact')}</span>
           <a
-            href="mailto:soporte@matchply.com"
+            href="mailto:matchplyapp@gmail.com"
             className="font-bold text-ai-text hover:underline inline-flex items-center gap-1"
           >
             <Mail className="w-3.5 h-3.5 stroke-[1.75]" />
-            soporte@matchply.com
+            matchplyapp@gmail.com
           </a>
         </p>
       </footer>

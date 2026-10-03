@@ -17,6 +17,8 @@ import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
 import { findOrCreateCompany } from '@/lib/company-service';
+import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { decideFreeOverwrite } from '@/lib/free-overwrite-guard';
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,9 +51,17 @@ export async function POST(req: NextRequest) {
       targetCvId: requestedTargetCvId,
     } = body;
 
-    if (!baseCvId || !jobTitle || !company || !jobDescription) {
+    const description = typeof jobDescription === 'string' ? jobDescription.trim() : '';
+    if (!baseCvId || !description) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
+    const identity = resolveOfferIdentity({
+      jobTitle: typeof jobTitle === 'string' ? jobTitle : '',
+      company: typeof company === 'string' ? company : '',
+      jobDescription: description,
+    });
+    const resolvedTitle = identity.jobTitle;
+    const resolvedCompany = identity.company;
 
     // 1. Usuario (suscripción + perfil profesional) y 2. CV base, en paralelo y con columnas acotadas
     const [[user], [baseCv]] = await Promise.all([
@@ -72,6 +82,7 @@ export async function POST(req: NextRequest) {
         .select({
           id: cvs.id,
           userId: cvs.userId,
+          isBase: cvs.isBase,
           content: cvs.content,
           templateName: cvs.templateName,
           accentColor: cvs.accentColor,
@@ -108,8 +119,18 @@ export async function POST(req: NextRequest) {
           return new NextResponse('Guest CV limit reached', { status: 403 });
         }
 
+        const decision = decideFreeOverwrite({
+          isGuest: false,
+          canCreate: false,
+          replacesBase: baseCv.isBase,
+          confirmed: body.confirmOverwrite === true,
+        });
+        if (decision.action === 'confirm') {
+          return new NextResponse('CV_OVERWRITE_CONFIRM', { status: 409 });
+        }
+
         // La optimización básica de Free sustituye su único CV en lugar de
-        // crear una segunda versión guardada.
+        // crear una segunda versión guardada, solo tras confirmación.
         targetCvId = baseCv.id;
       }
     }
@@ -138,7 +159,7 @@ export async function POST(req: NextRequest) {
     // 3. Obtener el stream de IA
     const aiStream = await AIService.optimizeCVStream({
       baseCvMarkdown: baseCv.content,
-      jobDescription: jobDescription,
+      jobDescription: description,
       userSubscriptionStatus: effectiveSubscriptionStatus(user),
       promptId: modeId || promptId,
       modeId: modeId || promptId,
@@ -185,7 +206,7 @@ export async function POST(req: NextRequest) {
               .update(cvs)
               .set({
                 content: accumulatedContent,
-                title: `Optimizado - ${jobTitle} (${company})`,
+                title: `Optimizado - ${resolvedTitle} (${resolvedCompany})`,
                 templateName: allowedTemplate,
               })
               .where(eq(cvs.id, targetCvId));
@@ -195,7 +216,7 @@ export async function POST(req: NextRequest) {
               .insert(cvs)
               .values({
                 userId: userId,
-                title: `Optimizado - ${jobTitle} (${company})`,
+                title: `Optimizado - ${resolvedTitle} (${resolvedCompany})`,
                 content: accumulatedContent,
                 isBase: false,
                 templateName: allowedTemplate,
@@ -212,8 +233,8 @@ export async function POST(req: NextRequest) {
           await createAuditLog("cv_optimize_ai", userId, user.email, {
             baseCvId,
             optimizedCvId: optimizedCvId,
-            jobTitle,
-            company,
+            jobTitle: resolvedTitle,
+            company: resolvedCompany,
             platform,
             addToApplications: shouldAddToApplications,
           });
@@ -227,16 +248,16 @@ export async function POST(req: NextRequest) {
               .limit(1);
 
             if (!existingOffer) {
-              const companyRecord = await findOrCreateCompany(userId, company);
+              const companyRecord = await findOrCreateCompany(userId, resolvedCompany);
               await db.insert(jobOffers).values({
                 userId: userId,
                 cvId: optimizedCvId,
-                title: jobTitle,
-                company: companyRecord?.name ?? company,
+                title: resolvedTitle,
+                company: companyRecord?.name ?? resolvedCompany,
                 companyId: companyRecord?.id ?? null,
                 url: url || null,
                 platform: platform || 'other',
-                description: jobDescription,
+                description: description,
                 status: 'interested'
               });
             }

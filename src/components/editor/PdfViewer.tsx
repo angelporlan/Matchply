@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Eye, Download, Loader2, AlertTriangle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { A4PageSkeleton } from '@/components/skeletons';
+import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
+import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 export type PdfZoom = 'fit' | number;
 
@@ -32,6 +35,7 @@ interface PdfViewerProps {
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
+  onDownloaded?: () => void;
   /** Debounced unsaved preview. When set, the sheet is rendered from this payload instead of the database. */
   livePreview?: PdfLivePreview | null;
   zoom?: PdfZoom;
@@ -44,6 +48,7 @@ export function PdfDownloadLink({
   isGuest = false,
   guestCanDownload = false,
   onGuestDownloadConsumed,
+  onDownloaded,
   className,
   children,
 }: {
@@ -51,10 +56,12 @@ export function PdfDownloadLink({
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
+  onDownloaded?: () => void;
   className?: string;
   children?: React.ReactNode;
 }) {
   const { t } = useLanguage();
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
   const downloadUrl = `/api/pdf?cvId=${cvId}&download=true`;
   const guestRegisterHref = '/register?source=guest-pdf';
   const guestDownloadLabel = guestCanDownload
@@ -91,26 +98,54 @@ export function PdfDownloadLink({
       link.remove();
       URL.revokeObjectURL(objectUrl);
       onGuestDownloadConsumed?.();
+      trackUmamiConversion('cv_downloaded');
+      onDownloaded?.();
+      if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
     } catch {
       // Keep the free download if the file never reached the browser.
     }
   };
 
+  const handleAccountDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onDownloaded) return;
+    event.preventDefault();
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) return;
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = 'CV.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      trackUmamiConversion('cv_downloaded');
+      onDownloaded();
+    } catch {
+      // Leave the candidacy untouched if the file never arrived.
+    }
+  };
+
   return (
-    <a
-      href={downloadHref}
-      onClick={isGuest ? handleGuestDownload : undefined}
-      target={isGuest ? undefined : '_blank'}
-      rel={isGuest ? undefined : 'noopener noreferrer'}
-      className={className ?? 'btn-raised btn-raised--sm'}
-    >
-      {children ?? (
-        <>
-          <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-          <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
-        </>
-      )}
-    </a>
+    <>
+      <a
+        href={downloadHref}
+        onClick={isGuest ? handleGuestDownload : (onDownloaded ? handleAccountDownload : undefined)}
+        target={isGuest ? undefined : '_blank'}
+        rel={isGuest ? undefined : 'noopener noreferrer'}
+        className={className ?? 'btn-raised btn-raised--sm'}
+      >
+        {children ?? (
+          <>
+            <Download className="w-3.5 h-3.5 stroke-[1.75]" />
+            <span>{isGuest ? guestDownloadLabel : t('editor.pdf.downloadBtn')}</span>
+          </>
+        )}
+      </a>
+      <GuestSavePrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} />
+    </>
   );
 }
 
@@ -150,6 +185,7 @@ export default function PdfViewer({
   isGuest = false,
   guestCanDownload = false,
   onGuestDownloadConsumed,
+  onDownloaded,
   livePreview = null,
   zoom = 'fit',
   variant = 'card',
@@ -328,6 +364,7 @@ export default function PdfViewer({
               isGuest={isGuest}
               guestCanDownload={guestCanDownload}
               onGuestDownloadConsumed={onGuestDownloadConsumed}
+              onDownloaded={onDownloaded}
             />
           </div>
         </div>

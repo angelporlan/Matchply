@@ -13,6 +13,7 @@ import {
 import {
   defaultAiRuntimeConfig,
   isSupportedProvider,
+  parseAiRuntimeConfig,
   resolveModelForFunction,
 } from '@/lib/ai-runtime-config';
 
@@ -26,6 +27,8 @@ test('openai provider is supported and includes gpt-6-luna in catalogs and defau
   // Global model lists
   assert.ok(GLOBAL_FREE_MODELS.openai.some((m) => m.value === 'gpt-6-luna'));
   assert.ok(GLOBAL_PRO_MODELS.openai.some((m) => m.value === 'gpt-6-luna'));
+  assert.equal(GLOBAL_FREE_MODELS.openai.some((m) => m.value === 'gpt-5.6-luna'), false);
+  assert.equal(GLOBAL_PRO_MODELS.openai.some((m) => m.value === 'gpt-5.6-luna'), false);
 
   // Default model catalog
   const catalog = getDefaultModelCatalog();
@@ -44,6 +47,21 @@ test('runtime config defaults route to openai gpt-6-luna', () => {
   assert.equal(resolved.ref.provider, 'openai');
   assert.equal(resolved.ref.model, 'gpt-6-luna');
   assert.equal(resolved.inherited, true);
+});
+
+test('a saved gpt-5.6-luna route is read as gpt-6-luna', () => {
+  const config = parseAiRuntimeConfig({
+    version: 1,
+    general: {
+      free: { provider: 'openai', model: 'gpt-5.6-luna' },
+      pro: { provider: 'openai', model: 'gpt-6-luna' },
+    },
+    overrides: {
+      optimize_cv: { pro: { provider: 'openai', model: 'gpt-5.6-luna' } },
+    },
+  });
+  assert.equal(config.general.free.model, 'gpt-6-luna');
+  assert.equal(resolveModelForFunction(config, 'optimize_cv', 'pro').ref.model, 'gpt-6-luna');
 });
 
 test('getModelsForPlanAndProvider returns openai models including gpt-6-luna', () => {

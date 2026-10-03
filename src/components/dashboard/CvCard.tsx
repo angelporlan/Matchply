@@ -22,6 +22,8 @@ import DropdownMenu, { DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import CvThumbnail from './CvThumbnail';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 import { matchScoreBadgeClass } from '@/components/applications/matchScoreStyle';
+import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
+import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
 
 interface CvCardProps {
   cv: CvListItem;
@@ -53,6 +55,7 @@ export default function CvCard({
   const { t, language } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(cv.title);
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
 
   useEffect(() => {
     if (!isEditing) setDraft(cv.title);
@@ -115,6 +118,7 @@ export default function CvCard({
             URL.revokeObjectURL(objectUrl);
             onGuestDownloadConsumed?.();
             trackUmamiConversion('cv_downloaded');
+            if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
           })();
           return;
         }
@@ -140,6 +144,7 @@ export default function CvCard({
   ];
 
   return (
+    <>
     <article
       className={cn(
         'group relative z-0 flex flex-col min-w-0 bg-surface rounded-[12px] border shadow-card',
@@ -307,5 +312,7 @@ export default function CvCard({
         </div>
       </div>
     </article>
+    <GuestSavePrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} />
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { createAuditLog } from "@/lib/audit";
+import { cookies } from "next/headers";
 import { consumeRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 
@@ -87,6 +88,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
               name: newUser.name,
               method: "google_oauth"
             });
+            try {
+              cookies().set('matchply_signup_completed', 'google', {
+                path: '/',
+                maxAge: 10 * 60,
+                sameSite: 'lax',
+                httpOnly: false,
+              });
+            } catch {
+              // Signup already succeeded. Losing the one-shot beacon must not fail OAuth.
+            }
           } else {
             user.id = existingUser.id;
             (user as any).role = existingUser.role;

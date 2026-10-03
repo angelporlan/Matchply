@@ -9,7 +9,18 @@ import ResumeSheet from './ResumeSheet';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { updateCvStyling, createCvPlaceholder } from '@/app/dashboard/actions';
+import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
+import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
+import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
+import { markApplicationSent } from '@/app/dashboard/applications/actions';
+import {
+  claimWaitedDownload,
+  noteDownloadForSentPrompt,
+  sentDownloadCvKey,
+  sentPromptKey,
+  shouldOpenSentPrompt,
+} from '@/lib/application-sent';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
@@ -76,6 +87,11 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [scale, setScale] = useState(cv.scale || 1.0);
   const [cvTitle, setCvTitle] = useState(cv.title);
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
+  const [contentVersion, setContentVersion] = useState(0);
+  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
+  const [sessionBase, setSessionBase] = useState<string | null>(null);
+  const [sentPromptOpen, setSentPromptOpen] = useState(false);
+  const diffBase = baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -87,6 +103,12 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const styleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const styleRef = useRef({ accentColor: cv.accentColor || '#1a5f7a', fontFamily: cv.fontFamily || 'helvetica', pageMargin: cv.pageMargin || 36, scale: cv.scale || 1.0 });
   const adaptTitleRef = useRef<HTMLInputElement>(null);
+  const diffViewedRef = useRef(false);
+  const noteDiffViewed = () => {
+    if (diffViewedRef.current) return;
+    diffViewedRef.current = true;
+    trackUmamiConversion('diff_viewed');
+  };
 
   // Estado del Cajón de Optimización por IA
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -137,6 +159,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     const shouldOptimize = searchParams.get('optimize') === 'true';
     const shouldImport = searchParams.get('importing') === 'true';
 
+    if (searchParams.get('diff') === '1' && baseCvContent) {
+      noteDiffViewed();
+      setSurface('diff');
+      setMobilePane('document');
+      if (!shouldOptimize && !shouldImport) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
     if (shouldOptimize) {
       window.history.replaceState(null, '', window.location.pathname);
       const paramsStr = sessionStorage.getItem('matchply_optimize_params');
@@ -144,6 +175,9 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         sessionStorage.removeItem('matchply_optimize_params');
         try {
           const params = JSON.parse(paramsStr);
+          if (typeof params.activationBase === 'string' && params.activationBase.trim()) {
+            setSessionBase(params.activationBase);
+          }
           runOptimizeStream(params);
         } catch (e) {
           console.error("Error parsing optimize params from session:", e);
@@ -318,6 +352,55 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
   };
 
+  useEffect(() => {
+    if (!linkedOffer?.id || !linkedOffer.status) return;
+    const offerKey = sentPromptKey(linkedOffer.id);
+    const cvKey = sentDownloadCvKey(cv.id);
+    const claimed = claimWaitedDownload({
+      cvMark: sessionStorage.getItem(cvKey),
+      offerId: linkedOffer.id,
+      offerStatus: linkedOffer.status,
+      offerMark: sessionStorage.getItem(offerKey),
+    });
+    if (claimed) {
+      if (claimed.writeOffer) sessionStorage.setItem(claimed.offerKey, claimed.offerMark);
+      sessionStorage.removeItem(cvKey);
+    }
+    const mark = sessionStorage.getItem(offerKey);
+    const requested = new URLSearchParams(window.location.search).get('sent') === '1';
+    if (shouldOpenSentPrompt({ status: linkedOffer.status, mark, requested })) {
+      setSentPromptOpen(true);
+    }
+  }, [linkedOffer?.id, linkedOffer?.status, cv.id]);
+
+  const notePdfDownloaded = () => {
+    const decision = noteDownloadForSentPrompt({
+      cvId: cv.id,
+      offerId: linkedOffer?.id ?? null,
+      offerStatus: linkedOffer?.status ?? null,
+      offerMark: linkedOffer?.id ? sessionStorage.getItem(sentPromptKey(linkedOffer.id)) : null,
+    });
+    if (decision.scope === 'none') return;
+    sessionStorage.setItem(decision.key, decision.mark);
+    if (decision.open) setSentPromptOpen(true);
+  };
+
+  const closeSentPrompt = (answer: 'yes' | 'no' | 'later') => {
+    if (linkedOffer?.id) sessionStorage.setItem(sentPromptKey(linkedOffer.id), 'done');
+    setSentPromptOpen(false);
+    if (answer === 'yes') void markApplicationSent(linkedOffer!.id);
+  };
+
+  const revertToBase = async () => {
+    if (!diffBase) return;
+    setCvContent(diffBase);
+    setReviewContent(diffBase);
+    setContentVersion((version) => version + 1);
+    setSaveStatus('saving');
+    const result = await saveCvContent(cv.id, diffBase);
+    setSaveStatus(result.success ? 'saved' : 'error');
+  };
+
   const scheduleStyleSave = () => {
     if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
     styleTimerRef.current = setTimeout(async () => {
@@ -368,13 +451,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   }, [focusAdapt, mobilePane, surface]);
 
   // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e?: React.FormEvent) => {
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
     e?.preventDefault();
     setAiError(null);
-    if (!aiFormData.jobTitle || !aiFormData.company || !aiFormData.jobDescription) {
+    if (!aiFormData.jobDescription.trim()) {
       setAiError(t('editor.aiModal.requiredError'));
       return;
     }
+    const identity = resolveOfferIdentity({
+      jobTitle: aiFormData.jobTitle,
+      company: aiFormData.company,
+      jobDescription: aiFormData.jobDescription,
+    });
 
     setAiLoading(true);
     setAiStep(t('editor.aiModal.steps.keywords'));
@@ -382,20 +470,28 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     try {
       // 1. Crear el currículum placeholder para la optimización
       const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${aiFormData.jobTitle} (${aiFormData.company})`,
+        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
         isBase: false,
-        isPrincipal: false
+        isPrincipal: false,
+        confirmOverwrite: confirmed,
       });
+
+      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
+        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
+        setAiLoading(false);
+        return;
+      }
 
       if (!placeholderRes.success || !placeholderRes.cvId) {
         throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
       }
 
       // 2. Guardar los parámetros de optimización en sessionStorage
+      trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: cv.id,
-        jobTitle: aiFormData.jobTitle,
-        company: aiFormData.company,
+        jobTitle: identity.jobTitle,
+        company: identity.company,
         url: aiFormData.url,
         platform: aiFormData.platform,
         jobDescription: aiFormData.jobDescription,
@@ -501,53 +597,17 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
                 </span>
               </div>
-              <p className="text-[11px] text-text-muted mt-0.5">{t('editor.header.subtitle')}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 max-w-full">
-            {surface !== 'document' && (
-              <Button type="button" variant="secondary" onClick={() => { setSurface('document'); setMobilePane('document'); }}>
-                {t('editor.header.document')}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant={surface === 'source' ? 'secondary' : 'ghost'}
-              aria-pressed={surface === 'source'}
-              onClick={() => {
-                setSurface((current) => (current === 'source' ? 'document' : 'source'));
-                setMobilePane('document');
-              }}
-            >
-              {t('editor.header.markdown')}
-            </Button>
-            {baseCvContent ? (
-              <Button
-                type="button"
-                variant={surface === 'diff' ? 'secondary' : 'ghost'}
-                aria-pressed={surface === 'diff'}
-                onClick={() => {
-                  setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
-                  setMobilePane('document');
-                }}
-              >
-                {t('editor.header.changes')}
-              </Button>
-            ) : null}
             <PdfDownloadLink
               cvId={cv.id}
               isGuest={isGuest}
               guestCanDownload={guestCanDownload}
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+              onDownloaded={notePdfDownloaded}
               className="btn-raised"
             />
-            <Button type="button" variant="ai" onClick={() => {
-              setMobilePane('review');
-              setFocusAdapt(true);
-            }}>
-              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden />
-              {t('editor.header.adapt')}
-            </Button>
           </div>
         </div>
       </header>
@@ -563,6 +623,17 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         onAccentChange={(value) => applyStyle({ accentColor: value })}
         zoom={zoom}
         onZoomChange={setZoom}
+        surface={surface}
+        onToggleMarkdown={() => {
+          setSurface((current) => (current === 'source' ? 'document' : 'source'));
+          setMobilePane('document');
+        }}
+        hasDiff={Boolean(diffBase)}
+        onToggleDiff={() => {
+          if (surface !== 'diff') noteDiffViewed();
+          setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
+          setMobilePane('document');
+        }}
         saveLabel={
           saveStatus === 'saving'
             ? t('editor.footer.saving')
@@ -639,10 +710,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             )}
             {showSource && (
               <MarkdownEditor
-                key={surface}
+                key={`${surface}-${contentVersion}`}
                 cvId={cv.id}
                 initialContent={reviewContent}
-                originalContent={baseCvContent || undefined}
+                originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
                 onContentChange={setReviewContent}
                 saveStatus={saveStatus}
@@ -651,6 +722,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 onToggleFullScreen={() => setFullscreenPanel((prev) => (prev === 'editor' ? 'none' : 'editor'))}
                 isAiStreaming={isStreaming}
                 streamingStep={streamingStep}
+                onRevert={diffBase ? () => { void revertToBase(); } : undefined}
               />
             )}
           </div>
@@ -682,6 +754,22 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       </div>
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
+      <ApplicationSentPrompt
+        open={sentPromptOpen}
+        onYes={() => closeSentPrompt('yes')}
+        onNo={() => closeSentPrompt('no')}
+        onDismiss={() => closeSentPrompt('later')}
+      />
+      <OverwriteGuardDialog
+        open={Boolean(overwriteGuard)}
+        replacesBase={Boolean(overwriteGuard?.replacesBase)}
+        intent="adapt"
+        onReplace={() => {
+          setOverwriteGuard(null);
+          void handleAiOptimize(undefined, true);
+        }}
+        onClose={() => setOverwriteGuard(null)}
+      />
       {isAiOpen && (
         <ModalScrim>
           <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
@@ -750,7 +838,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.jobTitle}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
                         placeholder={t('editor.aiModal.jobTitlePlaceholder')}
@@ -765,7 +852,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                       </label>
                       <input
                         type="text"
-                        required
                         value={aiFormData.company}
                         onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
                         placeholder={t('editor.aiModal.companyPlaceholder')}

@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai-runtime-config';
 import { getAiSetting, clearAiSettingsCache } from '@/lib/ai-settings';
 import {
+  canonicalAiModel,
   DEFAULT_FREE_MODEL,
   DEFAULT_FREE_PROVIDER,
   DEFAULT_PRO_MODEL,
@@ -38,8 +39,8 @@ async function loadLegacyConfig(): Promise<AiRuntimeConfig> {
   return {
     ...fallback,
     general: {
-      free: { provider: freeProvider as AiProvider, model: freeModel },
-      pro: { provider: proProvider as AiProvider, model: proModel },
+      free: { provider: freeProvider as AiProvider, model: canonicalAiModel(freeModel) },
+      pro: { provider: proProvider as AiProvider, model: canonicalAiModel(proModel) },
     },
   };
 }

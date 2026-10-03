@@ -1,5 +1,6 @@
 import type { AiProvider } from '@/lib/models';
 import {
+  canonicalAiModel,
   DEFAULT_FREE_MODEL,
   DEFAULT_FREE_PROVIDER,
   DEFAULT_PRO_MODEL,
@@ -61,7 +62,9 @@ function parseModelRef(value: unknown, fallback: AiModelRef): AiModelRef {
   if (!value || typeof value !== 'object') return fallback;
   const raw = value as Record<string, unknown>;
   const provider = isProvider(raw.provider) ? raw.provider : fallback.provider;
-  const model = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : fallback.model;
+  const model = typeof raw.model === 'string' && raw.model.trim()
+    ? canonicalAiModel(raw.model)
+    : fallback.model;
   return { provider, model };
 }
 

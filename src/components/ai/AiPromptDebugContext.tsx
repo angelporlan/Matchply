@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { isAiPromptsDebugEnabled, type AiPromptDebugRequest, type AiPromptDebugResponse } from '@/lib/ai-prompts-debug';
+import { isAiPromptsDebugEnabled, parseDebugPromptBody, type AiPromptDebugRequest, type AiPromptDebugResponse } from '@/lib/ai-prompts-debug';
 import AiPromptDebugModal from './AiPromptDebugModal';
 
 interface AiPromptDebugContextType {
@@ -86,11 +86,11 @@ export function AiPromptDebugProvider({
           body: JSON.stringify(request),
         });
 
-        const data = await response.json();
-        if (response.ok && data.success) {
-          setDebugData(data);
+        const parsed = parseDebugPromptBody(await response.text());
+        if (response.ok && parsed.ok) {
+          setDebugData(parsed.data);
         } else {
-          setError(data.error || 'Error al obtener el prompt de depuración.');
+          setError(parsed.ok ? 'Error al obtener el prompt de depuración.' : parsed.error);
         }
       } catch (err: any) {
         setError(err?.message || 'Error de conexión con el servidor.');

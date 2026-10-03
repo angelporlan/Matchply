@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  UMAMI_CONVERSION_EVENTS,
   normalizeUmamiPath,
   normalizeUmamiTitle,
   sanitizeUmamiReferrer,
@@ -29,4 +30,8 @@ test('Umami payloads drop ids, emails and admin paths', () => {
   assert.equal(payload.url, '/editor/:cvId');
   assert.equal(payload.referrer, 'https://google.com');
   assert.doesNotMatch(JSON.stringify(payload), /token|secret|@/);
+  assert.ok(UMAMI_CONVERSION_EVENTS.includes('offer_pasted'));
+  assert.ok(UMAMI_CONVERSION_EVENTS.includes('diff_viewed'));
+  assert.ok(UMAMI_CONVERSION_EVENTS.includes('signup_completed'));
+  assert.ok(UMAMI_CONVERSION_EVENTS.includes('cv_downloaded'));
 });

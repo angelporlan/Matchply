@@ -64,6 +64,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
         id: jobOffers.id,
         title: jobOffers.title,
         company: jobOffers.company,
+        status: jobOffers.status,
       })
       .from(jobOffers)
       .where(and(eq(jobOffers.userId, userId), eq(jobOffers.cvId, cvId)))
