@@ -180,6 +180,7 @@ export const people = pgTable('person', {
 // Private thumbnail bytes stay outside CRM list projections.
 export const personAvatars = pgTable('person_avatar', {
   personId: uuid('personId').primaryKey(), userId: uuid('userId').notNull(),
+  source: text('source').notNull().default('linkedin'),
   mime: text('mime').notNull(), bytes: text('bytes').notNull(), byteSize: integer('byteSize').notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
 }, t => ({

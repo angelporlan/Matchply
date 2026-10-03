@@ -111,6 +111,25 @@ test('People persistence, isolation, queue, literal imports and additive capture
       assert.equal((await context.loadNetworkingContext(u1, p1.id, {})).hash, before.hash); assert.equal(calls, previousCalls);
       const [offer] = await db.select().from(jobOffers).where(eq(jobOffers.id, offerIds[0])); assert.equal(offer.rawReport, 'REPORT_SENTINEL'); assert.equal(offer.coverLetter, 'LETTER_SENTINEL');
     });
+    await t.test('manual photos need no LinkedIn or offer; they remain private and survive later or concurrent capture', async () => {
+      const jpeg = readFileSync('scripts/fixtures/person-avatar.jpg'), input = { mime: 'image/jpeg', data: jpeg.toString('base64') };
+      const different = { ...input, data: Buffer.concat([jpeg.subarray(0, 2), Buffer.from([0xff, 0xfe, 0, 7]), Buffer.from('newer'), jpeg.subarray(2)]).toString('base64') };
+      assert.notEqual(avatarService.avatarInput(input).hash, avatarService.avatarInput(different).hash);
+      const manual = await crm.savePerson(u1, { name: 'Manual photo without LinkedIn' });
+      const saved = await avatarService.saveManualAvatar(u1, manual.id, input);
+      assert.equal((await avatarService.getPersonAvatar(u1, manual.id))?.bytes, input.data);
+      await assert.rejects(avatarService.saveManualAvatar(u2, manual.id, different), /PEOPLE_NOT_FOUND/);
+      await assert.rejects(avatarService.saveManualAvatar(u1, manual.id, { ...input, data: 'broken' }), /PEOPLE_INVALID_AVATAR/);
+      assert.equal((await avatarService.getPersonAvatar(u1, manual.id))?.avatarHash, saved.avatarHash);
+      const before = await context.loadNetworkingContext(u1, p1.id, {});
+      const result = await avatarService.saveManualAvatar(u1, p1.id, input);
+      await Promise.all([avatarService.saveManualAvatar(u1, p1.id, input), avatarService.saveCapturedAvatar(u1, 'people-test-job', p1.linkedinUrl, different)]);
+      assert.equal((await avatarService.getPersonAvatar(u1, p1.id))?.avatarHash, result.avatarHash);
+      assert.equal((await avatarService.getPersonAvatar(u1, p1.id))?.bytes, input.data);
+      assert.equal((await context.loadNetworkingContext(u1, p1.id, {})).hash, before.hash);
+      await crm.deletePerson(u1, manual.id);
+      assert.equal(await avatarService.getPersonAvatar(u1, manual.id), null);
+    });
     await t.test('invalid output and a missing key leave originals and history intact; failures are retryable only when transient', async () => {
       responseValue = {};
       const job = await ai.enqueueNetworking(u1, { personId: p1.id, action: 'next_step', requestId: randomUUID() }, u1), owner = await queue.claimAiJobById(job.id); assert.ok(owner);

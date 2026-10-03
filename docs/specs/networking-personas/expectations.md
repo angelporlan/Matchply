@@ -17,5 +17,7 @@
 | P13 | Se guarda la foto visible de la misma persona; se descartan logos/avatares genéricos y fuentes ajenas. | extractor DOM y tests del worker de extensión |
 | P14 | Foto privada, miniatura acotada, separada del listado/IA; fallo no borra datos. | validación JPEG, integración propiedad/vínculo/cascada y captura fallida |
 | P15 | Miniatura en listado/ficha/vínculos, iniciales sin foto o al fallar. | componente compartido y revisión de navegador |
+| P16 | Subida manual privada sin LinkedIn/oferta; recorte/compresión iguales, fallo conserva imagen y captura posterior respeta la selección manual. | integración, comprobación HTTP del endpoint, revisión de receta de optimización |
+| P17 | Editar pulsando el avatar de cabecera, lápiz al hover/foco y marca táctil; sin bloque duplicado. | navegador con teclado, selector y captura visual |
 
 Invariantes: ninguna referencia ajena aceptada; nunca secretos o texto de chats en logs; original intacto ante errores; cola no copia texto; resultado solo publicado con persona y lease vigentes. No envío automático de mensajes. Captura opcional desactivada inicialmente.

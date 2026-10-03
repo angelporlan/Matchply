@@ -41,4 +41,12 @@ Persistencia privada: `person.avatarHash` en la proyección y `person_avatar` se
 
 Listado, ficha y contactos de empresa/oferta muestran la miniatura. Sin foto o ante error de carga muestran iniciales. Un error de foto conserva contacto, historial, análisis de oferta y foto anterior; permite reintentar sin repetir en cada mutación del DOM. Las extensiones anteriores y contactos sin foto mantienen compatibilidad.
 
+### Subida manual y edición desde la cabecera
+
+La foto de la cabecera es un botón: al pasar el cursor o enfocarlo con teclado se oscurece y muestra un lápiz. Pulsarlo abre el selector de archivos. En dispositivos sin hover, una pequeña marca de lápiz permanece visible. No se duplica la foto en una sección adicional. Funciona también cuando solo hay iniciales.
+
+La subida acepta JPG, PNG y WebP de hasta 10 MB y 16 megapíxeles. El navegador recorta al centro, compone transparencias sobre blanco y genera el mismo JPEG de hasta 192 × 192 px y 48 KiB que la extensión, con los mismos pasos de calidad. El original no se envía al servidor. `POST /api/people/[id]/avatar` comprueba sesión registrada, origen, propiedad, formato, dimensiones y tamaño, con límite de solicitudes y cuerpo acotado. Un fallo conserva la foto anterior y se muestra de forma accesible.
+
+No hace falta LinkedIn ni una oferta vinculada para subir manualmente. La procedencia `person_avatar.source` distingue `manual` de `linkedin`; las fotos manuales tienen prioridad ante posteriores capturas, incluso concurrentes. La imagen queda fuera del contexto de IA y su cambio no altera el orden de contactos.
+
 Referencias técnicas: [peticiones cross-origin de extensiones](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests), [createImageBitmap en workers](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope/createImageBitmap), [OffscreenCanvas.convertToBlob](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/convertToBlob).

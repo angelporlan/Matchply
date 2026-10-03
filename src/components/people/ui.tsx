@@ -12,6 +12,11 @@ export function kindLabel(value: string, en = false) { const pairs: Record<strin
 export function relationLabel(value: string, en = false) { const pairs: Record<string, [string, string]> = { works_at: ['Trabaja en', 'Works at'], recruits_for: ['Recluta para', 'Recruits for'], unconfirmed: ['Relación sin confirmar', 'Unconfirmed relationship'] }; return pairs[value]?.[en ? 1 : 0] || value; }
 export function errorLabel(code: string, en = false) {
   const pairs: Record<string, [string, string]> = {
+    PEOPLE_PHOTO_FORMAT: ['Selecciona una foto JPG, PNG o WebP.', 'Choose a JPG, PNG or WebP photo.'],
+    PEOPLE_PHOTO_SIZE: ['La foto debe ocupar como máximo 10 MB.', 'The photo must be at most 10 MB.'],
+    PEOPLE_PHOTO_DIMENSIONS: ['La foto debe tener como máximo 16 megapíxeles.', 'The photo must be at most 16 megapixels.'],
+    PEOPLE_INVALID_AVATAR: ['No se pudo leer u optimizar la foto. Prueba con otra imagen.', 'Could not read or optimize the photo. Try another image.'],
+    PEOPLE_PHOTO_RATE_LIMIT: ['Espera un minuto antes de subir otra foto.', 'Wait a minute before uploading another photo.'],
     PEOPLE_PROFILE_EXISTS: ['Este perfil de LinkedIn ya está en Personas.', 'This LinkedIn profile is already in People.'],
     PEOPLE_REQUIRED: ['Completa los campos obligatorios.', 'Complete the required fields.'],
     PEOPLE_INVALID_LINKEDIN: ['Introduce una URL de perfil de LinkedIn válida (https://…/in/…).', 'Enter a valid LinkedIn profile URL (https://…/in/…).'],

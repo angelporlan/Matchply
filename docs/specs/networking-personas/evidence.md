@@ -67,3 +67,16 @@ La revisión visual fue con una sesión registrada PRO; el acceso Gratis y la ex
 [Tarjeta móvil con foto](evidence/foto-movil.jpg).
 
 La extensión instalada no se recargó ni se distribuyó durante esta ampliación. Para probar el código local hay que recargar la extensión 2.2.0 y la pestaña de LinkedIn con «Capturar personas» activo. Se mantiene pendiente el despliegue de producción descrito anteriormente; servidor/migración deben publicarse antes de distribuir la extensión nueva.
+
+## Ampliación: subida manual desde el avatar
+
+- Migración 0031 revisada: añade únicamente procedencia `source`, con valor inicial `linkedin`, para conservar las fotos existentes. Aplicada en desarrollo y en la base aislada.
+- Suite completa: **311 pruebas aprobadas**, sin fallos ni omisiones. Typecheck, lint y build aprobados; las advertencias de lint siguen siendo las anteriores. El build final incluye la edición desde la cabecera.
+- Integración: subida sin oferta ni LinkedIn, propiedad por usuario, entrada inválida conserva imagen anterior, prioridad manual incluso ante captura concurrente, cascada y contexto IA sin cambios.
+- HTTP real con usuarios gratuitos sintéticos: subida `200`, sin sesión `401`, persona ajena `404`, JPEG inválido `400`, origen ajeno `403`, cuerpo excesivo `413`, invitado `403`. La foto previa permaneció intacta tras todos los errores. Los usuarios de prueba se retiraron al terminar.
+- Navegador: botón en el avatar de cabecera y ausencia del bloque duplicado; enfocarlo con Tab muestra oscurecimiento y lápiz (`opacity:1`, `:focus-visible`). El botón abrió el selector de archivos. La automatización de la selección del archivo local quedó limitada por el permiso de acceso a archivos de la extensión de navegador de Codex; no se concedieron permisos adicionales. La validación HTTP y de persistencia se completó por separado, sin afirmar una subida de archivo de extremo a extremo desde ese navegador.
+- Se usó exclusivamente un contacto ficticio para la revisión y se retiró al terminar. Los contactos reales no se modificaron.
+
+![Edición de foto desde el avatar, con foco de teclado](evidence/foto-editar-cabecera.jpg)
+
+La subida manual y el cambio visual están preparados en desarrollo; todavía no desplegados en producción.

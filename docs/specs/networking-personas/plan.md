@@ -26,3 +26,10 @@ Worker habilitado (`AI_WORKER_ENABLED=true`), credencial `OPENAI_API_KEY` en ser
 3. Enviar foto tras contacto, endpoint con propiedad y vínculo; conservar datos ante fallo y permitir reintento con cooldown.
 4. Renderizar miniatura con respaldo de iniciales en Personas y vínculos.
 5. Verificar extractor, transporte y fallos, formato/tamaño, aislamiento, cascada, compatibilidad y UI; migrar en desarrollo y repetir checks apropiados. La ampliación no autoriza todavía integrar el trabajo previo ni desplegar producción.
+
+## Ampliación autorizada: subida manual
+
+1. Reutilizar validación y almacenamiento privado; añadir procedencia con migración 0031 aditiva para preservar la elección manual ante capturas.
+2. Optimización en navegador con el mismo recorte, dimensiones y calidad JPEG de la extensión; endpoint privado de subida sin exigir oferta o LinkedIn.
+3. Integrar el selector en el avatar de cabecera: hover/foco, lápiz y marca táctil, estados de guardado/error accesibles. Retirar el bloque de foto duplicado, según la corrección del usuario.
+4. Verificar privacidad, prioridad concurrente y fallos; aplicar migración en desarrollo y base aislada; revisar UI y checks. Producción continúa pendiente de la autorización de integración indicada arriba.
