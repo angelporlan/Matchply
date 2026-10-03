@@ -8,7 +8,7 @@ import { PeopleError, type LinkedInPersonCapture, type MessageInput, type Person
 
 export const personListColumns = {
   id: people.id, name: people.name, role: people.role, headline: people.headline, kind: people.kind, status: people.status,
-  nextFollowupAt: people.nextFollowupAt, updatedAt: people.updatedAt,
+  nextFollowupAt: people.nextFollowupAt, updatedAt: people.updatedAt, avatarHash: people.avatarHash,
 };
 const owned = (userId: string, personId: string) => and(eq(people.userId, userId), eq(people.id, id(personId)));
 export async function getPerson(userId: string, personId: string) {

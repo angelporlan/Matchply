@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const testUrl = process.env.PEOPLE_TEST_DATABASE_URL;
 test('People persistence, isolation, queue, literal imports and additive capture', { skip: !testUrl }, async t => {
@@ -9,12 +10,13 @@ test('People persistence, isolation, queue, literal imports and additive capture
   process.env.DATABASE_URL = testUrl;
   const { db, pool } = await import('@/db');
   const schema = await import('@/db/schema');
-  const { users, people, companies, userCompanies, jobOffers, personCompanies, personOffers, personThreads, personImports, personMessages, personAiResults, aiJobs } = schema;
+  const { users, people, companies, userCompanies, jobOffers, personCompanies, personOffers, personThreads, personImports, personMessages, personAiResults, personAvatars, aiJobs } = schema;
   const { eq, and, inArray } = await import('drizzle-orm');
   const crm = await import('@/lib/people/service');
   const ai = await import('@/lib/people/ai');
   const queue = await import('@/lib/ai-jobs/queue');
   const context = await import('@/lib/people/context');
+  const avatarService = await import('@/lib/people/avatar');
   const [u1, u2] = [randomUUID(), randomUUID()];
   const companyIds = [randomUUID(), randomUUID()];
   const offerIds = [randomUUID(), randomUUID()];
@@ -93,6 +95,22 @@ test('People persistence, isolation, queue, literal imports and additive capture
       await assert.rejects(crm.capturePeople(u2, 'people-test-job', [capture]), /PEOPLE_OFFER_NOT_FOUND/);
       assert.equal((await crm.personLinks(u1, p1.id)).companies.filter(c => c.relation === 'recruits_for').length, 1);
     });
+    await t.test('captured photos are private, require a linked owned offer, preserve data on failure and stay outside lists and AI', async () => {
+      const input = { mime: 'image/jpeg', data: readFileSync('scripts/fixtures/person-avatar.jpg').toString('base64') };
+      const before = await context.loadNetworkingContext(u1, p1.id, {}), previousCalls = calls;
+      const saved = await avatarService.saveCapturedAvatar(u1, 'people-test-job', p1.linkedinUrl, input);
+      assert.equal(saved.personId, p1.id); assert.ok(saved.avatarHash);
+      assert.equal((await avatarService.getPersonAvatar(u1, p1.id))?.bytes, input.data);
+      assert.equal(await avatarService.getPersonAvatar(u2, p1.id), null);
+      await assert.rejects(avatarService.saveCapturedAvatar(u2, 'people-test-job', p1.linkedinUrl, input), /PEOPLE_OFFER_NOT_FOUND/);
+      await assert.rejects(avatarService.saveCapturedAvatar(u1, 'unlinked-offer', p1.linkedinUrl, input), /PEOPLE_OFFER_NOT_FOUND/);
+      await assert.rejects(avatarService.saveCapturedAvatar(u1, 'people-test-job', p1.linkedinUrl, { ...input, data: 'broken' }), /PEOPLE_INVALID_AVATAR/);
+      await assert.rejects(db.insert(personAvatars).values({ personId: p1.id, userId: u2, mime: 'image/jpeg', bytes: input.data, byteSize: 1 }).onConflictDoUpdate({ target: personAvatars.personId, set: { userId: u2 } }));
+      assert.equal((await avatarService.getPersonAvatar(u1, p1.id))?.bytes, input.data);
+      const list = await crm.listPeople(u1); assert.ok(!JSON.stringify(list).includes(input.data)); assert.ok(list.items.some(p => p.id === p1.id && p.avatarHash === saved.avatarHash));
+      assert.equal((await context.loadNetworkingContext(u1, p1.id, {})).hash, before.hash); assert.equal(calls, previousCalls);
+      const [offer] = await db.select().from(jobOffers).where(eq(jobOffers.id, offerIds[0])); assert.equal(offer.rawReport, 'REPORT_SENTINEL'); assert.equal(offer.coverLetter, 'LETTER_SENTINEL');
+    });
     await t.test('invalid output and a missing key leave originals and history intact; failures are retryable only when transient', async () => {
       responseValue = {};
       const job = await ai.enqueueNetworking(u1, { personId: p1.id, action: 'next_step', requestId: randomUUID() }, u1), owner = await queue.claimAiJobById(job.id); assert.ok(owner);
@@ -133,7 +151,7 @@ test('People persistence, isolation, queue, literal imports and additive capture
       const job = await ai.enqueueNetworking(u1, { personId: p1.id, action: 'next_step', requestId: randomUUID() }, u1), owner = await queue.claimAiJobById(job.id); assert.ok(owner);
       beforeResponse = () => crm.deletePerson(u1, p1.id);
       await assert.rejects(ai.processNetworking(owner, new AbortController().signal), /NETWORKING_LEASE_LOST|PEOPLE_NOT_FOUND/); beforeResponse = null;
-      for (const table of [personThreads, personMessages, personImports, personCompanies, personOffers, personAiResults]) assert.equal((await db.select().from(table).where(eq(table.personId, p1.id))).length, 0);
+      for (const table of [personThreads, personMessages, personImports, personCompanies, personOffers, personAiResults, personAvatars]) assert.equal((await db.select().from(table).where(eq(table.personId, p1.id))).length, 0);
       assert.equal(await queue.getAiJob(job.id), null);
     });
   } finally {

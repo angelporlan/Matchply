@@ -49,6 +49,7 @@
   let widgetKind = "";
   let capturedPeople = new Set();
   let peopleRetryAt = 0;
+  let photoWarning = false;
 
   function clampDelay(value) {
     const n = Number(value);
@@ -138,6 +139,13 @@
     return config.capturePeople ? MatchplyPeople.extract(document).filter(p => !capturedPeople.has(MatchplyPeople.signature(p))).slice(0, 20) : [];
   }
   function captureKey(jobId) { return `matchply_capture_${config.installationId}_${jobId}`; }
+  function rememberPeople(people, result) {
+    if (result?.peopleError) return;
+    const signatures = result?.capturedSignatures || people.map(p => MatchplyPeople.signature(p));
+    signatures.forEach(value => capturedPeople.add(value));
+    photoWarning = !!result?.avatarFailures;
+    if (result?.avatarRetryAt) peopleRetryAt = result.avatarRetryAt;
+  }
   function detailMatches(jobId) {
     const anchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a[href*="/jobs/view/"], .jobs-unified-top-card__job-title a[href*="/jobs/view/"]');
     const detailId = anchor?.getAttribute('href')?.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1];
@@ -366,7 +374,7 @@
     const skipSvg = `<svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
     const blocks = {
-      saved: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status ok">${checkSvg} Guardada</span></div>${newPeople().length ? `<div class="actions"><button class="save" data-action="save" type="button">Capturar personas (${newPeople().length})</button></div>` : ""}`,
+      saved: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status ok">${checkSvg} Guardada</span></div>${photoWarning ? '<div class="status err" style="margin-bottom:6px">Contactos guardados; alguna foto no está disponible. Puedes reintentar.</div>' : ''}${newPeople().length ? `<div class="actions"><button class="save" data-action="save" type="button">${photoWarning ? 'Reintentar fotos' : 'Capturar personas'} (${newPeople().length})</button></div>` : ""}`,
       saving: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status">⏳ Guardando…</span></div>`,
       waiting: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status">Leyendo oferta…</span></div>`,
       error: `<div class="top"><div class="brand-box">${brandSvg} Matchply</div><span class="status err">⚠️ Error</span></div><div class="status err" style="margin-bottom:6px">${escapeHtml(state.error || "No se pudo guardar")}</div><div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Reintentar</button></div>`,
@@ -446,7 +454,7 @@
     try {
       const response = await chrome.runtime.sendMessage({ type: "capture-linkedin-people", payload: { sourceJobId: jobId, people } });
       if (response?.ok) {
-        people.forEach(p => capturedPeople.add(MatchplyPeople.signature(p)));
+        rememberPeople(people, response.result);
         renderWidget({ saved: true });
       } else renderWidget({ error: response?.error || "No se pudieron guardar las personas." });
       return response || { ok: false };
@@ -489,7 +497,7 @@
       const result = await chrome.runtime.sendMessage({ type: "capture-linkedin-job", payload });
       if (result?.ok) {
         lastCompletedJobId = jobId;
-        if (!result.result?.peopleError) (payload.people || []).forEach(p => capturedPeople.add(MatchplyPeople.signature(p)));
+        rememberPeople(payload.people || [], result.result);
         renderWidget(result.result?.peopleError ? { error: "Oferta guardada; reintenta la captura de personas." } : { saved: true });
         return { ok: true, result };
       }
@@ -526,11 +534,13 @@
     countdownInterval = null;
     clearTimeout(captureRetryTimer);
 
-    capturedPeople.clear(); peopleRetryAt = 0;
+    capturedPeople.clear(); peopleRetryAt = 0; photoWarning = false;
     const key = captureKey(jobId);
     const stored = await chrome.storage.local.get(key);
     if (currentJobId() !== jobId) return;
     capturedPeople = new Set(stored[key]?.people || []);
+    peopleRetryAt = Number(stored[key]?.avatarRetryAt) || 0;
+    photoWarning = peopleRetryAt > Date.now();
     if (stored[key]?.offer) {
       lastCompletedJobId = jobId;
       if (config.mode === "auto") await attemptPeople(jobId, false);

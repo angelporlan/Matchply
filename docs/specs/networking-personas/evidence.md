@@ -50,3 +50,20 @@ Código, migración, especificación y evidencias listos en desarrollo. No se ha
 El despliegue usa el workflow de `main`. La rama de trabajo ya contenía un commit de importación de ofertas por URL aún no integrado en `main`; publicar esta rama incluiría ambas funcionalidades. La integración y el despliegue se resolverán con el usuario antes de publicar ese trabajo previo.
 
 La revisión visual fue con una sesión registrada PRO; el acceso Gratis y la exclusión de invitados se verificaron mediante permisos y pruebas de integración. La extracción LinkedIn se probó con fixtures representativos del DOM observado; no se ha distribuido ni validado una instalación nueva de la extensión contra todas las variantes de LinkedIn. Cambios futuros de su DOM pueden requerir actualizar selectores.
+
+## Ampliación verificada: foto del contacto (extensión 2.2.0)
+
+- Migración 0030 generada y revisada: tabla privada `person_avatar`, FK compuesta con cascada, índice por usuario y `person.avatarHash`. Aplicada en desarrollo y en la base aislada; segunda generación sin diferencias y preflight `applied:31`, `pending:[]`.
+- Suite completa: **310 pruebas aprobadas**, sin fallos ni omisiones. Pruebas específicas tras la última adaptación del extractor: **23 aprobadas**. Typecheck, lint y build aprobados; se conservan las diez advertencias previas de lint y no aparecen nuevas.
+- El DOM visible de la oferta abierta confirmó que la foto del anunciante es una imagen hermana de `hirer-information`, enlazada al mismo perfil, y utiliza la variante `profile-framedphoto-shrink`. Se admiten fotos con marco y sin marco. No se copió ni modificó una foto real durante QA.
+- Tests del worker de extensión: metadata antes de foto, miniatura JPEG acotada, descarga sin cookies/token, fuentes ajenas rechazadas, opt-out respetado, fallo de descarga/subida conserva contacto/oferta y deja reintento con cooldown. El tiempo total de la fase de fotos está acotado y se limita su concurrencia.
+- Tests de servidor: formato/base64/dimensiones/tamaño, propiedad y oferta vinculada, rechazo de FKs ajenas, conservación de foto anterior ante entrada inválida, cascada al borrar persona, sin bytes en listado y sin foto ni `avatarHash` en contexto IA. Guardar una foto no cambia el hash de contexto ni llama a IA.
+- Prueba HTTP real en desarrollo con dos usuarios gratuitos y token de extensión sintéticos: guardar la foto devolvió `200`; sin token `401`, oferta ajena `404`, JPEG inválido `400`, invitado `403` y token revocado `401`. Se retiraron los usuarios y todos sus registros de prueba al terminar.
+- Navegador: contacto/oferta sintéticos y JPEG de prueba de 1.896 bytes. La ficha cargó desde el endpoint privado (96 px originales, 56 px en pantalla); la tarjeta móvil mostró 40 px y no desbordó un viewport de 390 × 844. Retirar únicamente la foto ficticia produjo iniciales `QF` al recargar. Una petición HTTP sin sesión recibió `403`, con `Cache-Control:no-store`.
+- Se restauró el viewport y se retiraron exclusivamente el contacto, imagen y oferta sintéticos. Los contactos reales permanecieron intactos. El fixture JPEG está en `scripts/fixtures/person-avatar.jpg` para pruebas reproducibles.
+
+![Foto privada en una ficha ficticia](evidence/foto-ficha.jpg)
+
+[Tarjeta móvil con foto](evidence/foto-movil.jpg).
+
+La extensión instalada no se recargó ni se distribuyó durante esta ampliación. Para probar el código local hay que recargar la extensión 2.2.0 y la pestaña de LinkedIn con «Capturar personas» activo. Se mantiene pendiente el despliegue de producción descrito anteriormente; servidor/migración deben publicarse antes de distribuir la extensión nueva.

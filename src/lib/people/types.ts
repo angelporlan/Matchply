@@ -32,6 +32,7 @@ export type LinkedInPersonCapture = {
   name: string; profileUrl: string; headline?: string | null; connectionDegree?: string | null;
   source: 'hiring_team' | 'network';
 };
+export type PersonAvatarInput = { mime: 'image/jpeg'; data: string };
 export const CONVERSATION_MAX = 120_000;
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export class PeopleError extends Error {

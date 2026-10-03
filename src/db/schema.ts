@@ -166,7 +166,7 @@ export const people = pgTable('person', {
   origin: text('origin'), objective: text('objective'), topics: text('topics'), notes: text('notes'),
   nextAction: text('nextAction'), nextFollowupAt: timestamp('nextFollowupAt', { mode: 'date' }),
   language: text('language').notNull().default('es'), tone: text('tone').notNull().default('professional'),
-  connectionDegree: text('connectionDegree'),
+  connectionDegree: text('connectionDegree'), avatarHash: text('avatarHash'),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
 }, t => ({
@@ -175,6 +175,16 @@ export const people = pgTable('person', {
   updated: index('person_user_updated_idx').on(t.userId, t.updatedAt),
   status: index('person_user_status_idx').on(t.userId, t.status),
   followup: index('person_user_followup_idx').on(t.userId, t.nextFollowupAt),
+}));
+
+// Private thumbnail bytes stay outside CRM list projections.
+export const personAvatars = pgTable('person_avatar', {
+  personId: uuid('personId').primaryKey(), userId: uuid('userId').notNull(),
+  mime: text('mime').notNull(), bytes: text('bytes').notNull(), byteSize: integer('byteSize').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).notNull().defaultNow(),
+}, t => ({
+  owner: foreignKey({ columns: [t.personId, t.userId], foreignColumns: [people.id, people.userId] }).onDelete('cascade'),
+  user: index('person_avatar_user_idx').on(t.userId),
 }));
 
 export const personCompanies = pgTable('person_company', {

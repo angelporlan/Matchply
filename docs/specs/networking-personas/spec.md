@@ -1,6 +1,6 @@
 # Personas: CRM de networking
 
-Estado: implementación autorizada el 03/10/2026. Contrato: plan de Personas aprobado en el chat. Primera versión: contactos privados, texto pegado, seguimientos internos y avatares con iniciales.
+Estado: implementación autorizada el 03/10/2026. Contrato: plan de Personas aprobado en el chat y ampliación posterior de captura de foto. Primera versión: contactos privados, texto pegado, seguimientos internos y foto visible del contacto capturada opcionalmente, con iniciales de respaldo.
 
 ## Comportamiento
 
@@ -29,4 +29,16 @@ El ajuste advierte de que LinkedIn prohíbe extensiones que copien perfiles y pu
 
 ## Diseño y ampliaciones
 
-Fuente visual: `design.md`, navegación neutra, alta verde, IA violeta, claro/oscuro y es/en. Tabs con navegación de teclado y etiquetas accesibles; tarjetas en móvil. Archivos adjuntos, simulación, sincronización automática de chats, fotos y notificaciones externas quedan fuera de esta versión.
+Fuente visual: `design.md`, navegación neutra, alta verde, IA violeta, claro/oscuro y es/en. Tabs con navegación de teclado y etiquetas accesibles; tarjetas en móvil. Archivos adjuntos, simulación, sincronización automática de chats y notificaciones externas quedan fuera de esta versión.
+
+## Ampliación: foto del contacto
+
+Solicitud posterior del usuario: guardar también la imagen de la persona desde la extensión. «Capturar personas» incluye la foto de la tarjeta visible, cuando existe. No se visita el perfil para buscar fotos ni se guardan avatares genéricos o logos.
+
+La extensión lee la URL de la imagen de la misma persona en el DOM. El worker de extensión descarga únicamente fotos de perfil HTTPS del CDN de LinkedIn (`licdn.com`), sin cookies, redirecciones ni credenciales, y las convierte en una miniatura JPEG de hasta 192 × 192 px y 48 KiB. La copia se envía después de guardar el contacto a `POST /api/extension/linkedin/people/avatar`, separada de la ingesta para mantener payloads pequeños. La URL temporal no se guarda en Matchply.
+
+Persistencia privada: `person.avatarHash` en la proyección y `person_avatar` separado para los bytes. El endpoint exige token vigente, permiso, perfil propio y vínculo con la oferta propia. `GET /api/people/[id]/avatar` exige sesión registrada y propiedad; respuestas privadas sin caché compartida. Borrar la persona elimina su foto. No hay descarga remota en servidor; fotos y URLs de LinkedIn quedan fuera de prompts y auditoría. Los listados/RSC excluyen bytes y solo contienen la referencia al endpoint privado. La foto no modifica el contexto del asistente ni invalida sus borradores.
+
+Listado, ficha y contactos de empresa/oferta muestran la miniatura. Sin foto o ante error de carga muestran iniciales. Un error de foto conserva contacto, historial, análisis de oferta y foto anterior; permite reintentar sin repetir en cada mutación del DOM. Las extensiones anteriores y contactos sin foto mantienen compatibilidad.
+
+Referencias técnicas: [peticiones cross-origin de extensiones](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests), [createImageBitmap en workers](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope/createImageBitmap), [OffscreenCanvas.convertToBlob](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/convertToBlob).

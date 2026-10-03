@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { linkedinUrl, personInput, date, captureInput } from '@/lib/people/validation';
 import { conversationChunks, conversationText, contentHash, parseMessageRanges, markOverlaps } from '@/lib/people/conversations';
 import { validateAdvice } from '@/lib/people/ai';
+import { avatarInput, PERSON_AVATAR_MAX_BYTES } from '@/lib/people/avatar';
 import { canAccessFeature } from '@/lib/subscription';
 import { parseAiRuntimeConfig, resolveModelForFunction } from '@/lib/ai-runtime-config';
 
@@ -63,7 +64,7 @@ test('advice rejects malformed or invented dates instead of publishing a mock', 
 });
 function dom(html: string) {
   const $ = load(html);
-  const wrap = (el: any): any => ({ textContent: $(el).text(), getAttribute: (n: string) => $(el).attr(n), getClientRects: () => $(el).closest('[hidden]').length ? [] : [{}], closest: (q: string) => $(el).closest(q).length ? {} : null, querySelector: (q: string) => $(el).find(q)[0] ? wrap($(el).find(q)[0]) : null, querySelectorAll: (q: string) => $(el).find(q).toArray().map(wrap) });
+  const wrap = (el: any): any => ({ textContent: $(el).text(), currentSrc: $(el).attr('src'), naturalWidth: 100, get parentElement() { const parent = $(el).parent()[0]; return parent ? wrap(parent) : null; }, getAttribute: (n: string) => $(el).attr(n), getClientRects: () => $(el).closest('[hidden]').length ? [] : [{}], closest: (q: string) => $(el).closest(q).length ? {} : null, querySelector: (q: string) => $(el).find(q)[0] ? wrap($(el).find(q)[0]) : null, querySelectorAll: (q: string) => $(el).find(q).toArray().map(wrap) });
   return { querySelectorAll: (q: string) => $(q).toArray().map(wrap) };
 }
 test('LinkedIn extractor scopes to hiring cards and an open network modal, ignores summaries', () => {
@@ -77,4 +78,27 @@ test('LinkedIn extractor scopes to hiring cards and an open network modal, ignor
   assert.equal(extractor.extract(dom(html.replace('role="dialog"', 'hidden role="dialog"'))).length, 1);
   assert.equal(extractor.extract(dom('<div class="job-details-connections-card">Yasser y otras personas de tu red</div>')).length, 0);
   assert.ok(!readFileSync('chrome-extension/people.js', 'utf8').includes('.click('));
+});
+test('photos belong to the same visible profile, including framed photos; placeholders and other hosts are ignored', () => {
+  const photo = 'https://media.licdn.com/dms/image/v2/fixture/profile-framedphoto-shrink_100_100/fixture?e=1';
+  const html = `<section class="job-details-people-who-can-help__section--two-pane"><div><a href="/in/other"><img src="${photo.replace('fixture?', 'other?')}" /></a><a href="/in/ana"><img src="${photo}" /></a><div class="hirer-card__hirer-information"><a href="/in/ana"><span class="jobs-poster__name">Ana</span></a></div></div></section>`;
+  const [contact] = extractor.extract(dom(html));
+  assert.equal(contact.avatarUrl, photo);
+  const modal = `<div role="dialog" class="job-details-connections-modal__modal-wrapper"><div class="job-details-people-who-can-help__connections-profile-card"><img src="${photo}" /><a href="/in/ana"><span class="job-details-people-who-can-help__connections-profile-card-title">Ana</span></a></div></div>`;
+  assert.equal(extractor.extract(dom(modal))[0].avatarUrl, photo);
+  assert.equal(extractor.extract(dom(html.replace(`<a href="/in/ana"><img`, `<a hidden href="/in/ana"><img`)))[0].avatarUrl, undefined);
+  for (const bad of ['https://media.licdn.com/dms/image/fixture/company-logo/0', 'https://linkedin.com/static/avatar.svg', photo.replace('media.licdn.com', 'media.licdn.com.evil.test'), photo.replace('https:', 'http:'), photo.replace('media.', 'user:pass@media.'), photo.replace('licdn.com/', 'licdn.com:8080/')]) assert.equal(extractor.avatarUrl(bad), null);
+  assert.equal(extractor.signature(contact), extractor.signature({ ...contact, avatarUrl: photo.replace('e=1', 'e=2') }));
+  assert.notEqual(extractor.signature(contact), extractor.signature({ ...contact, avatarUrl: photo.replace('/fixture?', '/changed?') }));
+});
+test('private thumbnails require bounded JPEG bytes rather than external URLs, SVG or corrupt data', () => {
+  const bytes = readFileSync('scripts/fixtures/person-avatar.jpg');
+  const input = { mime: 'image/jpeg', data: bytes.toString('base64') };
+  assert.equal(avatarInput(input).bytes.length, bytes.length);
+  assert.equal(avatarInput(input).hash, avatarInput(input).hash);
+  const oversized = Buffer.alloc(PERSON_AVATAR_MAX_BYTES + 1);
+  const hugeDimensions = Buffer.from(bytes);
+  const frame = hugeDimensions.indexOf(Buffer.from([0xff, 0xc0])); assert.ok(frame > 0);
+  hugeDimensions.writeUInt16BE(193, frame + 7);
+  for (const bad of [null, 'https://example.test/photo.jpg', { ...input, mime: 'image/svg+xml' }, { ...input, data: '<svg/>' }, { ...input, data: bytes.subarray(0, 30).toString('base64') }, { ...input, data: oversized.toString('base64') }, { ...input, data: hugeDimensions.toString('base64') }, { ...input, data: input.data + '=' }]) assert.throws(() => avatarInput(bad), /PEOPLE_INVALID_AVATAR/);
 });

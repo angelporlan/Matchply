@@ -11,10 +11,18 @@
 
 - `npm run db:generate` generó 0029; se revisó para excluir cambios antiguos sin snapshot y ordenar índices únicos antes de FKs. Snapshot completo conserva baseline para futuras generaciones. 0029 es aditiva, sin DROP/ALTER destructivo.
 - Probar cadena completa en base aislada y aplicar con `DATABASE_URL=<base de desarrollo> npm run db:migrate`. Nunca db:push en producción.
-- Desplegar servidor y worker con código/migración antes de distribuir extensión 2.1.0. Extensión anterior funciona sin `people`. Captura opcional apagada, habilitación controlada por usuario.
+- Desplegar servidor y worker con código/migración antes de distribuir extensión 2.2.0 (Personas y fotos). Extensión anterior funciona sin `people`. Captura opcional apagada, habilitación controlada por usuario.
 - Despliegue de producción vía workflow de main y gateway restringido de operaciones. No integrar ramas ajenas ni hacer merge sin autorización. No distribuir aún un paquete de extensión: `API_BASE` actual sigue siendo el entorno local del repositorio; el paquete de producción debe apuntar a `https://matchply.com`.
 - Recuperación: volver a imagen anterior conserva tablas aditivas. Desactivar Capturar personas o networking en configuración si se necesita contener uso. No borrar tablas/contactos para rollback. Backups en flujo operativo existente.
 
 ## Operación
 
 Worker habilitado (`AI_WORKER_ENABLED=true`), credencial `OPENAI_API_KEY` en servidor/worker y modelo OpenAI de networking. Límite web 6/min y timeout proveedor 60s por fragmento; heartbeat 30s y lease 5min. Métricas `networking`, códigos sin texto privado. Registrar evidencias reales en `evidence.md`.
+
+## Ampliación autorizada: foto desde la extensión
+
+1. Añadir miniatura privada separada y hash, migración 0030 aditiva; proyecciones pequeñas y contexto IA sin foto.
+2. Extraer solo imagen del mismo perfil visible; descarga/composición en worker de extensión con CDN, tamaño y timeout acotados.
+3. Enviar foto tras contacto, endpoint con propiedad y vínculo; conservar datos ante fallo y permitir reintento con cooldown.
+4. Renderizar miniatura con respaldo de iniciales en Personas y vínculos.
+5. Verificar extractor, transporte y fallos, formato/tamaño, aislamiento, cascada, compatibilidad y UI; migrar en desarrollo y repetir checks apropiados. La ampliación no autoriza todavía integrar el trabajo previo ni desplegar producción.

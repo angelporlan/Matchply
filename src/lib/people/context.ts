@@ -9,7 +9,7 @@ import { PeopleError } from './types';
 
 export async function loadNetworkingContext(userId: string, personId: string, selection: { threadId?: string; offerId?: string; includeCandidate?: boolean }) {
   const person = await getPerson(userId, personId);
-  const { createdAt: _created, updatedAt: _updated, ...profile } = person;
+  const { createdAt: _created, updatedAt: _updated, avatarHash: _avatar, ...profile } = person;
   const links = await personLinks(userId, personId);
   let conversation: unknown = null, offer: unknown = null, candidate: unknown = null;
   if (selection.threadId) {

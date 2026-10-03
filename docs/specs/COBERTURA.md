@@ -155,3 +155,4 @@ Inventario operativo y de pruebas; no se ejecutaron por el hecho de aparecer aqu
 
 - `/dashboard/applications/people` y `/[id]`, Server Actions y vínculos desde empresas/ofertas: [contrato](networking-personas/spec.md).
 - `/api/ai/networking`, worker `networking` y `/api/extension/linkedin/people`: [expectativas](networking-personas/expectations.md), [plan](networking-personas/plan.md), [evidencias](networking-personas/evidence.md).
+- Fotos privadas: `/api/extension/linkedin/people/avatar`, `/api/people/[id]/avatar`, almacenamiento `person_avatar` y extensión 2.2.0; ampliación y verificaciones en las mismas especificaciones de Personas.
