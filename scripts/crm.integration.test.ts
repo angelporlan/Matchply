@@ -21,7 +21,7 @@ test('CRM paginated queries, private favorites, views and import compatibility',
   const now = new Date('2026-10-03T10:00:00Z'), date = new Date('2026-09-20T12:00:00Z');
   const email = `crm-${userIds[0]}@example.test`;
   await db.insert(users).values(userIds.map((id, i) => ({ id, email: i ? `crm-${id}@example.test` : email, name: 'Synthetic CRM test' })));
-  await db.insert(companies).values(companyIds.map((id, i) => ({ id, name: `CRM ${i} ${id}`, nameNormalized: `crm ${i} ${id}`, location: i ? 'Madrid' : 'Murcia', createdAt: date, updatedAt: date })));
+  await db.insert(companies).values(companyIds.map((id, i) => ({ id, name: `CRM ${i} ${id}`, nameNormalized: `crm ${i} ${id}`, iconHash: `icon-${i}`, location: i ? 'Madrid' : 'Murcia', createdAt: date, updatedAt: date })));
   await db.insert(userCompanies).values([{ userId: userIds[0], companyId: companyIds[0] }, { userId: userIds[1], companyId: companyIds[0] }, { userId: userIds[0], companyId: companyIds[1] }]);
   await db.insert(jobOffers).values({ id: offerId, userId: userIds[0], companyId: companyIds[0], title: 'Archived favorite', company: 'CRM', status: 'archived:interested', createdAt: date, updatedAt: date, description: 'HEAVY_DESCRIPTION_SENTINEL', rawReport: 'HEAVY_REPORT_SENTINEL' });
   await db.insert(companyNotes).values([{ userId: userIds[0], companyId: companyIds[0], content: 'PRIVATE_NOTE_SENTINEL' }, { userId: userIds[1], companyId: companyIds[0], content: 'OTHER_NOTE_SENTINEL' }]);
@@ -50,6 +50,7 @@ test('CRM paginated queries, private favorites, views and import compatibility',
       const favoriteView = SYSTEM_VIEWS.find(v => v.id === 'favorites')!.config;
       const applications = await listApplicationsPage({ userId: userIds[0], filters: favoriteView.filters, sort: favoriteView.sort });
       assert.equal(applications.total, 1); assert.equal(applications.items[0].status, 'archived');
+      assert.equal(applications.items[0].companyIconHash, 'icon-0');
       assert.ok(!JSON.stringify(applications).includes('HEAVY_'));
     });
     await t.test('SQL applies dates, count comparators and relations before pagination with private counts', async () => {
@@ -59,6 +60,7 @@ test('CRM paginated queries, private favorites, views and import compatibility',
       assert.equal((await listCrmPage(userIds[0], 'companies', filtered, 1, now)).total, 1);
       const peopleConfig = normalizeCrmConfig('people', { filters: { columnFilters: [{ column: 'companyNames', operator: 'in', values: companyIds }] } });
       const linked = await listCrmPage(userIds[0], 'people', peopleConfig);
+      assert.deepEqual(linked.items[0].companies!.map(c => c.iconHash).sort(), ['icon-0', 'icon-1']);
       assert.equal(linked.total, 1); assert.equal(linked.items[0].companies!.length, 2); assert.equal(linked.items[0].role, 'Recruiter');
       assert.equal((await listCrmPage(userIds[0], 'people', defaultCrmConfig('people'))).items.length, 25);
       assert.equal((await listCrmPage(userIds[0], 'people', defaultCrmConfig('people'), 2)).items.length, 6);

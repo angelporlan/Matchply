@@ -17,6 +17,7 @@ export const applicationSummaryColumns = {
   title: jobOffers.title,
   company: jobOffers.company,
   companyId: jobOffers.companyId,
+  companyIconHash: sql<string | null>`(select ${companies.iconHash} from ${companies} where ${companies.id} = ${jobOffers.companyId})`,
   url: jobOffers.url,
   platform: jobOffers.platform,
   status: jobOffers.status,

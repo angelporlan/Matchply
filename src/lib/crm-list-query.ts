@@ -23,11 +23,11 @@ function dataset(entity: ListEntity, userId: string) {
 }
 async function attachPageRelations(userId: string, entity: ListEntity, rows: CrmRow[]) {
   if (entity !== 'people' || !rows.length) return rows;
-  const links = await db.execute<{ personId: string; id: string; name: string }>(sql`select distinct ${personCompanies.personId} as "personId", ${companies.id} as id, ${companies.name} as name from ${personCompanies} inner join ${companies} on ${companies.id} = ${personCompanies.companyId} where ${personCompanies.userId} = ${userId} and ${personCompanies.personId} in (${sql.join(rows.map(row => sql`${row.id}::uuid`), sql`, `)}) order by name, id`);
-  const byPerson = new Map<string, { id: string; name: string }[]>();
+  const links = await db.execute<{ personId: string; id: string; name: string; iconHash: string | null }>(sql`select distinct ${personCompanies.personId} as "personId", ${companies.id} as id, ${companies.name} as name, ${companies.iconHash} as "iconHash" from ${personCompanies} inner join ${companies} on ${companies.id} = ${personCompanies.companyId} where ${personCompanies.userId} = ${userId} and ${personCompanies.personId} in (${sql.join(rows.map(row => sql`${row.id}::uuid`), sql`, `)}) order by name, id`);
+  const byPerson = new Map<string, { id: string; name: string; iconHash: string | null }[]>();
   for (const link of links.rows) {
     const items = byPerson.get(link.personId) || [];
-    items.push({ id: link.id, name: link.name });
+    items.push({ id: link.id, name: link.name, iconHash: link.iconHash });
     byPerson.set(link.personId, items);
   }
   return rows.map(row => ({ ...row, companies: byPerson.get(row.id) || [] }));

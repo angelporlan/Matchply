@@ -21,7 +21,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: 'Matchply | Generador e Inteligencia de Currículums Híbrido',
   description: 'Adapta tu CV al lenguaje de cada oferta en 60 segundos, sin inventar experiencia. Prueba gratis con tu última vacante.',
-  keywords: ['cv', 'curriculum', 'ia', 'deepseek', 'gemini', 'openrouter', 'pdfkit', 'stripe', 'postulaciones'],
+  keywords: ['cv', 'curriculum', 'ia', 'deepseek', 'gemini', 'openrouter', 'pdfkit', 'stripe', 'trabajos'],
   authors: [{ name: 'Matchply Team' }],
 };
 

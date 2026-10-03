@@ -17,7 +17,7 @@ export type CrmConfig = {
   actionsIndex: number | null;
 };
 export type SavedCrmView = { id: string; name: string; isDefault: boolean; config: CrmConfig };
-export type CrmRow = { id: string; name: string; isFavorite: boolean; companies?: { id: string; name: string }[]; [key: string]: string | number | boolean | Date | null | undefined | { id: string; name: string }[] };
+export type CrmRow = { id: string; name: string; isFavorite: boolean; companies?: { id: string; name: string; iconHash?: string | null }[]; [key: string]: string | number | boolean | Date | null | undefined | { id: string; name: string; iconHash?: string | null }[] };
 export type CrmPage = { items: CrmRow[]; total: number; page: number; pageSize: number; totalPages: number };
 export const CRM_PAGE_SIZES = [10, 25, 50, 100];
 export const CRM_WIDTH_PX = { auto: undefined, sm: 110, md: 180, lg: 280 };
@@ -29,7 +29,7 @@ export const COMPANY_COLUMNS: CrmColumn[] = [
   { id: 'location', label: ['Ubicación', 'Location'], kind: 'text' },
   { id: 'sector', label: ['Sector', 'Industry'], kind: 'text' },
   { id: 'website', label: ['Web', 'Website'], kind: 'text' },
-  { id: 'applicationCount', label: ['Postulaciones', 'Applications'], kind: 'number' },
+  { id: 'applicationCount', label: ['Trabajos', 'Jobs'], kind: 'number' },
   { id: 'noteCount', label: ['Notas', 'Notes'], kind: 'number' },
   { id: 'updatedAt', label: ['Actualizado', 'Updated'], kind: 'date' },
   { id: 'createdAt', label: ['Creado', 'Created'], kind: 'date' },
