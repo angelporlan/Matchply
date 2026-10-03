@@ -1144,9 +1144,14 @@ const es = {
         fullScreenExit: 'Salir de Pantalla Completa',
         fullScreenEnter: 'Ver Editor en Grande',
         diffToolbar: {
-          title: 'Análisis IA:',
-          unified: 'Unificada',
-          split: 'Dividida',
+          title: 'Comparativa de cambios',
+          added: 'añadidos',
+          removed: 'originales',
+          badgeAdded: 'Añadido',
+          badgeRemoved: 'Original',
+          legendAdded: 'Optimizado por IA',
+          legendRemoved: 'Original sustituido',
+          noChanges: 'No se detectaron diferencias con respecto al CV base.',
         },
         tooltips: {
           bold: 'Negrita',
@@ -1161,10 +1166,6 @@ const es = {
         },
         placeholder: 'Escribe el contenido de tu CV aquí...',
         placeholderMarkdown: '# Escribe aquí en Markdown...',
-        diffLabels: {
-          before: 'Antes (CV Base Original)',
-          after: 'Después (Optimizado por IA)',
-        },
       },
       pdf: {
         title: 'Vista Previa PDF',

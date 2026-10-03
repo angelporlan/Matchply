@@ -87,7 +87,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [scale, setScale] = useState(cv.scale || 1.0);
   const [cvTitle, setCvTitle] = useState(cv.title);
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
-  const [diffLayout, setDiffLayout] = useState<'unified' | 'split'>('split');
   const [contentVersion, setContentVersion] = useState(0);
   const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
   const [sessionBase, setSessionBase] = useState<string | null>(null);
@@ -161,7 +160,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     const shouldImport = searchParams.get('importing') === 'true';
 
     if (searchParams.get('diff') === '1' && baseCvContent) {
-      setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
       noteDiffViewed();
       setSurface('diff');
       setMobilePane('document');
@@ -649,7 +647,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         }}
         hasDiff={Boolean(diffBase)}
         onToggleDiff={() => {
-          setDiffLayout(window.innerWidth >= 1024 ? 'split' : 'unified');
           if (surface !== 'diff') noteDiffViewed();
           setSurface((current) => (current === 'diff' ? 'document' : 'diff'));
           setMobilePane('document');
@@ -735,7 +732,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 initialContent={reviewContent}
                 originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
-                initialDiffView={diffLayout}
                 onContentChange={setReviewContent}
                 saveStatus={saveStatus}
                 setSaveStatus={setSaveStatus}

@@ -1096,9 +1096,14 @@ const en = {
         fullScreenExit: 'Exit Full Screen',
         fullScreenEnter: 'View Large Editor',
         diffToolbar: {
-          title: 'AI Analysis:',
-          unified: 'Unified',
-          split: 'Split',
+          title: 'Changes comparison',
+          added: 'added',
+          removed: 'previous',
+          badgeAdded: 'Added',
+          badgeRemoved: 'Previous',
+          legendAdded: 'AI optimized',
+          legendRemoved: 'Previous original',
+          noChanges: 'No differences detected compared to the base CV.',
         },
         tooltips: {
           bold: 'Bold',
@@ -1113,10 +1118,6 @@ const en = {
         },
         placeholder: 'Write your resume content here...',
         placeholderMarkdown: '# Write here in Markdown...',
-        diffLabels: {
-          before: 'Before (Original Base CV)',
-          after: 'After (AI Optimized)',
-        },
       },
       pdf: {
         title: 'PDF Preview',

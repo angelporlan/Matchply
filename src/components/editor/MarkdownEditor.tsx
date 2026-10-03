@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useDeferredValue } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   FileEdit, Bold, Italic, List, Heading1, Heading2, Heading3, Eraser, Code, Eye,
-  GitCompare, Columns, Maximize2, Minimize2, RefreshCw
+  GitCompare, CheckCircle2, Maximize2, Minimize2, RefreshCw
 } from 'lucide-react';
 import { computeDiff, DiffLine } from '@/lib/diff';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -24,7 +24,6 @@ interface MarkdownEditorProps {
   streamingStep?: string;
   /** When set, the source or diff view replaces the document instead of offering another visual CV. */
   forcedMode?: 'markdown' | 'diff';
-  initialDiffView?: 'unified' | 'split';
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -162,19 +161,55 @@ function mdToHtml(markdown: string): string {
 }
 
 function parseInline(text: string): string {
+  if (!text) return '';
   let escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Bold: **text**
+  // Markdown links: [text](url)
+  escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-subtle hover:text-ai">$1</a>');
+
+  // Bold-Italic: ***text***
+  escaped = escaped.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+
+  // Bold: **text** or __text__
   escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // Italic: *text*
+  escaped = escaped.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+
+  // Italic: *text* or _text_
   escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  // Italic: _text_
   escaped = escaped.replace(/_([^_]+)_/g, '<em>$1</em>');
 
+  // Inline code: `code`
+  escaped = escaped.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-surface-muted text-[11px]">$1</code>');
+
   return escaped;
+}
+
+interface ParsedDiffLine {
+  kind: 'h1' | 'h2' | 'h3' | 'bullet' | 'text' | 'empty';
+  content: string;
+}
+
+function classifyDiffLine(raw: string): ParsedDiffLine {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) {
+    return { kind: 'empty', content: '' };
+  }
+  if (trimmed.startsWith('# ')) {
+    return { kind: 'h1', content: trimmed.slice(2).trim() };
+  }
+  if (trimmed.startsWith('## ')) {
+    return { kind: 'h2', content: trimmed.slice(3).trim() };
+  }
+  if (trimmed.startsWith('### ')) {
+    return { kind: 'h3', content: trimmed.slice(4).trim() };
+  }
+  if (/^[-*–—•]\s+/.test(trimmed)) {
+    return { kind: 'bullet', content: trimmed.replace(/^[-*–—•]\s+/, '').trim() };
+  }
+  return { kind: 'text', content: trimmed };
 }
 
 // Robust HTML-to-Markdown parser for the visual editor
@@ -290,16 +325,18 @@ const loadingTipsEn = [
   "Tip: The PRO AI engine offers greater semantic precision."
 ];
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode, initialDiffView = 'unified' }: MarkdownEditorProps) {
+export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode }: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>(forcedMode || 'visual');
-  const [diffView, setDiffView] = useState<'unified' | 'split'>(initialDiffView);
   const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSaveRef = useRef<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
+
+  const addedCount = diffLines.filter(l => l.type === 'added').length;
+  const removedCount = diffLines.filter(l => l.type === 'removed').length;
 
   useEffect(() => {
     if (originalContent) {
@@ -539,39 +576,36 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
 
       {/* Diff Mode Toolbar */}
       {mode === 'diff' && (
-        <div className="flex flex-wrap items-center justify-between px-6 py-2 bg-canvas/80 dark:bg-canvas/70 border-b border-subtle dark:border-slate-900 shrink-0 select-none z-10 gap-3">
+        <div className="flex flex-wrap items-center justify-between px-6 py-2.5 bg-canvas/80 dark:bg-canvas/70 border-b border-subtle dark:border-slate-900 shrink-0 select-none z-10 gap-3">
           {/* Change Stats */}
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider font-display">
               {t('editor.markdown.diffToolbar.title')}
             </span>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                +{diffLines.filter(l => l.type === 'added').length}
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                +{addedCount} {t('editor.markdown.diffToolbar.added')}
               </span>
-              <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold">
-                -{diffLines.filter(l => l.type === 'removed').length}
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold">
+                -{removedCount} {t('editor.markdown.diffToolbar.removed')}
               </span>
             </div>
           </div>
 
-          {/* Toggle Diff View */}
-          <div className="flex bg-canvas p-0.5 rounded-[8px] border border-subtle dark:border-slate-800/80">
-            <button
-              type="button"
-              onClick={() => setDiffView('unified')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'unified' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
-            >
-              {t('editor.markdown.diffToolbar.unified')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setDiffView('split')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-[6px] text-[9px] font-extrabold tracking-wider uppercase transition-all duration-250 cursor-pointer ${diffView === 'split' ? 'bg-ai-action text-on-ai-action shadow-sm' : 'text-text-muted hover:text-text dark:hover:text-slate-200'}`}
-            >
-              <Columns className="w-2.5 h-2.5 stroke-[1.75]" />
-              {t('editor.markdown.diffToolbar.split')}
-            </button>
+          {/* Visual Legend */}
+          <div className="flex items-center gap-4 text-[11px] text-text-muted">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="font-medium text-emerald-800 dark:text-emerald-300">
+                {t('editor.markdown.diffToolbar.legendAdded')}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shrink-0" />
+              <span className="font-medium text-rose-800 dark:text-rose-300 line-through decoration-rose-400/60">
+                {t('editor.markdown.diffToolbar.legendRemoved')}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -757,116 +791,223 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           </>
         )}
 
-        {/* Diff Comparador Mode */}
+        {/* Diff Comparador Mode - Vista única unificada formateada (no markdown) */}
         {mode === 'diff' && (
-          <div className="absolute inset-0 p-6 overflow-auto editor-scrollbar font-mono text-xs leading-relaxed">
-            {diffView === 'unified' ? (
-              /* Unified In-line Diff */
-              <div className="min-w-full flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-canvas/80 dark:bg-canvas/80">
+          <div className="absolute inset-0 p-4 sm:p-6 overflow-auto editor-scrollbar bg-canvas/40 dark:bg-canvas/30">
+            <div className="max-w-3xl mx-auto bg-surface rounded-2xl border border-subtle dark:border-slate-800/80 shadow-sm p-6 sm:p-10 transition-all">
+              {addedCount === 0 && removedCount === 0 && (
+                <div className="mb-6 p-3.5 rounded-xl bg-surface-muted border border-subtle text-xs text-text-muted flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{t('editor.markdown.diffToolbar.noChanges')}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col">
                 {diffLines.map((line, idx) => {
-                  const isAdded = line.type === 'added';
-                  const isRemoved = line.type === 'removed';
-                  const bgClass = isAdded 
-                    ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300/90 border-l-2 border-emerald-500/80' 
-                    : isRemoved 
-                      ? 'bg-rose-500/10 text-rose-800 dark:text-rose-300/85 border-l-2 border-rose-500/80 line-through decoration-rose-500/50' 
-                      : 'text-text-muted hover:bg-surface-muted dark:hover:bg-surface/10 border-l-2 border-transparent';
-                  
+                  const parsed = classifyDiffLine(line.value);
+                  const isPrevEmpty = idx > 0 && classifyDiffLine(diffLines[idx - 1].value).kind === 'empty';
+
+                  if (parsed.kind === 'empty') {
+                    if (isPrevEmpty) return null;
+                    return <div key={idx} className="h-2.5 select-none" />;
+                  }
+
+                  if (parsed.kind === 'h1') {
+                    if (line.type === 'added') {
+                      return (
+                        <div key={idx} className="flex items-center justify-between gap-3 px-3 py-1.5 my-1 rounded-r-lg bg-emerald-500/10 border-l-4 border-emerald-500">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0 select-none">+</span>
+                            <h1
+                              className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-emerald-950 dark:text-emerald-200"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeAdded')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (line.type === 'removed') {
+                      return (
+                        <div key={idx} className="flex items-center justify-between gap-3 px-3 py-1.5 my-1 rounded-r-lg bg-rose-500/10 border-l-4 border-rose-400 opacity-75">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-bold shrink-0 select-none">−</span>
+                            <h1
+                              className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-rose-900/80 dark:text-rose-300/80 line-through decoration-rose-400/60"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeRemoved')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className="pb-1 mb-1">
+                        <h1
+                          className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (parsed.kind === 'h2') {
+                    if (line.type === 'added') {
+                      return (
+                        <div key={idx} className="mt-6 mb-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-r-lg bg-emerald-500/10 border-l-4 border-emerald-500">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold shrink-0 select-none">+</span>
+                            <h2
+                              className="text-xs font-bold font-display uppercase tracking-widest text-emerald-800 dark:text-emerald-300"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeAdded')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (line.type === 'removed') {
+                      return (
+                        <div key={idx} className="mt-6 mb-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-r-lg bg-rose-500/10 border-l-4 border-rose-400 opacity-75">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold shrink-0 select-none">−</span>
+                            <h2
+                              className="text-xs font-bold font-display uppercase tracking-widest text-rose-800 dark:text-rose-300 line-through decoration-rose-400/60"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeRemoved')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className="mt-6 mb-2 pb-1 border-b border-subtle dark:border-slate-800">
+                        <h2
+                          className="text-xs font-bold font-display uppercase tracking-widest text-text-muted"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (parsed.kind === 'h3') {
+                    if (line.type === 'added') {
+                      return (
+                        <div key={idx} className="mt-3.5 mb-1 flex items-center justify-between gap-2 px-3 py-1 rounded-r-lg bg-emerald-500/10 border-l-4 border-emerald-500">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold shrink-0 select-none">+</span>
+                            <h3
+                              className="text-sm font-semibold text-emerald-950 dark:text-emerald-200"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeAdded')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (line.type === 'removed') {
+                      return (
+                        <div key={idx} className="mt-3.5 mb-1 flex items-center justify-between gap-2 px-3 py-1 rounded-r-lg bg-rose-500/10 border-l-4 border-rose-400 opacity-75">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold shrink-0 select-none">−</span>
+                            <h3
+                              className="text-sm font-semibold text-rose-900/80 dark:text-rose-300/80 line-through decoration-rose-400/60"
+                              dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded shrink-0 select-none">
+                            {t('editor.markdown.diffToolbar.badgeRemoved')}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className="mt-3.5 mb-1 px-1">
+                        <h3
+                          className="text-sm font-semibold text-text"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (parsed.kind === 'bullet') {
+                    if (line.type === 'added') {
+                      return (
+                        <div key={idx} className="flex items-start gap-2.5 px-3 py-1 my-0.5 rounded-r-lg bg-emerald-500/10 border-l-4 border-emerald-500 text-xs leading-relaxed text-emerald-950 dark:text-emerald-200">
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold shrink-0 mt-0.5 select-none">+</span>
+                          <div
+                            className="flex-1 min-w-0"
+                            dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                          />
+                        </div>
+                      );
+                    }
+                    if (line.type === 'removed') {
+                      return (
+                        <div key={idx} className="flex items-start gap-2.5 px-3 py-1 my-0.5 rounded-r-lg bg-rose-500/10 border-l-4 border-rose-400 text-xs leading-relaxed text-rose-900/80 dark:text-rose-300/80 opacity-75">
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold shrink-0 mt-0.5 select-none">−</span>
+                          <div
+                            className="flex-1 min-w-0 line-through decoration-rose-400/60"
+                            dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className="flex items-start gap-2.5 px-3 py-0.5 text-xs leading-relaxed text-text">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-text-muted/60 mt-1.5 shrink-0 ml-1 mr-0.5" />
+                        <div
+                          className="flex-1 min-w-0"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Default text (paragraphs, contact information, company/date lines)
+                  if (line.type === 'added') {
+                    return (
+                      <div key={idx} className="flex items-start gap-2.5 px-3 py-1 my-0.5 rounded-r-lg bg-emerald-500/10 border-l-4 border-emerald-500 text-xs leading-relaxed text-emerald-950 dark:text-emerald-200">
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold shrink-0 mt-0.5 select-none">+</span>
+                        <div
+                          className="flex-1 min-w-0"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
+                  if (line.type === 'removed') {
+                    return (
+                      <div key={idx} className="flex items-start gap-2.5 px-3 py-1 my-0.5 rounded-r-lg bg-rose-500/10 border-l-4 border-rose-400 text-xs leading-relaxed text-rose-900/80 dark:text-rose-300/80 opacity-75">
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold shrink-0 mt-0.5 select-none">−</span>
+                        <div
+                          className="flex-1 min-w-0 line-through decoration-rose-400/60"
+                          dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                        />
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={idx} className={`flex w-full min-h-[22px] items-start ${bgClass}`}>
-                      {/* Line Numbers */}
-                      <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
-                        {line.oldLineNumber || ''}
-                      </div>
-                      <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
-                        {line.newLineNumber || ''}
-                      </div>
-                      {/* Diff Sign */}
-                      <div className={`w-6 select-none text-center font-bold py-0.5 shrink-0 ${isAdded ? 'text-emerald-600' : isRemoved ? 'text-rose-600' : 'text-text-muted'}`}>
-                        {isAdded ? '+' : isRemoved ? '-' : ' '}
-                      </div>
-                      {/* Line Content */}
-                      <div className="flex-1 min-w-0 px-3 py-0.5 whitespace-pre-wrap break-words select-text">
-                        {line.value || ' '}
-                      </div>
-                    </div>
+                    <div
+                      key={idx}
+                      className="px-3 py-0.5 text-xs leading-relaxed text-text"
+                      dangerouslySetInnerHTML={{ __html: parseInline(parsed.content) }}
+                    />
                   );
                 })}
               </div>
-            ) : (
-              /* Split Side-by-side Diff */
-              <div className="min-w-full flex gap-4 h-full">
-                {/* Left Side: Before (CV Base) */}
-                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
-                  <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 z-10 uppercase select-none">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                    {t('editor.markdown.diffLabels.before')}
-                  </div>
-                  <div className="flex-1 p-2 font-mono text-xs">
-                    {diffLines.map((line, idx) => {
-                      if (line.type === 'added') {
-                        // Place-holder to keep alignment
-                        return (
-                          <div key={idx} className="flex w-full min-h-[22px] bg-canvas/20 text-transparent select-none border-l-2 border-transparent">
-                            <div className="w-10 border-r border-subtle dark:border-slate-900/20 shrink-0" />
-                            <div className="flex-1 py-0.5 px-3 pointer-events-none">
-                              &nbsp;
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      const isRemoved = line.type === 'removed';
-                      return (
-                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isRemoved ? 'bg-rose-500/10 text-rose-800 dark:text-rose-350 border-l-2 border-rose-500/80 line-through decoration-rose-500/50' : 'text-text-muted border-l-2 border-transparent'}`}>
-                          <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
-                            {line.oldLineNumber || ''}
-                          </div>
-                          <div className="flex-1 min-w-0 px-3 py-0.5 whitespace-pre-wrap break-words select-text">
-                            {line.value || ' '}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Right Side: After (IA Optimizado) */}
-                <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-subtle dark:border-slate-900 bg-white dark:bg-canvas/80 h-full overflow-y-auto">
-                  <div className="sticky top-0 bg-canvas dark:bg-surface border-b border-subtle dark:border-slate-900 px-4 py-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-450 flex items-center gap-1.5 z-10 uppercase select-none">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    {t('editor.markdown.diffLabels.after')}
-                  </div>
-                  <div className="flex-1 p-2 font-mono text-xs">
-                    {diffLines.map((line, idx) => {
-                      if (line.type === 'removed') {
-                        // Place-holder to keep alignment
-                        return (
-                          <div key={idx} className="flex w-full min-h-[22px] bg-canvas/20 text-transparent select-none border-l-2 border-transparent">
-                            <div className="w-10 border-r border-subtle dark:border-slate-900/20 shrink-0" />
-                            <div className="flex-1 py-0.5 px-3 pointer-events-none">
-                              &nbsp;
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      const isAdded = line.type === 'added';
-                      return (
-                        <div key={idx} className={`flex w-full min-h-[22px] items-start ${isAdded ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300/90 border-l-2 border-emerald-500/80' : 'text-text-muted border-l-2 border-transparent'}`}>
-                          <div className="w-10 select-none text-[9px] text-text-muted dark:text-slate-600 text-right pr-2 py-0.5 border-r border-subtle dark:border-slate-900/40 shrink-0">
-                            {line.newLineNumber || ''}
-                          </div>
-                          <div className="flex-1 min-w-0 px-3 py-0.5 whitespace-pre-wrap break-words select-text">
-                            {line.value || ' '}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
