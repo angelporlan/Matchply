@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useDeferredValue } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   FileEdit, Bold, Italic, List, Heading1, Heading2, Heading3, Eraser, Code, Eye,
-  GitCompare, CheckCircle2, Maximize2, Minimize2, RefreshCw
+  GitCompare, CheckCircle2, Maximize2, Minimize2, RefreshCw, RotateCcw
 } from 'lucide-react';
 import { computeDiff, DiffLine } from '@/lib/diff';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import AlertModal from '@/components/ui/AlertModal';
 
 interface MarkdownEditorProps {
   cvId: string;
@@ -24,6 +25,7 @@ interface MarkdownEditorProps {
   streamingStep?: string;
   /** When set, the source or diff view replaces the document instead of offering another visual CV. */
   forcedMode?: 'markdown' | 'diff';
+  onRevert?: () => void;
 }
 
 // Markdown syntax highlighting parser for dark & light themes (used in Markdown mode)
@@ -325,7 +327,22 @@ const loadingTipsEn = [
   "Tip: The PRO AI engine offers greater semantic precision."
 ];
 
-export default function MarkdownEditor({ cvId, initialContent, originalContent, onSave, onContentChange, focusRequest = null, saveStatus, setSaveStatus, isFullScreen, onToggleFullScreen, isAiStreaming = false, streamingStep, forcedMode }: MarkdownEditorProps) {
+export default function MarkdownEditor({
+  cvId,
+  initialContent,
+  originalContent,
+  onSave,
+  onContentChange,
+  focusRequest = null,
+  saveStatus,
+  setSaveStatus,
+  isFullScreen,
+  onToggleFullScreen,
+  isAiStreaming = false,
+  streamingStep,
+  forcedMode,
+  onRevert,
+}: MarkdownEditorProps) {
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
@@ -334,6 +351,7 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSaveRef = useRef<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
+  const [confirmRevertOpen, setConfirmRevertOpen] = useState(false);
 
   const addedCount = diffLines.filter(l => l.type === 'added').length;
   const removedCount = diffLines.filter(l => l.type === 'removed').length;
@@ -592,8 +610,8 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
             </div>
           </div>
 
-          {/* Visual Legend */}
-          <div className="flex items-center gap-4 text-[11px] text-text-muted">
+          {/* Visual Legend & Revert Button (Opción 1) */}
+          <div className="flex flex-wrap items-center gap-4 text-[11px] text-text-muted">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
               <span className="font-medium text-emerald-800 dark:text-emerald-300">
@@ -606,6 +624,19 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
                 {t('editor.markdown.diffToolbar.legendRemoved')}
               </span>
             </div>
+
+            {/* Revertir al CV base */}
+            {onRevert && (
+              <button
+                type="button"
+                onClick={() => setConfirmRevertOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 transition-all cursor-pointer shadow-xs active:scale-95 ml-2"
+                title="Descartar cambios de la IA y volver al CV base"
+              >
+                <RotateCcw className="w-3.5 h-3.5 stroke-[2]" />
+                <span>{t('editor.header.revert')} al CV base</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1038,6 +1069,21 @@ export default function MarkdownEditor({ cvId, initialContent, originalContent, 
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación para revertir al CV base */}
+      <AlertModal
+        isOpen={confirmRevertOpen}
+        onClose={() => setConfirmRevertOpen(false)}
+        type="danger"
+        title={t('editor.markdown.diffToolbar.confirmRevertTitle')}
+        message={t('editor.markdown.diffToolbar.confirmRevertMessage')}
+        confirmLabel={t('editor.markdown.diffToolbar.confirmRevertConfirm')}
+        cancelLabel={t('editor.markdown.diffToolbar.confirmRevertCancel')}
+        onConfirm={() => {
+          setConfirmRevertOpen(false);
+          onRevert?.();
+        }}
+      />
     </div>
   );
 }

@@ -1104,6 +1104,10 @@ const en = {
           legendAdded: 'AI optimized',
           legendRemoved: 'Previous original',
           noChanges: 'No differences detected compared to the base CV.',
+          confirmRevertTitle: 'Revert to base CV?',
+          confirmRevertMessage: 'All optimizations applied by Artificial Intelligence will be discarded and your original base CV content will be restored.\n\nThis action cannot be undone. Do you wish to continue?',
+          confirmRevertConfirm: 'Yes, revert',
+          confirmRevertCancel: 'Cancel',
         },
         tooltips: {
           bold: 'Bold',

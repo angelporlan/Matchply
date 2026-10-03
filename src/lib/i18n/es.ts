@@ -1152,6 +1152,10 @@ const es = {
           legendAdded: 'Optimizado por IA',
           legendRemoved: 'Original sustituido',
           noChanges: 'No se detectaron diferencias con respecto al CV base.',
+          confirmRevertTitle: '¿Revertir al CV base?',
+          confirmRevertMessage: 'Se descartarán todas las optimizaciones aplicadas por la Inteligencia Artificial y se recuperará el contenido original de tu CV base.\n\nEsta acción no se puede deshacer. ¿Deseas continuar?',
+          confirmRevertConfirm: 'Sí, revertir',
+          confirmRevertCancel: 'Cancelar',
         },
         tooltips: {
           bold: 'Negrita',

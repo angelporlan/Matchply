@@ -600,31 +600,14 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 max-w-full">
-            {surface === 'diff' && (
-              <PdfDownloadLink
-                cvId={cv.id}
-                isGuest={isGuest}
-                guestCanDownload={guestCanDownload}
-                onGuestDownloadConsumed={() => setGuestCanDownload(false)}
-                onDownloaded={notePdfDownloaded}
-                className="btn-raised"
-              />
-            )}
-            {surface === 'diff' && diffBase ? (
-              <Button type="button" variant="ghost" onClick={() => { void revertToBase(); }}>
-                {t('editor.header.revert')}
-              </Button>
-            ) : null}
-            {surface !== 'diff' && (
-              <PdfDownloadLink
-                cvId={cv.id}
-                isGuest={isGuest}
-                guestCanDownload={guestCanDownload}
-                onGuestDownloadConsumed={() => setGuestCanDownload(false)}
-                onDownloaded={notePdfDownloaded}
-                className="btn-raised"
-              />
-            )}
+            <PdfDownloadLink
+              cvId={cv.id}
+              isGuest={isGuest}
+              guestCanDownload={guestCanDownload}
+              onGuestDownloadConsumed={() => setGuestCanDownload(false)}
+              onDownloaded={notePdfDownloaded}
+              className="btn-raised"
+            />
           </div>
         </div>
       </header>
@@ -739,6 +722,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 onToggleFullScreen={() => setFullscreenPanel((prev) => (prev === 'editor' ? 'none' : 'editor'))}
                 isAiStreaming={isStreaming}
                 streamingStep={streamingStep}
+                onRevert={diffBase ? () => { void revertToBase(); } : undefined}
               />
             )}
           </div>
