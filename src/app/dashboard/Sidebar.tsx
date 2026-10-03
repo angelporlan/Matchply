@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Users, ChevronDown, Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
+import { Building2, Users, ChevronDown, Briefcase, FileText, Menu, UserPlus, X } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -64,7 +64,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
     {
       name: t('sidebar.menu.applications'),
       href: '/dashboard/applications',
-      icon: Kanban,
+      icon: Briefcase,
       children: [
         {
           name: t('sidebar.menu.companies'),

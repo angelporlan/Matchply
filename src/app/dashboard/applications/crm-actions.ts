@@ -31,7 +31,13 @@ export async function setRowsFavoriteAction(entity: CrmEntity, ids: string[], is
   } catch (e) { return failure(e); }
 }
 export async function setPeopleStatusAction(ids: string[], status: string) {
-  try { const ctx = await context('people'); const rows = await setPeopleStatus(ctx.effectiveUser!.id, ids, status); revalidatePath('/dashboard/applications/people'); return { rows }; } catch (e) { return failure(e); }
+  try {
+    const ctx = await context('people');
+    const rows = await setPeopleStatus(ctx.effectiveUser!.id, ids, status);
+    revalidatePath('/dashboard/applications/people');
+    if (ids.length === 1) revalidatePath(`/dashboard/applications/people/${ids[0]}`);
+    return { rows };
+  } catch (e) { return failure(e); }
 }
 export async function exportCrmRowsAction(entity: ListEntity, input: string[]) {
   try {
