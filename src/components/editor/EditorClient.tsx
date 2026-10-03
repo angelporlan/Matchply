@@ -599,7 +599,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
                 </span>
               </div>
-              <p className="text-[11px] text-text-muted mt-0.5">{t('editor.header.subtitle')}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 max-w-full">
@@ -663,13 +662,6 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 className="btn-raised"
               />
             )}
-            <Button type="button" variant="ai" onClick={() => {
-              setMobilePane('review');
-              setFocusAdapt(true);
-            }}>
-              <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden />
-              {t('editor.header.adapt')}
-            </Button>
           </div>
         </div>
       </header>
