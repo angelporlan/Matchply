@@ -73,7 +73,7 @@ function timestampColumn(column: ApplicationColumnFilter['column']) {
 }
 
 function columnFilterSql(filter: ApplicationColumnFilter, now: Date): SQL | undefined {
-  if (isApplicationDateColumn(filter.column) || filter.column === 'followup') {
+  if (isApplicationDateColumn(filter.column)) {
     const column = timestampColumn(filter.column);
     if (!column) return undefined;
     if (filter.operator === 'isEmpty') return isNull(column);
@@ -136,6 +136,7 @@ function columnFilterSql(filter: ApplicationColumnFilter, now: Date): SQL | unde
 
 export function applicationFilterSql(userId: string, filters: ApplicationViewFilters, now: Date) {
   const conditions: SQL[] = [eq(jobOffers.userId, userId)];
+  if (filters.favoritesOnly) conditions.push(eq(jobOffers.isFavorite, true));
   const search = (filters.search || '').trim();
   if (search) {
     const pattern = `%${escapeIlikePattern(search)}%`;

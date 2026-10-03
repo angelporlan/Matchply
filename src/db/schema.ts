@@ -81,10 +81,12 @@ export const companies = pgTable('company', {
 export const userCompanies = pgTable('user_company', {
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   companyId: uuid('companyId').references(() => companies.id, { onDelete: 'cascade' }).notNull(),
+  isFavorite: boolean('isFavorite').default(false).notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.userId, table.companyId] }),
   companyIdx: index('user_company_company_id_idx').on(table.companyId),
+  favoriteIdx: index('user_company_favorite_idx').on(table.userId, table.isFavorite, table.companyId),
 }));
 
 // Icono pequeño (PNG/WebP/ICO, ≤ 8 KB). No seleccionar en listados; servir con iconHash.
@@ -100,6 +102,7 @@ export const companyIcons = pgTable('company_icon', {
 export const jobOffers = pgTable('job_offer', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  isFavorite: boolean('isFavorite').default(false).notNull(),
   cvId: uuid('cvId').references(() => cvs.id, { onDelete: 'set null' }), // CV enlazado a esta oferta
   title: text('title').notNull(), // Puesto: ej. Frontend Developer
   company: text('company').notNull(), // Empresa: ej. Stripe (denormalizado desde company.name)
@@ -147,6 +150,7 @@ export const jobOffers = pgTable('job_offer', {
   externalIdentityIdx: uniqueIndex('job_offer_external_identity_idx')
     .on(table.userId, table.externalSource, table.externalId),
   userUpdatedIdx: index('job_offer_user_updated_idx').on(table.userId, table.updatedAt),
+  favoriteIdx: index('job_offer_user_favorite_idx').on(table.userId, table.isFavorite, table.updatedAt),
   ownerIdentityIdx: uniqueIndex('job_offer_owner_identity_idx').on(table.id, table.userId),
   userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
   userCompanyIdx: index('job_offer_user_company_id_idx').on(table.userId, table.companyId),
@@ -160,6 +164,7 @@ export const jobOffers = pgTable('job_offer', {
 export const people = pgTable('person', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  isFavorite: boolean('isFavorite').default(false).notNull(),
   name: text('name').notNull(), linkedinUrl: text('linkedinUrl'), email: text('email'),
   role: text('role'), headline: text('headline'), location: text('location'),
   kind: text('kind').notNull().default('other'), status: text('status').notNull().default('pending'),
@@ -173,6 +178,7 @@ export const people = pgTable('person', {
   ownerIdentity: uniqueIndex('person_owner_identity_idx').on(t.id, t.userId),
   profileIdentity: uniqueIndex('person_user_linkedin_idx').on(t.userId, t.linkedinUrl),
   updated: index('person_user_updated_idx').on(t.userId, t.updatedAt),
+  favorite: index('person_user_favorite_idx').on(t.userId, t.isFavorite, t.updatedAt),
   status: index('person_user_status_idx').on(t.userId, t.status),
   followup: index('person_user_followup_idx').on(t.userId, t.nextFollowupAt),
 }));
@@ -313,14 +319,15 @@ export const extensionInstallations = pgTable('extension_installation', {
 export const applicationViews = pgTable('application_view', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  entity: text('entity').$type<'applications' | 'companies' | 'people'>().default('applications').notNull(),
   name: text('name').notNull(),
   isDefault: boolean('isDefault').default(false).notNull(),
   config: jsonb('config').notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 }, (table) => ({
-  userIdx: index('application_view_user_idx').on(table.userId),
-  userNameIdx: uniqueIndex('application_view_user_name_idx').on(table.userId, table.name),
+  userIdx: index('application_view_user_idx').on(table.userId, table.entity),
+  userNameIdx: uniqueIndex('application_view_user_name_idx').on(table.userId, table.entity, table.name),
 }));
 
 // Fuente de verdad de la cola de investigación PostgreSQL.

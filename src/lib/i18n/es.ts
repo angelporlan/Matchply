@@ -119,7 +119,8 @@ const es = {
           desc: 'La IA analiza cada oferta y reescribe tu CV con las palabras clave exactas que buscan los reclutadores.',
           mockBadge: 'Keywords de la oferta',
         },
-        applications: {
+        crm: { markFavorites: 'Marcar favoritos', removeFavorites: 'Quitar favoritos' },
+  applications: {
           title: 'Nunca pierdas el hilo de tus candidaturas',
           desc: 'Sigue cada postulación desde el primer contacto hasta la oferta. Con el CV exacto que usaste en cada empresa, siempre a mano.',
         },
@@ -509,6 +510,7 @@ const es = {
         revert: 'Revertir cambios',
         modified: 'Cambios sin guardar',
         system: {
+        favorites: 'Favoritos',
           active: 'Todas las activas',
           interested: 'Interesadas',
           applied: 'Postuladas',

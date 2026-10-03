@@ -7,6 +7,7 @@ import { channelInput, id, messageInput, personInput, relationInput, text } from
 import { PeopleError, type LinkedInPersonCapture, type MessageInput, type PersonInput } from './types';
 
 export const personListColumns = {
+  isFavorite: people.isFavorite, location: people.location, linkedinUrl: people.linkedinUrl, email: people.email, origin: people.origin, createdAt: people.createdAt,
   id: people.id, name: people.name, role: people.role, headline: people.headline, kind: people.kind, status: people.status,
   nextFollowupAt: people.nextFollowupAt, updatedAt: people.updatedAt, avatarHash: people.avatarHash,
 };

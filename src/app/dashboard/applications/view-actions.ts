@@ -1,155 +1,62 @@
-"use server";
-
-import { and, eq } from 'drizzle-orm';
+'use server';
+import { and, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { applicationViews } from '@/db/schema';
 import { createAuditLog } from '@/lib/audit';
-import { normalizeViewConfig, type ApplicationViewConfig } from '@/lib/application-views';
+import { type ApplicationViewConfig } from '@/lib/application-views';
+import { isCrmEntity, normalizeEntityConfig, type CrmEntity } from '@/lib/crm-views';
+import { log } from '@/lib/logger';
 import { auditActorFields, requireProductContext } from '@/lib/request-context';
 
-const MAX_VIEW_NAME_LENGTH = 60;
-
-function isUniqueViolation(error: unknown) {
-  const candidate = error as { code?: string; cause?: { code?: string } } | null;
-  return candidate?.code === '23505' || candidate?.cause?.code === '23505';
-}
-
-function cleanViewName(name: unknown) {
-  return String(name || '').trim().replace(/\s+/g, ' ').slice(0, MAX_VIEW_NAME_LENGTH);
-}
-
-async function requireViewUser() {
-  return requireProductContext({ allowGuest: true, feature: 'applications' });
-}
-
-export async function createApplicationView(name: string, config: ApplicationViewConfig) {
+async function run(entity: CrmEntity, action: string, operation: (userId: string) => Promise<typeof applicationViews.$inferSelect | null>) {
   try {
-    const ctx = await requireViewUser();
-    const userId = ctx.effectiveUser!.id;
-    const cleanName = cleanViewName(name);
-    if (!cleanName) return { error: 'INVALID_NAME' };
-
-    const [created] = await db.insert(applicationViews).values({
-      userId,
-      name: cleanName,
-      config: normalizeViewConfig(config),
-    }).returning();
-
-    await createAuditLog('application_view_create', userId, ctx.effectiveUser!.email || null, {
-      viewId: created.id,
-      name: cleanName,
-    }, auditActorFields(ctx));
-
-    revalidatePath('/dashboard/applications');
-    return { success: true, view: created };
-  } catch (error: any) {
-    if (isUniqueViolation(error)) return { error: 'DUPLICATE_NAME' };
-    console.error('Error creating application view:', error);
-    return { error: error.message || 'Failed to create view' };
+    if (!isCrmEntity(entity)) return { error: 'INVALID_ENTITY' };
+    const ctx = await requireProductContext(entity === 'people' ? { feature: 'networking' } : { allowGuest: true, feature: 'applications' });
+    const view = await operation(ctx.effectiveUser!.id);
+    void createAuditLog(`crm_view_${action}`, ctx.effectiveUser!.id, null, { entity, viewId: view?.id }, auditActorFields(ctx));
+    revalidatePath(entity === 'applications' ? '/dashboard/applications' : `/dashboard/applications/${entity}`);
+    return { success: true, view };
+  } catch (error) {
+    const candidate = error as { code?: string; cause?: { code?: string }; message?: string };
+    if (candidate.code === '23505' || candidate.cause?.code === '23505') return { error: 'DUPLICATE_NAME' };
+    log({ event: 'crm_view_failed', level: 'error', entity, action });
+    return { error: ['INVALID_NAME', 'NOT_FOUND'].includes(candidate.message || '') ? candidate.message! : 'VIEW_ACTION_FAILED' };
   }
 }
-
-export async function updateApplicationView(
-  id: string,
-  patch: { name?: string; config?: ApplicationViewConfig },
-) {
-  try {
-    const ctx = await requireViewUser();
-    const userId = ctx.effectiveUser!.id;
-
-    const [existing] = await db.select().from(applicationViews).where(and(
-      eq(applicationViews.id, id),
-      eq(applicationViews.userId, userId),
-    )).limit(1);
-
-    if (!existing) return { error: 'NOT_FOUND' };
-
-    const values: { name?: string; config?: ApplicationViewConfig; updatedAt: Date } = {
-      updatedAt: new Date(),
-    };
-    if (patch.name !== undefined) {
-      const cleanName = cleanViewName(patch.name);
-      if (!cleanName) return { error: 'INVALID_NAME' };
-      values.name = cleanName;
-    }
-    if (patch.config !== undefined) {
-      values.config = normalizeViewConfig(patch.config);
-    }
-
-    const [updated] = await db.update(applicationViews).set(values).where(eq(applicationViews.id, id)).returning();
-
-    await createAuditLog('application_view_update', userId, ctx.effectiveUser!.email || null, {
-      viewId: id,
-      name: updated.name,
-    }, auditActorFields(ctx));
-
-    revalidatePath('/dashboard/applications');
-    return { success: true, view: updated };
-  } catch (error: any) {
-    if (isUniqueViolation(error)) return { error: 'DUPLICATE_NAME' };
-    console.error('Error updating application view:', error);
-    return { error: error.message || 'Failed to update view' };
-  }
+function name(value: string) { const clean = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 60) : ''; if (!clean) throw new Error('INVALID_NAME'); return clean; }
+export async function createCrmView(entity: CrmEntity, viewName: string, config: unknown) {
+  return run(entity, 'create', async userId => {
+    const [row] = await db.insert(applicationViews).values({ userId, entity, name: name(viewName), config: normalizeEntityConfig(entity, config) }).returning();
+    return row;
+  });
 }
-
-export async function deleteApplicationView(id: string) {
-  try {
-    const ctx = await requireViewUser();
-    const userId = ctx.effectiveUser!.id;
-
-    const [deleted] = await db.delete(applicationViews).where(and(
-      eq(applicationViews.id, id),
-      eq(applicationViews.userId, userId),
-    )).returning();
-
-    if (!deleted) return { error: 'NOT_FOUND' };
-
-    await createAuditLog('application_view_delete', userId, ctx.effectiveUser!.email || null, {
-      viewId: id,
-      name: deleted.name,
-    }, auditActorFields(ctx));
-
-    revalidatePath('/dashboard/applications');
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error deleting application view:', error);
-    return { error: error.message || 'Failed to delete view' };
-  }
+export async function updateCrmView(entity: CrmEntity, id: string, patch: { name?: string; config?: unknown }) {
+  return run(entity, 'update', async userId => {
+    const [row] = await db.update(applicationViews).set({ ...(patch.name !== undefined ? { name: name(patch.name) } : {}), ...(patch.config !== undefined ? { config: normalizeEntityConfig(entity, patch.config) } : {}), updatedAt: new Date() }).where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId), eq(applicationViews.entity, entity))).returning();
+    if (!row) throw new Error('NOT_FOUND'); return row;
+  });
 }
-
-export async function setDefaultApplicationView(id: string | null) {
-  try {
-    const ctx = await requireViewUser();
-    const userId = ctx.effectiveUser!.id;
-
+export async function deleteCrmView(entity: CrmEntity, id: string) {
+  return run(entity, 'delete', async userId => {
+    const [row] = await db.delete(applicationViews).where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId), eq(applicationViews.entity, entity))).returning();
+    if (!row) throw new Error('NOT_FOUND'); return row;
+  });
+}
+export async function setDefaultCrmView(entity: CrmEntity, id: string | null) {
+  return run(entity, 'default', userId => db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`crm-view:${userId}:${entity}`}))`);
     if (id) {
-      const [existing] = await db.select({ id: applicationViews.id }).from(applicationViews).where(and(
-        eq(applicationViews.id, id),
-        eq(applicationViews.userId, userId),
-      )).limit(1);
-      if (!existing) return { error: 'NOT_FOUND' };
+      const [row] = await tx.select({ id: applicationViews.id }).from(applicationViews).where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId), eq(applicationViews.entity, entity))).limit(1);
+      if (!row) throw new Error('NOT_FOUND');
     }
-
-    await db.transaction(async (tx) => {
-      await tx.update(applicationViews)
-        .set({ isDefault: false })
-        .where(eq(applicationViews.userId, userId));
-      if (id) {
-        await tx.update(applicationViews)
-          .set({ isDefault: true, updatedAt: new Date() })
-          .where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId)));
-      }
-    });
-
-    await createAuditLog('application_view_set_default', userId, ctx.effectiveUser!.email || null, {
-      viewId: id,
-    }, auditActorFields(ctx));
-
-    revalidatePath('/dashboard/applications');
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error setting default application view:', error);
-    return { error: error.message || 'Failed to set default view' };
-  }
+    await tx.update(applicationViews).set({ isDefault: false }).where(and(eq(applicationViews.userId, userId), eq(applicationViews.entity, entity)));
+    if (!id) return null;
+    const [row] = await tx.update(applicationViews).set({ isDefault: true, updatedAt: new Date() }).where(and(eq(applicationViews.id, id), eq(applicationViews.userId, userId), eq(applicationViews.entity, entity))).returning();
+    return row;
+  }));
 }
+export async function createApplicationView(name: string, config: ApplicationViewConfig) { return createCrmView('applications', name, config); }
+export async function updateApplicationView(id: string, patch: { name?: string; config?: ApplicationViewConfig }) { return updateCrmView('applications', id, patch); }
+export async function deleteApplicationView(id: string) { return deleteCrmView('applications', id); }
+export async function setDefaultApplicationView(id: string | null) { return setDefaultCrmView('applications', id); }

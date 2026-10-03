@@ -119,7 +119,8 @@ const en = {
           desc: 'AI analyzes each job offer and rewrites your CV with the exact keywords recruiters are looking for.',
           mockBadge: 'Job-post keywords',
         },
-        applications: {
+        crm: { markFavorites: 'Mark favorites', removeFavorites: 'Remove favorites' },
+  applications: {
           title: 'Never lose track of your applications',
           desc: 'Follow each application from first contact to offer. With the exact CV you used for each company, always at hand.',
         },
@@ -461,6 +462,7 @@ const en = {
         revert: 'Revert changes',
         modified: 'Unsaved changes',
         system: {
+        favorites: 'Favorites',
           active: 'All active',
           interested: 'Interested',
           applied: 'Applied',

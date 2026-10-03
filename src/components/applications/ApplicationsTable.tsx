@@ -10,6 +10,7 @@ import {
   Inbox,
   Plus,
   Search,
+  Star,
   Trash2,
 } from 'lucide-react';
 import type { ApplicationSummary, CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
@@ -34,6 +35,7 @@ import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
 import ApplicationStatusSelect from './ApplicationStatusSelect';
+import { SelectionCheckbox, FavoriteButton } from '@/components/crm/CrmControls';
 import { Button } from '@/components/ui/Button';
 
 const SORTABLE_COLUMNS: ApplicationColumnId[] = [
@@ -75,42 +77,14 @@ interface ApplicationsTableProps {
   hasActiveFilters: boolean;
   onClearFilters: () => void;
   onNewApplication: () => void;
+  onFavoriteChange: (ids: string[], value: boolean) => void;
+  pendingFavoriteIds: Set<string>;
   attachedFooter?: boolean;
 }
 
-function SelectionCheckbox({
-  checked,
-  indeterminate = false,
-  onChange,
-  label,
-  onClick,
-}: {
-  checked: boolean;
-  indeterminate?: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  onClick?: (event: React.MouseEvent) => void;
-}) {
-  const ref = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = indeterminate;
-  }, [indeterminate]);
-
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={checked}
-      onChange={(event) => onChange(event.target.checked)}
-      onClick={onClick}
-      aria-label={label}
-      className="h-3.5 w-3.5 rounded border-control accent-ai cursor-pointer"
-    />
-  );
-}
-
 export default function ApplicationsTable({
+  onFavoriteChange,
+  pendingFavoriteIds,
   offers,
   allSelectableIds,
   companies = [],
@@ -379,6 +353,7 @@ export default function ApplicationsTable({
             label={t('applications.table.selectRow', { title: offer.title })}
           />
         </td>
+        <td className="px-0"><FavoriteButton name={offer.title} favorite={!!offer.isFavorite} busy={pendingFavoriteIds.size > 0} onChange={() => onFavoriteChange([offer.id], !offer.isFavorite)} /></td>
         {tableItems.map((item) => (
           item === 'actions' ? (
             <td key="actions" style={columnStyle('actions')} className="px-3 py-2.5 align-middle">
@@ -442,6 +417,7 @@ export default function ApplicationsTable({
                     label={t('applications.table.selectAll')}
                   />
                 </th>
+                <th scope="col" className="w-11 px-3 py-3"><span className="sr-only">{t("applications.views.system.favorites")}</span><Star className="w-3.5 h-3.5" aria-hidden="true" /></th>
                 {tableItems.map((item) => {
                   if (item === 'actions') {
                     return (
@@ -509,7 +485,7 @@ export default function ApplicationsTable({
                     return (
                       <Fragment key={`group-${group.key}`}>
                         <tr className="bg-surface-muted/60 dark:bg-canvas/30">
-                          <td colSpan={columns.length + 2} className="px-3 py-1.5">
+                          <td colSpan={columns.length + 3} className="px-3 py-1.5">
                             <button
                               type="button"
                               onClick={() => toggleGroup(group.key)}
@@ -552,6 +528,7 @@ export default function ApplicationsTable({
                     label={t('applications.table.selectRow', { title: offer.title })}
                   />
                 </div>
+                <FavoriteButton name={offer.title} favorite={!!offer.isFavorite} busy={pendingFavoriteIds.size > 0} onChange={() => onFavoriteChange([offer.id], !offer.isFavorite)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

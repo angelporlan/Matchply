@@ -11,6 +11,7 @@ export const currentMatchScore = sql<number | null>`case when ${jobOffers.matchI
 
 export const applicationSummaryColumns = {
   id: jobOffers.id,
+  isFavorite: jobOffers.isFavorite,
   userId: jobOffers.userId,
   cvId: jobOffers.cvId,
   title: jobOffers.title,
@@ -148,6 +149,7 @@ export const companyNoteColumns = {
 
 export type ApplicationSummary = {
   id: string;
+  isFavorite?: boolean;
   userId: string;
   cvId: string | null;
   title: string;
