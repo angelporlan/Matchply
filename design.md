@@ -180,8 +180,8 @@ Cuatro roles. No se mezclan en la misma fila. El relieve (borde de 2 px y sombra
 | CVs | Generar con IA (violeta) | Crear CV en outline. Todos / Base / Optimizados: pastilla de tinta suave, no bloque negro |
 | Postulaciones | Nueva candidatura (verde) | Tabla / Tablero y densidad: control segmentado |
 | Empresas | Nueva empresa (verde) | Ningún segundo sólido en esa barra |
-| Login | Entrar (tinta) | Google en outline |
-| Registro y landing | Crear cuenta o empezar (verde) | La cabecera de la landing no repite otro sólido: el hero ya lo tiene |
+| Login y registro | Entrar o crear cuenta (verde) | Google en outline |
+| Landing | Empezar (verde) | La cabecera de la landing no repite otro sólido: el hero ya lo tiene |
 | Editor, perfil, ficha sin alta | Guardar (tinta) | Cancelar y alternativas en outline o ghost |
 
 «Ver CV optimizado» es navegación y no lleva violeta. «Aplicar cambios» en la revisión puede ser verde porque confirma el avance. Descargar, si es la acción dominante de esa vista y no hay IA ni alta, usa tinta. El borde degradado deja de ser obligatorio: el color y Sparkles ya identifican IA; no acumular gradiente, glow, shimmer y sombra sólida.
