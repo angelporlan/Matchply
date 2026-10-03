@@ -1,11 +1,30 @@
 import { and, eq, gt, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, type AiJob } from '@/db/schema';
-import type { AiJobKind, AiJobPayload, MatchBatchPayload } from './types';
+import type { AiJobKind, AiJobPayload, MatchBatchPayload, ImportOfferPayload } from './types';
 import { getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 
 const MAX_ATTEMPTS = 3;
 const LEASE_MS = 5 * 60_000;
+
+export async function enqueueImportOfferJob(userId: string, payload: ImportOfferPayload, initiatedByUserId: string) {
+  return db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`offer-import:${userId}:${payload.requestId}`}))`);
+    const [existing] = await tx.select().from(aiJobs).where(and(
+      eq(aiJobs.userId, userId), eq(aiJobs.kind, 'import_offer'),
+      sql`${aiJobs.payload}->>'requestId' = ${payload.requestId}`,
+    )).limit(1);
+    if (existing) {
+      if ((existing.payload as ImportOfferPayload).url !== payload.url) throw new Error('OFFER_REQUEST_CONFLICT');
+      return existing;
+    }
+    const [job] = await tx.insert(aiJobs).values({
+      userId, initiatedByUserId, kind: 'import_offer', payload,
+      status: 'queued', attempt: 0, nextAttemptAt: new Date(), result: { stage: 'reading' },
+    }).returning();
+    return job;
+  });
+}
 
 export async function enqueueAiJob(input: {
   userId: string;
@@ -103,7 +122,7 @@ export async function claimNextAiJob(): Promise<AiJob | null> {
     await tx.execute(sql`
       UPDATE "ai_job" SET "status" = 'failed', "leaseUntil" = NULL,
         "lastError" = 'AI_JOB_LEASE_EXPIRED', "completedAt" = ${now.toISOString()}, "updatedAt" = ${now.toISOString()}
-      WHERE "kind" = 'match_batch' AND "status" = 'running'
+      WHERE "kind" IN ('match_batch', 'import_offer') AND "status" = 'running'
         AND "leaseUntil" < ${now.toISOString()} AND "attempt" >= ${MAX_ATTEMPTS}
     `);
     const result = await tx.execute(sql`
@@ -177,12 +196,13 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
     leaseUntil: null,
     completedAt: now,
     updatedAt: now,
-  }).where(owner?.kind === 'match_batch' ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} <> 'match_batch'`)).returning();
+  }).where(owner && ['match_batch', 'import_offer'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer')`)).returning();
   return updated;
 }
 
 export async function failAiJob(job: AiJob, error: unknown) {
-  const terminal = job.attempt >= MAX_ATTEMPTS;
+  const retryableImport = error instanceof Error && 'retryable' in error && error.retryable === true;
+  const terminal = job.attempt >= MAX_ATTEMPTS || (job.kind === 'import_offer' && !retryableImport);
   const now = new Date();
   const [updated] = await db.update(aiJobs).set({
     status: terminal ? 'failed' : 'queued',
@@ -191,7 +211,7 @@ export async function failAiJob(job: AiJob, error: unknown) {
     leaseUntil: null,
     completedAt: terminal ? now : null,
     updatedAt: now,
-  }).where(job.kind === 'match_batch' ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
+  }).where(['match_batch', 'import_offer'].includes(job.kind) ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
   return updated;
 }
 

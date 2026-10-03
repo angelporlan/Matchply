@@ -2,6 +2,7 @@ export const AI_JOB_KINDS = [
   'match_batch',
   'evaluate',
   'optimize_application',
+  'import_offer',
 ] as const;
 
 export type AiJobKind = typeof AI_JOB_KINDS[number];
@@ -28,4 +29,5 @@ export type MatchBatchPayload = {
   requestId: string;
 };
 
-export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload | MatchBatchPayload;
+export type ImportOfferPayload = { url: string; requestId: string };
+export type AiJobPayload = OfferJobPayload | OptimizeApplicationPayload | MatchBatchPayload | ImportOfferPayload;

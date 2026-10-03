@@ -13,7 +13,10 @@ type Bucket = { startedAt: number; count: number; windowMs: number };
 // `login:<email>` cannot grow the map forever.
 const MAX_BUCKETS = 10_000;
 const SWEEP_INTERVAL_MS = 60_000;
-const buckets = new Map<string, Bucket>();
+// Next can load this helper in different route bundles or reload it during development.
+// Keep one bounded store per process so those imports cannot reset a caller's quota.
+const processState = globalThis as typeof globalThis & { matchplyRateLimitBuckets?: Map<string, Bucket> };
+const buckets = processState.matchplyRateLimitBuckets ??= new Map<string, Bucket>();
 let lastSweepAt = 0;
 
 function sweepExpired(now: number) {

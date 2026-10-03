@@ -6,11 +6,12 @@ import { baseCvForAiColumns } from '@/lib/job-offer-queries';
 import { createAuditLog } from '@/lib/audit';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
 import { getOwnedApplication } from '@/lib/application-service';
-import { completeAiJob, failAiJob, renewAiJobLease } from './queue';
+import { completeAiJob, failAiJob, renewAiJobLease, saveAiJobProgress } from './queue';
 import { processMatchBatch } from './match-batch';
 import { log } from '@/lib/logger';
 import { parseJsonObject } from './evaluation';
-import type { OfferJobPayload, OptimizeApplicationPayload } from './types';
+import type { OfferJobPayload, OptimizeApplicationPayload, ImportOfferPayload } from './types';
+import { importOffer, OFFER_IMPORT_MODEL, OfferImportError } from '@/lib/offer-import/service';
 import { bindAiRuntime, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
@@ -121,11 +122,12 @@ export async function processAiJob(job: AiJob) {
     : await getResolvedAiRuntime();
   return bindAiRuntime(snapshot, async () => {
   let renewing = false;
-  const heartbeat = job.kind === 'match_batch' ? setInterval(() => {
+  const importController = new AbortController();
+  const heartbeat = ['match_batch', 'import_offer'].includes(job.kind) ? setInterval(() => {
     if (renewing) return;
     renewing = true;
     void renewAiJobLease(job).then(owned => {
-      if (!owned && heartbeat) clearInterval(heartbeat);
+      if (!owned) { importController.abort(); if (heartbeat) clearInterval(heartbeat); }
     }).catch(() => {
       // An expired lease prevents progress/completion writes; a worker can safely reclaim the job.
       log({ event: 'ai_job_lease_renewal_failed', level: 'warn', jobId: job.id });
@@ -134,6 +136,21 @@ export async function processAiJob(job: AiJob) {
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
+      case 'import_offer': {
+        const payload = job.payload as ImportOfferPayload;
+        result = await importOffer(payload.url, {
+          signal: importController.signal,
+          onProgress: async stage => {
+            if (!await saveAiJobProgress(job, { stage })) {
+              importController.abort();
+              throw new OfferImportError('OFFER_LEASE_LOST');
+            }
+          },
+        });
+        log({ event: 'offer_import_completed', jobId: job.id, userId: job.userId,
+          sourceMethod: result.sourceMethod, durationMs: Date.now() - started });
+        break;
+      }
       case 'match_batch':
         result = await processMatchBatch(job);
         break;
@@ -150,8 +167,8 @@ export async function processAiJob(job: AiJob) {
     if (!completed) return;
     void recordAiRunStat({
       functionKey: job.kind,
-      provider: snapshot.general.pro.provider,
-      model: snapshot.general.pro.model,
+      provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
+      model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
       plan: 'unknown',
       success: true,
       latencyMs: Date.now() - started,
@@ -177,8 +194,8 @@ export async function processAiJob(job: AiJob) {
     });
     void recordAiRunStat({
       functionKey: job.kind,
-      provider: snapshot.general.pro.provider,
-      model: snapshot.general.pro.model,
+      provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
+      model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
       plan: 'unknown',
       success: false,
       latencyMs: Date.now() - started,
