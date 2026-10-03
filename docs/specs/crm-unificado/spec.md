@@ -24,3 +24,5 @@ Estado: implementado en desarrollo · 03/10/2026. Contrato aprobado por el usuar
 Interfaces: `application_view.entity`; `filters.favoritesOnly`; `setRowsFavoriteAction(entity, ids, isFavorite)`; consultas de página/IDs/exportación normalizadas por catálogo. Las acciones antiguas de vistas de Postulaciones mantienen sus firmas.
 
 Ver [expectations.md](expectations.md), [plan.md](plan.md) y [evidence.md](evidence.md).
+
+Seguimiento autorizado: Personas se puede probar sin registro desde `/try`, incluyendo fichas, relaciones, estados, favoritos, vistas y asistente. La extensión de LinkedIn mantiene su requisito de registro. Al reclamar la sesión invitada se transfiere atómicamente el CRM y sus relaciones, conversaciones, importaciones, resultados de IA, notas, favoritos y vistas, conservando IDs y privacidad. Los nombres de vistas en conflicto se renombran y se conserva la predeterminada de la cuenta destino.

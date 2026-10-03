@@ -10,7 +10,7 @@ import { EXPORT_OFFER_ID_LIMIT, SELECT_ALL_ID_LIMIT } from '@/lib/application-fi
 
 async function context(entity: CrmEntity) {
   if (!isCrmEntity(entity)) throw new Error('INVALID_ENTITY');
-  return requireProductContext(entity === 'people' ? { feature: 'networking' } : { allowGuest: true, feature: 'applications' });
+  return requireProductContext(entity === 'people' ? { allowGuest: true, feature: 'networking' } : { allowGuest: true, feature: 'applications' });
 }
 function failure(error: unknown) { log({ event: 'crm_action_failed', level: 'error', code: error instanceof Error ? error.message : 'UNKNOWN' }); return { error: 'CRM_ACTION_FAILED' }; }
 function requireListEntity(entity: unknown): asserts entity is ListEntity {

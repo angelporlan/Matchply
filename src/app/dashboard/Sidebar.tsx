@@ -72,7 +72,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           isActive: isCompaniesPath,
           icon: Building2,
         },
-        ...(!isGuest ? [{ name: language === 'es' ? 'Personas' : 'People', href: '/dashboard/applications/people', icon: Users, isActive: (path: string) => path.startsWith('/dashboard/applications/people') }] : []),
+        { name: language === 'es' ? 'Personas' : 'People', href: '/dashboard/applications/people', icon: Users, isActive: (path: string) => path.startsWith('/dashboard/applications/people') },
       ],
     },
   ];

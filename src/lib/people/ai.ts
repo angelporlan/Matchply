@@ -45,7 +45,7 @@ export function validateAdvice(value: unknown): NetworkingAdvice {
 }
 async function respond(userId: string, instructions: string, input: string, schema: Record<string, unknown>, signal: AbortSignal, validate: (value: any) => void) {
   const [user] = await db.select({ subscriptionStatus: users.subscriptionStatus, isGuest: users.isGuest, proGrantedUntil: users.proGrantedUntil, accountStatus: users.accountStatus }).from(users).where(eq(users.id, userId)).limit(1);
-  if (!user || user.isGuest || user.accountStatus !== 'active') throw new NetworkingError('NETWORKING_FORBIDDEN');
+  if (!user || user.accountStatus !== 'active') throw new NetworkingError('NETWORKING_FORBIDDEN');
   const plan = getAccessTier(user.subscriptionStatus, user) === 'pro' ? 'pro' : 'free';
   const ref = resolveModelForFunction(await getResolvedAiRuntime(), 'networking', plan).ref;
   if (ref.provider !== 'openai') throw new NetworkingError('NETWORKING_OPENAI_REQUIRED');

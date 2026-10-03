@@ -27,7 +27,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
     templates: [HARVARD_TEMPLATE],
     features: {
       advancedAi: false,
-      networking: false,
+      networking: true,
       applications: true,
       linkedinExtension: false,
       deepResearch: false,

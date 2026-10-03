@@ -23,3 +23,5 @@ Cuenta sintética de QA con 32 empresas/postulaciones y 31 personas, sin datos r
 Fixtures y cuenta temporal retirados tras verificar; viewport restablecido.
 
 No se midieron cargas de 10.000 registros ni tiempos p95; los límites se validan en servidor. No se certifica una auditoría WCAG completa.
+
+Seguimiento de Personas para invitados (2026-10-03): 322 pruebas pasan, sin fallos ni omisiones; typecheck, lint y build correctos (lint conserva avisos anteriores). Integración PostgreSQL verifica cola de IA con transporte LLM simulado, transferencia del grafo completo de propiedad, conservación de favoritos/fechas y conflictos de vistas. Navegador local: invitado ve Personas, crea contacto por modal, cambia estado, marca favorito y conserva ambos cambios tras recargar. Captura: `personas-invitado.png` en los artefactos de esta conversación. Invitado sintético retirado tras verificar. No se invocó un LLM real durante estas comprobaciones.

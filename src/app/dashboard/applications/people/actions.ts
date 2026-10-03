@@ -13,7 +13,7 @@ import { PeopleError, type PersonInput, type MessageInput } from '@/lib/people/t
 
 async function run<T>(action: string, operation: (userId: string) => Promise<T>, personId?: string) {
   try {
-    const ctx = await requireProductContext({ feature: 'networking' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' });
     const userId = ctx.effectiveUser!.id;
     const data = await operation(userId);
     if (action !== 'read') {

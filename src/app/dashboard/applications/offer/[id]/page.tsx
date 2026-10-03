@@ -61,7 +61,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
           isPremium={isPremium}
           initialResearch={initialResearch}
         />
-        {!viewer.isGuest && <RelatedPeople userId={dbUser.id} offerId={params.id} />}
+        <RelatedPeople userId={dbUser.id} offerId={params.id} />
       </main>
     </div>
   );

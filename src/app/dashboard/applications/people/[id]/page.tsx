@@ -10,7 +10,6 @@ export const dynamic = 'force-dynamic';
 export default async function PersonPage({ params }: { params: { id: string } }) {
   const viewer = await getDashboardViewer();
   if (!viewer) redirect('/login');
-  if (viewer.isGuest) redirect('/register');
   const u = viewer.user.id;
   try {
     const [person, links, threads, [job]] = await Promise.all([

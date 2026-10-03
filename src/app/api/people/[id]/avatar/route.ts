@@ -11,7 +11,7 @@ import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const ctx = await requireProductContext({ feature: 'networking' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' });
     const avatar = await getPersonAvatar(ctx.effectiveUser!.id, params.id);
     const version = new URL(request.url).searchParams.get('v');
     if (!avatar || (version && version !== avatar.avatarHash)) return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
@@ -45,7 +45,7 @@ async function readUpload(request: Request) {
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
   try {
-    const ctx = await requireProductContext({ feature: 'networking' }); assertMutableActor(ctx);
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' }); assertMutableActor(ctx);
     const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || req.nextUrl.protocol.slice(0, -1);
     const host = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || req.headers.get('host') || req.nextUrl.host;
     let expectedOrigin: string;

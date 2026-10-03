@@ -12,7 +12,7 @@ import { auditActorFields, requireProductContext } from '@/lib/request-context';
 async function run(entity: CrmEntity, action: string, operation: (userId: string) => Promise<typeof applicationViews.$inferSelect | null>) {
   try {
     if (!isCrmEntity(entity)) return { error: 'INVALID_ENTITY' };
-    const ctx = await requireProductContext(entity === 'people' ? { feature: 'networking' } : { allowGuest: true, feature: 'applications' });
+    const ctx = await requireProductContext(entity === 'people' ? { allowGuest: true, feature: 'networking' } : { allowGuest: true, feature: 'applications' });
     const view = await operation(ctx.effectiveUser!.id);
     void createAuditLog(`crm_view_${action}`, ctx.effectiveUser!.id, null, { entity, viewId: view?.id }, auditActorFields(ctx));
     revalidatePath(entity === 'applications' ? '/dashboard/applications' : `/dashboard/applications/${entity}`);

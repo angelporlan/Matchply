@@ -68,7 +68,7 @@ export default async function CompanyDetailPage({ params }: CompanyPageProps) {
             offers={offersNormalized}
             statusCounts={statusCounts}
           />
-          {!viewer.isGuest && <RelatedPeople userId={userId} companyId={params.id} />}
+          <RelatedPeople userId={userId} companyId={params.id} />
         </main>
       </div>
     );

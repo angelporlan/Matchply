@@ -12,7 +12,7 @@ import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError
 export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
-    const ctx = await requireProductContext({ feature: 'networking' });
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' });
     const origin = req.headers.get('origin');
     const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || req.nextUrl.protocol.slice(0, -1);
     const host = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || req.headers.get('host') || req.nextUrl.host;
