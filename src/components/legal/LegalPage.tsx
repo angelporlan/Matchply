@@ -27,7 +27,7 @@ export default function LegalPage({ title, intro, sections }: LegalPageProps) {
             ))}
           </div>
           <p className="mt-10 border-t border-subtle pt-6 text-sm text-text-muted dark:border-white/10 dark:text-text-muted">
-            ¿Necesitas ayuda? <a className="font-bold text-ai-text hover:underline" href="mailto:soporte@matchply.com">soporte@matchply.com</a>
+            ¿Necesitas ayuda? <a className="font-bold text-ai-text hover:underline" href="mailto:matchplyapp@gmail.com">matchplyapp@gmail.com</a>
           </p>
         </article>
       </div>
