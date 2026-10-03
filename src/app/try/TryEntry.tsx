@@ -10,7 +10,8 @@ import {
   ArrowRight, 
   ArrowLeft, 
   Zap, 
-  AlertCircle 
+  AlertCircle,
+  FileCheck
 } from 'lucide-react';
 import { createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
 import Logo from '@/components/ui/Logo';
@@ -35,10 +36,12 @@ export default function TryEntry() {
   const [file, setFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<'create' | 'adapt'>('adapt');
   const [error, setError] = useState<string | null>(null);
 
   const fileSizeKb = file ? Math.round(file.size / 1024) : 0;
   const hasCv = Boolean(file || cvText.trim());
+  const hasJob = Boolean(jobDescription.trim());
 
   const handleFile = (selectedFile: File | null) => {
     if (selectedFile && selectedFile.type !== 'application/pdf') {
@@ -91,23 +94,22 @@ export default function TryEntry() {
     );
   };
 
-  const handleSubmit = async (event?: React.FormEvent) => {
-    if (event) event.preventDefault();
+  /** Procesa la creación del CV. Si skipOffer es true, no adapta con IA y va directo al editor con su CV */
+  const handleProcess = async (skipOffer = false) => {
     if (loading) return;
     setError(null);
 
-    const description = jobDescription.trim();
-    if (!description) {
-      setError(t('try.entry.errors.job'));
-      return;
-    }
     if (!file && !cvText.trim()) {
       setError(t('try.entry.errors.cv'));
       setStep(1);
       return;
     }
 
+    const description = skipOffer ? '' : jobDescription.trim();
+
     setLoading(true);
+    setLoadingMode(skipOffer || !description ? 'create' : 'adapt');
+
     try {
       let raw = cvText;
       if (file) {
@@ -124,7 +126,6 @@ export default function TryEntry() {
       const markdown = trialCvMarkdown(raw, t('try.entry.untitledSection'));
       if (!markdown) throw new Error(t('try.entry.errors.cv'));
 
-      const identity = resolveOfferIdentity({ jobDescription: description });
       const base = await createCvPlaceholder({
         title: t('try.entry.baseTitle'),
         isBase: true,
@@ -138,6 +139,15 @@ export default function TryEntry() {
       const saved = await saveCvContent(base.cvId, markdown);
       if (!saved.success) throw new Error(saved.error || t('try.entry.errors.generic'));
 
+      // Si se salta la oferta: va directo al editor con su CV base
+      if (skipOffer || !description) {
+        sessionStorage.removeItem('matchply_optimize_params');
+        router.push(`/editor/${base.cvId}`);
+        return;
+      }
+
+      // Si hay oferta: adapta el CV con la IA
+      const identity = resolveOfferIdentity({ jobDescription: description });
       const adapted = await createCvPlaceholder({
         title: `CV - ${identity.jobTitle}`,
         isBase: false,
@@ -211,6 +221,7 @@ export default function TryEntry() {
               }`}
             >
               <span>2. La Oferta</span>
+              <span className="text-[10px] opacity-80">(Opcional)</span>
             </button>
           </div>
         </div>
@@ -286,17 +297,30 @@ export default function TryEntry() {
               </div>
             )}
 
-            {/* Botón para continuar con el PDF seleccionado */}
+            {/* Botones de acción cuando hay un PDF seleccionado */}
             {file && (
-              <Button
-                type="button"
-                variant="ai"
-                onClick={handleNextStep}
-                className="w-full mt-4"
-              >
-                <span>Continuar al Paso 2</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              <div className="mt-5 space-y-2.5">
+                <Button
+                  type="button"
+                  variant="ai"
+                  onClick={handleNextStep}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  <span>Continuar al Paso 2 (Añadir oferta)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => handleProcess(true)}
+                  disabled={loading}
+                  className="w-full text-xs font-semibold text-text-muted hover:text-text py-2 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <FileCheck className="w-4 h-4 text-action" />
+                  <span>O saltar oferta y crear solo mi CV directamente</span>
+                </button>
+              </div>
             )}
 
             {/* Alternativa: Pegar texto directo */}
@@ -312,7 +336,7 @@ export default function TryEntry() {
               </button>
 
               {showRawText && (
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 space-y-2.5">
                   <textarea
                     value={cvText}
                     onChange={(e) => setCvText(e.target.value)}
@@ -321,15 +345,27 @@ export default function TryEntry() {
                     className="w-full bg-canvas border border-border-control/50 rounded-xl p-3 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai-action resize-none"
                   />
                   {cvText.trim() && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleNextStep}
-                      className="w-full text-xs"
-                    >
-                      <span>Continuar con este texto</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="ai"
+                        onClick={handleNextStep}
+                        disabled={loading}
+                        className="w-full text-xs"
+                      >
+                        <span>Continuar al Paso 2 (Añadir oferta)</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleProcess(true)}
+                        disabled={loading}
+                        className="w-full text-xs font-semibold text-text-muted hover:text-text py-1.5 flex items-center justify-center gap-1.5"
+                      >
+                        <FileCheck className="w-3.5 h-3.5 text-action" />
+                        <span>Saltar oferta y crear CV directamente</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -344,12 +380,9 @@ export default function TryEntry() {
           </div>
         )}
 
-        {/* Paso 2: Descripción de la Oferta */}
+        {/* Paso 2: Descripción de la Oferta (Opcional) */}
         {step === 2 && (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-surface border border-subtle rounded-2xl p-6 sm:p-8 shadow-dialog"
-          >
+          <div className="bg-surface border border-subtle rounded-2xl p-6 sm:p-8 shadow-dialog">
             {/* Chip resumen del CV activo */}
             <div className="mb-5 p-3 bg-success-surface border border-action/40 rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 overflow-hidden">
@@ -369,9 +402,14 @@ export default function TryEntry() {
 
             <div className="mb-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-display text-lg font-bold text-text">
-                  Paso 2: ¿A qué oferta aspiras?
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-lg font-bold text-text">
+                    Paso 2: ¿A qué oferta aspiras?
+                  </h2>
+                  <span className="text-xs px-2 py-0.5 rounded-md bg-surface-muted text-text-muted font-medium border border-subtle">
+                    Opcional
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={handleQuickSample}
@@ -382,7 +420,7 @@ export default function TryEntry() {
                 </button>
               </div>
               <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                Copia la descripción de LinkedIn, InfoJobs o el portal de la empresa.
+                Pega la oferta para que la IA adapte tu CV, o déjala en blanco para crear directamente tu documento base.
               </p>
             </div>
 
@@ -391,9 +429,8 @@ export default function TryEntry() {
                 id="wizard-job-desc"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
-                required
                 rows={6}
-                placeholder={t('try.entry.jobPlaceholder')}
+                placeholder="Pega aquí los requisitos y responsabilidades de la oferta (opcional)..."
                 className="w-full bg-canvas border border-border-control/50 rounded-xl p-3.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai-action resize-none"
               />
             </div>
@@ -405,28 +442,62 @@ export default function TryEntry() {
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handlePrevStep}
-                className="px-4"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Atrás</span>
-              </Button>
-              <Button
-                type="submit"
-                variant="ai"
-                disabled={loading}
-                loading={loading}
-                className="flex-1"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>{loading ? t('try.entry.working') : t('try.entry.submit')}</span>
-              </Button>
+            {/* Acciones del Paso 2 */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handlePrevStep}
+                  disabled={loading}
+                  className="px-4"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Atrás</span>
+                </Button>
+
+                {hasJob ? (
+                  <Button
+                    type="button"
+                    variant="ai"
+                    onClick={() => handleProcess(false)}
+                    disabled={loading}
+                    loading={loading && loadingMode === 'adapt'}
+                    className="flex-1"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{loading && loadingMode === 'adapt' ? t('try.entry.working') : t('try.entry.submit')}</span>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => handleProcess(true)}
+                    disabled={loading}
+                    loading={loading && loadingMode === 'create'}
+                    className="flex-1"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>{loading && loadingMode === 'create' ? 'Creando tu CV...' : 'Crear mi CV sin oferta'}</span>
+                  </Button>
+                )}
+              </div>
+
+              {/* Enlace explícito para saltar la oferta si el usuario ya escribió texto pero decide no adaptarla */}
+              {hasJob && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleProcess(true)}
+                    disabled={loading}
+                    className="text-xs text-text-muted hover:text-text hover:underline transition-colors"
+                  >
+                    Saltar oferta y crear solo mi CV base
+                  </button>
+                </div>
+              )}
             </div>
-          </form>
+          </div>
         )}
 
         {/* Enlace inferior de sesión */}
