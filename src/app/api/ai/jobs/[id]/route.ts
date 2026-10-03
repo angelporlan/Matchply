@@ -21,8 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    if (job.kind === 'match_batch') {
-      try { await requireUserFeature(actor.userId, 'applications'); }
+    if (job.kind === 'match_batch' || job.kind === 'networking') {
+      try { await requireUserFeature(actor.userId, job.kind === 'networking' ? 'networking' : 'applications'); }
       catch { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }); }
     }
 

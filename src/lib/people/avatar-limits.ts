@@ -1,0 +1,3 @@
+export const PERSON_AVATAR_MAX_BYTES = 48 * 1024;
+export const PERSON_AVATAR_MAX_EDGE = 192;
+export const PERSON_AVATAR_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;

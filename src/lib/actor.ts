@@ -8,6 +8,7 @@ import { requestCache } from '@/lib/request-cache';
 import { GUEST_MAX_CVS } from '@/lib/subscription';
 import { assertMutableActor, getRequestContext } from '@/lib/request-context';
 import { AccountSuspendedError } from '@/lib/request-errors';
+import { transferGuestCrm } from '@/lib/guest-crm-claim';
 
 export { GUEST_MAX_CVS } from '@/lib/subscription';
 
@@ -264,10 +265,7 @@ export async function claimGuestDataForUser(userId: string) {
       }
     }
 
-    await tx
-      .update(jobOffers)
-      .set({ userId })
-      .where(eq(jobOffers.userId, guest.id));
+    await transferGuestCrm(tx, guest.id, userId);
 
     // Guest deletion nulls audit userId. Keep optimize/download on the new account.
     await tx.update(auditLogs).set({ userId }).where(eq(auditLogs.userId, guest.id));

@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const delaySection = document.getElementById("delaySection");
   const delaySlider = document.getElementById("delaySlider");
   const delayDisplay = document.getElementById("delayDisplay");
+  const peopleToggle = document.getElementById("peopleToggle");
   const widgetToggle = document.getElementById("widgetToggle");
   const presetButtons = [...document.querySelectorAll(".preset-btn")];
   const statusMessage = document.getElementById("statusMessage");
@@ -51,6 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "matchplyCaptureMode",
       "matchplyCaptureDelay",
       "matchplyShowWidget",
+      "matchplyCapturePeople",
     ]);
 
     const token = stored.matchplyExtensionToken;
@@ -76,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateModeUI(mode);
     updateDelayUI(delay);
     if (widgetToggle) widgetToggle.checked = showWidget;
+    if (peopleToggle) peopleToggle.checked = stored.matchplyCapturePeople === true;
 
     if (!isConnected) return;
 
@@ -163,6 +166,8 @@ document.addEventListener("DOMContentLoaded", () => {
       await chrome.storage.local.set({ matchplyCaptureDelay: sec });
     });
   });
+
+  peopleToggle?.addEventListener("change", async e => { await chrome.storage.local.set({ matchplyCapturePeople: e.target.checked }); });
 
   widgetToggle?.addEventListener("change", async (e) => {
     await chrome.storage.local.set({ matchplyShowWidget: e.target.checked });

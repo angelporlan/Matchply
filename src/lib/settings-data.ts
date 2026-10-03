@@ -96,19 +96,10 @@ export async function loadProfileSettings(userId: string): Promise<ProfileSettin
 
 export async function loadIntegrationsSettings(user: SessionUser): Promise<IntegrationsSettingsPayload> {
   const isPremium = hasProAccess(user);
-  if (!isPremium) {
-    return {
-      tab: 'integrations',
-      isPremium,
-      installations: [],
-      quota: { used: 0, limit: 10 },
-      apiTokens: [],
-    };
-  }
   const [installations, quota, apiTokens] = await Promise.all([
     listExtensionInstallations(user.id),
-    getResearchQuota(user.id),
-    listUserApiTokens(user.id),
+    isPremium ? getResearchQuota(user.id) : Promise.resolve({ used: 0, limit: 0 }),
+    isPremium ? listUserApiTokens(user.id) : Promise.resolve([]),
   ]);
   return {
     tab: 'integrations',

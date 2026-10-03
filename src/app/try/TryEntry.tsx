@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   ArrowRight, 
   ArrowLeft, 
-  Zap, 
   AlertCircle,
   FileCheck
 } from 'lucide-react';
@@ -17,7 +16,8 @@ import { createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
 import Logo from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { resolveOfferIdentity } from '@/lib/offer-fields';
+import OfferUrlImport from '@/components/ai/OfferUrlImport';
+import type { ImportedOffer } from '@/lib/offer-import/types';
 import { trialCvMarkdown } from '@/lib/try-entry';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
@@ -34,14 +34,14 @@ export default function TryEntry() {
   // Form fields state
   const [cvText, setCvText] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [jobDescription, setJobDescription] = useState('');
+  const [importedOffer, setImportedOffer] = useState<ImportedOffer | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'create' | 'adapt'>('adapt');
   const [error, setError] = useState<string | null>(null);
 
   const fileSizeKb = file ? Math.round(file.size / 1024) : 0;
   const hasCv = Boolean(file || cvText.trim());
-  const hasJob = Boolean(jobDescription.trim());
+  const hasJob = Boolean(importedOffer?.jobDescription.trim());
 
   const handleFile = (selectedFile: File | null) => {
     if (selectedFile && selectedFile.type !== 'application/pdf') {
@@ -88,12 +88,6 @@ export default function TryEntry() {
     setStep(1);
   };
 
-  const handleQuickSample = () => {
-    setJobDescription(
-      'Buscamos Product Engineer con más de 3 años de experiencia en React, TypeScript y Next.js. Responsabilidades: liderar el desarrollo de interfaces de usuario de alto impacto, optimizar métricas Core Web Vitals y colaborar con producto y diseño para entregar una experiencia fluida y accesible.'
-    );
-  };
-
   /** Procesa la creación del CV. Si skipOffer es true, no adapta con IA y va directo al editor con su CV */
   const handleProcess = async (skipOffer = false) => {
     if (loading) return;
@@ -105,7 +99,7 @@ export default function TryEntry() {
       return;
     }
 
-    const description = skipOffer ? '' : jobDescription.trim();
+    const description = skipOffer ? '' : importedOffer?.jobDescription.trim() || '';
 
     setLoading(true);
     setLoadingMode(skipOffer || !description ? 'create' : 'adapt');
@@ -147,7 +141,7 @@ export default function TryEntry() {
       }
 
       // Si hay oferta: adapta el CV con la IA
-      const identity = resolveOfferIdentity({ jobDescription: description });
+      const identity = importedOffer!;
       const adapted = await createCvPlaceholder({
         title: `CV - ${identity.jobTitle}`,
         isBase: false,
@@ -170,6 +164,8 @@ export default function TryEntry() {
         targetCvId,
         jobTitle: identity.jobTitle,
         company: identity.company,
+        url: identity.url,
+        platform: identity.platform,
         jobDescription: description,
         addToApplications: true,
         activationBase,
@@ -404,35 +400,20 @@ export default function TryEntry() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h2 className="font-display text-lg font-bold text-text">
-                    Paso 2: ¿A qué oferta aspiras?
+                    {t('offerImport.stepTitle')}
                   </h2>
                   <span className="text-xs px-2 py-0.5 rounded-md bg-surface-muted text-text-muted font-medium border border-subtle">
-                    Opcional
+                    {t('offerImport.optional')}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleQuickSample}
-                  className="text-xs font-semibold text-ai-action hover:text-ai-hover hover:underline flex items-center gap-1"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  Pegar ejemplo
-                </button>
               </div>
               <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                Pega la oferta para que la IA adapte tu CV, o déjala en blanco para crear directamente tu documento base.
+                {t('offerImport.tryHelp')}
               </p>
             </div>
 
             <div className="mb-5">
-              <textarea
-                id="wizard-job-desc"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                rows={6}
-                placeholder="Pega aquí los requisitos y responsabilidades de la oferta (opcional)..."
-                className="w-full bg-canvas border border-border-control/50 rounded-xl p-3.5 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai-action resize-none"
-              />
+              <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={loading} />
             </div>
 
             {error && (
@@ -478,7 +459,7 @@ export default function TryEntry() {
                     className="flex-1"
                   >
                     <FileCheck className="w-4 h-4" />
-                    <span>{loading && loadingMode === 'create' ? 'Creando tu CV...' : 'Crear mi CV sin oferta'}</span>
+                    <span>{loading && loadingMode === 'create' ? t('offerImport.creating') : t('offerImport.createWithout')}</span>
                   </Button>
                 )}
               </div>
@@ -490,9 +471,9 @@ export default function TryEntry() {
                     type="button"
                     onClick={() => handleProcess(true)}
                     disabled={loading}
-                    className="text-xs text-text-muted hover:text-text hover:underline transition-colors"
+                    className="min-h-11 text-xs text-text-muted hover:text-text hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
-                    Saltar oferta y crear solo mi CV base
+                    {t('offerImport.skip')}
                   </button>
                 </div>
               )}

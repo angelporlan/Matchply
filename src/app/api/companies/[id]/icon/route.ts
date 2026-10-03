@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    await requireProductContext({ feature: 'applications' });
+    await requireProductContext({ allowGuest: true, feature: 'applications' });
   } catch {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }

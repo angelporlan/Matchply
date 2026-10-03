@@ -453,7 +453,7 @@ export default function JobOfferDetailsPage({
           className="inline-flex items-center gap-2 text-xs font-bold text-text-muted hover:text-text dark:hover:text-white transition-colors bg-surface border border-subtle px-3 py-2 rounded-[8px] shadow-2xs font-display"
         >
           <ArrowLeft className="w-4 h-4 stroke-[1.75]" />
-          Volver a postulaciones
+          Volver a trabajos
         </button>
 
         <div className="flex items-center gap-2">

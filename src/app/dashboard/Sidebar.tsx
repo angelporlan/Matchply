@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChevronDown, Kanban, FileText, Menu, UserPlus, X } from 'lucide-react';
+import { Building2, Users, ChevronDown, Briefcase, FileText, Menu, UserPlus, X } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -28,6 +28,7 @@ type SidebarChildItem = {
   name: string;
   href: string;
   isActive: (pathname: string) => boolean;
+  icon: typeof Building2;
 };
 
 type SidebarMenuItem = {
@@ -50,7 +51,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
   const { pendingHref } = useNavigationPending();
   const [isOpen, setIsOpen] = useState(false);
   const [applicationsOpen, setApplicationsOpen] = useState(
-    isApplicationsListPath(pathname) || isCompaniesPath(pathname),
+    isApplicationsListPath(pathname) || isCompaniesPath(pathname) || pathname.startsWith('/dashboard/applications/people'),
   );
   const { t, language } = useLanguage();
 
@@ -63,13 +64,15 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
     {
       name: t('sidebar.menu.applications'),
       href: '/dashboard/applications',
-      icon: Kanban,
+      icon: Briefcase,
       children: [
         {
           name: t('sidebar.menu.companies'),
           href: '/dashboard/applications/companies',
           isActive: isCompaniesPath,
+          icon: Building2,
         },
+        { name: language === 'es' ? 'Personas' : 'People', href: '/dashboard/applications/people', icon: Users, isActive: (path: string) => path.startsWith('/dashboard/applications/people') },
       ],
     },
   ];
@@ -216,7 +219,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                     <div className="ml-4 pl-3 border-l border-subtle space-y-1">
                       {item.children.map((child) => {
                         const childIsActive = child.isActive(pathname);
-                        const ChildIcon = child.href.endsWith('/companies') ? Building2 : Kanban;
+                        const ChildIcon = child.icon;
                         return (
                           <NavigationLink
                             key={child.href}

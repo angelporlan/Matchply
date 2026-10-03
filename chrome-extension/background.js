@@ -1,3 +1,4 @@
+importScripts('people.js');
 const API_BASE = "http://localhost:3000";
 const INGEST_ENDPOINT = `${API_BASE}/api/extension/linkedin/ingest`;
 const STATUS_ENDPOINT = `${API_BASE}/api/extension/status`;
@@ -15,10 +16,74 @@ async function setBadge(tabId, text, color) {
   await chrome.action.setBadgeText({ tabId, text });
 }
 
+async function downloadAvatar(rawUrl, signal) {
+  const url = MatchplyPeople.avatarUrl(rawUrl);
+  if (!url) throw new Error('Unsupported photo source');
+  const response = await fetch(url, { credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal });
+  if (!response.ok || !['image/jpeg', 'image/png', 'image/webp'].includes(response.headers.get('content-type')?.split(';')[0]) || Number(response.headers.get('content-length')) > 1024 * 1024) throw new Error('Photo unavailable');
+  const reader = response.body.getReader(), chunks = []; let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 1024 * 1024) throw new Error('Photo too large');
+      chunks.push(value);
+    }
+  } finally { await reader.cancel().catch(() => {}); }
+  const bitmap = await createImageBitmap(new Blob(chunks, { type: response.headers.get('content-type') }));
+  try {
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16000000) throw new Error('Unsupported photo dimensions');
+    const edge = Math.min(192, bitmap.width, bitmap.height), canvas = new OffscreenCanvas(edge, edge), ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Photo conversion unavailable');
+    const crop = Math.min(bitmap.width, bitmap.height);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, edge, edge);
+    ctx.drawImage(bitmap, (bitmap.width - crop) / 2, (bitmap.height - crop) / 2, crop, crop, 0, 0, edge, edge);
+    let blob;
+    for (const quality of [0.82, 0.65, 0.45]) {
+      blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+      if (blob.size <= 48 * 1024) break;
+    }
+    if (blob.type !== 'image/jpeg' || blob.size > 48 * 1024) throw new Error('Photo too large');
+    return { mime: 'image/jpeg', data: btoa(String.fromCharCode(...new Uint8Array(await blob.arrayBuffer()))) };
+  } finally { bitmap.close(); }
+}
+
+async function saveAvatars(contacts, jobId, token) {
+  const saved = new Set(); let failed = 0, cursor = 0;
+  if ((await chrome.storage.local.get('matchplyCapturePeople')).matchplyCapturePeople !== true) return { saved, failed };
+  const photos = contacts.filter(p => MatchplyPeople.profileUrl(p.profileUrl) && MatchplyPeople.avatarUrl(p.avatarUrl)).slice(0, 20);
+  if (!photos.length) return { saved, failed };
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    await Promise.all(Array.from({ length: Math.min(4, photos.length) }, async () => {
+      while (cursor < photos.length) {
+        const person = photos[cursor++];
+        try {
+          const avatar = await downloadAvatar(person.avatarUrl, controller.signal);
+          const response = await fetch(`${API_BASE}/api/extension/linkedin/people/avatar`, {
+            method: 'POST', signal: controller.signal,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ sourceJobId: jobId, profileUrl: person.profileUrl, avatar }),
+          });
+          if (!response.ok) throw new Error('Photo could not be saved');
+          saved.add(person.profileUrl);
+        } catch { failed++; }
+      }
+    }));
+  } finally { clearTimeout(timeout); }
+  return { saved, failed };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "capture-linkedin-job") {
+  if (["capture-linkedin-job", "capture-linkedin-people"].includes(message?.type)) {
     (async () => {
       try {
+        const source = sender.url || sender.tab?.url || '';
+        if (!/^https:\/\/(?:www|es)\.linkedin\.com\/jobs\//.test(source)) {
+          sendResponse({ ok: false, error: 'Captura disponible solo en ofertas de LinkedIn.' });
+          return;
+        }
         const token = await getSession();
         if (!token) {
           await setBadge(sender.tab?.id, "?", "#8b5cf6");
@@ -27,6 +92,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         const raw = message.payload || {};
+        const contacts = Array.isArray(raw.people) ? raw.people : [];
+        // Send contact metadata first. Binary images use a separate bounded endpoint.
+        const people = contacts.map(({ avatarUrl, ...contact }) => contact);
         const payload = {
           sourceJobId: String(raw.sourceJobId || raw.job_id || ""),
           canonicalUrl: String(raw.canonicalUrl || raw.url || `https://www.linkedin.com/jobs/view/${raw.job_id || ""}`),
@@ -38,12 +106,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           description: raw.description || null,
           rawText: raw.rawText || raw.raw_text || null,
           sourceMetadata: raw.sourceMetadata || null,
+          ...(Array.isArray(raw.people) ? { people } : {}),
         };
 
-        const response = await fetch(INGEST_ENDPOINT, {
+        const response = await fetch(message.type === "capture-linkedin-people" ? `${API_BASE}/api/extension/linkedin/people` : INGEST_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(message.type === "capture-linkedin-people" ? { sourceJobId: payload.sourceJobId, people: payload.people || [] } : payload),
         });
 
         if (!response.ok) {
@@ -59,11 +128,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         const result = await response.json();
         const jobId = payload.sourceJobId;
-        if (jobId) {
-          await chrome.storage.local.set({ [`captured_${jobId}`]: true });
+        const avatars = result.peopleError ? { saved: new Set(), failed: 0 } : await saveAvatars(contacts, jobId, token);
+        const capturedSignatures = result.peopleError ? [] : contacts.map(p => MatchplyPeople.signature({ ...p, avatarUrl: avatars.saved.has(p.profileUrl) ? p.avatarUrl : undefined }));
+        const avatarRetryAt = avatars.failed ? Date.now() + 300000 : 0;
+        const stored = await chrome.storage.local.get("matchplyExtensionInstallation");
+        const installationId = stored.matchplyExtensionInstallation?.id;
+        if (jobId && installationId) {
+          const key = `matchply_capture_${installationId}_${jobId}`;
+          const previous = (await chrome.storage.local.get(key))[key] || {};
+          const people = Array.from(new Set([...(previous.people || []), ...capturedSignatures]));
+          await chrome.storage.local.set({ [key]: { offer: true, people, avatarRetryAt } });
         }
         await setBadge(sender.tab?.id, "✓", "#10b981");
-        sendResponse({ ok: true, result });
+        sendResponse({ ok: true, result: { ...result, capturedSignatures, avatarFailures: avatars.failed, avatarRetryAt } });
       } catch (error) {
         await setBadge(sender.tab?.id, "!", "#ef4444");
         sendResponse({ ok: false, error: String(error?.message || error) });

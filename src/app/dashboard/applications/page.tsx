@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
 import { applicationViews, cvs } from '@/db/schema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { and, eq, desc, asc } from 'drizzle-orm';
 import ApplicationsClient from '@/components/applications/ApplicationsClient';
 import { hasProAccess } from '@/lib/subscription';
 import { cvListColumns } from '@/lib/job-offer-queries';
@@ -52,7 +52,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
           config: applicationViews.config,
         })
         .from(applicationViews)
-        .where(eq(applicationViews.userId, userId))
+        .where(and(eq(applicationViews.userId, userId), eq(applicationViews.entity, 'applications')))
         .orderBy(desc(applicationViews.isDefault), asc(applicationViews.name)),
       listCompanyLookups(userId),
     ]),

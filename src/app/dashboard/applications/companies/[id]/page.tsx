@@ -1,3 +1,4 @@
+import RelatedPeople from '@/components/people/RelatedPeople';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
@@ -67,6 +68,7 @@ export default async function CompanyDetailPage({ params }: CompanyPageProps) {
             offers={offersNormalized}
             statusCounts={statusCounts}
           />
+          <RelatedPeople userId={userId} companyId={params.id} />
         </main>
       </div>
     );

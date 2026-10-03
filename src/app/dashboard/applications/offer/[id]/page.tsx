@@ -1,3 +1,4 @@
+import RelatedPeople from '@/components/people/RelatedPeople';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { jobOffers, cvs } from '@/db/schema';
@@ -60,6 +61,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
           isPremium={isPremium}
           initialResearch={initialResearch}
         />
+        <RelatedPeople userId={dbUser.id} offerId={params.id} />
       </main>
     </div>
   );

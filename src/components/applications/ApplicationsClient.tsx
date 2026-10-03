@@ -9,6 +9,9 @@ import { CvListItem, ApplicationSummary, CompanyLookupItem } from '@/lib/job-off
 import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import ApplicationsTable from './ApplicationsTable';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
+import { setRowsFavoriteAction } from '@/app/dashboard/applications/crm-actions';
+import { CrmPagination } from '@/components/crm/CrmControls';
+import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +22,7 @@ import { createApplicationView, deleteApplicationView, setDefaultApplicationView
 import { replaceUrlQuery } from '@/lib/client-url';
 import { EXPORT_OFFER_ID_LIMIT } from '@/lib/application-filter-bounds';
 import {
+  APPLICATION_COLUMN_IDS,
   DEFAULT_VIEW_CONFIG,
   SYSTEM_VIEWS,
   normalizeViewConfig,
@@ -35,7 +39,7 @@ import {
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
-import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, Search, ChevronLeft, ChevronRight, CalendarClock, Sparkles, Download } from 'lucide-react';
+import { Plus, X, Briefcase, Building2, Link, FileText, CheckCircle2, Search, ChevronLeft, ChevronRight, CalendarClock, Sparkles, Download, Star, Filter } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { OfferDetailsModalSkeleton } from '@/components/skeletons';
@@ -120,6 +124,12 @@ export default function ApplicationsClient({
   const [excludedStatuses, setExcludedStatuses] = useState<ApplicationStatus[]>(initialConfig.filters.excludedStatuses ?? []);
   const [followupFilter, setFollowupFilter] = useState<'all' | 'withDate' | 'overdue'>(initialConfig.filters.followup || 'all');
   const [page, setPage] = useState(1);
+  const [favoritesOnly, setFavoritesOnly] = useState(!!initialConfig.filters.favoritesOnly);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoriteReload, setFavoriteReload] = useState(0);
+  const favoriteBusy = useRef(false);
+  const favoriteEpoch = useRef(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
   const [isSavingView, setIsSavingView] = useState(false);
@@ -157,6 +167,7 @@ export default function ApplicationsClient({
   const activeViewOption = viewOptions.find((view) => view.id === activeViewId);
 
   const viewFilters = useMemo<ApplicationViewFilters>(() => ({
+    favoritesOnly,
     search: deferredSearch,
     status: statusFilter,
     cv: cvFilter,
@@ -166,7 +177,7 @@ export default function ApplicationsClient({
     followup: followupFilter,
     columnFilters,
     excludedStatuses,
-  }), [deferredSearch, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters, excludedStatuses]);
+  }), [favoritesOnly, deferredSearch, statusFilter, cvFilter, dateFilter, startDate, endDate, followupFilter, columnFilters, excludedStatuses]);
 
   const currentConfig = useMemo<ApplicationViewConfig>(() => normalizeViewConfig({
     columns,
@@ -190,6 +201,7 @@ export default function ApplicationsClient({
 
   const applyViewConfig = (viewConfig: ApplicationViewConfig) => {
     const normalized = normalizeViewConfig(viewConfig);
+    setFavoritesOnly(!!normalized.filters.favoritesOnly);
     setColumns(normalized.columns);
     setSort(normalized.sort);
     setGrouping(normalized.grouping);
@@ -370,6 +382,7 @@ export default function ApplicationsClient({
   };
 
   const clearFilters = () => {
+    setFavoritesOnly(false);
     setSearchQuery('');
     setCvFilter('all');
     setDateFilter('all');
@@ -442,7 +455,11 @@ export default function ApplicationsClient({
 
   const handleToggleAll = async (_ids: string[], checked: boolean) => {
     if (!checked) {
-      setSelectedIds(new Set());
+      setSelectedIds(prev => _ids.length ? new Set(Array.from(prev).filter(id => !_ids.includes(id))) : new Set());
+      return;
+    }
+    if (_ids.length) {
+      setSelectedIds(prev => { const next = new Set(prev); _ids.forEach(id => checked ? next.add(id) : next.delete(id)); return next; });
       return;
     }
     const result = await queryApplicationIdsAction({ filters: viewFilters, sort });
@@ -561,7 +578,7 @@ export default function ApplicationsClient({
       end: Math.min(start + localOffers.length, filteredTotal),
     };
   }, [localOffers, filteredTotal, page, pageSize]);
-  const hasActiveFilters = Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all' || columnFilters.length > 0;
+  const hasActiveFilters = favoritesOnly || Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all' || columnFilters.length > 0;
 
   useEffect(() => {
     if (skipListFetch.current) {
@@ -569,6 +586,7 @@ export default function ApplicationsClient({
       return;
     }
     let cancelled = false;
+    const epoch = favoriteEpoch.current;
     setListLoading(true);
     queryApplicationsAction({
       filters: viewFilters,
@@ -576,7 +594,7 @@ export default function ApplicationsClient({
       page,
       pageSize,
     }).then((result) => {
-      if (cancelled) return;
+      if (cancelled || epoch !== favoriteEpoch.current) return;
       if (!('error' in result)) {
         setLocalOffers(hydrateOffers(result.data.items));
         setFilteredTotal(result.data.total);
@@ -587,7 +605,28 @@ export default function ApplicationsClient({
     return () => {
       cancelled = true;
     };
-  }, [viewFilters, sort, page, pageSize]);
+  }, [viewFilters, sort, page, pageSize, favoriteReload]);
+
+  const handleFavoriteChange = async (ids: string[], value: boolean) => {
+    if (!ids.length || favoriteBusy.current) return;
+    favoriteBusy.current = true;
+    favoriteEpoch.current++;
+    setPendingFavoriteIds(new Set(ids));
+    const previous = new Map(localOffers.filter(row => ids.includes(row.id)).map(row => [row.id, !!row.isFavorite]));
+    setLocalOffers(prev => prev.map(row => ids.includes(row.id) ? { ...row, isFavorite: value } : row));
+    try {
+      const result = await setRowsFavoriteAction('applications', ids, value);
+      if ('error' in result) throw new Error(result.error);
+      if (favoritesOnly && !value) setSelectedIds(prev => new Set(Array.from(prev).filter(id => !ids.includes(id))));
+    } catch {
+      setLocalOffers(prev => prev.map(row => previous.has(row.id) ? { ...row, isFavorite: previous.get(row.id) } : row));
+      showToast(t('applications.views.toasts.error'), 'info');
+    } finally {
+      favoriteBusy.current = false;
+      setPendingFavoriteIds(new Set());
+      setFavoriteReload(count => count + 1);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -685,7 +724,8 @@ export default function ApplicationsClient({
           )}
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(value => !value)} className="md:hidden inline-flex items-center gap-2 px-3 py-2.5 border border-subtle rounded-[8px] bg-surface text-xs font-bold text-text-muted"><Filter className="w-3.5 h-3.5" />{t('applications.columns.headerMenu.filterBy')}</button>
           <ApplicationColumnsMenu
             visibleColumns={columns}
             onChange={(nextColumns) => {
@@ -694,7 +734,7 @@ export default function ApplicationsClient({
             }}
           />
 
-          <div className="relative flex-1 md:w-80 lg:w-96 min-w-0">
+          <div className="relative flex-1 basis-full md:basis-auto md:w-80 lg:w-96 min-w-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-text-muted stroke-[1.75]" />
             <input
               type="search"
@@ -718,6 +758,11 @@ export default function ApplicationsClient({
         </div>
       </div>
 
+      {filtersOpen && <div className="md:hidden flex flex-wrap gap-3 p-3 mb-3 rounded-[12px] border border-subtle bg-surface">
+        <label className="flex gap-2 items-center text-sm text-text"><input type="checkbox" checked={favoritesOnly} onChange={event => { setFavoritesOnly(event.target.checked); resetPageAndSelection(); }} />{t('applications.views.system.favorites')}</label>
+        {APPLICATION_COLUMN_IDS.map(column => <ApplicationColumnHeaderMenu key={column} column={column} label={t(`applications.columns.labels.${column}`)} sortable={['title', 'company', 'status', 'score', 'followup', 'createdAt', 'updatedAt'].includes(column)} groupable filterable sort={sort} grouping={grouping} columnFilter={columnFilters.find(filter => filter.column === column)} width={columnWidths[column] || 'auto'} canMoveLeft={false} canMoveRight={false} onSetSort={handleSetSort} onSetGrouping={handleSetGrouping} onSetColumnFilter={filter => handleSetColumnFilter(column, filter)} onSetWidth={width => handleSetColumnWidth(column, width)} onMove={() => {}} lookupOptions={column === 'company' ? companies : undefined} />)}
+      </div>}
+
       <div className="w-full">
           {selectedIds.size > 0 && (
             <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
@@ -738,6 +783,8 @@ export default function ApplicationsClient({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <Button variant="secondary" size="sm" disabled={pendingFavoriteIds.size > 0} onClick={() => void handleFavoriteChange(Array.from(selectedIds), true)}><Star className="w-3.5 h-3.5" />{t('crm.markFavorites')}</Button>
+                <Button variant="ghost" size="sm" disabled={pendingFavoriteIds.size > 0} onClick={() => void handleFavoriteChange(Array.from(selectedIds), false)}><Star className="w-3.5 h-3.5" />{t('crm.removeFavorites')}</Button>
                 <button
                   type="button"
                   onClick={handleCurateSelected}
@@ -785,9 +832,9 @@ export default function ApplicationsClient({
 
           <ApplicationsTable
             offers={pagination.items}
-            allSelectableIds={selectedIds.size === filteredTotal && filteredTotal > 0
-              ? Array.from(selectedIds)
-              : pagination.items.map((offer) => offer.id)}
+            allSelectableIds={pagination.items.map(offer => offer.id)}
+            pendingFavoriteIds={pendingFavoriteIds}
+            onFavoriteChange={(ids, value) => void handleFavoriteChange(ids, value)}
             companies={companies}
             userCvs={userCvs}
             columns={columns}
@@ -815,55 +862,8 @@ export default function ApplicationsClient({
             attachedFooter={localOffers.length > 0}
           />
 
-          {localOffers.length > 0 && (
-            <div className="sticky bottom-0 z-20 mt-3 bg-canvas pb-4 md:static md:mt-0 md:shrink-0">
-              <div className="rounded-[12px] border border-subtle bg-surface px-4 py-3 shadow-sm md:rounded-t-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-display">
-                <p className="text-xs text-text-muted">
-                  {t('applications.table.pagination.showing')
-                    .replace('{start}', String(pagination.total === 0 ? 0 : pagination.start + 1))
-                    .replace('{end}', String(pagination.end))
-                    .replace('{total}', String(pagination.total))}
-                </p>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="page-size" className="sr-only">{t('applications.table.pagination.perPage')}</label>
-                  <select
-                    id="page-size"
-                    value={pageSize}
-                    onChange={(event) => {
-                      setPageSize(Number(event.target.value));
-                      setPage(1);
-                    }}
-                    className="bg-surface border border-subtle rounded-[8px] px-2.5 py-2 text-xs font-semibold text-text-muted focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
-                  >
-                    {[10, 25, 50, 100].map((size) => (
-                      <option key={size} value={size}>{size} {t('applications.table.pagination.perPageSuffix')}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                    disabled={pagination.page <= 1}
-                    aria-label={t('applications.table.pagination.previous')}
-                    className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
-                  </button>
-                  <span className="text-xs font-semibold text-text-muted">
-                    {t('applications.table.pagination.page').replace('{page}', String(pagination.page)).replace('{total}', String(pagination.totalPages))}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                    disabled={pagination.page >= pagination.totalPages}
-                    aria-label={t('applications.table.pagination.next')}
-                    className="p-2 rounded-[8px] border border-subtle bg-surface text-text-muted hover:text-text disabled:opacity-40 transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 stroke-[1.75]" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {localOffers.length > 0 && <CrmPagination total={pagination.total} page={pagination.page} pageSize={pageSize} itemsCount={localOffers.length} onPage={setPage} onPageSize={size => { setPageSize(size); resetPageAndSelection(); }} />}
+
         </div>
 
       {/* Modal Premium para crear Candidatura */}

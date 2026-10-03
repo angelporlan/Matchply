@@ -1,0 +1,1 @@
+ALTER TABLE "person_avatar" ADD COLUMN "source" text DEFAULT 'linkedin' NOT NULL;

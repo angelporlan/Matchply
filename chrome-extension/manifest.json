@@ -1,15 +1,19 @@
 {
   "manifest_version": 3,
   "name": "Matchply LinkedIn Capture",
-  "version": "2.0.0",
-  "description": "Captura ofertas en LinkedIn y las envía a tu cuenta de Matchply.",
-  "permissions": ["storage", "activeTab"],
+  "version": "2.2.0",
+  "description": "Captura ofertas en LinkedIn y las env\u00eda a tu cuenta de Matchply.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "host_permissions": [
     "https://matchply.com/*",
     "https://www.matchply.com/*",
     "http://localhost:3000/*",
     "http://localhost:3002/*",
-    "http://127.0.0.1:3000/*"
+    "http://127.0.0.1:3000/*",
+    "https://*.licdn.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -20,7 +24,10 @@
         "https://www.linkedin.com/jobs/*",
         "https://es.linkedin.com/jobs/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "people.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],

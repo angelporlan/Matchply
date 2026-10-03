@@ -1,0 +1,90 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID, createHash } from 'node:crypto';
+import { defaultCrmConfig, normalizeCrmConfig } from '@/lib/crm-views';
+
+const targetUrl = process.env.CRM_TEST_DATABASE_URL || process.env.PEOPLE_TEST_DATABASE_URL;
+test('CRM paginated queries, private favorites, views and import compatibility', { skip: !targetUrl }, async t => {
+  const target = new URL(targetUrl!);
+  assert.ok(['localhost', '127.0.0.1', '[::1]', 'db'].includes(target.hostname) && target.pathname.includes('test'));
+  process.env.DATABASE_URL = targetUrl;
+  const { db, pool } = await import('@/db');
+  const { users, companies, userCompanies, jobOffers, people, personCompanies, companyNotes, applicationViews } = await import('@/db/schema');
+  const { eq, and, inArray } = await import('drizzle-orm');
+  const { setRowsFavorite, setPeopleStatus } = await import('@/lib/crm-service');
+  const { listCrmPage, listCrmIds, listCrmSelected } = await import('@/lib/crm-list-query');
+  const { listApplicationsPage } = await import('@/lib/application-list-query');
+  const { loadNetworkingContext } = await import('@/lib/people/context');
+  const { importUserData } = await import('@/lib/user-data-import');
+  const { SYSTEM_VIEWS } = await import('@/lib/application-views');
+  const userIds = [randomUUID(), randomUUID()], companyIds = [randomUUID(), randomUUID()], personIds = Array.from({ length: 31 }, () => randomUUID()), offerId = randomUUID();
+  const now = new Date('2026-10-03T10:00:00Z'), date = new Date('2026-09-20T12:00:00Z');
+  const email = `crm-${userIds[0]}@example.test`;
+  await db.insert(users).values(userIds.map((id, i) => ({ id, email: i ? `crm-${id}@example.test` : email, name: 'Synthetic CRM test' })));
+  await db.insert(companies).values(companyIds.map((id, i) => ({ id, name: `CRM ${i} ${id}`, nameNormalized: `crm ${i} ${id}`, iconHash: `icon-${i}`, location: i ? 'Madrid' : 'Murcia', createdAt: date, updatedAt: date })));
+  await db.insert(userCompanies).values([{ userId: userIds[0], companyId: companyIds[0] }, { userId: userIds[1], companyId: companyIds[0] }, { userId: userIds[0], companyId: companyIds[1] }]);
+  await db.insert(jobOffers).values({ id: offerId, userId: userIds[0], companyId: companyIds[0], title: 'Archived favorite', company: 'CRM', status: 'archived:interested', createdAt: date, updatedAt: date, description: 'HEAVY_DESCRIPTION_SENTINEL', rawReport: 'HEAVY_REPORT_SENTINEL' });
+  await db.insert(companyNotes).values([{ userId: userIds[0], companyId: companyIds[0], content: 'PRIVATE_NOTE_SENTINEL' }, { userId: userIds[1], companyId: companyIds[0], content: 'OTHER_NOTE_SENTINEL' }]);
+  await db.insert(people).values(personIds.map((id, i) => ({ id, userId: userIds[0], name: `Contact ${String(i).padStart(2, '0')}`, role: i ? 'Engineer' : null, headline: i ? null : 'Recruiter', notes: 'PERSON_NOTE_SENTINEL', nextFollowupAt: i === 0 ? date : null, createdAt: date, updatedAt: date })));
+  await db.insert(personCompanies).values(companyIds.map(companyId => ({ userId: userIds[0], personId: personIds[0], companyId, relation: 'works_at' })));
+  try {
+    await t.test('favorites are private, idempotent and preserve timestamps and AI context', async () => {
+      const before = await loadNetworkingContext(userIds[0], personIds[0], {});
+      await setRowsFavorite(userIds[0], 'companies', [companyIds[0]], true);
+      await setRowsFavorite(userIds[0], 'people', [personIds[0]], true);
+      await setRowsFavorite(userIds[0], 'people', [personIds[0]], true);
+      await setRowsFavorite(userIds[0], 'applications', [offerId], true);
+      const [person] = await db.select().from(people).where(eq(people.id, personIds[0]));
+      assert.equal(person.updatedAt.valueOf(), date.valueOf());
+      const [offer] = await db.select({ updatedAt: jobOffers.updatedAt }).from(jobOffers).where(eq(jobOffers.id, offerId));
+      const [company] = await db.select({ updatedAt: companies.updatedAt }).from(companies).where(eq(companies.id, companyIds[0]));
+      assert.equal(offer.updatedAt.valueOf(), date.valueOf());
+      assert.equal(company.updatedAt.valueOf(), date.valueOf());
+      const after = await loadNetworkingContext(userIds[0], personIds[0], {});
+      assert.equal(after.hash, before.hash);
+      assert.ok(!('isFavorite' in after.context.profile));
+      assert.equal((await listCrmPage(userIds[1], 'companies', normalizeCrmConfig('companies', { filters: { favoritesOnly: true } }))).total, 0);
+      await assert.rejects(setRowsFavorite(userIds[1], 'people', [personIds[0]], true), /NOT_FOUND/);
+      await assert.rejects(setRowsFavorite(userIds[0], 'companies', [companyIds[0], randomUUID()], false), /NOT_FOUND/);
+      assert.equal((await listCrmPage(userIds[0], 'companies', normalizeCrmConfig('companies', { filters: { favoritesOnly: true } }))).total, 1);
+      const favoriteView = SYSTEM_VIEWS.find(v => v.id === 'favorites')!.config;
+      const applications = await listApplicationsPage({ userId: userIds[0], filters: favoriteView.filters, sort: favoriteView.sort });
+      assert.equal(applications.total, 1); assert.equal(applications.items[0].status, 'archived');
+      assert.equal(applications.items[0].companyIconHash, 'icon-0');
+      assert.ok(!JSON.stringify(applications).includes('HEAVY_'));
+    });
+    await t.test('SQL applies dates, count comparators and relations before pagination with private counts', async () => {
+      const c = await listCrmPage(userIds[0], 'companies', defaultCrmConfig('companies'));
+      assert.equal(c.total, 2); assert.equal(c.items.find(r => r.id === companyIds[0])!.applicationCount, 1); assert.equal(c.items.find(r => r.id === companyIds[0])!.noteCount, 1);
+      const filtered = normalizeCrmConfig('companies', { filters: { columnFilters: [{ column: 'applicationCount', operator: 'gte', value: '1' }, { column: 'updatedAt', operator: 'customRange', startDate: '2026-09-19', endDate: '2026-09-21' }] } });
+      assert.equal((await listCrmPage(userIds[0], 'companies', filtered, 1, now)).total, 1);
+      const peopleConfig = normalizeCrmConfig('people', { filters: { columnFilters: [{ column: 'companyNames', operator: 'in', values: companyIds }] } });
+      const linked = await listCrmPage(userIds[0], 'people', peopleConfig);
+      assert.deepEqual(linked.items[0].companies!.map(c => c.iconHash).sort(), ['icon-0', 'icon-1']);
+      assert.equal(linked.total, 1); assert.equal(linked.items[0].companies!.length, 2); assert.equal(linked.items[0].role, 'Recruiter');
+      assert.equal((await listCrmPage(userIds[0], 'people', defaultCrmConfig('people'))).items.length, 25);
+      assert.equal((await listCrmPage(userIds[0], 'people', defaultCrmConfig('people'), 2)).items.length, 6);
+      assert.equal((await listCrmPage(userIds[0], 'people', normalizeCrmConfig('people', { pageSize: 10 }), 4)).items.length, 1);
+      assert.ok(!JSON.stringify(c).includes('NOTE_SENTINEL')); assert.ok(!JSON.stringify(linked).includes('PERSON_NOTE_SENTINEL'));
+      assert.deepEqual(await listCrmIds(userIds[0], 'people', peopleConfig), [personIds[0]]);
+      assert.equal((await listCrmSelected(userIds[1], 'people', personIds)).length, 0);
+    });
+    await t.test('removing the last favorite clamps pages and partial status updates preserve the profile', async () => {
+      await setPeopleStatus(userIds[0], [personIds[0]], 'contacted');
+      const [person] = await db.select().from(people).where(eq(people.id, personIds[0])); assert.equal(person.notes, 'PERSON_NOTE_SENTINEL'); assert.equal(person.status, 'contacted');
+      await setRowsFavorite(userIds[0], 'people', [personIds[0]], false);
+      const result = await listCrmPage(userIds[0], 'people', normalizeCrmConfig('people', { filters: { favoritesOnly: true } }), 9);
+      assert.equal(result.total, 0); assert.equal(result.page, 1); assert.deepEqual(result.items, []);
+    });
+    await t.test('view names are independent across entities; old imports preserve stars', async () => {
+      const [company] = await db.select().from(companies).where(eq(companies.id, companyIds[0]));
+      const packageData: Record<string, unknown> = { format: 'matchply-user-data', version: 1, source: { sourceId: userIds[0], email, exportedAt: now.toISOString() }, user: { id: userIds[0], email, name: 'Synthetic CRM test', createdAt: date.toISOString() }, cvs: [], companies: [company], companyIcons: [], userCompanies: [{ userId: userIds[0], companyId: companyIds[0], createdAt: date.toISOString() }], companyNotes: [], jobOffers: [], applicationViews: [ { id: randomUUID(), name: 'Same name', entity: 'companies', config: defaultCrmConfig('companies'), isDefault: true, createdAt: date, updatedAt: date }, { id: randomUUID(), name: 'Same name', entity: 'people', config: defaultCrmConfig('people'), isDefault: true, createdAt: date, updatedAt: date }, { id: randomUUID(), name: 'Legacy', config: {}, createdAt: date, updatedAt: date } ], jobResearchRuns: [], jobResearchAgentRuns: [], jobResearchSources: [] };
+      const seal = () => { delete packageData.manifest; packageData.manifest = { payloadSha256: createHash('sha256').update(JSON.stringify(packageData)).digest('hex'), counts: Object.fromEntries(Object.entries(packageData).filter(([, v]) => Array.isArray(v)).map(([k, v]) => [k, (v as unknown[]).length])) }; };
+      seal(); await importUserData(packageData);
+      const views = await db.select().from(applicationViews).where(eq(applicationViews.userId, userIds[0])); assert.equal(views.length, 3); assert.equal(views.find(v => v.name === 'Legacy')!.entity, 'applications'); assert.equal(views.filter(v => v.isDefault).length, 2);
+      const [membership] = await db.select().from(userCompanies).where(and(eq(userCompanies.userId, userIds[0]), eq(userCompanies.companyId, companyIds[0]))); assert.equal(membership.isFavorite, true);
+      (packageData.userCompanies as Record<string, unknown>[])[0].isFavorite = false; seal(); await importUserData(packageData);
+      const [updated] = await db.select().from(userCompanies).where(and(eq(userCompanies.userId, userIds[0]), eq(userCompanies.companyId, companyIds[0]))); assert.equal(updated.isFavorite, false);
+    });
+  } finally { await db.delete(users).where(inArray(users.id, userIds)); await db.delete(companies).where(inArray(companies.id, companyIds)); await pool.end(); }
+});

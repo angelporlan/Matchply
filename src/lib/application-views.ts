@@ -87,7 +87,7 @@ export type ApplicationColumnFilterOperatorValue =
   | ApplicationColumnMultiFilterOperator
   | ApplicationColumnScoreFilterOperator;
 
-export const APPLICATION_DATE_COLUMN_IDS = ['createdAt', 'updatedAt'] as const;
+export const APPLICATION_DATE_COLUMN_IDS = ['createdAt', 'updatedAt', 'followup'] as const;
 export type ApplicationDateColumnId = typeof APPLICATION_DATE_COLUMN_IDS[number];
 
 export function isApplicationDateColumn(column: unknown): column is ApplicationDateColumnId {
@@ -141,6 +141,7 @@ export const APPLICATION_COLUMN_WIDTH_PX: Record<ApplicationColumnWidth, number 
 };
 
 export type ApplicationViewFilters = {
+  favoritesOnly?: boolean;
   search?: string;
   status?: string;
   cv?: ApplicationCvFilter;
@@ -253,6 +254,7 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
       sort: { key: 'createdAt', direction: 'desc' },
     },
   },
+  { id: "favorites", nameKey: "applications.views.system.favorites", config: { ...DEFAULT_VIEW_CONFIG, filters: { ...DEFAULT_VIEW_CONFIG.filters, favoritesOnly: true, excludedStatuses: [] } } },
 ];
 
 export const SYSTEM_VIEW_IDS = SYSTEM_VIEWS.map((view) => view.id);
@@ -291,8 +293,10 @@ function normalizeColumnFilters(input: unknown): ApplicationColumnFilter[] {
 
     let filter: ApplicationColumnFilter;
     if (isApplicationDateColumn(candidate.column)) {
-      if (!isApplicationDateColumnFilterOperator(candidate.operator)) continue;
-      if (candidate.operator === 'customRange') {
+      if (candidate.operator === 'isEmpty' || candidate.operator === 'isNotEmpty') {
+        filter = { column: candidate.column, operator: candidate.operator, value: '' };
+      } else if (!isApplicationDateColumnFilterOperator(candidate.operator)) continue;
+      else if (candidate.operator === 'customRange') {
         const startDate = normalizeDateInput(candidate.startDate);
         const endDate = normalizeDateInput(candidate.endDate);
         if (!startDate && !endDate) continue;
@@ -407,13 +411,14 @@ function sameStringList(a: string[] | undefined, b: string[] | undefined) {
 }
 
 export function viewConfigsEqual(a: ApplicationViewConfig, b: ApplicationViewConfig) {
-  if (a.pageSize !== b.pageSize || a.grouping !== b.grouping || a.actionsIndex !== b.actionsIndex) return false;
+  if (a.pageSize !== b.pageSize || JSON.stringify(a.grouping) !== JSON.stringify(b.grouping) || a.actionsIndex !== b.actionsIndex) return false;
   if (a.sort.key !== b.sort.key || a.sort.direction !== b.sort.direction) return false;
   if (!sameStringList(a.columns, b.columns)) return false;
   const af = a.filters;
   const bf = b.filters;
   if (
-    (af.search || '') !== (bf.search || '')
+    Boolean(af.favoritesOnly) !== Boolean(bf.favoritesOnly)
+    || (af.search || '') !== (bf.search || '')
     || af.status !== bf.status
     || af.cv !== bf.cv
     || af.date !== bf.date
@@ -429,7 +434,7 @@ export function viewConfigsEqual(a: ApplicationViewConfig, b: ApplicationViewCon
   if (aFilters.length !== bFilters.length) return false;
   if (aFilters.some((filter, index) => {
     const other = bFilters[index];
-    return filter.column !== other.column || filter.operator !== other.operator || filter.value !== other.value;
+    return JSON.stringify(filter) !== JSON.stringify(other);
   })) return false;
   const aWidthKeys = Object.keys(a.columnWidths);
   const bWidthKeys = Object.keys(b.columnWidths);
@@ -460,6 +465,7 @@ export function normalizeViewConfig(input: unknown): ApplicationViewConfig {
   return {
     columns,
     filters: {
+      favoritesOnly: rawFilters.favoritesOnly === true,
       search: typeof rawFilters.search === 'string' && rawFilters.search.trim() ? rawFilters.search : undefined,
       status,
       cv,
@@ -684,6 +690,7 @@ export function filterApplications(
     || columnFilters.some((filter) => filter.column === 'status');
 
   return offers.filter((offer) => {
+    if (filters.favoritesOnly && !offer.isFavorite) return false;
     if (search) {
       const haystack = [offer.title, offer.company, offer.platform, offer.tldr]
         .filter(Boolean)

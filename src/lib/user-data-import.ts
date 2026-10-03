@@ -51,9 +51,9 @@ const FORBIDDEN_KEYS = new Set([
 const CV_FIELDS = ['id', 'title', 'content', 'isBase', 'isPrincipal', 'templateName', 'accentColor', 'fontFamily', 'pageMargin', 'scale', 'createdAt', 'updatedAt'];
 const COMPANY_FIELDS = ['id', 'name', 'nameNormalized', 'website', 'location', 'sector', 'iconHash', 'createdAt', 'updatedAt'];
 const NOTE_FIELDS = ['id', 'companyId', 'content', 'createdAt', 'updatedAt'];
-const VIEW_FIELDS = ['id', 'name', 'isDefault', 'config', 'createdAt', 'updatedAt'];
+const VIEW_FIELDS = ['entity', 'id', 'name', 'isDefault', 'config', 'createdAt', 'updatedAt'];
 const OFFER_FIELDS = [
-  'id', 'title', 'company', 'url', 'platform', 'description', 'status', 'source', 'externalSource', 'externalId',
+  'isFavorite', 'id', 'title', 'company', 'url', 'platform', 'description', 'status', 'source', 'externalSource', 'externalId',
   'livenessStatus', 'sourceMetadata', 'scoreOverall', 'scoreBreakdown', 'matchInputHash', 'matchKind', 'matchEvidence',
   'matchDetails', 'matchEvaluatedAt', 'tldr', 'redFlags', 'legitimacyTier', 'rawReport', 'targetProofPoints',
   'coverLetter', 'outreachMessage', 'interviewQuestions', 'nextFollowupDate', 'rejectionPatternTags', 'createdAt', 'updatedAt',
@@ -303,11 +303,15 @@ export async function importUserData(input: unknown) {
     for (const sourceRow of payload.userCompanies) {
       const destinationCompanyId = companyIds.get(uuid(sourceRow.companyId, 'userCompany.companyId'));
       if (!destinationCompanyId) fail('Una membresía referencia una empresa no incluida.');
-      await tx.insert(userCompanies).values({
+      if (sourceRow.isFavorite !== undefined && typeof sourceRow.isFavorite !== 'boolean') fail('userCompany.isFavorite no es válido.');
+      const membershipInsert = tx.insert(userCompanies).values({
         userId: destinationUserId,
         companyId: destinationCompanyId,
+        isFavorite: sourceRow.isFavorite === true,
         createdAt: date(sourceRow.createdAt, 'userCompany.createdAt', false)!,
-      }).onConflictDoNothing();
+      });
+      if (typeof sourceRow.isFavorite === 'boolean') await membershipInsert.onConflictDoUpdate({ target: [userCompanies.userId, userCompanies.companyId], set: { isFavorite: sourceRow.isFavorite } });
+      else await membershipInsert.onConflictDoNothing();
     }
 
     for (const sourceRow of payload.companyNotes) {
@@ -327,22 +331,27 @@ export async function importUserData(input: unknown) {
     for (const sourceRow of payload.applicationViews) {
       const id = uuid(sourceRow.id, 'applicationView.id');
       const name = string(sourceRow.name, 'applicationView.name');
+      const entity = sourceRow.entity ?? 'applications';
+      if (!['applications', 'companies', 'people'].includes(entity)) fail('applicationView.entity no es válido.');
       const matches = await tx.select().from(applicationViews).where(or(
         eq(applicationViews.id, id),
-        and(eq(applicationViews.userId, destinationUserId), eq(applicationViews.name, name)),
+        and(eq(applicationViews.userId, destinationUserId), eq(applicationViews.entity, entity), eq(applicationViews.name, name)),
       )).limit(2);
       if (matches.length > 1) fail('Una vista colisiona por UUID y nombre.', 409);
       const existing = matches[0] ?? null;
-      if (existing && existing.userId !== destinationUserId) fail('Una vista pertenece a otra cuenta.', 409);
+      if (existing && (existing.userId !== destinationUserId || existing.entity !== entity)) fail('Una vista pertenece a otra cuenta o sección.', 409);
       const values = requiredDateFields(pick(sourceRow, VIEW_FIELDS, 'applicationView'), ['createdAt', 'updatedAt'], 'applicationView');
+      values.entity = entity;
       values.id = existing?.id ?? id;
       values.userId = destinationUserId;
+      if (values.isDefault === true) await tx.update(applicationViews).set({ isDefault: false }).where(and(eq(applicationViews.userId, destinationUserId), eq(applicationViews.entity, entity)));
       if (existing) await tx.update(applicationViews).set(without(values, ['id', 'userId', 'createdAt'])).where(eq(applicationViews.id, existing.id));
       else await tx.insert(applicationViews).values(values as any);
     }
 
     const offerIds = new Map<string, string>();
     for (const sourceRow of payload.jobOffers) {
+      if (sourceRow.isFavorite !== undefined && typeof sourceRow.isFavorite !== 'boolean') fail('jobOffer.isFavorite no es válido.');
       const sourceOfferId = uuid(sourceRow.id, 'jobOffer.id');
       const sourceCvId = sourceRow.cvId == null ? null : uuid(sourceRow.cvId, 'jobOffer.cvId');
       const sourceCompanyId = sourceRow.companyId == null ? null : uuid(sourceRow.companyId, 'jobOffer.companyId');

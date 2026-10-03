@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from 'react';
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CvListItem, CvTargetSummary } from '@/lib/job-offer-queries';
 import {
   Sparkles, Plus, FileText, ArrowRight, Star, X,
-  Briefcase, Building2, Link as LinkIcon, RefreshCw, AlertCircle,
+  Briefcase, RefreshCw, AlertCircle,
   Crown, Lock, Upload, Clipboard, Search
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
-import { resolveOfferIdentity } from '@/lib/offer-fields';
+import OfferUrlImport from '@/components/ai/OfferUrlImport';
+import type { ImportedOffer } from '@/lib/offer-import/types';
 import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
@@ -157,12 +158,15 @@ export default function DashboardClient({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStep, setAiStep] = useState<string>('');
   const [aiStreamContent, setAiStreamContent] = useState('');
+  const [importedOffer, setImportedOffer] = useState<ImportedOffer | null>(null);
+  const aiDialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isAiOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const timer = setTimeout(() => aiDialogRef.current?.querySelector<HTMLInputElement>('input[type="url"]')?.focus(), 0);
+    return () => { clearTimeout(timer); previousFocus?.focus(); };
+  }, [isAiOpen]);
   const [aiFormData, setAiFormData] = useState({
-    jobTitle: '',
-    company: '',
-    url: '',
-    platform: 'linkedin',
-    jobDescription: '',
     promptId: availablePrompts.find(p => p.isActive)?.id || '',
     addToApplications: 'true',
   });
@@ -479,15 +483,11 @@ export default function DashboardClient({
       return;
     }
 
-    if (!aiFormData.jobDescription.trim()) {
+    if (!importedOffer?.jobDescription.trim()) {
       setAiError(t('dashboard.errors.required'));
       return;
     }
-    const identity = resolveOfferIdentity({
-      jobTitle: aiFormData.jobTitle,
-      company: aiFormData.company,
-      jobDescription: aiFormData.jobDescription,
-    });
+    const identity = importedOffer;
 
     setAiLoading(true);
     setAiStep(t('dashboard.steps.keywords'));
@@ -520,9 +520,9 @@ export default function DashboardClient({
         baseCvId: principalCv.id,
         jobTitle: identity.jobTitle,
         company: identity.company,
-        url: aiFormData.url,
-        platform: aiFormData.platform,
-        jobDescription: aiFormData.jobDescription,
+        url: identity.url,
+        platform: identity.platform,
+        jobDescription: identity.jobDescription,
         promptId: aiFormData.promptId,
         addToApplications: aiFormData.addToApplications === 'true',
         targetCvId: placeholderRes.cvId
@@ -922,7 +922,17 @@ export default function DashboardClient({
       {/* Cajón Lateral / Modal de Optimización por IA */}
       {isAiOpen && (
         <ModalScrim>
-          <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
+          <div ref={aiDialogRef} role="dialog" aria-modal="true" aria-labelledby="ai-offer-dialog-title"
+            onKeyDown={event => {
+              if (event.key === 'Escape' && !aiLoading) { event.preventDefault(); setIsAiOpen(false); }
+              if (event.key !== 'Tab') return;
+              const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),summary'))
+                .filter(element => element.getBoundingClientRect().height > 0);
+              const first = controls[0]; const last = controls[controls.length - 1];
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }}
+            className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
 
             {/* Adornos visuales de fondo */}
             <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
@@ -930,7 +940,7 @@ export default function DashboardClient({
 
             <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
               <div>
-                <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
+                <h3 id="ai-offer-dialog-title" className="text-lg font-bold text-text flex items-center gap-2 font-display">
                   <Sparkles className="w-5 h-5 text-ai animate-pulse stroke-[1.75]" />
                   {t('dashboard.modal.ai.title')}
                 </h3>
@@ -939,8 +949,10 @@ export default function DashboardClient({
                 </p>
               </div>
               <button
+                type="button"
+                aria-label={t('dashboard.modal.ai.close')}
                 onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all disabled:opacity-50"
+                className="min-h-11 min-w-11 text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 disabled={aiLoading}
               >
                 <X className="w-5 h-5 stroke-[1.75]" />
@@ -981,65 +993,7 @@ export default function DashboardClient({
                 )}
 
                 <form onSubmit={handleAiOptimize} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('dashboard.modal.ai.jobTitle')}
-                      </label>
-                      <input
-                        type="text"
-                        value={aiFormData.jobTitle}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
-                        placeholder={t('dashboard.modal.ai.jobTitlePlaceholder')}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('dashboard.modal.ai.company')}
-                      </label>
-                      <input
-                        type="text"
-                        value={aiFormData.company}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
-                        placeholder={t('dashboard.modal.ai.companyPlaceholder')}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <LinkIcon className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('dashboard.modal.ai.link')}
-                      </label>
-                      <input
-                        type="url"
-                        value={aiFormData.url}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
-                        placeholder="https://..."
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('dashboard.modal.ai.platform')}</label>
-                      <select
-                        value={aiFormData.platform}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
-                      >
-                        <option value="linkedin">LinkedIn</option>
-                        <option value="infojobs">InfoJobs</option>
-                        <option value="indeed">Indeed</option>
-                        <option value="other">{t('dashboard.modal.ai.platformOther')}</option>
-                      </select>
-                    </div>
-                  </div>
+                  <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={aiLoading} />
 
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
@@ -1065,10 +1019,12 @@ export default function DashboardClient({
                           const promptInfo = getPromptTranslation(prompt);
 
                           return (
-                            <div
+                            <button
+                              type="button"
+                              aria-pressed={isSelected}
                               key={prompt.id}
                               onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${config.hoverBg} ${isSelected ? `border-ai ring-2 ring-ai/20 shadow-lg ${shadowClass}` : 'border-subtle hover:border-control dark:hover:border-white/20'}`}
+                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 text-left cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${config.hoverBg} ${isSelected ? `border-ai ring-2 ring-ai/20 shadow-lg ${shadowClass}` : 'border-subtle hover:border-control dark:hover:border-white/20'}`}
                             >
                               <div>
                                 {/* Header / Color dot */}
@@ -1095,7 +1051,7 @@ export default function DashboardClient({
                                   style={{ backgroundColor: promptColor }}
                                 />
                               )}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1121,20 +1077,6 @@ export default function DashboardClient({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                      <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                      {t('dashboard.modal.ai.descLabel')}
-                    </label>
-                    <textarea
-                      required
-                      rows={8}
-                      value={aiFormData.jobDescription}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
-                      placeholder={t('dashboard.modal.ai.descPlaceholder')}
-                      className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
-                    />
-                  </div>
                 </form>
               </div>
             )}
@@ -1150,7 +1092,7 @@ export default function DashboardClient({
                 {t('dashboard.modal.ai.close')}
               </button>
               {!aiLoading && (
-                <Button type="submit" variant="ai" onClick={handleAiOptimize}>
+                <Button type="submit" variant="ai" onClick={handleAiOptimize} disabled={!importedOffer}>
                   <Sparkles className="w-4 h-4 stroke-[1.75]" />
                   {t('dashboard.modal.ai.start')}
                 </Button>
