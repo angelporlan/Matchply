@@ -1,0 +1,109 @@
+{
+  "run": 2,
+  "lighthouseVersion": "13.3.0",
+  "fetchTime": "2026-10-04T07:00:04.858Z",
+  "requestedUrl": "http://127.0.0.1:3104/",
+  "finalDisplayedUrl": "http://127.0.0.1:3104/",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.7977.30 Safari/537.36",
+  "environment": {
+    "networkUserAgent": "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36",
+    "hostUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.7977.30 Safari/537.36",
+    "benchmarkIndex": 4107.5,
+    "credits": {}
+  },
+  "configSettings": {
+    "output": [
+      "json",
+      "html"
+    ],
+    "maxWaitForFcp": 30000,
+    "maxWaitForLoad": 45000,
+    "pauseAfterFcpMs": 1000,
+    "pauseAfterLoadMs": 1000,
+    "networkQuietThresholdMs": 1000,
+    "cpuQuietThresholdMs": 1000,
+    "formFactor": "mobile",
+    "throttling": {
+      "rttMs": 150,
+      "throughputKbps": 1638.4,
+      "requestLatencyMs": 0,
+      "downloadThroughputKbps": 0,
+      "uploadThroughputKbps": 0,
+      "cpuSlowdownMultiplier": 4
+    },
+    "throttlingMethod": "simulate",
+    "screenEmulation": {
+      "mobile": true,
+      "width": 412,
+      "height": 823,
+      "deviceScaleFactor": 1.75,
+      "disabled": false
+    },
+    "emulatedUserAgent": "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36",
+    "auditMode": false,
+    "gatherMode": false,
+    "clearStorageTypes": [
+      "file_systems",
+      "shader_cache",
+      "service_workers",
+      "cache_storage"
+    ],
+    "disableStorageReset": false,
+    "debugNavigation": false,
+    "channel": "node",
+    "usePassiveGathering": false,
+    "disableFullPageScreenshot": false,
+    "skipAboutBlank": false,
+    "blankPage": "about:blank",
+    "ignoreStatusCode": false,
+    "locale": "en-US",
+    "blockedUrlPatterns": null,
+    "additionalTraceCategories": null,
+    "extraHeaders": null,
+    "precomputedLanternData": null,
+    "onlyAudits": null,
+    "onlyCategories": [
+      "performance"
+    ],
+    "skipAudits": null
+  },
+  "performanceScore": 0.96,
+  "metrics": {
+    "largest-contentful-paint": {
+      "value": 2709.2450000000003,
+      "unit": "millisecond",
+      "score": 0.85,
+      "displayValue": "2.7 s"
+    },
+    "cumulative-layout-shift": {
+      "value": 0,
+      "unit": "unitless",
+      "score": 1,
+      "displayValue": "0"
+    },
+    "first-contentful-paint": {
+      "value": 1053.698,
+      "unit": "millisecond",
+      "score": 1,
+      "displayValue": "1.1 s"
+    },
+    "total-blocking-time": {
+      "value": 0,
+      "unit": "millisecond",
+      "score": 1,
+      "displayValue": "0 ms"
+    },
+    "speed-index": {
+      "value": 1053.698,
+      "unit": "millisecond",
+      "score": 1,
+      "displayValue": "1.1 s"
+    },
+    "interactive": {
+      "value": 2709.2450000000003,
+      "unit": "millisecond",
+      "score": 0.97,
+      "displayValue": "2.7 s"
+    }
+  }
+}

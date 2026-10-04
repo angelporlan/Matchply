@@ -1,0 +1,42 @@
+{
+  "createdAt": "2026-10-04T06:57:44.781Z",
+  "snapshot": "/private/tmp/matchply-landing-production-final",
+  "node": "v26.3.0",
+  "results": [
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "durationMs": 6204
+    },
+    {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "durationMs": 2531
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "durationMs": 25630
+    }
+  ],
+  "sourceHashes": {
+    "src/app/page.tsx": "b9e54d6439438fba9f388b9c80bc09522b4e34a654622700e67d516331aff4f2",
+    "src/lib/landing-content.ts": "ac3256ea9d3ddd3cf41c696bcdc3509ce662044691dcf54aa223e86237897bbc",
+    "src/components/landing/LandingDemo.tsx": "215cec43d7eb0ee50dabb927ac2b5b6d54cb92c83ebe57095b9f22c1efc1f827",
+    "src/lib/umami-client.ts": "27992bdde4c23ae11241a2aae1019f8aaa472973bf4738d452a74ee401e8794a",
+    "scripts/landing-experiment.test.ts": "cb9e5757841be2dd2f61e413209b4bc0be7d48eb193217c83556b591f98d038b",
+    "src/lib/billing-interval.ts": "9b2e66b1399c3e98787febd3c8da03d4676c694745d4a95ed6d297ac0f5714c9"
+  },
+  "lintWarnings": 8,
+  "landing": {
+    "routeSize": "11.1 kB",
+    "firstLoadJs": "156 kB",
+    "rendering": "server-rendered on demand"
+  },
+  "runtime": {
+    "mode": "standalone",
+    "url": "http://127.0.0.1:3104/",
+    "command": "node .next/standalone/server.js",
+    "assets": "public and .next/static copied into standalone output"
+  }
+}

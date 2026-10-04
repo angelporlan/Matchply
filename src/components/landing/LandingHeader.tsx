@@ -1,150 +1,71 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
-import { ButtonLink } from '@/components/ui/Button';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
+import type { LandingContent } from '@/lib/landing-content';
 
-interface LandingHeaderProps {
-  isLoggedIn: boolean;
-  navFeatures: string;
-  navTemplates: string;
-  navPricing: string;
-  navDashboard: string;
-  navLogin: string;
-  navRegister: string;
-}
+export default function LandingHeader({ isLoggedIn, copy }: { isLoggedIn: boolean; copy: LandingContent['nav'] }) {
+  const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const accountHref = isLoggedIn ? '/dashboard' : '/login';
+  const accountLabel = isLoggedIn ? copy.workspace : copy.login;
 
-export default function LandingHeader({
-  isLoggedIn,
-  navFeatures,
-  navTemplates,
-  navPricing,
-  navDashboard,
-  navLogin,
-  navRegister,
-}: LandingHeaderProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    firstLinkRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        toggleRef.current?.focus();
+      }
+    };
+    const closeOutside = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const wideViewport = window.matchMedia('(min-width: 1024px)');
+    const closeWhenWide = () => { if (wideViewport.matches) setOpen(false); };
+    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('pointerdown', closeOutside);
+    wideViewport.addEventListener('change', closeWhenWide);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('pointerdown', closeOutside);
+      wideViewport.removeEventListener('change', closeWhenWide);
+    };
+  }, [open]);
 
-  const toggleMenu = () => setIsOpen(!isOpen);
+  const links = [{ href: '#how-it-works', text: copy.how }, { href: '#pricing', text: copy.pricing }, { href: '#faq', text: copy.faq }];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-canvas/80 dark:bg-canvas/80 backdrop-blur-md border-b border-subtle shadow-sm transition-all duration-300">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
-        {/* Left Side: Logo */}
-        <div className="flex items-center gap-2 z-10">
-          <Link href="/" className="hover:opacity-90 transition-opacity">
-            <Logo iconSize="sm" textSize="md" />
-          </Link>
-        </div>
-
-        {/* Center: Desktop Nav Links (Hidden on Mobile) */}
-        <nav className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8 text-sm font-semibold text-text-muted dark:text-slate-300">
-          <a href="#features" className="hover:text-text dark:hover:text-white transition-colors">{navFeatures}</a>
-          <a href="#templates" className="hover:text-text dark:hover:text-white transition-colors">{navTemplates}</a>
-          <a href="#pricing" className="hover:text-text dark:hover:text-white transition-colors">{navPricing}</a>
+    <header ref={headerRef} className="sticky top-0 z-40 border-b border-subtle bg-canvas/95 backdrop-blur-sm">
+      <a href="#main-content" className="sr-only z-50 rounded-lg bg-surface px-4 py-3 text-text focus:not-sr-only focus:absolute focus:left-4 focus:top-2">{copy.skip}</a>
+      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link href="/" aria-label={copy.home} className="flex min-h-11 items-center rounded-lg"><Logo iconSize="sm" textSize="md" /></Link>
+        <nav aria-label={copy.label} className="hidden items-center gap-6 lg:flex">
+          {links.map(link => <a key={link.href} href={link.href} className="flex min-h-11 items-center text-sm font-medium text-text-muted hover:text-text">{link.text}</a>)}
         </nav>
-
-        {/* Right Side: Desktop Controls & Buttons (Hidden on Mobile) */}
-        <div className="hidden md:flex items-center gap-4 z-10">
-          <LanguageToggle />
+        <div className="landing-controls flex items-center gap-2 sm:gap-3">
+          <div className="hidden lg:block"><LanguageToggle /></div>
           <ThemeToggle />
-
-          {isLoggedIn ? (
-            <ButtonLink href="/dashboard" variant="secondary" size="sm">
-              {navDashboard} <ArrowRight className="w-4 h-4 stroke-[1.75]" />
-            </ButtonLink>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white font-semibold text-sm transition-colors"
-              >
-                {navLogin}
-              </Link>
-              <ButtonLink href="/register" variant="secondary" size="sm">
-                {navRegister}
-              </ButtonLink>
-            </>
-          )}
-        </div>
-
-        {/* Mobile Controls & Hamburger Button (Visible on Mobile) */}
-        <div className="flex md:hidden items-center gap-2 z-10">
-          <ThemeToggle />
-          <button
-            onClick={toggleMenu}
-            className="p-2 rounded-[8px] border border-subtle text-text-muted dark:text-slate-300 transition-all hover:bg-surface-muted dark:hover:bg-white/5"
-            aria-label="Toggle Navigation Menu"
-            aria-expanded={isOpen}
-          >
-            {isOpen ? <X className="w-5 h-5 stroke-[1.75]" /> : <Menu className="w-5 h-5 stroke-[1.75]" />}
+          <Link href={accountHref} className="hidden min-h-11 items-center px-2 text-sm font-semibold text-text hover:underline lg:flex">{accountLabel}</Link>
+          <button ref={toggleRef} type="button" onClick={() => setOpen(!open)} aria-label={open ? copy.close : copy.menu} aria-expanded={open} aria-controls="landing-mobile-navigation" className="flex h-11 w-11 items-center justify-center rounded-lg border border-control bg-surface text-text lg:hidden">
+            {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
         </div>
       </div>
-
-      {/* Mobile Menu Drawer Overlay */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 bg-canvas/95 dark:bg-canvas/95 backdrop-blur-lg border-b border-subtle p-6 flex flex-col gap-6 shadow-xl z-40 transition-all duration-300 animate-accordion-down max-h-[calc(100vh-4rem)] overflow-y-auto">
-          {/* Mobile Nav Links */}
-          <nav className="flex flex-col gap-4 text-base font-semibold text-text-muted dark:text-text">
-            <a
-              href="#features"
-              onClick={() => setIsOpen(false)}
-              className="px-2 py-1.5 rounded-lg hover:bg-surface-muted dark:hover:bg-white/5 transition-colors"
-            >
-              {navFeatures}
-            </a>
-            <a
-              href="#templates"
-              onClick={() => setIsOpen(false)}
-              className="px-2 py-1.5 rounded-lg hover:bg-surface-muted dark:hover:bg-white/5 transition-colors"
-            >
-              {navTemplates}
-            </a>
-            <a
-              href="#pricing"
-              onClick={() => setIsOpen(false)}
-              className="px-2 py-1.5 rounded-lg hover:bg-text/5 dark:hover:bg-white/5 transition-colors"
-            >
-              {navPricing}
-            </a>
-          </nav>
-
-          {/* Divider */}
-          <div className="h-px bg-text/10 dark:bg-white/10" />
-
-          {/* Language Toggle in Drawer */}
-          <div className="flex items-center justify-between px-2">
-            <span className="text-xs font-bold text-text-muted font-display">
-              Idioma / Language
-            </span>
-            <LanguageToggle />
-          </div>
-
-          {/* Stacked Action Buttons */}
-          <div className="flex flex-col gap-3 mt-2">
-            {isLoggedIn ? (
-              <ButtonLink href="/dashboard" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
-                {navDashboard} <ArrowRight className="w-4 h-4 stroke-[1.75]" />
-              </ButtonLink>
-            ) : (
-              <>
-                <ButtonLink href="/login" variant="secondary" className="w-full" onClick={() => setIsOpen(false)}>
-                  {navLogin}
-                </ButtonLink>
-                <ButtonLink href="/register" variant="primary" className="w-full" onClick={() => setIsOpen(false)}>
-                  {navRegister}
-                </ButtonLink>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <div id="landing-mobile-navigation" hidden={!open} className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-subtle bg-surface px-4 py-5 shadow-lg lg:hidden">
+        <nav aria-label={copy.label} className="mx-auto flex max-w-7xl flex-col gap-1">
+          {links.map((link, index) => <a ref={index === 0 ? firstLinkRef : undefined} key={link.href} href={link.href} onClick={() => setOpen(false)} className="flex min-h-11 items-center rounded-lg px-3 text-base font-medium text-text hover:bg-surface-muted">{link.text}</a>)}
+          <Link href={accountHref} onClick={() => setOpen(false)} className="mt-2 flex min-h-11 items-center rounded-lg border-t border-subtle px-3 pt-3 font-semibold text-text">{accountLabel}</Link>
+        </nav>
+        <div className="landing-controls mx-auto mt-4 max-w-7xl px-3"><LanguageToggle /></div>
+      </div>
     </header>
   );
 }

@@ -12,6 +12,10 @@ const SENSITIVE_QUERY = new Set([
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
 
+export function isUmamiDoNotTrack(value: unknown) {
+  return value === 1 || value === '1' || value === 'yes';
+}
+
 export function shouldTrackUmamiPath(pathname: string) {
   if (!pathname) return false;
   if (pathname.startsWith('/admin')) return false;
@@ -27,6 +31,19 @@ export function normalizeUmamiPath(pathname: string) {
 
 export function normalizeUmamiTitle(title: string) {
   return title.replace(UUID_RE, '').replace(/\s{2,}/g, ' ').trim().slice(0, 120);
+}
+
+export function umamiTitleForPath(pathname: string) {
+  if (pathname === '/') return 'Matchply | Inicio';
+  if (pathname.startsWith('/editor/')) return 'Matchply | Editor';
+  if (pathname.startsWith('/dashboard/applications')) return 'Matchply | Postulaciones';
+  if (pathname.startsWith('/dashboard/profile')) return 'Matchply | Perfil';
+  if (pathname.startsWith('/dashboard/subscription')) return 'Matchply | Suscripción';
+  if (pathname.startsWith('/dashboard')) return 'Matchply | Panel';
+  if (pathname === '/try') return 'Matchply | Prueba';
+  if (pathname === '/register') return 'Matchply | Registro';
+  if (pathname === '/login') return 'Matchply | Acceso';
+  return 'Matchply';
 }
 
 export function sanitizeUmamiReferrer(referrer: string | null | undefined) {
@@ -58,7 +75,8 @@ export function umamiPagePayload(input: {
   const path = normalizeUmamiPath(input.pathname) + stripSensitiveSearch(input.search || '');
   return {
     url: path,
-    title: normalizeUmamiTitle(input.title || ''),
+    // Document titles may contain private CV, company or contact names.
+    title: umamiTitleForPath(input.pathname),
     referrer: sanitizeUmamiReferrer(input.referrer),
   };
 }

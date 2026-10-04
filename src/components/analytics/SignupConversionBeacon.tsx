@@ -20,8 +20,7 @@ export function SignupConversionBeacon() {
         window.clearInterval(timer);
         return;
       }
-      if (window.umami?.track) {
-        trackUmamiConversion('signup_completed');
+      if (window.umami?.track && trackUmamiConversion('signup_completed')) {
         document.cookie = `${COOKIE}=; Max-Age=0; path=/`;
         window.clearInterval(timer);
         return;
