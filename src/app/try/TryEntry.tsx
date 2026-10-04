@@ -12,7 +12,7 @@ import {
   AlertCircle,
   FileCheck
 } from 'lucide-react';
-import { createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
+import { createTryBaseCv } from '@/app/dashboard/actions';
 import Logo from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -20,6 +20,7 @@ import OfferUrlImport from '@/components/ai/OfferUrlImport';
 import type { ImportedOffer } from '@/lib/offer-import/types';
 import { trialCvMarkdown } from '@/lib/try-entry';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 
 export default function TryEntry() {
   const { t } = useLanguage();
@@ -30,6 +31,7 @@ export default function TryEntry() {
   const [showRawText, setShowRawText] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sourceDraft = useRef<{ id: string; title: string; content: string } | null>(null);
 
   // Form fields state
   const [cvText, setCvText] = useState('');
@@ -120,18 +122,12 @@ export default function TryEntry() {
       const markdown = trialCvMarkdown(raw, t('try.entry.untitledSection'));
       if (!markdown) throw new Error(t('try.entry.errors.cv'));
 
-      const base = await createCvPlaceholder({
-        title: t('try.entry.baseTitle'),
-        isBase: true,
-        isPrincipal: true,
-      });
-      if ('needsConfirm' in base && base.needsConfirm) {
-        throw new Error(t('try.entry.errors.limit'));
+      const title = t('try.entry.baseTitle');
+      if (!sourceDraft.current || sourceDraft.current.content !== markdown || sourceDraft.current.title !== title) {
+        sourceDraft.current = { id: crypto.randomUUID(), title, content: markdown };
       }
+      const base = await createTryBaseCv(sourceDraft.current);
       if (!base.success || !base.cvId) throw new Error(base.error || t('try.entry.errors.generic'));
-
-      const saved = await saveCvContent(base.cvId, markdown);
-      if (!saved.success) throw new Error(saved.error || t('try.entry.errors.generic'));
 
       // Si se salta la oferta: va directo al editor con su CV base
       if (skipOffer || !description) {
@@ -142,35 +138,18 @@ export default function TryEntry() {
 
       // Si hay oferta: adapta el CV con la IA
       const identity = importedOffer!;
-      const adapted = await createCvPlaceholder({
-        title: `CV - ${identity.jobTitle}`,
-        isBase: false,
-        isPrincipal: false,
-      });
-
-      let targetCvId = base.cvId;
-      let activationBase: string | undefined;
-      if ('needsConfirm' in adapted && adapted.needsConfirm) {
-        activationBase = markdown;
-      } else if (!adapted.success || !adapted.cvId) {
-        throw new Error(adapted.error || t('try.entry.errors.generic'));
-      } else {
-        targetCvId = adapted.cvId;
-      }
-
       trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: base.cvId,
-        targetCvId,
+        requestId: crypto.randomUUID(),
         jobTitle: identity.jobTitle,
         company: identity.company,
         url: identity.url,
         platform: identity.platform,
         jobDescription: description,
         addToApplications: true,
-        activationBase,
       }));
-      router.push(`/editor/${targetCvId}?optimize=true`);
+      router.push(`/editor/${base.cvId}?optimize=true`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('try.entry.errors.generic'));
       setLoading(false);
@@ -201,7 +180,7 @@ export default function TryEntry() {
               }`}
             >
               {step === 2 && hasCv ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-              <span>1. Tu Currículum</span>
+              <span>{t('try.entry.cvStep')}</span>
             </button>
 
             <div className="w-6 h-0.5 bg-subtle" />
@@ -216,8 +195,8 @@ export default function TryEntry() {
                   : 'bg-surface-muted text-text-muted cursor-not-allowed'
               }`}
             >
-              <span>2. La Oferta</span>
-              <span className="text-[10px] opacity-80">(Opcional)</span>
+              <span>{t('try.entry.offerStep')}</span>
+              <span className="text-[10px] opacity-80">{t('try.entry.optional')}</span>
             </button>
           </div>
         </div>
@@ -227,10 +206,10 @@ export default function TryEntry() {
           <div className="bg-surface border border-subtle rounded-2xl p-6 sm:p-8 shadow-dialog">
             <div className="mb-5">
               <h2 className="font-display text-lg font-bold text-text">
-                Paso 1: Selecciona tu CV actual
+                {t('try.entry.chooseCv')}
               </h2>
               <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                Sube tu PDF para extraer automáticamente tus datos o pégalo directamente en texto.
+                {t('try.entry.chooseHelp')}
               </p>
             </div>
 
@@ -244,6 +223,10 @@ export default function TryEntry() {
 
             {!file ? (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={t('try.entry.upload')}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); } }}
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
@@ -258,10 +241,10 @@ export default function TryEntry() {
                   <UploadCloud className="w-7 h-7" />
                 </div>
                 <p className="text-sm font-bold text-text">
-                  Haz clic o arrastra tu currículum en PDF
+                  {t('try.entry.upload')}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Formato PDF estándar hasta 10 MB
+                  {t('try.entry.uploadHelp')}
                 </p>
               </div>
             ) : (
@@ -276,7 +259,7 @@ export default function TryEntry() {
                     </p>
                     <p className="text-xs text-success-text flex items-center gap-1 font-medium mt-0.5">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      PDF verificado ({fileSizeKb} KB)
+                      {t('try.entry.selectedPdf', { size: fileSizeKb })}
                     </p>
                   </div>
                 </div>
@@ -288,7 +271,7 @@ export default function TryEntry() {
                   }}
                   className="text-xs text-danger-text hover:underline px-2.5 py-1 rounded"
                 >
-                  Cambiar
+                  {t('try.entry.change')}
                 </button>
               </div>
             )}
@@ -303,7 +286,7 @@ export default function TryEntry() {
                   disabled={loading}
                   className="w-full"
                 >
-                  <span>Continuar al Paso 2 (Añadir oferta)</span>
+                  <span>{t('try.entry.next')}</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
 
@@ -314,7 +297,7 @@ export default function TryEntry() {
                   className="w-full text-xs font-semibold text-text-muted hover:text-text py-2 flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <FileCheck className="w-4 h-4 text-action" />
-                  <span>O saltar oferta y crear solo mi CV directamente</span>
+                  <span>{t('try.entry.skip')}</span>
                 </button>
               </div>
             )}
@@ -327,7 +310,7 @@ export default function TryEntry() {
                 className="text-xs font-semibold text-text-muted hover:text-text flex items-center gap-1.5 mx-auto transition-colors"
               >
                 <span>
-                  {showRawText ? 'Ocultar editor de texto' : '¿No tienes PDF? Haz clic para pegar el texto'}
+                  {t(showRawText ? 'try.entry.hideText' : 'try.entry.showText')}
                 </span>
               </button>
 
@@ -337,7 +320,8 @@ export default function TryEntry() {
                     value={cvText}
                     onChange={(e) => setCvText(e.target.value)}
                     rows={5}
-                    placeholder="Pega aquí la experiencia, educación y habilidades de tu currículum..."
+                    aria-label={t('try.entry.cvLabel')}
+                    placeholder={t('try.entry.cvPlaceholder')}
                     className="w-full bg-canvas border border-border-control/50 rounded-xl p-3 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai-action resize-none"
                   />
                   {cvText.trim() && (
@@ -349,7 +333,7 @@ export default function TryEntry() {
                         disabled={loading}
                         className="w-full text-xs"
                       >
-                        <span>Continuar al Paso 2 (Añadir oferta)</span>
+                        <span>{t('try.entry.next')}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Button>
                       <button
@@ -359,7 +343,7 @@ export default function TryEntry() {
                         className="w-full text-xs font-semibold text-text-muted hover:text-text py-1.5 flex items-center justify-center gap-1.5"
                       >
                         <FileCheck className="w-3.5 h-3.5 text-action" />
-                        <span>Saltar oferta y crear CV directamente</span>
+                        <span>{t('try.entry.skip')}</span>
                       </button>
                     </div>
                   )}
@@ -382,9 +366,9 @@ export default function TryEntry() {
             {/* Chip resumen del CV activo */}
             <div className="mb-5 p-3 bg-success-surface border border-action/40 rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 overflow-hidden">
-                <span className="text-success-text font-bold">✓ CV preparado:</span>
+                <span className="text-success-text font-bold">✓ {t('try.entry.ready')}</span>
                 <span className="text-text font-medium truncate max-w-[200px] sm:max-w-xs">
-                  {file ? file.name : `Texto pegado (${cvText.trim().split(/\s+/).length} palabras)`}
+                  {file ? file.name : t('try.entry.pasted', { words: cvText.trim().split(/\s+/).length })}
                 </span>
               </div>
               <button
@@ -392,7 +376,7 @@ export default function TryEntry() {
                 onClick={handlePrevStep}
                 className="text-[11px] text-text-muted underline hover:text-text shrink-0"
               >
-                Cambiar
+                {t('try.entry.change')}
               </button>
             </div>
 
@@ -413,6 +397,7 @@ export default function TryEntry() {
             </div>
 
             <div className="mb-5">
+              <div className="mb-3"><InlineAllowance /></div>
               <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={loading} />
             </div>
 
@@ -434,7 +419,7 @@ export default function TryEntry() {
                   className="px-4"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span>Atrás</span>
+                  <span>{t('try.entry.back')}</span>
                 </Button>
 
                 {hasJob ? (

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { jobOffers, cvs, users } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { canAccessFeature, effectiveSubscriptionStatus, userEntitlements } from '@/lib/subscription';
 import { requireProductContext } from '@/lib/request-context';
+import { beginUsage, consumeUsage, releaseUsage } from '@/lib/usage';
+import { aiRequestId, aiUsageErrorResponse, AiUsageHttpError } from '@/lib/ai-usage-http';
+import { getCvAccess, requireEditableCv } from '@/lib/cv-access';
+import { assertUsagePublication } from '@/lib/ai-cv-publication';
+import { log } from '@/lib/logger';
 
 const outreachOfferColumns = {
   id: jobOffers.id,
@@ -20,6 +25,7 @@ const outreachCvColumns = {
 };
 
 export async function POST(req: NextRequest) {
+  let operationId: string | null = null;
   try {
     const ctx = await requireProductContext({ feature: 'applications' });
     const userId = ctx.effectiveUser!.id;
@@ -59,7 +65,11 @@ export async function POST(req: NextRequest) {
       return new NextResponse('A PRO subscription is required to access the applications board', { status: 403 });
     }
 
+    const operation = await beginUsage(userId, { bucket: 'general', action: 'outreach', requestId: aiRequestId(req, body.requestId), input: { offerId } });
+    if (operation.status === 'consumed') return NextResponse.json(operation.result);
+    operationId = operation.id;
     let selectedCv = null;
+    const cvAccess = await getCvAccess(userId);
     if (offer.cvId) {
       const [cv] = await db
         .select(outreachCvColumns)
@@ -73,7 +83,7 @@ export async function POST(req: NextRequest) {
       const [principalCv] = await db
         .select(outreachCvColumns)
         .from(cvs)
-        .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
+        .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true), cvAccess.activeIds.length ? inArray(cvs.id, cvAccess.activeIds) : sql`false`))
         .limit(1);
       selectedCv = principalCv;
     }
@@ -82,18 +92,16 @@ export async function POST(req: NextRequest) {
       const [anyCv] = await db
         .select(outreachCvColumns)
         .from(cvs)
-        .where(eq(cvs.userId, userId))
+        .where(and(eq(cvs.userId, userId), cvAccess.activeIds.length ? inArray(cvs.id, cvAccess.activeIds) : sql`false`))
         .orderBy(desc(cvs.createdAt))
         .limit(1);
       selectedCv = anyCv;
     }
 
     if (!selectedCv) {
-      return NextResponse.json({
-        success: false,
-        error: 'No se encontró ningún currículum base. Sube o crea un currículum antes de generar contenido.'
-      }, { status: 400 });
+      throw new AiUsageHttpError(400, 'CV_REQUIRED', 'No se encontró ningún currículum base. Sube o crea un currículum antes de generar contenido.');
     }
+    await db.transaction(tx => requireEditableCv(tx, userId, selectedCv!.id));
 
     const aiResult = await AIService.generateOutreachAndPrep({
       cvContent: selectedCv.content,
@@ -103,7 +111,10 @@ export async function POST(req: NextRequest) {
       userSubscriptionStatus: effectiveSubscriptionStatus(user)
     });
 
-    await db
+    const result = { success: true, outreachMessage: aiResult.outreachMessage, coverLetter: aiResult.coverLetter, interviewQuestions: aiResult.interviewQuestions };
+    await db.transaction(async tx => {
+    const ownerId = await assertUsagePublication(tx, userId, operation.id);
+    const updated = await tx
       .update(jobOffers)
       .set({
         outreachMessage: aiResult.outreachMessage || null,
@@ -111,17 +122,17 @@ export async function POST(req: NextRequest) {
         interviewQuestions: aiResult.interviewQuestions || null,
         updatedAt: new Date()
       })
-      .where(eq(jobOffers.id, offerId));
-
-    return NextResponse.json({
-      success: true,
-      outreachMessage: aiResult.outreachMessage,
-      coverLetter: aiResult.coverLetter,
-      interviewQuestions: aiResult.interviewQuestions
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, ownerId))).returning({ id: jobOffers.id });
+    if (!updated.length) throw new AiUsageHttpError(404, 'OFFER_NOT_FOUND', 'La oferta de esta generación ya no está disponible.');
+    await consumeUsage(tx, operation.id, result);
     });
 
+    return NextResponse.json(result);
+
   } catch (error: any) {
-    console.error('Error in outreach API route:', error);
+    if (operationId) await db.transaction(tx => releaseUsage(tx, operationId!));
+    const response = aiUsageErrorResponse(error); if (response) return response;
+    log({ event: 'outreach_failed', level: 'error', error });
     return NextResponse.json({
       success: false,
       error: error.message || 'Internal Server Error'

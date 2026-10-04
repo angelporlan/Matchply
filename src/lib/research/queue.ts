@@ -1,9 +1,11 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { jobOffers, jobResearchAgentRuns, jobResearchRuns, jobResearchSources, researchQuotaPeriods } from '@/db/schema';
+import { jobOffers, jobResearchAgentRuns, jobResearchRuns, jobResearchSources, usageOperations } from '@/db/schema';
 import { ApplicationNotFoundError } from '@/lib/application-service';
 import { requireUserFeature } from '@/lib/permissions';
-import { configuredResearchQuota, reserveResearchQuota } from './quota';
+import { reserveResearchQuota } from './quota';
+import { reserveUsage, getUsageSnapshot, utcUsageMonth } from '@/lib/usage';
 import { ResearchStatus } from './types';
 
 const ACTIVE_STATUSES = ['queued', 'running'] as const;
@@ -34,17 +36,22 @@ export async function enqueueResearchForOffer(
     return { accepted: true, status: 'partial' as ResearchStatus, run: latest, alreadyExists: true };
   }
   if (latest && ['failed', 'partial'].includes(latest.status) && (options.retryFailed || latest.status === 'failed')) {
-    const [requeued] = await db.update(jobResearchRuns).set({
-      status: 'queued',
-      lastError: null,
-      leaseUntil: null,
-      nextAttemptAt: new Date(),
-      updatedAt: new Date(),
-    }).where(and(
-      eq(jobResearchRuns.id, latest.id),
-      eq(jobResearchRuns.userId, userId),
-    )).returning();
-    return { accepted: true, status: 'queued' as ResearchStatus, run: requeued, alreadyExists: true };
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`research:${userId}:${jobOfferId}`}))`);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${userId}`}))`);
+      const [current] = await tx.select().from(jobResearchRuns).where(eq(jobResearchRuns.id, latest.id)).for('update').limit(1);
+      if (current && ACTIVE_STATUSES.includes(current.status as typeof ACTIVE_STATUSES[number])) return { accepted: true, status: current.status as ResearchStatus, run: current, alreadyExists: true };
+      let operationId = current.usageOperationId;
+      const [operation] = operationId ? await tx.select().from(usageOperations).where(eq(usageOperations.id, operationId)).limit(1) : [];
+      if (!operation || operation.status === 'released') {
+        const reserved = await reserveUsage(tx, userId, { bucket: 'research', action: 'research_offer', requestId: randomUUID(), input: { jobOfferId }, jobId: current.id });
+        operationId = reserved.id;
+      }
+      const [requeued] = await tx.update(jobResearchRuns).set({ status: 'queued', attempt: 0, usageOperationId: operationId,
+        lastError: null, leaseUntil: null, nextAttemptAt: new Date(), updatedAt: new Date(),
+      }).where(and(eq(jobResearchRuns.id, current.id), eq(jobResearchRuns.userId, userId))).returning();
+      return { accepted: true, status: 'queued' as ResearchStatus, run: requeued, alreadyExists: true };
+    });
   }
 
   return reserveResearchQuota(userId, jobOfferId, options.trigger || 'extension_capture');
@@ -64,10 +71,6 @@ export async function getResearchRunForUser(userId: string, jobOfferId: string) 
 }
 
 export async function getResearchQuota(userId: string) {
-  const periodStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
-  const [period] = await db.select().from(researchQuotaPeriods).where(and(
-    eq(researchQuotaPeriods.userId, userId),
-    eq(researchQuotaPeriods.periodStart, periodStart),
-  )).limit(1);
-  return { used: period?.usedOffers || 0, limit: configuredResearchQuota(), periodStart };
+  const snapshot = await getUsageSnapshot(userId);
+  return { ...snapshot.usage.research, periodStart: utcUsageMonth() };
 }

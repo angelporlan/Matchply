@@ -9,6 +9,7 @@ import { GUEST_MAX_CVS } from '@/lib/subscription';
 import { assertMutableActor, getRequestContext } from '@/lib/request-context';
 import { AccountSuspendedError } from '@/lib/request-errors';
 import { transferGuestCrm } from '@/lib/guest-crm-claim';
+import { transferGuestUsage } from '@/lib/usage';
 
 export { GUEST_MAX_CVS } from '@/lib/subscription';
 
@@ -26,6 +27,10 @@ export type RequestActor = {
   subscriptionStatus: string;
   accountStatus: string;
   proGrantedUntil: Date | null;
+  stripePriceId?: string | null;
+  stripePaidAt?: Date | null;
+  stripeCurrentPeriodEnd?: Date | null;
+  stripeTrialEnd?: Date | null;
   realUserId: string;
   impersonationSessionId: string | null;
 };
@@ -126,6 +131,10 @@ export async function getActor(options: { allowGuest?: boolean } = {}): Promise<
       subscriptionStatus: ctx.effectiveUser.subscriptionStatus,
       accountStatus: ctx.effectiveUser.accountStatus,
       proGrantedUntil: ctx.effectiveUser.proGrantedUntil,
+      stripePriceId: ctx.effectiveUser.stripePriceId,
+      stripePaidAt: ctx.effectiveUser.stripePaidAt,
+      stripeCurrentPeriodEnd: ctx.effectiveUser.stripeCurrentPeriodEnd,
+      stripeTrialEnd: ctx.effectiveUser.stripeTrialEnd,
       realUserId: ctx.realUser?.id || ctx.effectiveUser.id,
       impersonationSessionId: ctx.impersonation?.id ?? null,
     };
@@ -246,6 +255,7 @@ export async function claimGuestDataForUser(userId: string) {
     .limit(1);
 
   await db.transaction(async (tx) => {
+    await transferGuestUsage(tx, guest.id, userId);
     if (currentPrincipal) {
       await tx
         .update(cvs)

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { AIService } from '@/lib/ai-service';
+import { runWithUsage, usageInputHash } from '@/lib/usage';
+import { aiRequestId, aiUsageErrorResponse } from '@/lib/ai-usage-http';
+import { effectiveSubscriptionStatus } from '@/lib/subscription';
+import { log } from '@/lib/logger';
 // @ts-ignore
 import pdf from 'pdf-parse';
 
@@ -12,11 +16,13 @@ export async function POST(req: NextRequest) {
     }
 
     let rawText = '';
+    let requestId: unknown;
 
     const contentType = req.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
+      requestId = formData.get('requestId');
       const file = formData.get('file') as File | null;
       const text = formData.get('text') as string | null;
 
@@ -27,7 +33,7 @@ export async function POST(req: NextRequest) {
           const parsed = await pdf(buffer);
           rawText = parsed.text || '';
         } catch (err: any) {
-          console.error('[Profile Extract API] Error parsing PDF:', err);
+          log({ event: 'profile_extract_pdf_failed', level: 'warn', error: err });
           return NextResponse.json({
             success: false,
             error: 'No se pudo leer el archivo PDF. Intenta pegar el texto directamente.'
@@ -39,26 +45,27 @@ export async function POST(req: NextRequest) {
     } else {
       const body = await req.json().catch(() => ({}));
       rawText = body.text || body.rawText || '';
+      requestId = body.requestId;
     }
 
-    if (!rawText || !rawText.trim()) {
+    if (typeof rawText !== 'string' || !rawText.trim()) {
       return NextResponse.json({
         success: false,
         error: 'No se ha proporcionado texto o archivo para analizar.'
       }, { status: 400 });
     }
 
-    const extractedProfile = await AIService.extractProfileFromRawText({
-      rawText,
-      userSubscriptionStatus: actor.subscriptionStatus,
-    });
+    const extractedProfile = await runWithUsage(actor.userId, { bucket: 'general', action: 'profile:extract', requestId: aiRequestId(req, requestId), input: { textHash: usageInputHash(rawText) } }, () => AIService.extractProfileFromRawText({
+      rawText, userSubscriptionStatus: effectiveSubscriptionStatus(actor),
+    }));
 
     return NextResponse.json({
       success: true,
       profile: extractedProfile,
     });
   } catch (error: any) {
-    console.error('[Profile Extract API] Error:', error);
+    const response = aiUsageErrorResponse(error); if (response) return response;
+    log({ event: 'profile_extract_failed', level: 'error', error });
     return NextResponse.json({
       success: false,
       error: error.message || 'Error al procesar el perfil con IA.'

@@ -21,6 +21,10 @@ export type SessionUser = {
   isGuest: boolean;
   accountStatus: string;
   proGrantedUntil: Date | null;
+  stripePriceId?: string | null;
+  stripePaidAt?: Date | null;
+  stripeCurrentPeriodEnd?: Date | null;
+  stripeTrialEnd?: Date | null;
 };
 
 export const sessionUserSelect = sessionUserWithGuestColumns;

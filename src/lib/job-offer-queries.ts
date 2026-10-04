@@ -73,6 +73,10 @@ export const sessionUserColumns = {
   subscriptionStatus: users.subscriptionStatus,
   accountStatus: users.accountStatus,
   proGrantedUntil: users.proGrantedUntil,
+  stripePriceId: users.stripePriceId,
+  stripePaidAt: users.stripePaidAt,
+  stripeCurrentPeriodEnd: users.stripeCurrentPeriodEnd,
+  stripeTrialEnd: users.stripeTrialEnd,
 };
 
 export const sessionUserWithGuestColumns = {

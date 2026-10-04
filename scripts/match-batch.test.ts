@@ -45,7 +45,7 @@ test('durable match queue enforces lease ownership, recovery, and user isolation
   const { and, eq, inArray } = await import('drizzle-orm');
   const queue = await import('@/lib/ai-jobs/queue');
   const userIds = [randomUUID(), randomUUID()];
-  await db.insert(users).values(userIds.map(id => ({ id, email: `batch-${id}@example.test` })));
+  await db.insert(users).values(userIds.map(id => ({ id, email: `batch-${id}@example.test`, subscriptionStatus: 'active' })));
   const create = (userId: string, requestId = randomUUID()) => queue.enqueueMatchBatchJob(userId, {
     requestId, offerIds: ['zero', 'pending'], targetThreshold: 65,
   });
@@ -208,23 +208,17 @@ test('durable match queue enforces lease ownership, recovery, and user isolation
       assert.ok(ids.every(id => prompts[1].includes(id)), 'invalidated success must not be skipped as already saved');
       assert.equal((await queue.getAiJob(job.id))?.status, 'completed');
     });
-    await t.test('revoking applications access before the worker starts prevents provider calls', async workerTest => {
+    await t.test('Free batch admission rejects before creating a job or calling a provider', async workerTest => {
       const { AIService } = await import('@/lib/ai-service');
-      const { processAiJob } = await import('@/lib/ai-jobs/process');
       await db.update(users).set({ subscriptionStatus: 'none' }).where(eq(users.id, userIds[1]));
-      const offerId = randomUUID();
-      await db.insert(jobOffers).values({ id: offerId, userId: userIds[1], title: 'Test', company: 'Test', scoreOverall: 42 });
-      const job = await queue.enqueueMatchBatchJob(userIds[1], { requestId: randomUUID(), offerIds: [offerId], targetThreshold: 65 });
-      const claimed = await queue.claimAiJobById(job.id);
-      assert.ok(claimed);
+      const offerIds = [randomUUID(), randomUUID()];
+      await db.insert(jobOffers).values(offerIds.map(id => ({ id, userId: userIds[1], title: 'Test', company: 'Test', scoreOverall: 42 })));
       const ai = workerTest.mock.method(AIService, 'curateOffersBatch', async () => { throw new Error('Provider must not be called'); });
-      await processAiJob(claimed);
+      await assert.rejects(queue.enqueueMatchBatchJob(userIds[1], { requestId: randomUUID(), offerIds, targetThreshold: 65 }), /requiere.*Pro/i);
       assert.equal(ai.mock.callCount(), 0);
-      const rejected = await queue.getAiJob(job.id);
-      assert.equal(rejected?.status, 'queued');
-      assert.match(rejected?.lastError || '', /PRO subscription/);
-      const [offer] = await db.select({ score: jobOffers.scoreOverall }).from(jobOffers).where(eq(jobOffers.id, offerId));
-      assert.equal(offer.score, 42);
+      const rows = await db.select({ score: jobOffers.scoreOverall }).from(jobOffers).where(inArray(jobOffers.id, offerIds));
+      assert.ok(rows.every(row => row.score === 42));
+      await db.update(users).set({ subscriptionStatus: 'active' }).where(eq(users.id, userIds[1]));
     });
     await t.test('expired leases lose write authority and can be reclaimed', async () => {
       const job = await create(userIds[0]);

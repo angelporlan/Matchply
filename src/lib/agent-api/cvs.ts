@@ -1,3 +1,4 @@
+import { getUserPlan } from '@/lib/plan-store';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
@@ -10,9 +11,10 @@ import {
   parseCvStylePatch,
 } from '@/lib/agent-api/validate';
 import type { AgentPrincipal } from '@/lib/api-key-auth';
+import { createManualCvForUser, requireEditableCv } from '@/lib/cv-access';
 import { DEFAULT_CV_MARKDOWN } from '@/lib/default-cv';
 import { cvListColumns, cvMetaColumns } from '@/lib/job-offer-queries';
-import { canCreateCv, canUseCvTemplate } from '@/lib/subscription';
+import { canUseCvTemplate } from '@/lib/subscription';
 
 async function countCvs(userId: string) {
   const [row] = await db
@@ -59,11 +61,6 @@ export async function getAgentCv(userId: string, cvId: string) {
 
 export async function createAgentCv(auth: AgentPrincipal, body: unknown) {
   const input = parseCreateCvBody(body);
-  const count = await countCvs(auth.userId);
-  if (!canCreateCv(auth.subscriptionStatus, count, entitlement(auth))) {
-    throw new AgentApiError(403, 'subscription_required', 'Tu plan no permite crear otro currículum.');
-  }
-
   let content = input.content ?? DEFAULT_CV_MARKDOWN;
   let title = input.title ?? '';
   let templateName = 'harvard';
@@ -86,27 +83,8 @@ export async function createAgentCv(auth: AgentPrincipal, body: unknown) {
     throw new AgentApiError(400, 'invalid_title', 'El título del currículum no es válido.');
   }
 
-  const isFirst = count === 0;
-  const [created] = await db
-    .insert(cvs)
-    .values({
-      userId: auth.userId,
-      title,
-      content,
-      isBase: isFirst,
-      isPrincipal: isFirst,
-      templateName,
-      accentColor,
-      fontFamily,
-      pageMargin,
-      scale,
-    })
-    .returning({
-      id: cvs.id,
-      title: cvs.title,
-      isBase: cvs.isBase,
-      isPrincipal: cvs.isPrincipal,
-    });
+  const cv = await createManualCvForUser(auth.userId, { title, content, templateName, accentColor, fontFamily, pageMargin, scale });
+  const created = { id: cv.id, title: cv.title, isBase: cv.isBase, isPrincipal: cv.isPrincipal };
 
   revalidatePath('/dashboard');
   return created;
@@ -124,8 +102,16 @@ export async function updateAgentCv(auth: AgentPrincipal, cvId: string, body: un
   delete fields.isPrincipal;
 
   await db.transaction(async (tx) => {
+    const editable = await requireEditableCv(tx, auth.userId, cvId);
+    if (editable.pendingUsageOperationId) throw new AgentApiError(409, 'operation_in_progress', 'This resume is being generated');
+    if (fields.isBase !== undefined && fields.isBase !== editable.isBase) {
+      const { limits } = await getUserPlan(auth.userId, tx);
+      const [{ count }] = await tx.select({ count: sql<number>`cast(count(*) as int)` }).from(cvs).where(and(eq(cvs.userId, auth.userId), eq(cvs.isBase, fields.isBase)));
+      const cap = fields.isBase ? limits.maxBaseCvs : limits.maxAdaptedCvs;
+      if (cap !== null && count >= cap) throw new AgentApiError(403, "cv_limit", "Your resume capacity is exhausted");
+    }
     if (makePrincipal) {
-      await tx.update(cvs).set({ isPrincipal: false }).where(eq(cvs.userId, auth.userId));
+      await tx.update(cvs).set({ isPrincipal: false, updatedAt: sql`${cvs.updatedAt}` }).where(eq(cvs.userId, auth.userId));
     }
     await tx
       .update(cvs)

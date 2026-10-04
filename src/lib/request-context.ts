@@ -26,6 +26,7 @@ import type { SubscriptionFeature } from '@/lib/subscription';
 import { canAccessFeature } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { loadGuestSessionUser } from '@/lib/actor';
+import { userPlanFeature } from '@/lib/plan-store';
 
 export type SupportSessionView = {
   id: string;
@@ -179,10 +180,7 @@ export async function requireProductContext(options: {
     if (ctx.effectiveUser.accountStatus === 'suspended' && !ctx.impersonation) {
       throw new AccountSuspendedError();
     }
-    if (options.feature && !canAccessFeature(ctx.effectiveUser.subscriptionStatus, options.feature, {
-      isGuest: ctx.effectiveUser.isGuest,
-      proGrantedUntil: ctx.effectiveUser.proGrantedUntil,
-    })) {
+    if (options.feature && !await userPlanFeature(ctx.effectiveUser.id, options.feature)) {
       throw new SubscriptionAccessError(options.feature);
     }
     return ctx;
@@ -191,10 +189,7 @@ export async function requireProductContext(options: {
   if (options.allowGuest) {
     const guest = await loadGuestSessionUser();
     if (guest) {
-      if (options.feature && !canAccessFeature(guest.subscriptionStatus, options.feature, {
-        isGuest: true,
-        proGrantedUntil: guest.proGrantedUntil,
-      })) {
+      if (options.feature && !await userPlanFeature(guest.id, options.feature)) {
         throw new SubscriptionAccessError(options.feature);
       }
       return {

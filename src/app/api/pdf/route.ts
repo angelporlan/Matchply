@@ -11,7 +11,8 @@ import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
 import { countPdfPages } from '@/lib/pdf-pages';
 import { formatPdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { log } from '@/lib/logger';
-import { guestHasPdfDownloadRemaining, recordGuestPdfDownload } from '@/lib/guest-pdf';
+import { beginGuestPdfDownload, completeGuestPdfDownload, releaseGuestPdfDownload } from '@/lib/guest-pdf';
+import { UsageError, type UsageOperation } from '@/lib/usage';
 
 // Only what the renderer needs; `cv` also stores markdown history-sized content,
 // so we never pull columns we do not use.
@@ -68,6 +69,7 @@ function pdfResponse(buffer: Buffer, pageBreaks: number[], headers: Record<strin
 
 export async function GET(req: NextRequest) {
   const started = Date.now();
+  let guestDownload: UsageOperation | null = null;
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -108,13 +110,7 @@ export async function GET(req: NextRequest) {
     // Log de auditoría para descarga de PDF
     const isDownload = searchParams.get('download') === 'true';
     if (isDownload && actor.kind === 'guest') {
-      const remaining = await guestHasPdfDownloadRemaining(actor.userId);
-      if (!remaining) {
-        return NextResponse.json(
-          { error: 'GUEST_DOWNLOAD_LIMIT' },
-          { status: 403 },
-        );
-      }
+      guestDownload = await beginGuestPdfDownload(actor.userId, cv.id);
     }
 
     if (isDownload && actor.kind !== 'guest') {
@@ -136,6 +132,7 @@ export async function GET(req: NextRequest) {
     };
 
     const { buffer, pageBreaks, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
+    if (!buffer.length || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('PDF generation did not produce a usable document');
     const etag = `"${cacheKey.slice(0, 32)}"`;
 
     // Thumbnails and the editor preview pass `v=<updatedAt>`: the URL changes whenever the CV
@@ -173,21 +170,28 @@ export async function GET(req: NextRequest) {
     const filename = `CV ${safeName}.pdf`;
     const encodedFilename = encodeURIComponent(filename);
 
-    if (isDownload && actor.kind === 'guest') {
-      await recordGuestPdfDownload(actor.userId, actor.email, {
-        cvId: cv.id,
-        title: cv.title,
-      });
-    }
-
-    return pdfResponse(buffer, pageBreaks, {
+    const response = pdfResponse(buffer, pageBreaks, {
       'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       'Cache-Control': cacheControl,
       ETag: etag,
       Vary: 'Cookie',
     });
+    if (guestDownload) {
+      await completeGuestPdfDownload(guestDownload, actor.email, {
+        cvId: cv.id,
+        title: cv.title,
+      });
+      guestDownload = null;
+    }
+
+    return response;
   } catch (error: any) {
+    if (guestDownload) {
+      try { await releaseGuestPdfDownload(guestDownload.id); }
+      catch (releaseError) { log({ event: 'guest_pdf_release', level: 'error', route: '/api/pdf', error: releaseError }); }
+    }
     log({ event: 'pdf_render', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
+    if (error instanceof UsageError) return NextResponse.json(error.toJSON(), { status: error.status });
     return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
   }
 }

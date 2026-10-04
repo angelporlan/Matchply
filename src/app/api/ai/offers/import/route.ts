@@ -4,6 +4,7 @@ import { assertPublicOfferUrl } from '@/lib/offer-import/public-page';
 import { enqueueImportOfferJob } from '@/lib/ai-jobs/queue';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
+import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError, SupportActionBlockedError } from '@/lib/request-errors';
 
 export const runtime = 'nodejs';
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
     const job = await enqueueImportOfferJob(actor.userId, { url, requestId: body.requestId }, actor.realUserId);
     return NextResponse.json({ jobId: job.id }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
+    const usageError = aiUsageErrorResponse(error); if (usageError) return usageError;
     if (error instanceof RateLimitError) return NextResponse.json({ error: 'OFFER_RATE_LIMITED' }, { status: 429 });
     if (error instanceof Error && error.message === 'OFFER_REQUEST_CONFLICT') return NextResponse.json({ error: error.message }, { status: 409 });
     log({ event: 'offer_import_enqueue_failed', level: 'error', userId: actor.userId });

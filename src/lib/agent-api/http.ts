@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-key-auth';
 import { log } from '@/lib/logger';
 import { CompanyValidationError } from '@/lib/company-service';
+import { UsageError } from '@/lib/usage';
 
 const READ_AUDIT_MS = 15 * 60_000;
 const readAuditedAt = new Map<string, number>();
@@ -68,6 +69,7 @@ function recordRead(auth: AgentPrincipal, req: NextRequest) {
 }
 
 export function agentErrorResponse(error: unknown) {
+  if (error instanceof UsageError) return agentJson({ error: { code: error.code, message: error.message, ...error.details } }, error.status);
   if (error instanceof AgentApiError) {
     return agentJson(
       { error: { code: publicErrorCode(error.code), message: error.message } },

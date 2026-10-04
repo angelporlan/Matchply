@@ -89,7 +89,7 @@ function stripHtml(value: string) {
     .trim();
 }
 
-export async function searchWeb(query: string, maxResults = 5): Promise<WebSearchResult[]> {
+export async function searchWeb(query: string, maxResults = 5, signal?: AbortSignal): Promise<WebSearchResult[]> {
   const key = process.env.TAVILY_API_KEY;
   if (!key) return [];
   const controller = new AbortController();
@@ -106,7 +106,7 @@ export async function searchWeb(query: string, maxResults = 5): Promise<WebSearc
         include_answer: false,
         include_raw_content: false,
       }),
-      signal: controller.signal,
+      signal: AbortSignal.any([controller.signal, ...(signal ? [signal] : [])]),
     });
     if (!response.ok) throw new Error(`TAVILY_HTTP_${response.status}`);
     const body = await response.json() as { results?: Array<{ url?: string; title?: string; content?: string; published_date?: string }> };
@@ -121,7 +121,7 @@ export async function searchWeb(query: string, maxResults = 5): Promise<WebSearc
   }
 }
 
-export async function fetchPublicSource(result: WebSearchResult): Promise<PublicSource | null> {
+export async function fetchPublicSource(result: WebSearchResult, signal?: AbortSignal): Promise<PublicSource | null> {
   let url: URL;
   try {
     url = assertPublicHttpUrl(result.url);
@@ -135,7 +135,7 @@ export async function fetchPublicSource(result: WebSearchResult): Promise<Public
     const response = await fetch(url, {
       headers: { 'User-Agent': 'MatchplyResearchBot/1.0 (+https://matchply.com)' },
       redirect: 'error',
-      signal: controller.signal,
+      signal: AbortSignal.any([controller.signal, ...(signal ? [signal] : [])]),
     });
     if (!response.ok) return null;
     const contentType = response.headers.get('content-type') || '';
@@ -180,13 +180,13 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(init.signal ? [init.signal] : [])]) });
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function completeJson(systemPrompt: string, userPrompt: string, config?: { provider?: string; model?: string }) {
+export async function completeJson(systemPrompt: string, userPrompt: string, config?: { provider?: string; model?: string }, signal?: AbortSignal) {
   const resolved = config || await getProModelConfig();
   const provider = resolved.provider || DEFAULT_PRO_PROVIDER;
   const model = resolved.model || DEFAULT_PRO_MODEL;
@@ -196,7 +196,7 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-      method: 'POST',
+      method: 'POST', signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -212,7 +212,7 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const isFixedTemp = /luna|o1|o3/i.test(model);
     const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+      method: 'POST', signal,
       headers: {
         Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const endpoint = provider === 'deepseek' ? 'https://api.deepseek.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
     const response = await fetchWithTimeout(endpoint, {
-      method: 'POST',
+      method: 'POST', signal,
       headers: {
         Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',

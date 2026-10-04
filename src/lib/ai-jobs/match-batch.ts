@@ -1,12 +1,14 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, users, type AiJob } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
 import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
 import { persistMatchResult } from '@/lib/match-persistence';
 import { log } from '@/lib/logger';
-import { canAccessFeature, effectiveSubscriptionStatus } from '@/lib/subscription';
+import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
+import { getUserPlan } from '@/lib/plan-store';
+import { getCvAccess } from '@/lib/cv-access';
 import { readCurrentMatchBatchResult, readMatchBatchInputHashes } from './match-batch-progress';
 import { ownsAiJobLease, saveAiJobProgress } from './queue';
 import type { MatchBatchPayload } from './types';
@@ -27,6 +29,7 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   const inputHashes = readMatchBatchInputHashes(job.result);
   const pendingIds = pendingMatchOfferIds(payload.offerIds, progress);
   if (!pendingIds.length) return { ...progress, inputHashes };
+  const cvAccess = await getCvAccess(job.userId);
 
   const [userRows, cvRows, offers] = await Promise.all([
     db.select({
@@ -36,14 +39,16 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
       proGrantedUntil: users.proGrantedUntil,
     })
       .from(users).where(eq(users.id, job.userId)).limit(1),
-    db.select(baseCvForAiColumns).from(cvs).where(eq(cvs.userId, job.userId))
+    db.select(baseCvForAiColumns).from(cvs).where(and(eq(cvs.userId, job.userId), cvAccess.baseCvId ? eq(cvs.id, cvAccess.baseCvId) : cvAccess.activeIds.length ? inArray(cvs.id, cvAccess.activeIds) : sql`false`))
       .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id)).limit(1),
     db.select(curateOfferColumns).from(jobOffers)
       .where(and(eq(jobOffers.userId, job.userId), inArray(jobOffers.id, pendingIds))),
   ]);
   const user = userRows[0];
   if (!user) throw new Error('USER_NOT_FOUND');
-  if (!canAccessFeature(user.subscriptionStatus, 'advancedAi', { isGuest: user.isGuest, proGrantedUntil: user.proGrantedUntil })) throw new SubscriptionAccessError('advancedAi');
+  const { plan, limits } = await getUserPlan(job.userId);
+  if (!job.usageOperationId && payload.offerIds.length > 1 && plan !== 'pro') throw new SubscriptionAccessError('advancedAi');
+  if (!job.usageOperationId && payload.offerIds.length > Math.max(1, limits.matchBatchSize)) throw new Error('MATCH_BATCH_TOO_LARGE');
 
   // AI micro-batches complete concurrently; serialize saves so progress cannot lose another batch's items.
   let progressTail: Promise<void> = Promise.resolve();
@@ -70,14 +75,14 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
     userCareerProfile: user.careerProfile || {},
     userSubscriptionStatus: effectiveSubscriptionStatus(user),
     offers,
-    kind: 'triage',
+    kind: payload.kind || 'triage',
     targetThreshold: payload.targetThreshold,
     evaluationStartedAt: job.createdAt.toISOString(),
     onItemError: recordError,
     onBatchComplete: items => serializeProgress(async () => {
       for (const item of items) {
         if (!await ownsAiJobLease(job)) throw new Error('AI_JOB_LEASE_LOST');
-        const saved = await persistMatchResult(job.userId, item, { jobId: job.id, attempt: job.attempt });
+        const saved = await persistMatchResult(job.userId, item, { jobId: job.id, attempt: job.attempt, usageOperationId: job.usageOperationId });
         if (saved) {
           inputHashes[item.id] = item.inputHash;
           progress = addMatchBatchScore(progress, { id: item.id, score: item.score });

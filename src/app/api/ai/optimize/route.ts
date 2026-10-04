@@ -2,296 +2,129 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { AIService } from '@/lib/ai-service';
 import { createAuditLog } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
-import {
-  canAccessFeature,
-  canCreateCv,
-  getAllowedCvTemplate,
-  effectiveSubscriptionStatus,
-  userEntitlements,
-} from '@/lib/subscription';
+import { canAccessFeature, getAllowedCvTemplate, effectiveSubscriptionStatus, userEntitlements } from '@/lib/subscription';
 import { formatCareerProfileContext } from '@/lib/profile-classification';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { consumeRateLimit } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
-import { decideFreeOverwrite } from '@/lib/free-overwrite-guard';
+import { beginUsage, consumeUsage, releaseUsage } from '@/lib/usage';
+import { requireEditableCv, reserveCvTarget } from '@/lib/cv-access';
+import { recordFirstValue } from '@/lib/monetization';
+import { assertCvPublication } from '@/lib/ai-cv-publication';
+import { aiRequestId, aiUsageErrorResponse, AiUsageHttpError } from '@/lib/ai-usage-http';
 
 export async function POST(req: NextRequest) {
+  let operationId: string | null = null;
+  let targetId: string | null = null;
+  let userId: string | null = null;
+  const cleanup = async () => {
+    if (!operationId) return;
+    await db.transaction(async tx => {
+      await releaseUsage(tx, operationId!);
+      if (targetId) await tx.delete(cvs).where(and(eq(cvs.id, targetId), eq(cvs.pendingUsageOperationId, operationId!), eq(cvs.content, '')));
+      if (targetId) await tx.update(cvs).set({ pendingUsageOperationId: null }).where(and(eq(cvs.id, targetId), eq(cvs.pendingUsageOperationId, operationId!)));
+    });
+  };
   try {
     const actor = await getActor({ allowGuest: true });
-    if (!actor) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    const userId = actor.userId;
-    log({ event: 'cv_optimize_started', route: '/api/ai/optimize', userId });
-    try {
-      consumeRateLimit(`ai:optimize:${userId}`, 8, 10 * 60_000);
-    } catch (error) {
-      if (error instanceof RateLimitError) {
-        return new NextResponse(error.message, { status: 429 });
-      }
-      throw error;
-    }
+    if (!actor) return new NextResponse('Unauthorized', { status: 401 });
+    userId = actor.userId;
+    consumeRateLimit(`ai:optimize:${userId}`, 8, 10 * 60_000);
     const body = await req.json();
-    const {
-      baseCvId,
-      jobTitle,
-      company,
-      url,
-      platform,
-      jobDescription,
-      promptId,
-      modeId,
-      addToApplications = true,
-      targetCvId: requestedTargetCvId,
-    } = body;
-
+    const { baseCvId, jobTitle, company, url, platform, jobDescription, promptId, modeId, addToApplications = true, targetCvId, confirmOverwrite } = body;
     const description = typeof jobDescription === 'string' ? jobDescription.trim() : '';
-    if (!baseCvId || !description) {
-      return new NextResponse('Missing required fields', { status: 400 });
+    if (typeof baseCvId !== 'string' || !description) return new NextResponse('Missing required fields', { status: 400 });
+    const { requestId: _requestId, ...input } = body;
+    const operation = await beginUsage(userId, { bucket: 'general', requestId: aiRequestId(req, body.requestId), action: 'optimize_cv', input });
+    if (operation.status === 'consumed') {
+      const result = operation.result as { cvId?: string } | null;
+      const [saved] = result?.cvId ? await db.select({ id: cvs.id, content: cvs.content }).from(cvs)
+        .where(and(eq(cvs.id, result.cvId), eq(cvs.userId, userId))).limit(1) : [];
+      if (!saved) return NextResponse.json({ error: 'El resultado guardado ya no existe.', code: 'RESULT_NOT_FOUND' }, { status: 410 });
+      return new Response(`${saved.content}\n\n[METADATA:${JSON.stringify({ success: true, cvId: saved.id, replayed: true })}]`, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
-    const identity = resolveOfferIdentity({
-      jobTitle: typeof jobTitle === 'string' ? jobTitle : '',
-      company: typeof company === 'string' ? company : '',
-      jobDescription: description,
-    });
-    const resolvedTitle = identity.jobTitle;
-    const resolvedCompany = identity.company;
-
-    // 1. Usuario (suscripción + perfil profesional) y 2. CV base, en paralelo y con columnas acotadas
+    operationId = operation.id;
     const [[user], [baseCv]] = await Promise.all([
-      db
-        .select({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          subscriptionStatus: users.subscriptionStatus,
-          isGuest: users.isGuest,
-          proGrantedUntil: users.proGrantedUntil,
-          careerProfile: users.careerProfile,
-        })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1),
-      db
-        .select({
-          id: cvs.id,
-          userId: cvs.userId,
-          isBase: cvs.isBase,
-          content: cvs.content,
-          templateName: cvs.templateName,
-          accentColor: cvs.accentColor,
-          fontFamily: cvs.fontFamily,
-          pageMargin: cvs.pageMargin,
-          scale: cvs.scale,
-        })
-        .from(cvs)
-        .where(eq(cvs.id, baseCvId))
-        .limit(1),
+      db.select({ id: users.id, email: users.email, name: users.name, subscriptionStatus: users.subscriptionStatus,
+        isGuest: users.isGuest, proGrantedUntil: users.proGrantedUntil, careerProfile: users.careerProfile,
+      }).from(users).where(eq(users.id, userId)).limit(1),
+      db.select({ id: cvs.id, userId: cvs.userId, content: cvs.content, templateName: cvs.templateName, accentColor: cvs.accentColor,
+        fontFamily: cvs.fontFamily, pageMargin: cvs.pageMargin, scale: cvs.scale,
+      }).from(cvs).where(and(eq(cvs.id, baseCvId), eq(cvs.userId, userId))).limit(1),
     ]);
+    if (!user || !baseCv) throw new AiUsageHttpError(404, 'CV_NOT_FOUND', 'El CV de origen ya no está disponible.');
 
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 });
-    }
-
-    if (!baseCv) {
-      return new NextResponse('Base CV not found', { status: 404 });
-    }
-
-    if (baseCv.userId !== userId) {
-      return new NextResponse('Forbidden', { status: 403 });
-    }
-
-    let targetCvId = requestedTargetCvId as string | null | undefined;
-    if (!targetCvId) {
-      const [{ count: existingCvCount }] = await db
-        .select({ count: sql<number>`cast(count(*) as int)` })
-        .from(cvs)
-        .where(eq(cvs.userId, userId));
-
-      if (!canCreateCv(user.subscriptionStatus, Number(existingCvCount) || 0, userEntitlements(user))) {
-        if (user.isGuest) {
-          return new NextResponse('Guest CV limit reached', { status: 403 });
-        }
-
-        const decision = decideFreeOverwrite({
-          isGuest: false,
-          canCreate: false,
-          replacesBase: baseCv.isBase,
-          confirmed: body.confirmOverwrite === true,
-        });
-        if (decision.action === 'confirm') {
-          return new NextResponse('CV_OVERWRITE_CONFIRM', { status: 409 });
-        }
-
-        // La optimización básica de Free sustituye su único CV en lugar de
-        // crear una segunda versión guardada, solo tras confirmación.
-        targetCvId = baseCv.id;
+    const identity = resolveOfferIdentity({ jobTitle: typeof jobTitle === 'string' ? jobTitle : '', company: typeof company === 'string' ? company : '', jobDescription: description });
+    const allowedTemplate = getAllowedCvTemplate(user.subscriptionStatus, baseCv.templateName, userEntitlements(user));
+    targetId = await db.transaction(async tx => {
+      await requireEditableCv(tx, userId!, baseCvId);
+      if (targetCvId) {
+        const target = await requireEditableCv(tx, userId!, targetCvId);
+        if (target.isBase) throw new AiUsageHttpError(403, 'BASE_CV_PROTECTED', 'Elige una versión adaptada como destino para conservar tu CV base.');
       }
-    }
-
-    if (targetCvId) {
-      const [targetCv] = await db
-        .select({ id: cvs.id, userId: cvs.userId })
-        .from(cvs)
-        .where(eq(cvs.id, targetCvId))
-        .limit(1);
-
-      if (!targetCv || targetCv.userId !== userId) {
-        return new NextResponse('Forbidden', { status: 403 });
-      }
-    }
-
-    const allowedTemplate = getAllowedCvTemplate(
-      user.subscriptionStatus,
-      baseCv.templateName,
-      userEntitlements(user),
-    );
-    const shouldAddToApplications = Boolean(addToApplications)
-      && canAccessFeature(user.subscriptionStatus, 'applications', userEntitlements(user));
-    const shouldSavePartialResult = Boolean(targetCvId) && targetCvId !== baseCv.id;
-
-    // 3. Obtener el stream de IA
-    const aiStream = await AIService.optimizeCVStream({
-      baseCvMarkdown: baseCv.content,
-      jobDescription: description,
-      userSubscriptionStatus: effectiveSubscriptionStatus(user),
-      promptId: modeId || promptId,
-      modeId: modeId || promptId,
-      candidateName: user.name || '',
-      careerProfileContext: formatCareerProfileContext(user.careerProfile),
+      return reserveCvTarget(tx, userId!, { baseCvId, targetCvId, confirmOverwrite: confirmOverwrite === true, operationId: operation.id,
+        values: { title: `Optimizado - ${identity.jobTitle} (${identity.company})`, isBase: false, isPrincipal: false,
+          templateName: allowedTemplate, accentColor: baseCv.accentColor, fontFamily: baseCv.fontFamily, pageMargin: baseCv.pageMargin, scale: baseCv.scale },
+      });
     });
-
+    const aiStream = await AIService.optimizeCVStream({ baseCvMarkdown: baseCv.content, jobDescription: description,
+      userSubscriptionStatus: effectiveSubscriptionStatus(user), promptId: modeId || promptId, modeId: modeId || promptId,
+      candidateName: user.name || '', careerProfileContext: formatCareerProfileContext(user.careerProfile),
+    });
     const reader = aiStream.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-
-    const responseStream = new ReadableStream({
+    const decoder = new TextDecoder(); const encoder = new TextEncoder();
+    let cancelled = false;
+    const responseStream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        let accumulatedContent = '';
-        let lastWriteTime = Date.now();
-        // Guardados parciales sin bloquear el stream: como mucho una escritura en vuelo.
-        let partialWrite: Promise<unknown> | null = null;
+        let content = '';
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const text = decoder.decode(value, { stream: true });
-            accumulatedContent += text;
-            controller.enqueue(value);
-
-            const now = Date.now();
-            if (now - lastWriteTime > 3000 && targetCvId && shouldSavePartialResult && !partialWrite) {
-              lastWriteTime = now;
-              partialWrite = db.update(cvs)
-                .set({ content: accumulatedContent })
-                .where(eq(cvs.id, targetCvId))
-                .catch((error) => log({ event: 'cv_optimize_partial_save_failed', level: 'warn', route: '/api/ai/optimize', userId, error }))
-                .finally(() => { partialWrite = null; });
+          while (!cancelled) {
+            const chunk = await reader.read(); if (chunk.done) break;
+            content += decoder.decode(chunk.value, { stream: true });
+            if (!cancelled) controller.enqueue(chunk.value);
+          }
+          content += decoder.decode();
+          if (cancelled || req.signal.aborted) throw new Error('AI_REQUEST_CANCELLED');
+          if (!content.trim()) throw new Error('La IA no ha devuelto un currículum utilizable.');
+          const publishedUserId = await db.transaction(async tx => {
+            const ownerId = await assertCvPublication(tx, userId!, targetId!, operation.id);
+            await tx.update(cvs).set({ content, title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
+              templateName: allowedTemplate, pendingUsageOperationId: null,
+            }).where(and(eq(cvs.id, targetId!), eq(cvs.userId, ownerId)));
+            if (Boolean(addToApplications) && canAccessFeature(user.subscriptionStatus, 'applications', userEntitlements(user))) {
+              const companyRecord = await findOrCreateCompany(ownerId, identity.company, tx);
+              const [existing] = await tx.select({ id: jobOffers.id }).from(jobOffers).where(and(eq(jobOffers.userId, ownerId), eq(jobOffers.cvId, targetId!))).limit(1);
+              if (!existing) await tx.insert(jobOffers).values({ userId: ownerId, cvId: targetId!, title: identity.jobTitle,
+                company: companyRecord?.name || identity.company, companyId: companyRecord?.id || null,
+                url: url || null, platform: platform || 'other', description, status: 'interested' });
             }
-          }
-          accumulatedContent += decoder.decode();
-          // No pisar la escritura final con un parcial rezagado.
-          if (partialWrite) await partialWrite;
-
-          // 4. Guardar CV Optimizado
-          let optimizedCvId = '';
-          if (targetCvId) {
-            await db
-              .update(cvs)
-              .set({
-                content: accumulatedContent,
-                title: `Optimizado - ${resolvedTitle} (${resolvedCompany})`,
-                templateName: allowedTemplate,
-              })
-              .where(eq(cvs.id, targetCvId));
-            optimizedCvId = targetCvId;
-          } else {
-            const [optimizedCv] = (await db
-              .insert(cvs)
-              .values({
-                userId: userId,
-                title: `Optimizado - ${resolvedTitle} (${resolvedCompany})`,
-                content: accumulatedContent,
-                isBase: false,
-                templateName: allowedTemplate,
-                accentColor: baseCv.accentColor,
-                fontFamily: baseCv.fontFamily,
-                pageMargin: baseCv.pageMargin,
-                scale: baseCv.scale
-              })
-              .returning()) as any[];
-            optimizedCvId = optimizedCv.id;
-          }
-
-          // Log de auditoría para optimización por IA
-          await createAuditLog("cv_optimize_ai", userId, user.email, {
-            baseCvId,
-            optimizedCvId: optimizedCvId,
-            jobTitle: resolvedTitle,
-            company: resolvedCompany,
-            platform,
-            addToApplications: shouldAddToApplications,
+            await consumeUsage(tx, operation.id, { cvId: targetId });
+            await recordFirstValue(ownerId, tx);
+            return ownerId;
           });
-
-          // 5. Guardar candidatura en postulaciones
-          if (shouldAddToApplications) {
-            const [existingOffer] = await db
-              .select({ id: jobOffers.id })
-              .from(jobOffers)
-              .where(eq(jobOffers.cvId, optimizedCvId))
-              .limit(1);
-
-            if (!existingOffer) {
-              const companyRecord = await findOrCreateCompany(userId, resolvedCompany);
-              await db.insert(jobOffers).values({
-                userId: userId,
-                cvId: optimizedCvId,
-                title: resolvedTitle,
-                company: companyRecord?.name ?? resolvedCompany,
-                companyId: companyRecord?.id ?? null,
-                url: url || null,
-                platform: platform || 'other',
-                description: description,
-                status: 'interested'
-              });
-            }
-          }
-
+          userId = publishedUserId;
+          void createAuditLog('cv_optimize_ai', userId!, user.email, { baseCvId, optimizedCvId: targetId, jobTitle: identity.jobTitle, company: identity.company });
           revalidatePath('/dashboard');
-
-          // Enviar metadatos al cliente para que sepa el cvId de redirección
-          const metaString = `\n\n[METADATA:{"success":true,"cvId":"${optimizedCvId}"}]`;
-          controller.enqueue(encoder.encode(metaString));
-          controller.close();
-        } catch (error: any) {
-          log({ event: 'cv_optimize_stream_failed', level: 'error', route: '/api/ai/optimize', userId, error });
-          const errString = `\n\n[ERROR:${error.message || 'Error guardando datos del CV'}]`;
-          controller.enqueue(encoder.encode(errString));
-          controller.close();
+          if (!cancelled) { controller.enqueue(encoder.encode(`\n\n[METADATA:${JSON.stringify({ success: true, cvId: targetId, operationId: operation.id })}]`)); controller.close(); }
+        } catch (error) {
+          await cleanup();
+          log({ event: 'cv_optimize_stream_failed', level: 'error', userId: userId || undefined, error });
+          if (!cancelled) { controller.enqueue(encoder.encode(`\n\n[ERROR:${error instanceof Error ? error.message : 'No se pudo guardar el CV.'}]`)); controller.close(); }
         }
       },
-      cancel() {
-        reader.cancel();
-      }
+      async cancel() { cancelled = true; await reader.cancel().catch(() => {}); await cleanup(); },
     });
-
-    return new Response(responseStream, {
-      headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      }
-    });
-  } catch (error: any) {
-    log({ event: 'cv_optimize_failed', level: 'error', route: '/api/ai/optimize', error });
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+    return new Response(responseStream, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no' } });
+  } catch (error) {
+    await cleanup();
+    const response = aiUsageErrorResponse(error); if (response) return response;
+    log({ event: 'cv_optimize_failed', level: 'error', userId: userId || undefined, error });
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo adaptar el CV.' }, { status: 500 });
   }
 }
 export const dynamic = 'force-dynamic';
