@@ -232,6 +232,34 @@
       "when": 1791044560912,
       "tag": "0032_yummy_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1791066845612,
+      "tag": "0033_hard_bushwacker",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791066845613,
+      "tag": "0034_legacy_research_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1791066845614,
+      "tag": "0035_legacy_ai_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791066845615,
+      "tag": "0036_dynamic_default_paywall",
+      "breakpoints": true
     }
   ]
 }

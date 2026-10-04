@@ -13,6 +13,14 @@ export const users = pgTable('user', {
   stripeCustomerId: text('stripeCustomerId').unique(),
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
+  stripePriceId: text('stripePriceId'),
+  billingInterval: text('billingInterval'),
+  stripeTrialEnd: timestamp('stripeTrialEnd', { mode: 'date' }),
+  stripeCurrentPeriodEnd: timestamp('stripeCurrentPeriodEnd', { mode: 'date' }),
+  stripeCancelAtPeriodEnd: boolean('stripeCancelAtPeriodEnd').default(false).notNull(),
+  stripeTrialUsedAt: timestamp('stripeTrialUsedAt', { mode: 'date' }),
+  stripePaidAt: timestamp('stripePaidAt', { mode: 'date' }),
+  firstValueAt: timestamp('firstValueAt', { mode: 'date' }),
   role: text('role').default('user').notNull(), // 'user' o 'admin'
   accountStatus: text('accountStatus').default('active').notNull(), // 'active' | 'suspended'
   suspensionReason: text('suspensionReason'),
@@ -46,6 +54,7 @@ export const cvs = pgTable('cv', {
   content: text('content').notNull(), // Contenido en Markdown
   isBase: boolean('isBase').default(false).notNull(), // true = CV Base real del usuario
   isPrincipal: boolean('isPrincipal').default(false).notNull(), // true = CV Principal predeterminado para generación rápida
+  pendingUsageOperationId: uuid('pendingUsageOperationId'),
   templateName: text('templateName').default('harvard').notNull(), // 'harvard'
   accentColor: text('accentColor').default('#000000'),
   fontFamily: text('fontFamily').default('helvetica'),
@@ -332,6 +341,7 @@ export const applicationViews = pgTable('application_view', {
 
 // Fuente de verdad de la cola de investigación PostgreSQL.
 export const jobResearchRuns = pgTable('job_research_run', {
+  usageOperationId: uuid('usageOperationId'),
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   jobOfferId: uuid('jobOfferId').references(() => jobOffers.id, { onDelete: 'cascade' }).notNull(),
@@ -512,6 +522,7 @@ export const aiRunStats = pgTable('ai_run_stat', {
 }));
 
 export const aiJobs = pgTable('ai_job', {
+  usageOperationId: uuid('usageOperationId'),
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   initiatedByUserId: uuid('initiatedByUserId').references(() => users.id, { onDelete: 'set null' }),
@@ -636,6 +647,62 @@ export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
   user: one(users, { fields: [aiJobs.userId], references: [users.id] }),
   initiatedBy: one(users, { fields: [aiJobs.initiatedByUserId], references: [users.id], relationName: 'aiJobInitiator' }),
 }));
+
+export const planConfigs = pgTable('plan_config', {
+  id: integer('id').primaryKey(), version: integer('version').notNull(), config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const planConfigHistory = pgTable('plan_config_history', {
+  id: uuid('id').defaultRandom().primaryKey(), version: integer('version').notNull().unique(), config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const usagePeriods = pgTable('usage_period', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bucket: text('bucket').notNull(), periodStart: timestamp('periodStart', { mode: 'date' }).notNull(),
+  used: integer('used').default(0).notNull(), reserved: integer('reserved').default(0).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('usage_period_identity_idx').on(t.userId, t.bucket, t.periodStart) }));
+export const usageOperations = pgTable('usage_operation', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  periodId: uuid('periodId').notNull().references(() => usagePeriods.id, { onDelete: 'cascade' }),
+  bucket: text('bucket').notNull(), requestId: text('requestId').notNull(), action: text('action').notNull(), inputHash: text('inputHash').notNull(),
+  units: integer('units').notNull(), consumedUnits: integer('consumedUnits').default(0).notNull(),
+  status: text('status').default('reserved').notNull(), result: jsonb('result'),
+  configVersion: integer('configVersion').notNull(), plan: text('plan').notNull(), jobId: uuid('jobId'),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('usage_operation_identity_idx').on(t.userId, t.action, t.requestId), expiry: index('usage_operation_expiry_idx').on(t.status, t.expiresAt), job: index('usage_operation_job_idx').on(t.jobId) }));
+export const usageItems = pgTable('usage_item', {
+  operationId: uuid('operationId').notNull().references(() => usageOperations.id, { onDelete: 'cascade' }), itemKey: text('itemKey').notNull(),
+}, t => ({ pk: primaryKey({ columns: [t.operationId, t.itemKey] }) }));
+export const cvPlanSelections = pgTable('cv_plan_selection', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  baseCvId: uuid('baseCvId'), adaptedCvIds: jsonb('adaptedCvIds').$type<string[]>().default([]).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const apiUsageWindows = pgTable('api_usage_window', {
+  userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }), windowStart: timestamp('windowStart', { mode: 'date' }).notNull(), count: integer('count').default(0).notNull(),
+}, t => ({ pk: primaryKey({ columns: [t.userId, t.windowStart] }) }));
+export const monetizationAssignments = pgTable('monetization_assignment', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  experimentVersion: integer('experimentVersion').notNull(), variant: text('variant').notNull(), firstExposedAt: timestamp('firstExposedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('monetization_assignment_identity_idx').on(t.userId, t.experimentVersion) }));
+export const monetizationEvents = pgTable('monetization_event', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  experimentVersion: integer('experimentVersion').notNull(), variant: text('variant').notNull(), event: text('event').notNull(), source: text('source').notNull(),
+  externalId: text('externalId').unique(), metadata: jsonb('metadata'), createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ user: index('monetization_event_user_idx').on(t.userId, t.createdAt), experiment: index('monetization_event_experiment_idx').on(t.experimentVersion, t.event, t.createdAt) }));
+export const stripeWebhookEvents = pgTable('stripe_webhook_event', {
+  id: text('id').primaryKey(), eventType: text('eventType').notNull(), processedAt: timestamp('processedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const billingCheckoutAttempts = pgTable('billing_checkout_attempt', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }), requestId: uuid('requestId').notNull(), interval: text('interval').notNull(),
+  sessionId: text('sessionId'), url: text('url'), expiresAt: timestamp('expiresAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;
