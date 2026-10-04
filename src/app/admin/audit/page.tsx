@@ -5,6 +5,23 @@ import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
+function AuditUser({ id, name, email }: {
+  id: string | null;
+  name: string | null;
+  email: string | null;
+}) {
+  if (!id) return <span>—</span>;
+  const displayName = name?.trim();
+  return (
+    <div title={id} className="break-words">
+      <span className={displayName || email ? 'font-medium' : 'font-mono text-xs'}>
+        {displayName || email || id}
+      </span>
+      {displayName && email && <div className="text-xs text-text-muted">{email}</div>}
+    </div>
+  );
+}
+
 export default async function AdminAuditPage({
   searchParams,
 }: {
@@ -46,7 +63,7 @@ export default async function AdminAuditPage({
               <option value="ordinary">Ordinaria</option>
             </select>
           </label>
-          <label className="text-sm font-medium">Administrador (id)
+          <label className="text-sm font-medium">Actor (id)
             <input name="actorId" defaultValue={result.query.actorId} className="mt-1 w-full min-h-[44px] rounded-[8px] border border-control bg-canvas px-3 font-mono text-sm" />
           </label>
           <label className="text-sm font-medium">Usuario afectado (id)
@@ -94,8 +111,12 @@ export default async function AdminAuditPage({
                       <td className="px-4 py-3">{formatDate(row.createdAt)}</td>
                       <td className="px-4 py-3 font-mono text-xs">{row.action}</td>
                       <td className="px-4 py-3">{row.userEmail || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.actorUserId || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.affectedUserId || '—'}</td>
+                      <td className="px-4 py-3">
+                        <AuditUser id={row.actorUserId} name={row.actorName} email={row.actorEmail} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <AuditUser id={row.affectedUserId} name={row.affectedName} email={row.affectedEmail} />
+                      </td>
                       <td className="px-4 py-3">{row.category}</td>
                     </tr>
                   ))}

@@ -1,7 +1,11 @@
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { auditLogs, users } from '@/db/schema';
 import { resolveMadridCreatedRange } from '@/lib/madrid-time';
+
+const auditActor = alias(users, 'audit_actor');
+const auditAffected = alias(users, 'audit_affected');
 
 export type AuditListQuery = {
   q: string;
@@ -74,13 +78,19 @@ export async function listAdminAuditLogs(searchParams: Record<string, string | s
       details: auditLogs.details,
       createdAt: auditLogs.createdAt,
       actorUserId: auditLogs.actorUserId,
+      actorName: auditActor.name,
+      actorEmail: auditActor.email,
       affectedUserId: auditLogs.affectedUserId,
+      affectedName: auditAffected.name,
+      affectedEmail: auditAffected.email,
       supportSessionId: auditLogs.supportSessionId,
       requestId: auditLogs.requestId,
       category: auditLogs.category,
       ipAddress: auditLogs.ipAddress,
     })
     .from(auditLogs)
+    .leftJoin(auditActor, eq(auditLogs.actorUserId, auditActor.id))
+    .leftJoin(auditAffected, eq(auditLogs.affectedUserId, auditAffected.id))
     .where(where)
     .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
     .limit(query.pageSize)
