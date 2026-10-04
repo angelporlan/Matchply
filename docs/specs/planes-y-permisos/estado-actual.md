@@ -1,44 +1,26 @@
-# Planes, límites y permisos funcionales — estado actual
+# Planes y permisos — implementación local
 
-Área: **F04**  
-Fecha de inventario: **12 de septiembre de 2026**  
-Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.
+Revisión: 4 de octubre de 2026. Sustituye el inventario estático del 12 de septiembre. Producción no inspeccionada ni modificada.
 
-[Volver al índice](../README.md) · [Escribir lo que quiero](spec.md)
+## Implementación
 
-## Acceso y punto de entrada
+- `src/lib/plan-config.ts` valida valores, predeterminados y placeholders. `plan-store.ts` lee singleton persistido; no concede permisos por un fallback cuando falla la BD.
+- `/admin/plans` requiere admin real. `plan-admin.ts` publica con bloqueo/versionado optimista, historial y auditoría. El formulario conserva borrador tras conflicto y carga versiones históricas sin publicarlas automáticamente.
+- `usage.ts` reserva, consume y libera unidades por cuenta, bolsa y periodo. Los productores y workers reutilizan operaciones y comprueban configuración antes de aceptar trabajo.
+- `cv-access.ts` conserva documentos excedentes como lectura y permite elegir CVs activos. Nueva adaptación/importación no crea placeholder desde el cliente: la API reserva destino y devuelve CV confirmado en el stream.
+- `/api/usage` alimenta `PlanUsageProvider`, `UsagePanel`, `PlanFeedback` y selección de activos. Perfil, cuenta, editor e integraciones muestran límites dinámicos; errores de las acciones costosas abren feedback de cuotas.
+- `UpgradePaywall` carga variante después de `firstValueAt`; copy y precios se renderizan con límites Pro/catálogo. El primer resultado y la habilitación del upsell se guardan atómicamente; su cierre se conserva. El panel agrega conversiones sin contenido personal.
+- `/dashboard/subscription` consume catálogo mensual/anual y crea Checkout por POST; confirma retorno con estado real de Stripe. API keys muestra secreto solo al crear y contador de claves activas con límite publicado.
+- ES/EN, tokens semánticos y botones siguen `design.md`. Diálogos nuevos usan modal nativo con foco contenido, Escape, fondo inerte y restauración de foco.
 
-**Quién lo usa:** Invitado, Gratis, PRO y administrador.  
-**Dónde comienza:** Reglas comunes aplicadas por páginas, acciones y APIs.
+## Verificación
 
-## Qué hace actualmente
+- `npm run lint`: sin errores. Advertencias previas en componentes de editor y `<img>`; revisión de la dependencia de polling de investigación pendiente de refinamiento.
+- `npm test`: 419 pruebas correctas, sin fallos ni omisiones, con todas las integraciones Postgres habilitadas. Typecheck y build de producción correctos.
+- QA visual y teclado: ES/EN, ambos temas, móvil, avisos, foco y documentos excedentes comprobados. Diez capturas y recorrido en [revisión visual](qa/visual-review.md).
+- Migraciones 0033–0036 aplicadas a local y ambas bases aisladas. Web y workers locales actualizados; salud 200. [Evidencia completa](evidence.md).
+- La prueba de siete días permanece desactivada hasta verificar los recordatorios de Stripe en el entorno. Producción no desplegada.
 
-- **ACT-F04-01:** Invitado: máximo 3 CVs; Gratis: máximo 1; PRO: sin límite de cantidad en la tabla de derechos.
-- **ACT-F04-02:** La única plantilla habilitada para todos los niveles es Harvard; los nombres heredados se sustituyen por Harvard al resolver la plantilla permitida.
-- **ACT-F04-03:** PRO corresponde a subscriptionStatus active o trialing. Otros estados se consideran Free; isGuest tiene prioridad sobre el estado de suscripción.
-- **ACT-F04-04:** IA avanzada, postulaciones, extensión LinkedIn e investigación profunda están definidos como funciones PRO.
-- **ACT-F04-05:** La importación y optimización básicas pueden usar el proveedor/modelo Free. No existe un contador mensual general de optimizaciones equivalente al de investigación.
-- **ACT-F04-06:** Las páginas protegidas y servicios comprueban sesión/actor y propiedad. El middleware global añade un request ID: no es quien impone toda la autorización.
+Las cuotas comerciales conviven con límites técnicos de frecuencia, tamaño, timeout y concurrencia. La interfaz distingue fallos de plan de un rate limit temporal o una operación ya en curso; solo los primeros abren paywall.
 
-## Límites, diferencias y capacidades parciales
-
-- El rol admin no es automáticamente un plan PRO.
-- Algunas rutas tienen reglas distintas: la acción de afinidad individual comprueba sesión y propiedad pero no llama a requireUserFeature.
-- La bajada de plan no elimina automáticamente los CVs existentes; las nuevas creaciones quedan sujetas al límite.
-
-Estas observaciones describen esta revisión; no son una auditoría exhaustiva ni requisitos de cambio ya aprobados. Una capacidad presente solo en backend se identifica como tal.
-
-## Fuentes de implementación
-
-- [src/lib/subscription.ts](<../../../src/lib/subscription.ts>)
-- [src/lib/permissions.ts](<../../../src/lib/permissions.ts>)
-- [src/lib/actor.ts](<../../../src/lib/actor.ts>)
-- [src/middleware.ts](<../../../src/middleware.ts>)
-- [src/app/dashboard/applications/actions.ts](<../../../src/app/dashboard/applications/actions.ts>)
-
-## Comprobación disponible
-
-Pruebas existentes relacionadas (pueden cubrir solo una parte de esta área; **no ejecutadas en este inventario**):
-
-- [scripts/subscription.test.ts](<../../../scripts/subscription.test.ts>)
-- [scripts/stripe-subscription.test.ts](<../../../scripts/stripe-subscription.test.ts>)
+[Especificación y aceptación](spec.md) · [Facturación](../../monetization-billing.md)

@@ -1,132 +1,60 @@
-# Planes, límites y permisos funcionales — comportamiento deseado
+# Planes, cuotas y paywall
 
-Estado: **Borrador — pendiente de rellenar**  
-Responsable: [POR DEFINIR]  
-Fecha de revisión: [POR DEFINIR]  
-Prioridad: [Imprescindible / Importante / Más adelante / Sin cambio]
+Estado: implementación local autorizada en esta conversación. Revisión: 4 de octubre de 2026. No implica un despliegue ni una comprobación de producción.
 
-Referencia: [lo que hace actualmente](estado-actual.md). Las observaciones ACT son una fotografía del código; no son requisitos aprobados.
+## Resultado esperado
 
-Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras; el resto ayuda a concretar cuando lo necesites. Usa «No aplica» en vez de inventar una decisión. Ningún campo vacío implica aceptar el comportamiento actual.
+Una sola configuración persistida gobierna Free, Pro, workers, APIs y textos de límites. El administrador puede editar límites y copy desde `/admin/plans`; cada publicación incrementa la versión, conserva historial y registra actor y cambio. Los clientes muestran consumo usado, reservado, disponible y fecha real de renovación.
 
-## 1. Lo que quiero
+## Valores iniciales
 
-**Quiero que esta funcionalidad…**
-
-[ESCRIBE AQUÍ]
-
-**El problema que quiero resolver y para quién:**
-
-[ESCRIBE AQUÍ]
-
-**Al terminar, la persona debe obtener/ver…**
-
-[ESCRIBE AQUÍ]
-
-## 2. Decisiones específicas de esta funcionalidad
-
-**¿Qué incluye exactamente cada plan y qué cuotas son diarias, mensuales o totales?**
-
-[ESCRIBE AQUÍ]
-
-**¿Qué pueden seguir viendo o editando quienes pierden PRO?**
-
-[ESCRIBE AQUÍ]
-
-**¿El administrador debe tener las mismas limitaciones comerciales o una excepción explícita?**
-
-[ESCRIBE AQUÍ]
-
-## 3. Qué conservar y qué cambiar
-
-Consulta los puntos ACT de la ficha actual. Puedes mantener, modificar o eliminar cada comportamiento que sea relevante.
-
-| Referencia actual o comportamiento | Mantener / Cambiar / Eliminar / Añadir | Mi decisión y motivo |
+| Capacidad | Free | Pro |
 | --- | --- | --- |
-| [ACT-… o descripción] | [POR DEFINIR] | [POR DEFINIR] |
+| CVs guardados | 3: 1 base y 2 adaptados | Sin límite de plan |
+| Acciones generales de IA | 10/mes | 200/mes |
+| Matching | 10 ofertas/mes | 300 ofertas/mes |
+| Ofertas por lote | 1 | 50 |
+| Investigación profunda | 0 | 10/mes |
+| Claves API activas | 0 | 3 |
+| Peticiones API por minuto y cuenta | 0 | 60 |
 
-**Lo que debe seguir funcionando siempre, incluso si hay errores:**
+Estos números son predeterminados; la configuración publicada es la fuente de verdad. El administrador puede cambiar todos los límites de Free y Pro. Solo los tres límites de CV aceptan `null` (sin límite); los demás son enteros no negativos. Las capacidades de CV base y adaptado deben encajar en el máximo total. El invitado tiene cuota durante la vida de la sesión: 3 CV, 1 PDF, 10 acciones generales y 10 matching, sin renovación mensual ni API. Sus límites se conservan al publicar planes.
 
-- INV-01: [POR DEFINIR]
+CRM de trabajos, empresas y personas; vistas, filtros, favoritos, columnas y exportaciones; extensión LinkedIn; PDF y Harvard permanecen disponibles en Free y Pro. Asistente de Personas usa la bolsa de IA. El modelo de IA continúa dependiendo de la configuración de proveedor/modelo, sin prometer que Pro utilice otro modelo.
 
-**Lo que queda fuera de este cambio:**
+## Cuotas y conservación
 
-[POR DEFINIR]
+La bolsa general incluye adaptación e importación de CV, perfil, cartas, entrevistas y asistente de Personas. Cada acción completada consume una unidad; matching consume una unidad por oferta. Investigación tiene una bolsa separada. Una reserva reduce saldo mientras trabaja. Errores liberan reservas; un `requestId` repetido recupera la misma operación, sin otra unidad. Los límites se verifican en servidor antes de invocar IA y de encolar trabajo. Cambios de configuración no reinician consumo ni invalidan trabajo ya admitido.
 
-## 4. Quién puede usarlo y con qué límites
+Al agotar almacenamiento, la interfaz ofrece sustituir un documento editable concreto tras confirmación. Adaptar una oferta conserva el CV base. La API reserva cuota y destino juntas; publica el contenido cuando la generación termina. Un fallo conserva el contenido anterior y elimina solamente el destino pendiente creado por esa operación.
 
-| Persona o plan | Puede verlo | Puede usarlo o modificarlo | Límite y qué ocurre al agotarlo |
-| --- | --- | --- | --- |
-| Visitante / invitado | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario Gratis | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario PRO | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Administrador / integración, si aplica | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
+Al perder Pro no se borran CVs. Los permitidos siguen activos; el resto se consulta y descarga en modo lectura. El usuario puede elegir CV base y versiones activas. Servidor rechaza modificaciones directas sobre documentos de lectura. El rol admin concede acceso administrativo, sin exención comercial en su cuenta personal. Administrar planes exige administrador real y bloquea suplantación de soporte.
 
-## 5. Cómo debe funcionar
+## Panel administrativo
 
-**Dónde comienza y qué debe existir antes:** [POR DEFINIR]
+El formulario permite editar Free/Pro, modo del paywall (`ab`, `a`, `b`, `paused`), versión del experimento y título, cuerpo y CTA en español e inglés para A y B. Previsualiza con límites Pro y precios validados del catálogo. Admite variables declaradas de cuotas, CVs y precios; no admite variables desconocidas en publicación.
 
-1. La persona o integración hace: [POR DEFINIR].
-2. La aplicación comprueba: [POR DEFINIR].
-3. La aplicación procesa y muestra: [POR DEFINIR].
-4. La persona revisa o confirma, si procede: [POR DEFINIR].
-5. La aplicación guarda y termina en: [POR DEFINIR].
+Publicar exige la versión leída. Dos administradores publicando a la vez producen un éxito y un conflicto; el segundo conserva su borrador y recarga la nueva versión antes de reintentar. Cargar predeterminados o una versión histórica modifica el borrador y requiere publicar. Cambiar textos exige incrementar versión del experimento para mantener interpretables las cohortes. El panel muestra historial y métricas agregadas por variante: exposición, CTA, Checkout, prueba, activación pagada, conversión a 30 días y cohorte de pruebas maduras (14 días).
 
-| Dato de entrada | Obligatorio | Formato, ejemplo ficticio y validación |
+## Paywall y facturación
+
+El usuario recibe copy A/B estable por usuario y versión después de obtener el primer CV generado/adaptado, con asignación persistente. Antes se permite consultar Pro con una CTA genérica. Modo pausado utiliza presentación genérica. Los avisos empiezan al consumir/reservar el 80 % de una bolsa; al agotarla el bloqueo muestra consumo y renovación. PDF y datos siguen accesibles.
+
+`/dashboard/subscription` muestra límites publicados y catálogo verificado de Stripe. Mensual: 10 €/mes; anual: 96 €/año (20 %). Prueba Pro de 7 días una vez por cuenta elegible, con método de pago y términos de cobro visibles. Checkout se crea por POST con intervalo y UUID estable por intento. El retorno consulta `/api/stripe/status`, verifica propiedad y muestra pendiente hasta confirmación; una query de URL jamás registra conversión ni concede acceso. Detalles: [facturación](../../monetization-billing.md).
+
+## Aceptación
+
+| ID | Escenario | Resultado observable |
 | --- | --- | --- |
-| [POR DEFINIR] | [Sí / No] | [POR DEFINIR] |
+| PL-01 | Admin publica límites válidos | Nueva versión, historial y auditoría; nueva operación web/worker lee esa versión. |
+| PL-02 | Publicación con versión antigua | Conflicto, sin escritura y borrador conservado. |
+| PL-03 | Free alcanza 10 acciones generales | Matching aún disponible; nueva acción general bloqueada con renovación. |
+| PL-04 | Reserva última unidad concurrente | Solo una operación admitida. Reintento técnico recupera resultado. |
+| PL-05 | Free adapta con 3 CV guardados | Selección explícita de una versión editable, conserva base y contenido si falla. |
+| PL-06 | Pro baja a Free con 5 CV | Conserva 5; puede seleccionar los activos; restantes solo lectura y PDF. |
+| PL-07 | Usuario con primer CV completado | CTA del paywall usa su variante y versión en ES/EN. |
+| PL-08 | Checkout anual con prueba | Stripe conserva anual; retorno pendiente hasta estado verificado. |
+| PL-09 | Prueba ya utilizada | No promete otra prueba; Checkout sin segundo trial. |
+| PL-10 | Invitado registra cuenta | Conserva uso y asignación; no regenera una bolsa gratuita. |
 
-| Resultado o dato guardado | Dónde se muestra/guarda | Momento de guardado y si sustituye algo |
-| --- | --- | --- |
-| [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Confirmación, deshacer, versiones o recuperación:** [POR DEFINIR]
-
-## 6. Casos especiales y errores
-
-| Situación | Qué debe ver la persona | Qué debe conservar/hacer el sistema |
-| --- | --- | --- |
-| No hay datos o es el primer uso | [POR DEFINIR] | [POR DEFINIR] |
-| Datos incompletos o inválidos | [POR DEFINIR] | [POR DEFINIR] |
-| Falta sesión, permiso o cuota | [POR DEFINIR] | [POR DEFINIR] |
-| IA/servicio lento, caído o respuesta inválida | [POR DEFINIR / No aplica] | [POR DEFINIR / No aplica] |
-| Cierre de pestaña o pérdida de conexión | [POR DEFINIR] | [POR DEFINIR] |
-| Reintento, doble clic o dos cambios simultáneos | [POR DEFINIR] | [POR DEFINIR] |
-| Éxito parcial o datos ya existentes | [POR DEFINIR] | [POR DEFINIR] |
-
-## 7. Resultado esperado y criterios para darlo por correcto
-
-Escribe ejemplos observables. Una frase como «que funcione bien» no permite comprobar el resultado. Estos criterios se completarán antes de implementar; todavía no son pruebas realizadas.
-
-| ID | Dado este contexto | Cuando ocurre esta acción | Entonces espero exactamente |
-| --- | --- | --- | --- |
-| CA-01 | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-02 | [Caso de error] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-03 | [Caso de permiso/límite] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Ejemplo completo con datos ficticios (entrada → resultado):**
-
-[ESCRIBE AQUÍ]
-
-**Cómo lo comprobaré manualmente:** [POR DEFINIR]
-
-## 8. Experiencia, datos y condiciones adicionales (si aplica)
-
-- Pantalla, textos, botones, móvil y accesibilidad: [POR DEFINIR; referencia visual en design.md].
-- Idiomas de interfaz y de resultados: [POR DEFINIR].
-- Tiempo de respuesta, progreso y coste máximo: [POR DEFINIR].
-- Datos enviados a IA/terceros y confirmación necesaria: [POR DEFINIR].
-- Conservación, exportación, borrado y registro de acciones: [POR DEFINIR].
-- Qué ocurre con datos existentes al activar el cambio: [POR DEFINIR].
-- Dependencias de otras funcionalidades: [POR DEFINIR; enlazar sus fichas].
-- Dudas por resolver: [POR DEFINIR].
-
-## 9. Revisión antes de implementar
-
-- [ ] He definido el objetivo y el resultado esperado.
-- [ ] He decidido qué conservar y qué cambiar.
-- [ ] He revisado permisos, errores y datos existentes.
-- [ ] Los criterios CA describen resultados comprobables.
-
-Decisión final: [Borrador / Listo para revisión / Aprobado para implementar]  
-Quién y cuándo toma la decisión: [POR DEFINIR]
+Verificación automatizada: `scripts/plan-presentation.test.ts`, `scripts/plans-integration.test.ts`, `scripts/ai-usage-integration.test.ts` y pruebas de facturación. La integración de planes requiere `PLANS_TEST_DATABASE_URL` apuntando a una BD local aislada cuyo nombre contenga `test`. Revisión visual: admin/publicación y conflicto; selección de CV; bloqueo/aviso; tamaños móvil/escritorio; ES/EN; teclado y temas. Registrar evidencia realizada en `estado-actual.md`; no convertir expectativas en pruebas realizadas.
