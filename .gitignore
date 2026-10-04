@@ -53,3 +53,6 @@ __pycache__/
 
 # GTM Documentation
 docs/gtm/
+
+# video
+/video
