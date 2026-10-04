@@ -53,6 +53,6 @@ fi
 docker run --rm $TTY_FLAGS \
   --add-host=host.docker.internal:host-gateway \
   stripe/stripe-cli listen \
-  --events checkout.session.completed,invoice.payment_succeeded,customer.subscription.updated,customer.subscription.deleted \
+  --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,invoice.paid,invoice.payment_failed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.subscription.paused,customer.subscription.resumed,customer.subscription.trial_will_end \
   --api-key "$STRIPE_SECRET_KEY" \
   --forward-to "http://host.docker.internal:3000/api/stripe/webhook"

@@ -14,11 +14,27 @@ export const STRIPE_PRICE_ID_PRO = STRIPE_MODE === 'production'
   ? process.env.STRIPE_PROD_PRICE_ID_PRO
   : process.env.STRIPE_TEST_PRICE_ID_PRO;
 
-export const stripe = new Stripe(STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-04-10' as any,
+export type BillingInterval = 'monthly' | 'annual';
+
+export const BILLING_OFFERS = {
+  monthly: { amount: 1_000, currency: 'eur', recurringInterval: 'month' },
+  annual: { amount: 9_600, currency: 'eur', recurringInterval: 'year' },
+} as const;
+
+export function getStripePriceId(interval: BillingInterval) {
+  const prefix = STRIPE_MODE === 'production' ? 'STRIPE_PROD' : 'STRIPE_TEST';
+  const configured = process.env[`${prefix}_PRICE_ID_PRO_${interval === 'monthly' ? 'MONTHLY' : 'ANNUAL'}`]?.trim();
+  return interval === 'monthly'
+    ? configured && configured !== 'price_...' ? configured : STRIPE_PRICE_ID_PRO
+    : configured;
+}
+
+export const stripe = new Stripe(STRIPE_SECRET_KEY || 'sk_test_not_configured', {
+  apiVersion: '2026-09-30.endive',
+  timeout: 10_000,
+  maxNetworkRetries: 2,
 });
 
 export const getAppUrl = () => {
   return (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
 };
-

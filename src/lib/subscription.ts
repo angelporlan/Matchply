@@ -1,6 +1,6 @@
 export const PRO_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 
-export const FREE_USER_MAX_CVS = 1;
+export const FREE_USER_MAX_CVS = 3;
 export const GUEST_MAX_CVS = 3;
 export const GUEST_MAX_PDF_DOWNLOADS = 1;
 export const HARVARD_TEMPLATE = 'harvard';
@@ -60,11 +60,23 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
   },
 };
 
-type EntitlementContext = {
+export type EntitlementContext = {
   isGuest?: boolean;
   proGrantedUntil?: Date | string | null;
   now?: Date;
+  stripePriceId?: string | null;
+  stripePaidAt?: Date | null;
+  stripeCurrentPeriodEnd?: Date | null;
+  stripeTrialEnd?: Date | null;
 };
+export function hasCurrentStripeAccess(status: string | null | undefined, context: EntitlementContext = {}) {
+  if (!isProSubscription(status)) return false;
+  // Existing subscriptions retain access until their first authoritative reconciliation.
+  if (!context.stripePriceId) return true;
+  const now = context.now ?? new Date();
+  if (status === 'trialing') return Boolean(context.stripeTrialEnd && new Date(context.stripeTrialEnd) > now);
+  return Boolean(context.stripePaidAt && context.stripeCurrentPeriodEnd && new Date(context.stripeCurrentPeriodEnd) > now);
+}
 
 export function isProSubscription(status: string | null | undefined) {
   return PRO_SUBSCRIPTION_STATUSES.has(status || '');
@@ -85,24 +97,22 @@ export function hasProAccess(user: {
   proGrantedUntil?: Date | string | null;
   isGuest?: boolean;
   now?: Date;
+  stripePriceId?: string | null;
+  stripePaidAt?: Date | null;
+  stripeCurrentPeriodEnd?: Date | null;
+  stripeTrialEnd?: Date | null;
 }) {
   if (user.isGuest) return false;
-  if (isProSubscription(user.subscriptionStatus)) return true;
+  if (hasCurrentStripeAccess(user.subscriptionStatus, user)) return true;
   return isProGrantActive(user.proGrantedUntil, user.now);
 }
 
 export type EffectivePlanSource = 'stripe' | 'trialing' | 'granted' | 'free' | 'guest';
 
-export function getEffectivePlanSource(user: {
-  subscriptionStatus?: string | null;
-  proGrantedUntil?: Date | string | null;
-  isGuest?: boolean;
-  now?: Date;
-}): EffectivePlanSource {
+export function getEffectivePlanSource(user: EntitlementContext & { subscriptionStatus?: string | null }): EffectivePlanSource {
   if (user.isGuest) return 'guest';
   const status = user.subscriptionStatus || 'none';
-  if (status === 'trialing') return 'trialing';
-  if (isProSubscription(status)) return 'stripe';
+  if (hasCurrentStripeAccess(status, user)) return status === 'trialing' ? 'trialing' : 'stripe';
   if (isProGrantActive(user.proGrantedUntil, user.now)) return 'granted';
   return 'free';
 }
@@ -112,24 +122,16 @@ export function getAccessTier(
   context: EntitlementContext = {},
 ): AccessTier {
   if (context.isGuest) return 'guest';
-  if (isProSubscription(status) || isProGrantActive(context.proGrantedUntil, context.now)) return 'pro';
+  if (hasCurrentStripeAccess(status, context) || isProGrantActive(context.proGrantedUntil, context.now)) return 'pro';
   return 'free';
 }
 
-export function effectiveSubscriptionStatus(user: {
-  subscriptionStatus?: string | null;
-  proGrantedUntil?: Date | string | null;
-  isGuest?: boolean;
-  now?: Date;
-}) {
-  return hasProAccess(user) ? 'active' : (user.subscriptionStatus || 'none');
+export function effectiveSubscriptionStatus(user: EntitlementContext & { subscriptionStatus?: string | null }) {
+  return hasProAccess(user) ? 'active' : 'none';
 }
 
-export function userEntitlements(user: {
-  isGuest?: boolean;
-  proGrantedUntil?: Date | string | null;
-}): EntitlementContext {
-  return { isGuest: Boolean(user.isGuest), proGrantedUntil: user.proGrantedUntil ?? null };
+export function userEntitlements(user: EntitlementContext): EntitlementContext {
+  return { ...user, isGuest: Boolean(user.isGuest), proGrantedUntil: user.proGrantedUntil ?? null };
 }
 
 export function getPlanEntitlements(
