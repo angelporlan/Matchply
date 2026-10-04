@@ -7,6 +7,7 @@ import { A4PageSkeleton } from '@/components/skeletons';
 import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
 import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+import { downloadPdf } from '@/lib/pdf-download';
 
 export type PdfZoom = 'fit' | number;
 
@@ -71,68 +72,35 @@ export function PdfDownloadLink({
     ? (guestCanDownload ? downloadUrl : guestRegisterHref)
     : downloadUrl;
 
-  const handleGuestDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!isGuest) return;
+  const handleDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    if (!guestCanDownload) {
+    if (isGuest && !guestCanDownload) {
       window.location.href = guestRegisterHref;
       return;
     }
 
-    try {
-      const response = await fetch(downloadUrl);
-      if (response.status === 403) {
+    await downloadPdf({
+      url: downloadUrl,
+      filename: isGuest || onDownloaded ? 'CV.pdf' : undefined,
+      onForbidden: () => {
+        if (!isGuest) return;
         onGuestDownloadConsumed?.();
         window.location.href = guestRegisterHref;
-        return;
-      }
-      if (!response.ok) return;
-
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = 'CV.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
-      onGuestDownloadConsumed?.();
-      trackUmamiConversion('cv_downloaded');
-      onDownloaded?.();
-      if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
-    } catch {
-      // Keep the free download if the file never reached the browser.
-    }
-  };
-
-  const handleAccountDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!onDownloaded) return;
-    event.preventDefault();
-    try {
-      const response = await fetch(downloadUrl);
-      if (!response.ok) return;
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = 'CV.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
-      trackUmamiConversion('cv_downloaded');
-      onDownloaded();
-    } catch {
-      // Leave the candidacy untouched if the file never arrived.
-    }
+      },
+      onDownloaded: () => {
+        if (isGuest) onGuestDownloadConsumed?.();
+        trackUmamiConversion('cv_downloaded');
+        onDownloaded?.();
+        if (isGuest && consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
+      },
+    });
   };
 
   return (
     <>
       <a
         href={downloadHref}
-        onClick={isGuest ? handleGuestDownload : (onDownloaded ? handleAccountDownload : undefined)}
+        onClick={handleDownload}
         target={isGuest ? undefined : '_blank'}
         rel={isGuest ? undefined : 'noopener noreferrer'}
         className={className ?? 'btn-raised btn-raised--sm'}

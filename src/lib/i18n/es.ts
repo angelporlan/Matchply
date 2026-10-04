@@ -1,4 +1,7 @@
+import { planTranslations } from './plans';
+
 const es = {
+    plans: planTranslations.es,
     offerImport: {
       label: "Enlace a la oferta",
       import: "Importar oferta",
@@ -46,6 +49,22 @@ const es = {
         working: 'Adaptando tu CV...',
         baseTitle: 'CV base',
         untitledSection: 'Currículum',
+        cvStep: '1. Tu currículum',
+        offerStep: '2. La oferta',
+        optional: '(Opcional)',
+        chooseCv: 'Paso 1: Selecciona tu CV actual',
+        chooseHelp: 'Sube tu PDF para extraer tus datos o pégalo directamente en texto.',
+        upload: 'Haz clic o arrastra tu currículum en PDF',
+        uploadHelp: 'Formato PDF estándar hasta 10 MB',
+        selectedPdf: 'PDF seleccionado ({size} KB)',
+        change: 'Cambiar',
+        next: 'Continuar al paso 2 (añadir oferta)',
+        skip: 'Saltar oferta y crear mi CV',
+        hideText: 'Ocultar editor de texto',
+        showText: '¿No tienes PDF? Pega el texto',
+        ready: 'CV preparado:',
+        pasted: 'Texto pegado ({words} palabras)',
+        back: 'Atrás',
         errors: {
           cv: 'Pega tu CV o sube un PDF.',
           job: 'Pega la descripción de la oferta.',
@@ -319,8 +338,8 @@ const es = {
         planFree: 'Plan Gratuito',
         planPro: 'PRO',
         planActive: 'Activo',
-        planFreeDesc: 'Optimización IA básica con la plantilla Harvard. Mejora a PRO para desbloquear integraciones y CVs ilimitados.',
-        planProDesc: 'Acceso completo a optimización IA avanzada, integraciones, trabajos y descargas ilimitadas.',
+        planFreeDesc: 'Consulta tu saldo de IA y los límites de CVs. El editor, CRM, extensión y PDF están incluidos.',
+        planProDesc: 'Tu plan amplía las cuotas de IA, matching e investigación. Consulta aquí el uso y los límites actuales.',
         manageBilling: 'Gestionar facturación',
         upgrade: 'Mejorar a PRO',
         memberSince: 'Miembro desde {date}',
@@ -453,16 +472,6 @@ const es = {
         emptyCvError: 'El contenido del currículum está vacío o no se pudo extraer texto del PDF.',
         genericAiError: 'Error al procesar el currículum con Inteligencia Artificial.',
         dbSaveError: 'Error al guardar tu currículum base en la base de datos.',
-      },
-      overwrite: {
-        title: 'Tu plan gratuito guarda 1 CV',
-        body: 'Tu plan gratuito guarda 1 CV. Adaptarlo a esta oferta reemplazará el actual.',
-        bodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Adaptarlo a esta oferta lo reemplazará.',
-        importBody: 'Tu plan gratuito guarda 1 CV. Importar otro reemplazará el actual.',
-        importBodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Importar otro lo reemplazará.',
-        replace: 'Reemplazar',
-        upgrade: 'Pasar a PRO',
-        cancel: 'Cancelar',
       },
       modes: {
         fidelity: {

@@ -24,6 +24,8 @@ import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 import { matchScoreBadgeClass } from '@/components/applications/matchScoreStyle';
 import { GuestSavePrompt } from '@/components/cv/GuestSavePrompt';
 import { consumeGuestSavePrompt } from '@/lib/guest-save-prompt';
+import { downloadPdf } from '@/lib/pdf-download';
+import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 
 interface CvCardProps {
   cv: CvListItem;
@@ -53,6 +55,8 @@ export default function CvCard({
   onGuestDownloadConsumed,
 }: CvCardProps) {
   const { t, language } = useLanguage();
+  const { data: usage } = usePlanUsage();
+  const readOnly = usage?.cv.readOnlyIds.includes(cv.id) || false;
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(cv.title);
   const [savePromptOpen, setSavePromptOpen] = useState(false);
@@ -82,11 +86,13 @@ export default function CvCard({
     },
     {
       label: t('dashboard.cvs.card.rename'),
+      disabled: readOnly,
       icon: <Pencil className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />,
       onSelect: () => setIsEditing(true),
     },
     {
       label: t('dashboard.cvs.card.duplicate'),
+      disabled: readOnly,
       icon: <Copy className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />,
       onSelect: () => onDuplicate(cv.id),
     },
@@ -94,36 +100,24 @@ export default function CvCard({
       label: t('dashboard.cvs.card.download'),
       icon: <Download className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />,
       onSelect: () => {
-        if (isGuest) {
-          void (async () => {
-            if (!guestCanDownload) {
-              window.location.href = '/register?source=guest-pdf';
-              return;
-            }
-            const response = await fetch(`/api/pdf?cvId=${cv.id}&download=true`);
-            if (response.status === 403) {
-              onGuestDownloadConsumed?.();
-              window.location.href = '/register?source=guest-pdf';
-              return;
-            }
-            if (!response.ok) return;
-            const blob = await response.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = `${cv.title || 'CV'}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(objectUrl);
-            onGuestDownloadConsumed?.();
-            trackUmamiConversion('cv_downloaded');
-            if (consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
-          })();
+        if (isGuest && !guestCanDownload) {
+          window.location.href = '/register?source=guest-pdf';
           return;
         }
-        trackUmamiConversion('cv_downloaded');
-        window.open(`/api/pdf?cvId=${cv.id}&download=true`, '_blank', 'noopener,noreferrer');
+        void downloadPdf({
+          url: `/api/pdf?cvId=${cv.id}&download=true`,
+          filename: isGuest ? `${cv.title || 'CV'}.pdf` : undefined,
+          onForbidden: () => {
+            if (!isGuest) return;
+            onGuestDownloadConsumed?.();
+            window.location.href = '/register?source=guest-pdf';
+          },
+          onDownloaded: () => {
+            if (isGuest) onGuestDownloadConsumed?.();
+            trackUmamiConversion('cv_downloaded');
+            if (isGuest && consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
+          },
+        });
       },
     },
     ...(!cv.isPrincipal
@@ -131,6 +125,7 @@ export default function CvCard({
           {
             label: t('dashboard.cvs.card.setPrimary'),
             icon: <Star className="w-3.5 h-3.5 stroke-[1.75]" aria-hidden="true" />,
+            disabled: readOnly,
             onSelect: () => onSetPrincipal(cv.id),
           },
         ]
@@ -219,6 +214,7 @@ export default function CvCard({
             ) : (
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => setIsEditing(true)}
                 title={t('dashboard.cvs.card.renameHint')}
                 className="group/title flex items-start gap-1.5 w-full min-w-0 text-left text-base font-semibold text-text leading-snug font-display motion-safe:transition-colors hover:text-ai-text"
@@ -285,7 +281,7 @@ export default function CvCard({
             href={`/editor/${cv.id}`}
             className="group/link inline-flex items-center gap-1.5 text-xs font-semibold text-ai hover:text-ai-hover motion-safe:transition-colors"
           >
-            {t('dashboard.cvs.card.edit')}
+            {t(readOnly ? 'plans.readOnly' : 'dashboard.cvs.card.edit')}
             <ArrowRight
               className="w-3.5 h-3.5 stroke-[1.75] motion-safe:transition-transform motion-safe:group-hover/link:translate-x-0.5"
               aria-hidden="true"
@@ -295,7 +291,7 @@ export default function CvCard({
           <button
             type="button"
             onClick={() => onSetPrincipal(cv.id)}
-            disabled={cv.isPrincipal || isPending}
+            disabled={readOnly || cv.isPrincipal || isPending}
             aria-label={t('dashboard.cvs.card.setPrimary')}
             className={cn(
               'inline-flex p-1.5 rounded-[8px] border motion-safe:transition-colors',

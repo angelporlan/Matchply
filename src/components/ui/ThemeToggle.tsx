@@ -16,12 +16,7 @@ export default function ThemeToggle() {
   useEffect(() => {
     setMounted(true);
     // Sync state with what was set by the blocking inline head script
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setTheme('dark');
-    } else {
-      setTheme('light');
-    }
+    setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   }, []);
 
   const toggleTheme = () => {

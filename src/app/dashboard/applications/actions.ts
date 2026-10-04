@@ -2,16 +2,17 @@
 
 import { db } from "@/db";
 import { jobOffers, cvs, users } from "@/db/schema";
-import { AIService } from "@/lib/ai-service";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
 import { findOrCreateCompany } from "@/lib/company-service";
 import { log } from "@/lib/logger";
-import { persistMatchResult } from "@/lib/match-persistence";
-import { baseCvForAiColumns, curateOfferColumns, jobOfferOwnershipColumns } from "@/lib/job-offer-queries";
+import { jobOfferOwnershipColumns } from "@/lib/job-offer-queries";
 import { auditActorFields, requireProductContext } from "@/lib/request-context";
-import { effectiveSubscriptionStatus } from "@/lib/subscription";
+import { enqueueMatchBatchJob } from '@/lib/ai-jobs/queue';
+import { settleAiJob } from '@/lib/ai-jobs/settle';
+import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
+import { aiRequestId } from '@/lib/ai-usage-http';
 import { decideApplicationSent } from "@/lib/application-sent";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
@@ -302,78 +303,32 @@ export async function updateJobOfferDetails(
   }
 }
 
-export async function evaluateSingleOfferMatchAction(offerId: string) {
+export async function evaluateSingleOfferMatchAction(offerId: string, requestId?: string): Promise<{ success: boolean; score: number | null; scoreBreakdown: unknown; matchInputHash: string | null; matchEvidence: unknown; matchDetails: unknown; error?: string; code?: string; jobId?: string }> {
   try {
     const ctx = await requireApplicationContext();
     const userId = ctx.effectiveUser!.id;
-    const user = ctx.effectiveUser!;
-
-    const [[offer], [baseCv], [profileRow]] = await Promise.all([
-      db
-        .select(curateOfferColumns)
-        .from(jobOffers)
-        .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId)))
-        .limit(1),
-      db
-        .select(baseCvForAiColumns)
-        .from(cvs)
-        .where(eq(cvs.userId, userId))
-        .orderBy(desc(cvs.isBase), desc(cvs.isPrincipal), desc(cvs.createdAt), desc(cvs.id))
-        .limit(1),
-      db
-        .select({ careerProfile: users.careerProfile })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1),
-    ]);
-    if (!offer) throw new Error("Job offer not found");
-
-    const { curated, errors } = await AIService.curateOffersBatch({
-      baseCvMarkdown: baseCv?.content || "",
-      userCareerProfile: profileRow?.careerProfile ?? null,
-      offers: [{
-        id: offer.id,
-        title: offer.title,
-        company: offer.company,
-        description: offer.description,
-        platform: offer.platform,
-        scoreOverall: offer.scoreOverall,
-        scoreBreakdown: offer.scoreBreakdown,
-        tldr: offer.tldr,
-        sourceMetadata: offer.sourceMetadata,
-        matchInputHash: offer.matchInputHash,
-        matchEvidence: offer.matchEvidence,
-        matchDetails: offer.matchDetails,
-      }],
-      userSubscriptionStatus: effectiveSubscriptionStatus(user),
-      targetThreshold: 65,
-      kind: 'deep',
-    });
-
-    const evaluated = curated[0];
-    if (evaluated && typeof evaluated.score === 'number') {
-      if (!await persistMatchResult(userId, evaluated)) {
-        return { error: "El perfil o la oferta han cambiado durante el análisis. Vuelve a calcular el match." };
-      }
-
-      revalidatePath(`/dashboard/applications/offer/${offerId}`);
-      revalidatePath("/dashboard/applications");
-
-      return {
-        success: true,
-        score: evaluated.score,
-        fitReason: evaluated.fitReason,
-        decision: evaluated.decision,
-        scoreBreakdown: evaluated.scoreBreakdown,
-        matchInputHash: evaluated.inputHash,
-        matchEvidence: evaluated.evidence,
-        matchDetails: evaluated.details,
-      };
+    const [owned] = await db.select({ id: jobOffers.id }).from(jobOffers)
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId))).limit(1);
+    if (!owned) throw new Error("Job offer not found");
+    const job = await enqueueMatchBatchJob(userId, {
+      offerIds: [offerId], targetThreshold: 65, kind: 'deep', requestId: aiRequestId(null, requestId),
+    }, { initiatedByUserId: ctx.realUser?.id || userId });
+    const settled = await settleAiJob(job.id);
+    const progress = await readCurrentMatchBatchResult(settled);
+    if (!progress.items.some(item => item.id === offerId)) {
+      return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, error: settled.status === 'queued' || settled.status === 'running'
+        ? 'El análisis continúa. Puedes recuperar el resultado en unos instantes.'
+        : progress.errors[0]?.message || settled.lastError || 'No se pudo calcular la afinidad', jobId: job.id };
     }
-
-    return { error: errors[0]?.message || "No se pudo calcular la afinidad" };
+    const [offer] = await db.select({ score: jobOffers.scoreOverall, scoreBreakdown: jobOffers.scoreBreakdown,
+      matchInputHash: jobOffers.matchInputHash, matchEvidence: jobOffers.matchEvidence, matchDetails: jobOffers.matchDetails,
+    }).from(jobOffers).where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId))).limit(1);
+    if (!offer || typeof offer.score !== 'number') return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, error: 'La oferta ha cambiado durante el análisis.' };
+    revalidatePath(`/dashboard/applications/offer/${offerId}`);
+    revalidatePath('/dashboard/applications');
+    return { success: true, ...offer, jobId: job.id };
   } catch (error: any) {
     log({ event: 'offer_match_evaluate_failed', level: 'error', error });
-    return { error: error.message || "Failed to evaluate match" };
+    return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, error: error.message || 'No se pudo calcular la afinidad', code: error.code };
   }
 }

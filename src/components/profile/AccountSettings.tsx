@@ -5,6 +5,8 @@ import { Calendar, CheckCircle2, CreditCard, Crown, Lock, Mail, ShieldCheck } fr
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import NameForm from '@/components/account/NameForm';
 import { ButtonLink } from '@/components/ui/Button';
+import { UsagePanel } from '@/components/subscription/UsagePanel';
+import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 
 interface AccountSettingsProps {
   user: {
@@ -115,7 +117,7 @@ export default function AccountSettings({ user, isPremium, memberSince }: Accoun
                 )}
               </p>
               <p className="text-xs text-text-muted font-sans mt-0.5 max-w-md leading-relaxed">
-                {isPremium ? t('settings.account.planProDesc') : t('settings.account.planFreeDesc')}
+                {t('plans.compareHelp')}
               </p>
               {memberSinceLabel && (
                 <p className="text-[10px] text-text-muted font-sans mt-1.5 flex items-center gap-1">
@@ -126,7 +128,7 @@ export default function AccountSettings({ user, isPremium, memberSince }: Accoun
             </div>
           </div>
 
-          <ButtonLink
+          {isPremium ? <ButtonLink
             href={isPremium ? '/api/stripe/portal' : '/dashboard/subscription'}
             variant={isPremium ? 'secondary' : 'primary'}
             size="sm"
@@ -134,9 +136,10 @@ export default function AccountSettings({ user, isPremium, memberSince }: Accoun
           >
             <ShieldCheck className="w-3.5 h-3.5 stroke-[1.75]" />
             {isPremium ? t('settings.account.manageBilling') : t('settings.account.upgrade')}
-          </ButtonLink>
+          </ButtonLink> : <UpgradePaywall source="account" compact />}
         </div>
       </section>
+      <UsagePanel />
     </div>
   );
 }

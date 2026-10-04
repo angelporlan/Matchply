@@ -2,30 +2,40 @@
 
 import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { unstable_update } from "@/auth";
 import { sanitizeDisplayName } from "@/lib/user-name";
 import { revalidatePath } from "next/cache";
 import { createAuditLog } from "@/lib/audit";
-import {
-  canCreateCv,
-  canUseCvTemplate,
-} from "@/lib/subscription";
+import { canUseCvTemplate } from "@/lib/subscription";
 import { DEFAULT_CV_MARKDOWN } from "@/lib/default-cv";
-import { decideFreeOverwrite } from "@/lib/free-overwrite-guard";
-import { getActor, getGuestCvCount, GUEST_MAX_CVS } from "@/lib/actor";
+import { createCvForUser, createManualCvForUser, requireCvCreation, requireEditableCv, updateCvForUser, lockCvUser } from "@/lib/cv-access";
+import { UsageError } from "@/lib/usage";
+import { getActor } from "@/lib/actor";
 import { requireAccountContext, requireProductContext, auditActorFields } from "@/lib/request-context";
 import { cvMetaColumns } from "@/lib/job-offer-queries";
 import { parseMatchConstraints } from "@/lib/curation-constraints";
 import { normalizeCareerProfileFields } from "@/lib/career-profile";
+import { createTrySourceCv } from '@/lib/try-cv';
+import { log } from '@/lib/logger';
 
-function cvLimitMessage(isGuest: boolean) {
-  return isGuest
-    ? `Has alcanzado el límite de ${GUEST_MAX_CVS} CVs de prueba. Regístrate para conservarlos y seguir creando.`
-    : "El plan Gratuito permite un único CV. Actualiza a PRO para crear currículums ilimitados.";
+type ActionResult = { success?: boolean; error?: string; code?: string; cvId?: string; title?: string; name?: string };
+
+export async function createTryBaseCv(input: { id: string; title: string; content: string }): Promise<ActionResult> {
+  try {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) throw new Error('Unauthorized');
+    const cvId = await createTrySourceCv(actor.userId, input);
+    revalidatePath('/dashboard');
+    return { success: true, cvId };
+  } catch (error) {
+    log({ event: 'try_source_cv_failed', level: 'error', error });
+    return { error: error instanceof Error ? error.message : 'Failed to save resume',
+      ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+  }
 }
 
-export async function setPrincipalCv(cvId: string) {
+export async function setPrincipalCv(cvId: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -42,10 +52,12 @@ export async function setPrincipalCv(cvId: string) {
 
     // 2. Transacción para desmarcar los demás y marcar este
     await db.transaction(async (tx) => {
+      const editable = await requireEditableCv(tx, userId, cvId);
+      if (editable.pendingUsageOperationId) throw new UsageError(409, 'OPERATION_IN_PROGRESS', 'This resume is being generated');
       // Poner todos los del usuario a false
       await tx
         .update(cvs)
-        .set({ isPrincipal: false })
+        .set({ isPrincipal: false, updatedAt: sql`${cvs.updatedAt}` })
         .where(eq(cvs.userId, userId));
 
       // Poner este a true
@@ -59,11 +71,11 @@ export async function setPrincipalCv(cvId: string) {
     return { success: true };
   } catch (error: any) {
     console.error("Error setting principal CV:", error);
-    return { error: error.message || "Failed to set principal CV" };
+    return { error: error.message || "Failed to set principal CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function createBaseCv(title: string) {
+export async function createBaseCv(title: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -72,29 +84,7 @@ export async function createBaseCv(title: string) {
 
     const userId = actor.userId;
 
-    // Aplicar el límite correspondiente al nivel de acceso antes de insertar.
-    const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
-      throw new Error(cvLimitMessage(actor.kind === "guest"));
-    }
-
-    const isFirst = cvCount === 0;
-
-    const [newCv] = (await db
-      .insert(cvs)
-      .values({
-        userId,
-        title: title || "Mi Currículum Base",
-        content: DEFAULT_CV_MARKDOWN,
-        isBase: true,
-        isPrincipal: isFirst,
-        templateName: "harvard",
-        accentColor: "#1a5f7a",
-        fontFamily: "helvetica",
-        pageMargin: 36,
-        scale: 1.0,
-      })
-      .returning()) as any[];
+    const newCv = await createManualCvForUser(userId, { title: title || "Mi Currículum", content: DEFAULT_CV_MARKDOWN, templateName: "harvard", accentColor: "#1a5f7a", fontFamily: "helvetica", pageMargin: 36, scale: 1 });
 
     // Log de auditoría para creación manual de CV (solo usuarios reales)
     if (actor.kind === "user") {
@@ -108,11 +98,11 @@ export async function createBaseCv(title: string) {
     return { success: true, cvId: newCv.id };
   } catch (error: any) {
     console.error("Error creating CV:", error);
-    return { error: error.message || "Failed to create CV" };
+    return { error: error.message || "Failed to create CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function deleteCv(cvId: string) {
+export async function deleteCv(cvId: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -128,11 +118,15 @@ export async function deleteCv(cvId: string) {
     }
 
     await db.transaction(async (tx) => {
+      await lockCvUser(tx, userId);
+      const [current] = await tx.select({ pending: cvs.pendingUsageOperationId, isPrincipal: cvs.isPrincipal }).from(cvs).where(and(eq(cvs.id, cvId), eq(cvs.userId, userId))).limit(1);
+      if (!current) throw new UsageError(404, 'CV_NOT_FOUND', 'Resume not found');
+      if (current.pending) throw new UsageError(409, 'OPERATION_IN_PROGRESS', 'This resume is being generated');
       // Borrar el CV
-      await tx.delete(cvs).where(eq(cvs.id, cvId));
+      await tx.delete(cvs).where(and(eq(cvs.id, cvId), eq(cvs.userId, userId)));
 
       // Si el CV que acabamos de borrar era el principal, elegir otro
-      if (cv.isPrincipal) {
+      if (current.isPrincipal) {
         const [nextBaseCv] = await tx
           .select({ id: cvs.id })
           .from(cvs)
@@ -161,7 +155,7 @@ export async function deleteCv(cvId: string) {
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting CV:", error);
-    return { error: error.message || "Failed to delete CV" };
+    return { error: error.message || "Failed to delete CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
@@ -175,8 +169,10 @@ export async function updateCvStyling(
     pageMargin?: number | null;
     scale?: number | null;
   }
-) {
+): Promise<ActionResult> {
   try {
+    const permitted = new Set(['title', 'templateName', 'accentColor', 'fontFamily', 'pageMargin', 'scale']);
+    if (!updates || typeof updates !== 'object' || Object.keys(updates).some(key => !permitted.has(key))) throw new UsageError(400, 'INVALID_CV_PATCH', 'Invalid resume styling fields');
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
       throw new Error("Unauthorized");
@@ -195,21 +191,18 @@ export async function updateCvStyling(
       throw new Error("La única plantilla disponible es Harvard.");
     }
 
-    await db
-      .update(cvs)
-      .set(updates)
-      .where(eq(cvs.id, cvId));
+    await updateCvForUser(actor.userId, cvId, updates);
 
     revalidatePath(`/editor/${cvId}`);
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Error updating CV styling:", error);
-    return { error: error.message || "Failed to update CV styling" };
+    return { error: error.message || "Failed to update CV styling", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function saveCvContent(cvId: string, content: string) {
+export async function saveCvContent(cvId: string, content: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -221,19 +214,16 @@ export async function saveCvContent(cvId: string, content: string) {
       throw new Error("Forbidden");
     }
 
-    await db
-      .update(cvs)
-      .set({ content })
-      .where(eq(cvs.id, cvId));
+    await updateCvForUser(actor.userId, cvId, { content });
 
     return { success: true };
   } catch (error: any) {
     console.error("Error saving CV content:", error);
-    return { error: error.message || "Failed to save CV content" };
+    return { error: error.message || "Failed to save CV content", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function renameCv(cvId: string, title: string) {
+export async function renameCv(cvId: string, title: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -257,10 +247,7 @@ export async function renameCv(cvId: string, title: string) {
       return { success: true, title: cleanTitle };
     }
 
-    await db
-      .update(cvs)
-      .set({ title: cleanTitle })
-      .where(eq(cvs.id, cvId));
+    await updateCvForUser(actor.userId, cvId, { title: cleanTitle });
 
     if (actor.kind === "user") {
       await createAuditLog("cv_rename", actor.userId, actor.email || null, {
@@ -274,11 +261,11 @@ export async function renameCv(cvId: string, title: string) {
     return { success: true, title: cleanTitle };
   } catch (error: any) {
     console.error("Error renaming CV:", error);
-    return { error: error.message || "Failed to rename CV" };
+    return { error: error.message || "Failed to rename CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function duplicateCv(cvId: string) {
+export async function duplicateCv(cvId: string): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -296,26 +283,7 @@ export async function duplicateCv(cvId: string) {
       throw new Error("Forbidden or CV not found");
     }
 
-    const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
-      throw new Error(cvLimitMessage(actor.kind === "guest"));
-    }
-
-    const [newCv] = (await db
-      .insert(cvs)
-      .values({
-        userId,
-        title: `${cv.title} (Copia)`,
-        content: cv.content,
-        isBase: false,
-        isPrincipal: false,
-        templateName: cv.templateName,
-        accentColor: cv.accentColor,
-        fontFamily: cv.fontFamily,
-        pageMargin: cv.pageMargin,
-        scale: cv.scale,
-      })
-      .returning()) as any[];
+    const newCv = await createCvForUser(userId, { title: `${cv.title} (Copia)`, content: cv.content, isBase: false, isPrincipal: false, templateName: cv.templateName, accentColor: cv.accentColor, fontFamily: cv.fontFamily, pageMargin: cv.pageMargin, scale: cv.scale });
 
     if (actor.kind === "user") {
       await createAuditLog("cv_duplicate", userId, actor.email || null, {
@@ -329,105 +297,11 @@ export async function duplicateCv(cvId: string) {
     return { success: true, cvId: newCv.id };
   } catch (error: any) {
     console.error("Error duplicating CV:", error);
-    return { error: error.message || "Failed to duplicate CV" };
+    return { error: error.message || "Failed to duplicate CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function createCvPlaceholder(updates: {
-  title: string;
-  isBase: boolean;
-  isPrincipal: boolean;
-  confirmOverwrite?: boolean;
-}) {
-  try {
-    const actor = await getActor({ allowGuest: true });
-    if (!actor) {
-      throw new Error("Unauthorized");
-    }
-
-    const userId = actor.userId;
-
-    const cvCount = await getGuestCvCount(userId);
-    if (!canCreateCv(actor.subscriptionStatus, cvCount, { isGuest: actor.kind === "guest", proGrantedUntil: actor.proGrantedUntil })) {
-      if (actor.kind === "guest") {
-        throw new Error(cvLimitMessage(true));
-      }
-
-      // Free mantiene un único CV: importaciones y optimizaciones básicas
-      // reutilizan el CV existente en vez de crear una copia adicional.
-      const [existingCv] = await db
-        .select({ id: cvs.id, isBase: cvs.isBase })
-        .from(cvs)
-        .where(eq(cvs.userId, userId))
-        .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt))
-        .limit(1);
-
-      if (!existingCv) {
-        throw new Error(cvLimitMessage(false));
-      }
-
-      const decision = decideFreeOverwrite({
-        isGuest: false,
-        canCreate: false,
-        replacesBase: existingCv.isBase,
-        confirmed: Boolean(updates.confirmOverwrite),
-      });
-      if (decision.action === 'confirm') {
-        return {
-          success: false,
-          needsConfirm: true,
-          replacesBase: decision.replacesBase,
-          cvId: existingCv.id,
-        };
-      }
-
-      return { success: true, cvId: existingCv.id, reused: true };
-    }
-
-    let newCvId = '';
-    await db.transaction(async (tx) => {
-      if (updates.isPrincipal) {
-        await tx
-          .update(cvs)
-          .set({ isPrincipal: false })
-          .where(eq(cvs.userId, userId));
-      }
-
-      // Obtener el estilo del currículum principal actual (para copiar el estilo)
-      const [principalCv] = await tx
-        .select(cvMetaColumns)
-        .from(cvs)
-        .where(and(eq(cvs.userId, userId), eq(cvs.isPrincipal, true)))
-        .limit(1);
-
-      const [newCv] = (await tx
-        .insert(cvs)
-        .values({
-          userId: userId,
-          title: updates.title,
-          content: "", // Empezamos vacío para que se rellene con streaming
-          isBase: updates.isBase,
-          isPrincipal: updates.isPrincipal,
-          templateName: principalCv?.templateName || "harvard",
-          accentColor: principalCv?.accentColor || "#1a5f7a",
-          fontFamily: principalCv?.fontFamily || "helvetica",
-          pageMargin: principalCv?.pageMargin || 36,
-          scale: principalCv?.scale || 1.0,
-        })
-        .returning()) as any[];
-
-      newCvId = newCv.id;
-    });
-
-    revalidatePath("/dashboard");
-    return { success: true, cvId: newCvId };
-  } catch (error: any) {
-    console.error("Error creating CV placeholder:", error);
-    return { error: error.message || "Failed to create CV placeholder" };
-  }
-}
-
-export async function saveUserCareerProfileAction(profileData: any) {
+export async function saveUserCareerProfileAction(profileData: any): Promise<ActionResult> {
   try {
     const ctx = await requireProductContext();
     const userId = ctx.effectiveUser!.id;
@@ -469,11 +343,11 @@ export async function saveUserCareerProfileAction(profileData: any) {
     return { success: true };
   } catch (error: any) {
     console.error("Error saving career profile:", error);
-    return { error: error.message || "Failed to save career profile" };
+    return { error: error.message || "Failed to save career profile", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }
 
-export async function updateUserNameAction(name: string) {
+export async function updateUserNameAction(name: string): Promise<ActionResult> {
   try {
     const ctx = await requireAccountContext();
     const userId = ctx.realUser!.id;
@@ -520,6 +394,6 @@ export async function updateUserNameAction(name: string) {
     return { success: true, name: sanitized };
   } catch (error: any) {
     console.error("Error updating user name:", error);
-    return { error: error.message || "Failed to update name" };
+    return { error: error.message || "Failed to update name", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
   }
 }

@@ -6,6 +6,8 @@ import { ButtonLink } from '@/components/ui/Button';
 import type { ApiTokenView } from '@/lib/agent-api/scopes';
 import ApiKeysSettingsCard from './ApiKeysSettingsCard';
 import LinkedInExtensionConsole from './LinkedInExtensionConsole';
+import { UpgradePaywall } from './UpgradePaywall';
+import { UsagePanel } from './UsagePanel';
 
 type Installation = {
   id: string;
@@ -36,12 +38,13 @@ export default function IntegrationsPanel({
 
   return (
     <div className="space-y-6">
+      <UsagePanel compact />
       <LinkedInExtensionConsole initialInstallations={initialInstallations} initialQuota={initialQuota} />
       {isPremium ? <ApiKeysSettingsCard initialTokens={initialApiTokens} /> : (
         <div className="bg-surface border border-subtle rounded-[12px] p-6 flex flex-wrap items-center gap-4">
           <Lock className="w-5 h-5 text-text-muted" />
           <p className="flex-1 text-sm text-text-muted">{t('subscription.integrations.badgePro')}: API</p>
-          <ButtonLink href="/api/stripe/checkout" size="sm">{t('settings.account.upgrade')}</ButtonLink>
+          <UpgradePaywall source="agent-api" compact />
         </div>
       )}
     </div>

@@ -1,4 +1,7 @@
+import { planTranslations } from './plans';
+
 const en = {
+    plans: planTranslations.en,
     offerImport: {
       label: "Job offer link",
       import: "Import job offer",
@@ -46,6 +49,22 @@ const en = {
         working: 'Tailoring your resume...',
         baseTitle: 'Base resume',
         untitledSection: 'Resume',
+        cvStep: '1. Your resume',
+        offerStep: '2. The job',
+        optional: '(Optional)',
+        chooseCv: 'Step 1: Choose your current resume',
+        chooseHelp: 'Upload your PDF to extract your details or paste them as text.',
+        upload: 'Click or drag your resume PDF here',
+        uploadHelp: 'Standard PDF format up to 10 MB',
+        selectedPdf: 'PDF selected ({size} KB)',
+        change: 'Change',
+        next: 'Continue to step 2 (add a job)',
+        skip: 'Skip the job and create my resume',
+        hideText: 'Hide text editor',
+        showText: 'No PDF? Paste the text',
+        ready: 'Resume ready:',
+        pasted: 'Pasted text ({words} words)',
+        back: 'Back',
         errors: {
           cv: 'Paste your resume or upload a PDF.',
           job: 'Paste the job description.',
@@ -271,8 +290,8 @@ const en = {
         planFree: 'Free Plan',
         planPro: 'PRO',
         planActive: 'Active',
-        planFreeDesc: 'Basic AI optimization with the Harvard template. Upgrade to PRO to unlock integrations and unlimited resumes.',
-        planProDesc: "Full access to advanced AI optimization, integrations, jobs, and unlimited downloads.",
+        planFreeDesc: 'Check your AI allowance and CV limits. The editor, CRM, extension and PDF are included.',
+        planProDesc: "Your plan increases AI, matching and research allowances. Check current usage and limits here.",
         manageBilling: 'Manage billing',
         upgrade: 'Upgrade to PRO',
         memberSince: 'Member since {date}',
@@ -405,16 +424,6 @@ const en = {
         emptyCvError: 'The resume content is empty or no text could be extracted from the PDF.',
         genericAiError: 'Error processing the resume with Artificial Intelligence.',
         dbSaveError: 'Error saving your base resume to the database.',
-      },
-      overwrite: {
-        title: 'Your free plan keeps 1 resume',
-        body: 'Your free plan keeps 1 resume. Tailoring it to this job will replace the current one.',
-        bodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Tailoring it to this job will replace it.',
-        importBody: 'Your free plan keeps 1 resume. Importing another one will replace the current one.',
-        importBodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Importing another one will replace it.',
-        replace: 'Replace',
-        upgrade: 'Upgrade to PRO',
-        cancel: 'Cancel',
       },
       modes: {
         fidelity: {

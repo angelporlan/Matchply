@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Check, Clipboard, Info, KeyRound, X } from 'lucide-react';
-import { createApiKeyAction, deleteApiKeyAction, revealApiKeyAction, revokeApiKeyAction } from '@/app/dashboard/profile/api-key-actions';
+import { useState } from 'react';
+import { Check, Clipboard, Info, KeyRound } from 'lucide-react';
+import { createApiKeyAction, deleteApiKeyAction, revokeApiKeyAction } from '@/app/dashboard/profile/api-key-actions';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import {
@@ -15,6 +14,9 @@ import {
 import { AGENT_CV_SYSTEM_PROMPT } from '@/lib/agent-api/cv-system-prompt';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { timeAgo } from '@/lib/time-ago';
+import { PlanDialog } from './PlanDialog';
+import { usePlanUsage } from './PlanUsageProvider';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 
 const SCOPE_KEYS: Record<AgentScope, string> = {
   'profile:read': 'subscription.integrations.apiKeys.scopeProfileRead',
@@ -25,68 +27,10 @@ const SCOPE_KEYS: Record<AgentScope, string> = {
   'applications:write': 'subscription.integrations.apiKeys.scopeApplicationsWrite',
 };
 
-function DialogFrame({
-  title,
-  titleId,
-  maxWidth = 'max-w-md',
-  onClose,
-  children,
-}: {
-  title: string;
-  titleId: string;
-  maxWidth?: string;
-  onClose: () => void;
-  children: React.ReactNode;
+function DialogFrame({ title, onClose, children }: {
+  title: string; titleId: string; maxWidth?: string; onClose: () => void; children: React.ReactNode;
 }) {
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeRef.current();
-    };
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, []);
-
-  if (!mounted) return null;
-
-  return createPortal(
-    <div
-      className="modal-scrim"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) closeRef.current();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={`w-full ${maxWidth} bg-surface border border-subtle rounded-2xl p-6 shadow-dialog max-h-[90vh] overflow-y-auto`}
-      >
-        <div className="flex items-center justify-between pb-1">
-          <h3 id={titleId} className="text-base font-bold text-text font-display pr-4">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-muted hover:text-text p-1 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-            aria-label="Cerrar"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
+  return <PlanDialog open title={title} onClose={onClose}>{children}</PlanDialog>;
 }
 
 function isActive(token: ApiTokenView) {
@@ -97,7 +41,11 @@ function isActive(token: ApiTokenView) {
 
 export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: ApiTokenView[] }) {
   const { t, language } = useLanguage();
+  const { data: usage } = usePlanUsage();
   const [tokens, setTokens] = useState(initialTokens);
+  const activeCount = tokens.filter(isActive).length;
+  const keyLimit = usage?.limits.apiKeys;
+  const canCreate = keyLimit !== undefined && activeCount < keyLimit;
   const [createOpen, setCreateOpen] = useState(false);
   const [promptInfoOpen, setPromptInfoOpen] = useState(false);
   const [name, setName] = useState('');
@@ -116,6 +64,7 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
   const deleteTarget = tokens.find((token) => token.id === deleteId) ?? null;
 
   function errorText(code: string) {
+    if (code === 'too_many_keys' || code === 'API_KEY_LIMIT') return t('plans.keyLimit', { limit: keyLimit ?? 0 });
     const key = `subscription.integrations.apiKeys.errors.${code}`;
     const translated = t(key);
     return translated === key ? t('subscription.integrations.apiKeys.errors.generic') : translated;
@@ -146,14 +95,17 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
   }
 
   async function createKey() {
+    if (creating || !canCreate) return;
     setCreating(true);
     setError(null);
     const result = await createApiKeyAction({ name, scopes });
     setCreating(false);
     if ('error' in result) {
+      reportPlanRestriction(result, 'api-keys');
       setError(errorText(result.error));
       return;
     }
+    refreshPlanUsage();
     setTokens((current) => [result.apiToken, ...current]);
     setSecret(result.token);
     setCreateOpen(false);
@@ -201,15 +153,6 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
     }
   }
 
-  async function copyStoredToken(id: string) {
-    setError(null);
-    const result = await revealApiKeyAction(id);
-    if ('error' in result) {
-      setError(errorText(result.error));
-      return;
-    }
-    await copy(result.token, id);
-  }
 
   const curl = secret
     ? `curl -H "Authorization: Bearer ${secret}" ${typeof window === 'undefined' ? '' : window.location.origin}/api/v1/agent/profile`
@@ -241,7 +184,7 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
             {copied === 'system-prompt' ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
             {copied === 'system-prompt' ? t('subscription.integrations.apiKeys.copyPromptDone') : t('subscription.integrations.apiKeys.copyPrompt')}
           </Button>
-          <Button type="button" variant="primary" size="sm" onClick={() => { setError(null); setCreateOpen(true); }}>
+          <Button type="button" variant="primary" size="sm" disabled={!canCreate} onClick={() => { setError(null); setCreateOpen(true); }}>
             <KeyRound className="w-3.5 h-3.5 stroke-[1.75]" />
             {t('subscription.integrations.apiKeys.create')}
           </Button>
@@ -254,6 +197,8 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
         </p>
       )}
 
+      <p className="mt-4 text-sm text-text-muted">{t('plans.keys')}: {activeCount} / {keyLimit ?? '…'}{usage && ` · ${t('plans.requests')}: ${usage.limits.apiRequestsPerMinute}`}</p>
+      <p className="mt-1 text-xs text-text-muted">{t('plans.keySecretOnce')}</p>
       <ul className="mt-5 space-y-3">
         {tokens.length === 0 ? (
           <li className="p-4 rounded-lg border border-dashed border-control text-xs text-text-muted font-sans">
@@ -272,15 +217,7 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
                 </div>
                 <div className="flex items-center gap-1">
                   <code className="text-xs text-text-muted font-sans">{apiTokenHint(token.lastChars)}</code>
-                  <button
-                    type="button"
-                    onClick={() => void copyStoredToken(token.id)}
-                    className="p-1 rounded-md text-text-muted hover:text-text hover:bg-surface-muted"
-                    aria-label={t('subscription.integrations.apiKeys.copy')}
-                    title={t('subscription.integrations.apiKeys.copy')}
-                  >
-                    {copied === token.id ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-                  </button>
+
                 </div>
                 <p className="text-[11px] text-text-muted font-sans">
                   <span title={absolute(token.createdAt)}>{t('subscription.integrations.apiKeys.created', { when: relative(token.createdAt) })}</span>
@@ -351,7 +288,7 @@ export default function ApiKeysSettingsCard({ initialTokens }: { initialTokens: 
               <Button type="button" variant="secondary" size="sm" disabled={creating} onClick={() => setCreateOpen(false)}>
                 {t('subscription.integrations.apiKeys.cancel')}
               </Button>
-              <Button type="submit" variant="primary" size="sm" loading={creating} disabled={!name.trim() || scopes.length === 0}>
+              <Button type="submit" variant="primary" size="sm" loading={creating} disabled={!canCreate || !name.trim() || scopes.length === 0}>
                 {t('subscription.integrations.apiKeys.confirmCreate')}
               </Button>
             </div>

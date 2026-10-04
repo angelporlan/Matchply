@@ -1,10 +1,13 @@
 "use client";
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import type { ApplicationSummary } from '@/lib/job-offer-queries';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { readMatchBatchResult, type MatchBatchScore, type MatchBatchError } from '@/lib/ai-jobs/match-batch-state';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 
 export type CuratedItem = MatchBatchScore;
@@ -132,6 +135,7 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
       if (stopped || completed) return;
       completed = true;
       forget();
+      refreshPlanUsage();
       setPhase(status === 'completed' ? 'completed' : 'failed');
       if (status === 'completed') {
         const kept = Array.from(savedScores.values()).filter(score => score >= 65).length;
@@ -208,6 +212,9 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
         body: JSON.stringify({ targetThreshold: 65, offerIds: selectedOffers.map(offer => offer.id), requestId: request.requestId }),
       });
       if (!response.ok || !response.body) {
+        const problem = await response.json().catch(() => ({}));
+        if (shouldResetAiOperation(problem)) forget();
+        if (reportPlanRestriction(problem, 'match-batch')) { throw new Error(problem.error || 'Has alcanzado el límite de matching.'); }
         if ([400, 401, 403, 404].includes(response.status)) forget();
         throw new Error(response.status === 401 ? 'Inicia sesión para calcular el match.'
           : response.status === 429 ? 'Has alcanzado el límite temporal. Recupera el cálculo dentro de unos minutos.'

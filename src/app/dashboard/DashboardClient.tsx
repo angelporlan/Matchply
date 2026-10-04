@@ -1,5 +1,7 @@
 "use client";
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CvListItem, CvTargetSummary } from '@/lib/job-offer-queries';
@@ -8,14 +10,20 @@ import {
   Briefcase, RefreshCw, AlertCircle,
   Crown, Lock, Upload, Clipboard, Search
 } from 'lucide-react';
-import { createBaseCv, deleteCv, setPrincipalCv, createCvPlaceholder, renameCv, duplicateCv } from './actions';
+import { createBaseCv, deleteCv, setPrincipalCv, renameCv, duplicateCv } from './actions';
 import OfferUrlImport from '@/components/ai/OfferUrlImport';
 import type { ImportedOffer } from '@/lib/offer-import/types';
-import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import CvCard from '@/components/dashboard/CvCard';
+import { UsagePanel } from '@/components/subscription/UsagePanel';
+import { ActiveCvSelector } from '@/components/subscription/ActiveCvSelector';
+import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
+import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
+import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
@@ -121,12 +129,10 @@ export default function DashboardClient({
   const [isPending, startTransition] = useTransition();
   const [userCvs, setUserCvs] = useState<CvListItem[]>(initialCvs);
   const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
-  const [overwriteGuard, setOverwriteGuard] = useState<{
-    replacesBase: boolean;
-    intent: 'adapt' | 'import';
-    retry: () => void;
-  } | null>(null);
+
   const { t, language } = useLanguage();
+  const { data: planUsage } = usePlanUsage();
+  const [replacement, setReplacement] = useState<{ choices: Array<{ id: string; title: string }>; retry: (cvId: string) => void } | null>(null);
 
   const targetByCvId = useMemo(() => {
     const map = new Map<string, CvTargetSummary>();
@@ -236,12 +242,26 @@ export default function DashboardClient({
     }
   };
 
-  // Manejar importación inteligente con IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleImportSubmit = async (e?: React.FormEvent, confirmed = false) => {
+  // Importar reservando el destino y la cuota en el servidor.
+  const cvRequest = useRef<{ signature: string; id: string } | null>(null);
+  const requestForCv = (input: unknown) => {
+    const signature = JSON.stringify(input);
+    if (cvRequest.current?.signature !== signature) cvRequest.current = { signature, id: crypto.randomUUID() };
+    return cvRequest.current.id;
+  };
+  const handleImportSubmit = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
     if (importLoading) return;
 
     setImportError(null);
+    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-import'); return; }
+    const baseCount = userCvs.filter(item => item.isBase).length;
+    if (!replacementCvId && planUsage && ((planUsage.limits.maxBaseCvs !== null && baseCount >= planUsage.limits.maxBaseCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
+      const choices = userCvs.filter(item => item.isBase && planUsage.cv.activeIds.includes(item.id));
+      if (choices.length) setReplacement({ choices, retry: id => { void handleImportSubmit(undefined, true, id); } });
+      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'cv-import');
+      return;
+    }
     setImportLoading(true);
     setImportStep(t('dashboard.cvs.import.stepExtract'));
 
@@ -280,36 +300,25 @@ export default function DashboardClient({
         }
       }
 
-      setImportStep(language === 'es' ? 'Creando espacio de trabajo...' : 'Creating workspace...');
-
-      // 2. Crear el currículum placeholder en blanco
-      const placeholderRes = await createCvPlaceholder({
-        title: cvTitle,
-        isBase: true,
-        isPrincipal: true,
-        confirmOverwrite: confirmed,
-      });
-
-      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
-        setOverwriteGuard({
-          replacesBase: Boolean(placeholderRes.replacesBase),
-          intent: 'import',
-          retry: () => { void handleImportSubmit(undefined, true); },
-        });
-        setImportLoading(false);
-        return;
+      const form = new FormData();
+      form.append('text', cvText);
+      if (replacementCvId) form.append('targetCvId', replacementCvId);
+      if (confirmed) form.append('confirmOverwrite', 'true');
+      form.append('requestId', requestForCv({ action: 'import', cvText, replacementCvId, confirmed }));
+      setImportStep(t('dashboard.cvs.import.stepExtract'));
+      const response = await fetch(`/api/cv/import?lang=${language}`, { method: 'POST', body: form });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({}));
+        if (shouldResetAiOperation(problem)) cvRequest.current = null;
+        reportPlanRestriction(problem, 'cv-import');
+        throw new Error(problem.error || t('dashboard.errors.unexpected'));
       }
-
-      if (!placeholderRes.success || !placeholderRes.cvId) {
-        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
-      }
-
-      // 3. Guardar el texto original en sessionStorage para que el editor inicie el streaming
-      sessionStorage.setItem('matchply_import_raw_text', cvText);
-
-      // 4. Redirigir al editor con el parámetro de streaming activado
+      const result = await consumeCvAiStream(response);
+      cvRequest.current = null;
+      refreshPlanUsage();
+      trackUmamiConversion('cv_imported');
       router.refresh();
-      router.push(`/editor/${placeholderRes.cvId}?importing=true`);
+      router.push(`/editor/${result.cvId}`);
 
     } catch (err: any) {
       setImportError(err.message || t('dashboard.errors.unexpected'));
@@ -318,7 +327,7 @@ export default function DashboardClient({
   };
 
   // Buscar el CV principal actual
-  const principalCv = userCvs.find(cv => cv.isPrincipal);
+  const principalCv = userCvs.find(cv => cv.id === planUsage?.cv.baseCvId) || userCvs.find(cv => cv.isPrincipal && !planUsage?.cv.readOnlyIds.includes(cv.id));
 
   // Manejar creación rápida
   const handleCreateQuick = async (e: React.FormEvent) => {
@@ -332,7 +341,7 @@ export default function DashboardClient({
         setIsCreateOpen(false);
         router.push(`/editor/${res.cvId}`);
       } else {
-        alert(res.error || t('dashboard.errors.createFail'));
+        if (!reportPlanRestriction(res, 'cv-create')) alert(res.error || t('dashboard.errors.createFail'));
       }
     } catch (err) {
       console.error(err);
@@ -350,7 +359,7 @@ export default function DashboardClient({
       const res = await renameCv(cvId, title);
       if (res.error) {
         setUserCvs(prev => prev.map(cv => (cv.id === cvId && previousTitle ? { ...cv, title: previousTitle } : cv)));
-        alert(res.error);
+        if (!reportPlanRestriction(res, 'cv-rename')) alert(res.error);
       }
     });
   };
@@ -359,7 +368,7 @@ export default function DashboardClient({
     startTransition(async () => {
       const res = await duplicateCv(cvId);
       if (res.error) {
-        alert(res.error);
+        if (!reportPlanRestriction(res, 'cv-duplicate')) alert(res.error);
         return;
       }
       router.refresh();
@@ -473,8 +482,8 @@ export default function DashboardClient({
     };
   };
 
-  // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
+  // Adaptar y abrir el CV confirmado por el servidor.
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
     setAiError(null);
 
@@ -489,34 +498,19 @@ export default function DashboardClient({
     }
     const identity = importedOffer;
 
+    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
+    const adaptedCount = userCvs.filter(item => !item.isBase).length;
+    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
+      const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+      if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'cv-adapt');
+      return;
+    }
     setAiLoading(true);
     setAiStep(t('dashboard.steps.keywords'));
 
     try {
-      // 1. Crear el currículum placeholder para la optimización
-      const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
-        isBase: false,
-        isPrincipal: false,
-        confirmOverwrite: confirmed,
-      });
-
-      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
-        setOverwriteGuard({
-          replacesBase: Boolean(placeholderRes.replacesBase),
-          intent: 'adapt',
-          retry: () => { void handleAiOptimize(undefined, true); },
-        });
-        setAiLoading(false);
-        return;
-      }
-
-      if (!placeholderRes.success || !placeholderRes.cvId) {
-        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
-      }
-
-      trackUmamiConversion('offer_pasted');
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+      const params = {
         baseCvId: principalCv.id,
         jobTitle: identity.jobTitle,
         company: identity.company,
@@ -525,14 +519,28 @@ export default function DashboardClient({
         jobDescription: identity.jobDescription,
         promptId: aiFormData.promptId,
         addToApplications: aiFormData.addToApplications === 'true',
-        targetCvId: placeholderRes.cvId
-      }));
-
-      // 3. Redirigir al editor con el parámetro de streaming
+        ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
+        confirmOverwrite: confirmed,
+      };
+      trackUmamiConversion('offer_pasted');
+      const response = await fetch('/api/ai/optimize', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...params, requestId: requestForCv(params) }),
+      });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({}));
+        if (shouldResetAiOperation(problem)) cvRequest.current = null;
+        reportPlanRestriction(problem, 'cv-adapt');
+        throw new Error(problem.error || t('dashboard.errors.unexpected'));
+      }
+      const result = await consumeCvAiStream(response, content => { if (content.length > 50) setAiStep(t('dashboard.steps.keywords')); });
+      cvRequest.current = null;
+      refreshPlanUsage();
+      trackUmamiConversion('cv_optimized');
       setIsAiOpen(false);
       setAiLoading(false);
       router.refresh();
-      router.push(`/editor/${placeholderRes.cvId}?optimize=true`);
+      router.push(`/editor/${result.cvId}`);
 
     } catch (err: any) {
       setAiError(err.message || t('dashboard.errors.unexpected'));
@@ -542,17 +550,10 @@ export default function DashboardClient({
 
   return (
     <div>
-      <OverwriteGuardDialog
-        open={Boolean(overwriteGuard)}
-        replacesBase={Boolean(overwriteGuard?.replacesBase)}
-        intent={overwriteGuard?.intent || 'adapt'}
-        onReplace={() => {
-          const retry = overwriteGuard?.retry;
-          setOverwriteGuard(null);
-          retry?.();
-        }}
-        onClose={() => setOverwriteGuard(null)}
-      />
+      <div className="mb-5"><UsagePanel compact /></div>
+      <ActiveCvSelector cvs={userCvs} />
+      {replacement && <CvReplacementDialog choices={replacement.choices} onClose={() => setReplacement(null)} onReplace={cvId => { const retry = replacement.retry; setReplacement(null); retry(cvId); }} />}
+
       {/* Cabecera Tus Currículums */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
@@ -982,15 +983,8 @@ export default function DashboardClient({
                   </div>
                 )}
 
-                {!isPremium && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-xs rounded-[8px] flex items-start gap-3 font-sans">
-                    <Crown className="w-5 h-5 shrink-0 mt-0.5 stroke-[1.75]" />
-                    <div>
-                      <span className="font-bold block mb-0.5 font-display">{t('dashboard.modal.ai.freeWarning')}</span>
-                      {t('dashboard.modal.ai.freeDesc')}
-                    </div>
-                  </div>
-                )}
+                <UsagePanel compact />
+                {!isPremium && <UpgradePaywall source="adapt-dialog" compact />}
 
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={aiLoading} />

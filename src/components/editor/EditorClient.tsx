@@ -1,17 +1,18 @@
 "use client";
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
-import { PdfDownloadLink, type PdfZoom } from './PdfViewer';
+import PdfViewer, { PdfDownloadLink, type PdfZoom } from './PdfViewer';
 import ResumeSheet from './ResumeSheet';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
+import { updateCvStyling, saveCvContent } from '@/app/dashboard/actions';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
-import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
 import {
@@ -34,6 +35,12 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parsePdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+import { PlanUsageProvider, usePlanUsage } from '@/components/subscription/PlanUsageProvider';
+import { PlanFeedback, UpgradePaywall } from '@/components/subscription/UpgradePaywall';
+import { UsagePanel } from '@/components/subscription/UsagePanel';
+import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 
 interface EditorClientProps {
   cv: CV;
@@ -59,9 +66,16 @@ interface EditorClientProps {
   linkedOffer?: LinkedOffer | null;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null }: EditorClientProps) {
+export default function EditorClient(props: EditorClientProps) {
+  return <PlanUsageProvider><EditorContent {...props} /><PlanFeedback /></PlanUsageProvider>;
+}
+
+function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { data: planUsage } = usePlanUsage();
+  const readOnly = !planUsage || planUsage.cv.readOnlyIds.includes(cv.id);
+  const [replacement, setReplacement] = useState<{ choices: Array<{ id: string; title: string }>; retry: (cvId: string) => void } | null>(null);
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
@@ -88,7 +102,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [cvTitle, setCvTitle] = useState(cv.title);
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
   const [contentVersion, setContentVersion] = useState(0);
-  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
+
   const [sessionBase, setSessionBase] = useState<string | null>(null);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
   const diffBase = baseCvContent || sessionBase;
@@ -117,6 +131,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [aiStep, setAiStep] = useState<string>('');
   const [aiStreamContent, setAiStreamContent] = useState('');
   const [cvContent, setCvContent] = useState(cv.content);
+  const pendingCvRequest = useRef<{ signature: string; id: string } | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
@@ -172,7 +187,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       window.history.replaceState(null, '', window.location.pathname);
       const paramsStr = sessionStorage.getItem('matchply_optimize_params');
       if (paramsStr) {
-        sessionStorage.removeItem('matchply_optimize_params');
+
         try {
           const params = JSON.parse(paramsStr);
           if (typeof params.activationBase === 'string' && params.activationBase.trim()) {
@@ -187,13 +202,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       window.history.replaceState(null, '', window.location.pathname);
       const rawText = sessionStorage.getItem('matchply_import_raw_text');
       if (rawText) {
-        sessionStorage.removeItem('matchply_import_raw_text');
+
         runImportStream(rawText);
       }
     }
   }, []);
 
   const runOptimizeStream = async (params: any) => {
+    params = { ...params, requestId: typeof params.requestId === 'string' ? params.requestId : crypto.randomUUID() };
+    sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
     const proceed = await inspectOrExecutePrompt({
       action: 'optimize_cv',
       title: 'Optimización de CV con IA',
@@ -224,43 +241,35 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       if (!response.ok) {
         const text = await response.text();
+        let problem: unknown = text;
+        try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
+        if (shouldResetAiOperation(problem)) {
+          pendingCvRequest.current = null;
+          delete params.requestId;
+          sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+        }
+        reportPlanRestriction(problem, 'editor-ai');
         throw new Error(text || 'Error en la optimización.');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
-
-      const decoder = new TextDecoder();
-      let done = false;
-      let accumulatedText = '';
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        const chunk = decoder.decode(value, { stream: !done });
-
-        if (chunk.includes('[METADATA:')) {
-          const parts = chunk.split('[METADATA:');
-          accumulatedText += parts[0];
-        } else if (chunk.includes('[ERROR:')) {
-          const parts = chunk.split('[ERROR:');
-          accumulatedText += parts[0];
-          const errorMsg = parts[1].replace(']', '').trim();
-          throw new Error(errorMsg);
-        } else {
-          accumulatedText += chunk;
+      const result = await consumeCvAiStream(response, content => {
+        // A new version is rendered in its own editor after the server publishes it.
+        if (!params.targetCvId || params.targetCvId !== cv.id) {
+          if (content.length > 50) setStreamingStep(t('editor.aiModal.steps.generate'));
+          return;
         }
-
-        setCvContent(accumulatedText);
-        setReviewContent(accumulatedText);
-        if (accumulatedText.length > 50) {
-          setStreamingStep(t('editor.aiModal.steps.generate'));
-        }
-      }
-
+        setCvContent(content);
+        setReviewContent(content);
+      });
+      if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
+      else { setCvContent(result.content); setReviewContent(result.content); }
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
+      sessionStorage.removeItem('matchply_optimize_params');
+      pendingCvRequest.current = null;
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
+      refreshPlanUsage();
       router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
@@ -269,6 +278,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
+      setCvContent(cv.content); setReviewContent(cv.content);
       setSaveStatus('error');
       setIsStreaming(false);
     }
@@ -296,6 +306,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const formData = new FormData();
       formData.append('text', rawText);
       formData.append('targetCvId', cv.id);
+      const importRequest = JSON.parse(sessionStorage.getItem('matchply_import_request') || '{}');
+      if (!importRequest.requestId) { importRequest.requestId = crypto.randomUUID(); sessionStorage.setItem('matchply_import_request', JSON.stringify(importRequest)); }
+      formData.append('requestId', importRequest.requestId);
+      if (importRequest.confirmOverwrite) formData.append('confirmOverwrite', 'true');
 
       const response = await fetch(`/api/cv/import?lang=${language}`, {
         method: 'POST',
@@ -304,41 +318,27 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       if (!response.ok) {
         const text = await response.text();
+        let problem: unknown = text;
+        try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
+        if (shouldResetAiOperation(problem)) {
+          delete importRequest.requestId;
+          sessionStorage.setItem('matchply_import_request', JSON.stringify(importRequest));
+        }
+        reportPlanRestriction(problem, 'editor-ai');
         throw new Error(text || 'Error al importar.');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
-
-      const decoder = new TextDecoder();
-      let done = false;
-      let accumulatedText = '';
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        const chunk = decoder.decode(value, { stream: !done });
-
-        if (chunk.includes('[METADATA:')) {
-          const parts = chunk.split('[METADATA:');
-          accumulatedText += parts[0];
-        } else if (chunk.includes('[ERROR:')) {
-          const parts = chunk.split('[ERROR:');
-          accumulatedText += parts[0];
-          const errorMsg = parts[1].replace(']', '').trim();
-          throw new Error(errorMsg);
-        } else {
-          accumulatedText += chunk;
-        }
-
-        setCvContent(accumulatedText);
-        setReviewContent(accumulatedText);
+      const result = await consumeCvAiStream(response, content => {
+        setCvContent(content); setReviewContent(content);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
-      }
-
+      });
+      setCvContent(result.content); setReviewContent(result.content);
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
       trackUmamiConversion('cv_imported');
+      sessionStorage.removeItem('matchply_import_raw_text');
+      sessionStorage.removeItem('matchply_import_request');
+      refreshPlanUsage();
       router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
@@ -347,6 +347,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al importar el currículum.');
+      setCvContent(cv.content); setReviewContent(cv.content);
       setSaveStatus('error');
       setIsStreaming(false);
     }
@@ -416,6 +417,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const applyStyle = (partial: Partial<{ accentColor: string; fontFamily: string; pageMargin: number; scale: number }>) => {
+    if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-style'); return; }
     const next = { ...styleRef.current, ...partial };
     styleRef.current = next;
     if (partial.fontFamily !== undefined) setFontFamily(partial.fontFamily);
@@ -450,8 +452,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     setFocusAdapt(false);
   }, [focusAdapt, mobilePane, surface]);
 
-  // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
+  // La API reserva y crea el destino antes de generar la nueva versión.
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
     setAiError(null);
     if (!aiFormData.jobDescription.trim()) {
@@ -464,31 +466,21 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       jobDescription: aiFormData.jobDescription,
     });
 
+    if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
+    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
+    const allCvs = planUsage?.cv.cvs || cvChoices;
+    const adaptedCount = allCvs.filter(item => !item.isBase).length;
+    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
+      const choices = allCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+      if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'editor-adapt');
+      return;
+    }
     setAiLoading(true);
     setAiStep(t('editor.aiModal.steps.keywords'));
 
     try {
-      // 1. Crear el currículum placeholder para la optimización
-      const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
-        isBase: false,
-        isPrincipal: false,
-        confirmOverwrite: confirmed,
-      });
-
-      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
-        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
-        setAiLoading(false);
-        return;
-      }
-
-      if (!placeholderRes.success || !placeholderRes.cvId) {
-        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
-      }
-
-      // 2. Guardar los parámetros de optimización en sessionStorage
-      trackUmamiConversion('offer_pasted');
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+      const input = {
         baseCvId: cv.id,
         jobTitle: identity.jobTitle,
         company: identity.company,
@@ -497,14 +489,17 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         jobDescription: aiFormData.jobDescription,
         promptId: aiFormData.promptId,
         addToApplications: aiFormData.addToApplications === 'true',
-        targetCvId: placeholderRes.cvId
-      }));
-
-      // 3. Redirigir al editor con el parámetro de streaming
+        ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
+        confirmOverwrite: confirmed,
+      };
+      const signature = JSON.stringify(input);
+      if (pendingCvRequest.current?.signature !== signature) pendingCvRequest.current = { signature, id: crypto.randomUUID() };
+      const params = { ...input, requestId: pendingCvRequest.current.id };
+      trackUmamiConversion('offer_pasted');
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
       setIsAiOpen(false);
+      await runOptimizeStream(params);
       setAiLoading(false);
-      router.refresh();
-      router.push(`/editor/${placeholderRes.cvId}?optimize=true`);
 
     } catch (err: any) {
       setAiError(err.message || t('dashboard.errors.unexpected'));
@@ -586,13 +581,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </LinkNext>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <EditorCvMenu
+                {!readOnly ? <EditorCvMenu
                   cvId={cv.id}
                   title={cvTitle}
                   choices={cvChoices.length > 0 ? cvChoices : [{ id: cv.id, title: cvTitle, isBase: cv.isBase, isPrincipal: cv.isPrincipal }]}
                   onTitleChange={setCvTitle}
                   onOpenChange={setMenuOpen}
-                />
+                /> : <span className="font-semibold text-sm">{cvTitle}</span>}
                 <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-surface-muted text-text-muted border-subtle' : 'bg-warning-surface text-warning-text border-warning-text/20'}`}>
                   {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
                 </span>
@@ -612,7 +607,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </div>
       </header>
 
-      <EditorFormatBar
+      {!readOnly && <EditorFormatBar
         fontFamily={fontFamily}
         pageMargin={pageMargin}
         scale={scale}
@@ -641,7 +636,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               ? t('editor.footer.error')
               : (isGuest ? t('editor.footer.savedGuest') : t('editor.footer.saved'))
         }
-      />
+      />}
+
+      {!isStreaming && planUsage?.firstValueAt && planUsage.plan !== 'pro' && <div className="m-4"><UpgradePaywall source="first-value" dismissible accountId={cv.userId} /></div>}
+      {readOnly && <p role="status" className="m-4 rounded-[8px] bg-warning-surface p-3 text-sm text-warning-text">{t('plans.readOnlyBody')} <LinkNext href="/dashboard" className="underline">{t('plans.chooseActive')}</LinkNext></p>}
 
       {isStreaming && (
         <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-ai text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
@@ -674,7 +672,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </div>
       )}
 
-      {!isLg && (
+      {!readOnly && !isLg && (
         <div role="tablist" aria-label={cvTitle} className="flex shrink-0 border-b border-subtle bg-surface">
           {(['document', 'review'] as const).map((pane) => (
             <button
@@ -692,7 +690,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       )}
 
       <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
-        {(showDocument || showSource) && (
+        {readOnly && <PdfViewer cvId={cv.id} version={String(cv.updatedAt)} zoom={zoom} variant="sheet" />}
+        {!readOnly && (showDocument || showSource) && (
           <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 ${showSource ? 'p-4 sm:p-6' : ''}`}>
             {showDocument && (
               <ResumeSheet
@@ -728,7 +727,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
           </div>
         )}
 
-        {showReview && (
+        {!readOnly && showReview && (
           <div className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
             <EditorReviewRail
               cvId={cv.id}
@@ -760,16 +759,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         onNo={() => closeSentPrompt('no')}
         onDismiss={() => closeSentPrompt('later')}
       />
-      <OverwriteGuardDialog
-        open={Boolean(overwriteGuard)}
-        replacesBase={Boolean(overwriteGuard?.replacesBase)}
-        intent="adapt"
-        onReplace={() => {
-          setOverwriteGuard(null);
-          void handleAiOptimize(undefined, true);
-        }}
-        onClose={() => setOverwriteGuard(null)}
-      />
+      {replacement && <CvReplacementDialog choices={replacement.choices} onClose={() => setReplacement(null)} onReplace={cvId => { const retry = replacement.retry; setReplacement(null); retry(cvId); }} />}
+
       {isAiOpen && (
         <ModalScrim>
           <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
@@ -819,15 +810,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   </div>
                 )}
 
-                {!isPremium && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-xs rounded-[8px] flex items-start gap-3 font-sans">
-                    <Crown className="w-5 h-5 shrink-0 mt-0.5 stroke-[1.75]" />
-                    <div>
-                      <span className="font-bold block mb-0.5 font-display">{t('editor.aiModal.freeWarning')}</span>
-                      {t('editor.aiModal.freeDesc')}
-                    </div>
-                  </div>
-                )}
+                <UsagePanel compact />
+                {!isPremium && <UpgradePaywall source="editor-adapt-dialog" compact />}
 
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

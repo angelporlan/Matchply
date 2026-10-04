@@ -1,5 +1,8 @@
 'use client';
+
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 import { useEffect, useRef, useState } from 'react';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import type { NetworkingAction } from '@/lib/people/types';
 
 export function useNetworkingJob(personId: string, initialJobId: string | null, onComplete: () => void) {
@@ -15,8 +18,8 @@ export function useNetworkingJob(personId: string, initialJobId: string | null, 
         if (res.status === 404 || res.status === 403 || res.status === 401) { setJobId(null); setError('PEOPLE_ACTION_FAILED'); return; }
         if (res.ok) {
           const job = await res.json();
-          if (job.status === 'completed') { setJobId(null); pending.current = null; callback.current(); return; }
-          if (job.status === 'failed') { setJobId(null); pending.current = null; setError(job.lastError || 'NETWORKING_UNAVAILABLE'); callback.current(); return; }
+          if (job.status === 'completed') { setJobId(null); pending.current = null; refreshPlanUsage(); callback.current(); return; }
+          if (job.status === 'failed') { setJobId(null); pending.current = null; setError(job.lastError || 'NETWORKING_UNAVAILABLE'); refreshPlanUsage(); callback.current(); return; }
         }
       } catch { if (abort.signal.aborted) return; }
       if (!abort.signal.aborted) timer = setTimeout(poll, 2000);
@@ -32,7 +35,7 @@ export function useNetworkingJob(personId: string, initialJobId: string | null, 
     try {
       const res = await fetch('/api/ai/networking', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, action, requestId: pending.current.requestId, ...extra }) });
       const value = await res.json();
-      if (!res.ok) { if (res.status === 429) throw new Error('TOO_MANY_REQUESTS'); throw new Error(value.error || 'NETWORKING_UNAVAILABLE'); }
+      if (!res.ok) { if (shouldResetAiOperation(value)) pending.current = null; if (reportPlanRestriction(value, 'people-ai')) throw new Error('QUOTA_EXCEEDED'); if (res.status === 429) throw new Error('TOO_MANY_REQUESTS'); throw new Error(value.error || 'NETWORKING_UNAVAILABLE'); }
       setJobId(value.jobId); pending.current = null;
     } catch (e) { setError(e instanceof Error ? e.message : 'NETWORKING_UNAVAILABLE'); }
     finally { setPosting(false); }

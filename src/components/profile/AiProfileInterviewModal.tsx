@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
+
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   X,
@@ -12,6 +15,7 @@ import {
 import DictationTextarea from './DictationTextarea';
 import type { InterviewQuestion, ProfileClassification } from '@/lib/profile-classification';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 
 interface AiProfileInterviewModalProps {
@@ -40,6 +44,12 @@ export default function AiProfileInterviewModal({
   const [error, setError] = useState<string | null>(null);
   const [masterDraft, setMasterDraft] = useState('');
   const [pendingProfile, setPendingProfile] = useState<any>(null);
+  const pendingRequests = useRef(new Map<string, { signature: string; id: string }>());
+  const requestFor = (action: string, input: unknown) => {
+    const signature = JSON.stringify(input), previous = pendingRequests.current.get(action);
+    if (previous?.signature === signature) return previous.id;
+    const id = crypto.randomUUID(); pendingRequests.current.set(action, { signature, id }); return id;
+  };
   const { inspectOrExecutePrompt } = useAiPromptDebug();
 
   useEffect(() => {
@@ -76,6 +86,7 @@ export default function AiProfileInterviewModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'start_interview',
+          requestId: requestFor('start_interview', { dumpText, optionalTarget, currentProfile }),
           dumpText,
           optionalTarget,
           currentProfile,
@@ -83,9 +94,12 @@ export default function AiProfileInterviewModal({
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.questions)) {
+        refreshPlanUsage(); pendingRequests.current.delete('start_interview');
         setQuestions(data.questions);
         if (data.classification) setClassification(data.classification);
       } else {
+        if (shouldResetAiOperation(data)) pendingRequests.current.delete('start_interview');
+        reportPlanRestriction(data, 'profile-interview');
         throw new Error(data.error || 'Error al generar preguntas.');
       }
     } catch (err: any) {
@@ -126,6 +140,7 @@ export default function AiProfileInterviewModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'synthesize_profile',
+          requestId: requestFor('synthesize_profile', { currentProfile, qaList, dumpText, optionalTarget, classification }),
           currentProfile,
           qaList,
           dumpText,
@@ -136,10 +151,13 @@ export default function AiProfileInterviewModal({
 
       const data = await res.json();
       if (data.success && data.profile) {
+        refreshPlanUsage(); pendingRequests.current.delete('synthesize_profile');
         setPendingProfile({ ...data.profile, classification });
         setMasterDraft(data.profile.masterDocument || data.profile.bio || '');
         setStep('review');
       } else {
+        if (shouldResetAiOperation(data)) pendingRequests.current.delete('synthesize_profile');
+        reportPlanRestriction(data, 'profile-interview');
         throw new Error(data.error || 'Error al sintetizar el perfil.');
       }
     } catch (err: any) {
@@ -167,6 +185,7 @@ export default function AiProfileInterviewModal({
   return (
     <ModalScrim>
       <div className="bg-white dark:bg-surface border border-ai/30 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="px-5 pt-4"><InlineAllowance /></div>
         <div className="p-5 border-b border-subtle flex items-center justify-between bg-gradient-to-r from-ai/10 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-ai to-ai-action text-white flex items-center justify-center shadow-sm">

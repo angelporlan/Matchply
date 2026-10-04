@@ -1,4 +1,5 @@
 'use client';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +18,7 @@ export default function Conversations({ personId, name, threads, threadId, setTh
   async function openImport(importId: string) { setBusy(true); setError(''); try { const r = await actions.readImportAction(personId, importId); if (r.error) setError(r.error); else if (r.data) { setReview(r.data); setProposed(r.data.proposed.map(m => ({ ...m, selected: !m.overlap }))); } } catch { setError('PEOPLE_ACTION_FAILED'); } finally { setBusy(false); } }
   const author = (value: string) => value === 'self' ? tx('Tú', 'You') : value === 'contact' ? name : tx('Autor por revisar', 'Author to review');
   const edit = (i: number, patch: Partial<ProposedMessage & { selected: boolean }>) => setProposed(list => list.map((m, n) => n === i ? { ...m, ...patch } : m));
-  return <div className="space-y-6">
+  return <div className="space-y-6"><InlineAllowance />
     <section className={`${panel} space-y-4`}><h2 className="font-display text-lg font-semibold text-text">{tx('Hilos de conversación', 'Conversation threads')}</h2><Field label={tx('Hilo seleccionado', 'Selected thread')}><select className={control} value={threadId} onChange={e => setThread(e.target.value)}><option value="">{tx('Selecciona un hilo', 'Select a thread')}</option>{threads.map(t => <option key={t.id} value={t.id}>{t.title} · {t.channel}</option>)}</select></Field>
     <form className="flex flex-wrap gap-3 items-end" onSubmit={e => { e.preventDefault(); void perform(() => actions.createThreadAction(personId, title, channel), t => { setThread(t.id); setTitle(''); }); }}><div className="flex-1 min-w-[150px]"><Field label={tx('Nuevo hilo', 'New thread')}><input className={control} required maxLength={180} value={title} onChange={e => setTitle(e.target.value)} /></Field></div><Field label={tx('Canal', 'Channel')}><select className={control} value={channel} onChange={e => setChannel(e.target.value)}>{CONVERSATION_CHANNELS.map(c => <option key={c} value={c}>{c === 'other' ? tx('Otro', 'Other') : c === 'linkedin' ? 'LinkedIn' : 'Email'}</option>)}</select></Field><Button type="submit" loading={busy}>{tx('Crear hilo', 'Create thread')}</Button></form></section>
     {threadId && <>

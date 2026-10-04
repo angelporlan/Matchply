@@ -1,7 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
+import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, ExternalLink, Loader2, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
+
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
+import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 
 type ResearchData = {
   id: string;
@@ -32,6 +38,8 @@ function dateLabel(value: string | Date | null) {
 }
 
 export default function ResearchPanel({ offerId, initialResearch }: { offerId: string; initialResearch: ResearchData | null }) {
+  const { data: planUsage } = usePlanUsage();
+  const requestId = useRef<string | null>(null);
   const [research, setResearch] = useState<ResearchData | null>(initialResearch);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +49,7 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
     if (!response.ok) return;
     const body = await response.json();
     setResearch(body.research || null);
+    if (body.research && !['queued', 'running'].includes(body.research.status)) refreshPlanUsage();
   }
 
   useEffect(() => {
@@ -50,16 +59,17 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
   }, [research?.status, offerId]);
 
   async function retry() {
+    if (loading) return;
     setLoading(true);
     setError(null);
     const response = await fetch(`/api/research/${offerId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ retry: true }),
+      body: JSON.stringify({ retry: true, requestId: requestId.current ||= crypto.randomUUID() }),
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) setError(body.error || 'No se pudo reintentar la investigación');
-    else await load();
+    if (!response.ok) { if (shouldResetAiOperation(body)) requestId.current = null; reportPlanRestriction(body, 'research'); setError(body.error || 'No se pudo reintentar la investigación'); }
+    else { requestId.current = null; refreshPlanUsage(); await load(); }
     setLoading(false);
   }
 
@@ -79,7 +89,7 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
 
       {error && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs">{error}</div>}
 
-      {!research ? (
+      {planUsage && planUsage.limits.researchMonthly === 0 ? <UpgradePaywall source="research" /> : !research ? (
         <div className="rounded-xl border border-dashed border-ai/30 bg-ai/5 p-8 text-center space-y-3">
           <Sparkles className="w-8 h-8 mx-auto text-ai" />
           <p className="text-sm font-semibold text-text">Aún no hay una investigación para esta oferta.</p>

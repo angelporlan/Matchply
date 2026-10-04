@@ -1,5 +1,8 @@
 'use client';
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link as LinkIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -59,6 +62,8 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
       });
       const created = await response.json();
       if (!response.ok) {
+        if (shouldResetAiOperation(created)) request.current = null;
+        if (reportPlanRestriction(created, 'offer-import')) throw new Error('planLimit');
         if (response.status === 400) throw new Error('invalid');
         if (response.status === 429) throw new Error('rateLimited');
         throw new Error('failed');
@@ -73,7 +78,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
         if (job.status === 'completed') {
           const offer = job.result as ImportedOffer;
           if (!usableOfferDescription(offer?.jobDescription)) throw new Error('failed');
-          onChange(offer); setStage(null); return;
+          refreshPlanUsage(); onChange(offer); setStage(null); return;
         }
         const nextStage = job.result?.stage;
         if (['reading', 'searching', 'structuring'].includes(nextStage)) setStage(nextStage);
@@ -83,7 +88,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     } catch (failure) {
       if (signal.aborted) return;
       const code = failure instanceof Error && ['invalid', 'rateLimited'].includes(failure.message) ? failure.message : 'failed';
-      setError(t(`offerImport.${code}`)); setManualAvailable(code !== 'invalid'); setStage(null);
+      setError(failure instanceof Error && failure.message === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setManualAvailable(code !== 'invalid'); setStage(null);
     }
   };
 
