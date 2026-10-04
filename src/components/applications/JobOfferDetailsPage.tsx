@@ -18,7 +18,6 @@ import {
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
-import { UsagePanel } from '@/components/subscription/UsagePanel';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { sentPromptKey, shouldOpenSentPrompt } from '@/lib/application-sent';
@@ -438,7 +437,6 @@ export default function JobOfferDetailsPage({
           setSentPromptOpen(false);
         }}
       />
-      <div className="mb-5"><UsagePanel compact /></div>
       {replacement && <CvReplacementDialog choices={replacement} onClose={() => setReplacement(null)} onReplace={cvId => { setReplacement(null); void handleOptimizeCvForOffer(true, cvId); }} />}
 
       {/* Botón Volver y cabecera móvil */}

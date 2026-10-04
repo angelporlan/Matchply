@@ -550,7 +550,6 @@ export default function DashboardClient({
 
   return (
     <div>
-      <div className="mb-5"><UsagePanel compact /></div>
       <ActiveCvSelector cvs={userCvs} />
       {replacement && <CvReplacementDialog choices={replacement.choices} onClose={() => setReplacement(null)} onReplace={cvId => { const retry = replacement.retry; setReplacement(null); retry(cvId); }} />}
 

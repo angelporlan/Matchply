@@ -11,6 +11,7 @@ import Logo from '@/components/ui/Logo';
 import UserMenu from '@/components/account/UserMenu';
 import NavigationLink from '@/components/navigation/NavigationLink';
 import { useNavigationPending } from '@/components/navigation/NavigationPendingProvider';
+import SidebarLimits from '@/components/subscription/SidebarLimits';
 
 interface SidebarProps {
   user: {
@@ -120,7 +121,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
       <aside
         className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-canvas border-r border-subtle z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } flex flex-col justify-between p-6 select-none`}
+        } flex flex-col justify-between p-6 select-none overflow-y-auto scrollbar-custom`}
       >
         <div className="space-y-8">
           {/* Logo & ThemeToggle at original position */}
@@ -252,8 +253,11 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           </nav>
         </div>
 
-        {/* User profile & language settings */}
-        <div className="pt-4 border-t border-subtle space-y-4">
+        {/* User profile, limits & language settings */}
+        <div className="pt-4 border-t border-subtle space-y-3 mt-auto shrink-0">
+          {/* Sleek Limits Accordion */}
+          <SidebarLimits />
+
           {/* Sleek Language Panel */}
           <div className="flex items-center justify-between bg-surface-muted/30 border border-subtle px-3 py-2 rounded-[10px] shadow-xs">
             <span className="text-[11px] font-bold text-text-muted font-display">
