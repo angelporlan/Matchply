@@ -1,9 +1,12 @@
-import { and, desc, eq, gte, ilike, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql, type SQLWrapper } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, users } from '@/db/schema';
 import { getEffectivePlanSource } from '@/lib/subscription';
 import { parseAdminUserListQuery } from '@/lib/admin/user-list-query';
 import { cvMetaColumns, applicationSummaryColumns } from '@/lib/job-offer-queries';
+import { ADMIN_USER_COLUMNS } from './table-filters';
+import { adminColumnFilterSql } from './table-filter-sql';
+import { escapeIlikePattern } from '@/lib/application-filter-bounds';
 
 const listColumns = {
   id: users.id,
@@ -19,59 +22,37 @@ const listColumns = {
   stripeCustomerId: users.stripeCustomerId,
 };
 
-function planPredicate(plan: string, now: Date): SQL | undefined {
-  const grantActive = sql`${users.proGrantedUntil} is not null and ${users.proGrantedUntil} > ${now}`;
-  const stripePaid = sql`${users.subscriptionStatus} in ('active', 'trialing')`;
-  if (plan === 'pro') return sql`(${stripePaid} or ${grantActive})`;
-  if (plan === 'stripe') return sql`${users.subscriptionStatus} = 'active'`;
-  if (plan === 'trialing') return sql`${users.subscriptionStatus} = 'trialing'`;
-  if (plan === 'granted') return sql`${grantActive} and not ${stripePaid}`;
-  if (plan === 'free') return sql`not ${stripePaid} and not ${grantActive}`;
-  return undefined;
-}
-
 export async function listAdminUsers(searchParams: Record<string, string | string[] | undefined>, now = new Date()) {
   const query = parseAdminUserListQuery(searchParams, now);
-  const filters: SQL[] = [eq(users.isGuest, false)];
+  const columns: Record<string, SQLWrapper> = {
+    name: users.name, email: users.email, createdAt: users.createdAt,
+    lastLoginAt: users.lastLoginAt, lastSeenAt: users.lastSeenAt,
+    role: users.role, status: users.accountStatus,
+    plan: sql`case when ${users.subscriptionStatus} = 'trialing' then 'trialing'
+      when ${users.subscriptionStatus} = 'active' then 'stripe'
+      when ${users.proGrantedUntil} > ${now} then 'granted' else 'free' end`,
+  };
+  const filters = [eq(users.isGuest, false), ...query.columnFilters.map(filter => adminColumnFilterSql(filter, ADMIN_USER_COLUMNS, columns, now))];
 
   if (query.q) {
-    const like = `%${query.q}%`;
+    const like = `%${escapeIlikePattern(query.q)}%`;
     filters.push(or(
       ilike(users.name, like),
       ilike(users.email, like),
       sql`cast(${users.id} as text) ilike ${like}`,
     )!);
   }
-  if (query.role !== 'all') filters.push(eq(users.role, query.role));
-  if (query.status !== 'all') filters.push(eq(users.accountStatus, query.status));
-  if (query.createdRange) {
-    filters.push(gte(users.createdAt, query.createdRange.start));
-    filters.push(sql`${users.createdAt} < ${query.createdRange.end}`);
-  }
-  const planFilter = planPredicate(query.plan, now);
-  if (planFilter) filters.push(planFilter);
-  if (query.activity === 'none') {
-    filters.push(isNull(users.lastSeenAt));
-  } else if (query.activityRange) {
-    filters.push(gte(users.lastSeenAt, query.activityRange.start));
-    filters.push(sql`${users.lastSeenAt} < ${query.activityRange.end}`);
-  }
-
   const where = and(...filters);
-  const sortColumn = {
-    createdAt: users.createdAt,
-    lastSeenAt: users.lastSeenAt,
-    lastLoginAt: users.lastLoginAt,
-    email: users.email,
-    name: users.name,
-  }[query.sort];
+  const sortColumn = columns[query.sort];
   const order = query.dir === 'asc'
     ? [sql`${sortColumn} ASC NULLS LAST`, users.id]
     : [sql`${sortColumn} DESC NULLS LAST`, desc(users.id)];
 
-  const offset = (query.page - 1) * query.pageSize;
   const [countRow] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(users).where(where);
   const total = Number(countRow?.count || 0);
+  const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
+  query.page = Math.min(query.page, pageCount);
+  const offset = (query.page - 1) * query.pageSize;
   const rows = await db
     .select(listColumns)
     .from(users)
@@ -83,10 +64,10 @@ export async function listAdminUsers(searchParams: Record<string, string | strin
   return {
     query,
     total,
-    pageCount: Math.max(1, Math.ceil(total / query.pageSize)),
+    pageCount,
     rows: rows.map((row) => ({
       ...row,
-      planSource: getEffectivePlanSource(row),
+      planSource: getEffectivePlanSource({ ...row, now }),
     })),
   };
 }

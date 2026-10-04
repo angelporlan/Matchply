@@ -1,8 +1,12 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/db';
 import { auditLogs, users } from '@/db/schema';
 import { resolveMadridCreatedRange } from '@/lib/madrid-time';
+import type { CrmFilter } from '@/lib/crm-views';
+import { ADMIN_AUDIT_COLUMNS, adminPageNumber, legacyDateFilter, mergeAdminFilters, parseAdminColumnFilters } from './table-filters';
+import { adminColumnFilterSql } from './table-filter-sql';
+import { escapeIlikePattern } from '@/lib/application-filter-bounds';
 
 const auditActor = alias(users, 'audit_actor');
 const auditAffected = alias(users, 'audit_affected');
@@ -18,6 +22,9 @@ export type AuditListQuery = {
   to: string;
   page: number;
   pageSize: number;
+  sort: string;
+  dir: 'asc' | 'desc';
+  columnFilters: CrmFilter[];
 };
 
 function read(searchParams: Record<string, string | string[] | undefined>, key: string) {
@@ -26,6 +33,13 @@ function read(searchParams: Record<string, string | string[] | undefined>, key: 
 }
 
 export function parseAuditQuery(searchParams: Record<string, string | string[] | undefined>, now = new Date()): AuditListQuery & { range: ReturnType<typeof resolveMadridCreatedRange> } {
+  const range = resolveMadridCreatedRange({ preset: read(searchParams, 'created'), from: read(searchParams, 'from'), to: read(searchParams, 'to'), now });
+  const legacy: CrmFilter[] = legacyDateFilter('createdAt', range);
+  for (const [param, column] of [['action', 'action'], ['actorId', 'actorUserId'], ['affectedId', 'affectedUserId']]) {
+    if (read(searchParams, param).trim()) legacy.push({ column, operator: param === 'action' ? 'equals' : 'contains', value: read(searchParams, param).trim() });
+  }
+  const category = read(searchParams, 'category');
+  if (category === 'admin' || category === 'ordinary') legacy.push({ column: 'category', operator: 'in', value: '', values: [category] });
   return {
     q: read(searchParams, 'q').trim(),
     action: read(searchParams, 'action').trim(),
@@ -37,45 +51,66 @@ export function parseAuditQuery(searchParams: Record<string, string | string[] |
     created: read(searchParams, 'created'),
     from: read(searchParams, 'from'),
     to: read(searchParams, 'to'),
-    page: Math.max(1, Number(read(searchParams, 'page')) || 1),
-    pageSize: [25, 50, 100].includes(Number(read(searchParams, 'pageSize'))) ? Number(read(searchParams, 'pageSize')) : 25,
-    range: resolveMadridCreatedRange({
-      preset: read(searchParams, 'created'),
-      from: read(searchParams, 'from'),
-      to: read(searchParams, 'to'),
-      now,
-    }),
+    page: adminPageNumber(read(searchParams, 'page')),
+    pageSize: [10, 25, 50, 100].includes(Number(read(searchParams, 'pageSize'))) ? Number(read(searchParams, 'pageSize')) : 25,
+    sort: ADMIN_AUDIT_COLUMNS.some(column => column.id === read(searchParams, 'sort')) ? read(searchParams, 'sort') : 'createdAt',
+    dir: read(searchParams, 'dir') === 'asc' ? 'asc' : 'desc',
+    columnFilters: mergeAdminFilters(legacy, parseAdminColumnFilters(read(searchParams, 'columnFilters'), ADMIN_AUDIT_COLUMNS)),
+    range,
   };
 }
 
-export async function listAdminAuditLogs(searchParams: Record<string, string | string[] | undefined>) {
-  const query = parseAuditQuery(searchParams);
-  const filters = [];
-  if (query.action) filters.push(eq(auditLogs.action, query.action));
-  if (query.category !== 'all') filters.push(eq(auditLogs.category, query.category));
-  if (query.actorId) filters.push(eq(auditLogs.actorUserId, query.actorId));
-  if (query.affectedId) filters.push(eq(auditLogs.affectedUserId, query.affectedId));
-  if (query.range) {
-    filters.push(gte(auditLogs.createdAt, query.range.start));
-    filters.push(sql`${auditLogs.createdAt} < ${query.range.end}`);
-  }
+export async function listAdminAuditLogs(searchParams: Record<string, string | string[] | undefined>, now = new Date()) {
+  const query = parseAuditQuery(searchParams, now);
+  const columns: Record<string, SQLWrapper> = {
+    createdAt: auditLogs.createdAt, action: auditLogs.action, userEmail: auditLogs.userEmail, category: auditLogs.category,
+    actorUserId: sql`concat_ws(' ', ${auditLogs.actorUserId}::text, ${auditActor.name}, ${auditActor.email})`,
+    affectedUserId: sql`concat_ws(' ', ${auditLogs.affectedUserId}::text, ${auditAffected.name}, ${auditAffected.email})`,
+  };
+  const filters = query.columnFilters.map(filter => {
+    if (filter.column === 'actorUserId' || filter.column === 'affectedUserId') {
+      const actor = filter.column === 'actorUserId' ? auditActor : auditAffected;
+      const id = filter.column === 'actorUserId' ? auditLogs.actorUserId : auditLogs.affectedUserId;
+      if (filter.operator === 'isEmpty' || filter.operator === 'isNotEmpty') {
+        return adminColumnFilterSql(filter, ADMIN_AUDIT_COLUMNS, { ...columns, [filter.column]: id }, now);
+      }
+      const parts = [sql`${id}::text`, actor.name, actor.email].map(column =>
+        adminColumnFilterSql(filter, ADMIN_AUDIT_COLUMNS, { ...columns, [filter.column]: column }, now));
+      const negative = filter.operator === 'notContains' || filter.operator === 'notEquals';
+      return sql`(${sql.join(parts, negative ? sql` and ` : sql` or `)})`;
+    }
+    return adminColumnFilterSql(filter, ADMIN_AUDIT_COLUMNS, columns, now);
+  });
   if (query.q) {
-    const like = `%${query.q}%`;
+    const like = `%${escapeIlikePattern(query.q)}%`;
     filters.push(sql`(
       ${auditLogs.action} ilike ${like}
       or coalesce(${auditLogs.userEmail}, '') ilike ${like}
       or coalesce(${auditLogs.details}, '') ilike ${like}
+      or ${columns.actorUserId} ilike ${like}
+      or ${columns.affectedUserId} ilike ${like}
     )`);
   }
   const where = filters.length ? and(...filters) : undefined;
+  const [countRow] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(auditLogs)
+    .leftJoin(auditActor, eq(auditLogs.actorUserId, auditActor.id))
+    .leftJoin(auditAffected, eq(auditLogs.affectedUserId, auditAffected.id))
+    .where(where);
+  const total = Number(countRow?.count || 0);
+  const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
+  query.page = Math.min(query.page, pageCount);
   const offset = (query.page - 1) * query.pageSize;
-  const [countRow] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(auditLogs).where(where);
+  const sortColumn = query.sort === 'actorUserId'
+    ? sql`coalesce(nullif(${auditActor.name}, ''), ${auditActor.email}, ${auditLogs.actorUserId}::text)`
+    : query.sort === 'affectedUserId'
+      ? sql`coalesce(nullif(${auditAffected.name}, ''), ${auditAffected.email}, ${auditLogs.affectedUserId}::text)`
+      : columns[query.sort];
+  const direction = query.dir === 'asc' ? sql`asc` : sql`desc`;
   const rows = await db
     .select({
       id: auditLogs.id,
       action: auditLogs.action,
       userEmail: auditLogs.userEmail,
-      details: auditLogs.details,
       createdAt: auditLogs.createdAt,
       actorUserId: auditLogs.actorUserId,
       actorName: auditActor.name,
@@ -83,34 +118,22 @@ export async function listAdminAuditLogs(searchParams: Record<string, string | s
       affectedUserId: auditLogs.affectedUserId,
       affectedName: auditAffected.name,
       affectedEmail: auditAffected.email,
-      supportSessionId: auditLogs.supportSessionId,
-      requestId: auditLogs.requestId,
       category: auditLogs.category,
-      ipAddress: auditLogs.ipAddress,
     })
     .from(auditLogs)
     .leftJoin(auditActor, eq(auditLogs.actorUserId, auditActor.id))
     .leftJoin(auditAffected, eq(auditLogs.affectedUserId, auditAffected.id))
     .where(where)
-    .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
+    .orderBy(sql`${sortColumn} ${direction} nulls last`, sql`${auditLogs.id} ${direction}`)
     .limit(query.pageSize)
     .offset(offset);
 
   return {
     query,
-    total: Number(countRow?.count || 0),
-    pageCount: Math.max(1, Math.ceil(Number(countRow?.count || 0) / query.pageSize)),
+    total,
+    pageCount,
     rows,
   };
-}
-
-export async function listAuditActions() {
-  const rows = await db
-    .selectDistinct({ action: auditLogs.action })
-    .from(auditLogs)
-    .orderBy(auditLogs.action)
-    .limit(200);
-  return rows.map((row) => row.action);
 }
 
 export async function getUserActivityLogs(userId: string, page = 1, pageSize = 25) {
