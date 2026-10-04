@@ -4,502 +4,138 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Matchply · LinkedIn Capture</title>
-  <style>
-    :root {
-      --canvas: #FAFAFA;
-      --card-bg: #FFFFFF;
-      --ink: #1E1B4B;
-      --ink-muted: #64748B;
-      --ink-light: #94A3B8;
-      --border: #E2E8F0;
-      --border-focus: #8B5CF6;
-      --accent-ai: #8B5CF6;
-      --accent-ai-dark: #7C3AED;
-      --accent-ai-light: #EDE9FE;
-      --accent-green: #2ECC71;
-      --accent-green-dark: #27AE60;
-      --accent-green-light: #D1FAE5;
-      --radius-card: 12px;
-      --radius-btn: 8px;
-      --shadow-sm: 0 1px 3px rgba(30, 27, 75, 0.05);
-      --shadow-md: 0 4px 12px -2px rgba(30, 27, 75, 0.08), 0 2px 6px -1px rgba(30, 27, 75, 0.04);
-      --shadow-ai: 0 4px 14px rgba(139, 92, 246, 0.25);
-      --shadow-green: 0 4px 14px rgba(46, 204, 113, 0.25);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      width: 328px;
-      padding: 16px;
-      background: var(--canvas);
-      color: var(--ink);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 13px;
-      line-height: 1.45;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* HEADER */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      text-decoration: none;
-    }
-
-    .brand-icon {
-      width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      background: linear-gradient(135deg, var(--accent-ai) 0%, var(--accent-ai-dark) 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFF;
-      box-shadow: 0 2px 6px rgba(139, 92, 246, 0.35);
-    }
-
-    .brand-title {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-    }
-
-    .brand-title span {
-      color: var(--accent-ai);
-    }
-
-    /* BADGE DE ESTADO */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 20px;
-      background: #F1F5F9;
-      color: var(--ink-muted);
-      border: 1px solid var(--border);
-      transition: all 0.2s ease;
-    }
-
-    .status-badge .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--ink-light);
-    }
-
-    .status-badge.connected {
-      background: var(--accent-green-light);
-      color: #065F46;
-      border-color: #A7F3D0;
-    }
-
-    .status-badge.connected .dot {
-      background: var(--accent-green);
-      box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
-    }
-
-    /* TARJETAS */
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-card);
-      padding: 14px;
-      margin-bottom: 10px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .card-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--ink-muted);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    /* BOTONES */
-    button {
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      border: 0;
-      border-radius: var(--radius-btn);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    .btn-capture {
-      width: 100%;
-      padding: 11px 14px;
-      background: var(--accent-green);
-      color: #FFF;
-      font-size: 12.5px;
-      box-shadow: var(--shadow-green);
-      margin-bottom: 10px;
-    }
-
-    .btn-capture:hover {
-      background: var(--accent-green-dark);
-      transform: translateY(-1px);
-    }
-
-    .btn-capture:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .btn-ai {
-      width: 100%;
-      padding: 10px 14px;
-      background: linear-gradient(135deg, var(--accent-ai) 0%, var(--accent-ai-dark) 100%);
-      color: #FFF;
-      box-shadow: var(--shadow-ai);
-    }
-
-    .btn-ai:hover {
-      opacity: 0.95;
-      transform: translateY(-1px);
-    }
-
-    .btn-ai:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-ghost {
-      width: 100%;
-      padding: 7px;
-      background: transparent;
-      color: var(--ink-muted);
-      border: 1px solid transparent;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .btn-ghost:hover {
-      color: #EF4444;
-      background: #FEF2F2;
-      border-color: #FEE2E2;
-    }
-
-    /* MODOS DE CAPTURA (PILLS) */
-    .mode-pills {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-    }
-
-    .mode-pill {
-      padding: 8px 10px;
-      background: var(--canvas);
-      color: var(--ink-muted);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-btn);
-      font-weight: 600;
-    }
-
-    .mode-pill.active {
-      background: var(--accent-ai-light);
-      color: var(--accent-ai-dark);
-      border-color: #C4B5FD;
-      font-weight: 700;
-    }
-
-    /* DELAY RANGE SLIDER & PRESETS */
-    .delay-header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-top: 12px;
-      margin-bottom: 6px;
-    }
-
-    .delay-value {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--accent-ai);
-    }
-
-    input[type="range"] {
-      width: 100%;
-      height: 5px;
-      background: #E2E8F0;
-      border-radius: 4px;
-      outline: none;
-      margin-bottom: 10px;
-      accent-color: var(--accent-ai);
-      cursor: pointer;
-    }
-
-    .presets-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
-    }
-
-    .preset-btn {
-      padding: 6px 0;
-      background: var(--canvas);
-      border: 1px solid var(--border);
-      color: var(--ink-muted);
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 6px;
-    }
-
-    .preset-btn.active {
-      background: var(--accent-ai-light);
-      border-color: #C4B5FD;
-      color: var(--accent-ai-dark);
-      font-weight: 700;
-    }
-
-    /* TOGGLE SWITCH */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ink);
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 36px;
-      height: 20px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider-switch {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #CBD5E1;
-      transition: .2s;
-      border-radius: 20px;
-    }
-
-    .slider-switch:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .2s;
-      border-radius: 50%;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-    }
-
-    input:checked + .slider-switch {
-      background-color: var(--accent-ai);
-    }
-
-    input:checked + .slider-switch:before {
-      transform: translateX(16px);
-    }
-
-    /* INPUT DE EMPAREJAMIENTO */
-    .pairing-input-wrapper {
-      position: relative;
-      margin: 10px 0;
-    }
-
-    .pairing-input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-btn);
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      text-align: center;
-      color: var(--ink);
-      background: var(--canvas);
-      transition: all 0.2s ease;
-    }
-
-    .pairing-input:focus {
-      outline: none;
-      border-color: var(--accent-ai);
-      background: #FFF;
-      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
-    }
-
-    /* MENSAJES DE ESTADO */
-    #statusMessage {
-      font-size: 11px;
-      font-weight: 600;
-      text-align: center;
-      margin-top: 8px;
-      min-height: 16px;
-      transition: all 0.2s ease;
-    }
-    .msg-ok { color: var(--accent-green-dark); }
-    .msg-err { color: #DC2626; }
-
-    /* ICONOS SVG CON STROKE 1.75 */
-    .icon {
-      width: 14px;
-      height: 14px;
-      stroke-width: 1.75;
-      stroke: currentColor;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      vertical-align: middle;
-    }
-  </style>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <!-- CABECERA -->
-  <header>
-    <div class="brand">
-      <div class="brand-icon">
-        <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#FFF;">
-          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-        </svg>
-      </div>
-      <span class="brand-title">Matchply <span>Capture</span></span>
-    </div>
-    <div id="connBadge" class="status-badge">
-      <span class="dot"></span>
+  <header class="topbar">
+    <a class="brand" href="https://matchply.com" target="_blank" rel="noopener noreferrer" aria-label="Matchply, abrir en una pestaña nueva">
+      <svg class="brand-mark" viewBox="1.5 2 29 28" fill="none" aria-hidden="true">
+        <path d="M4 27.5V7C4 5.619 5.119 4.5 6.5 4.5H7c1.083 0 2.077.685 2.382 1.726L16 22" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M28 13.5v14" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="m10 16.5 6 6.5L28 6" stroke="#2ECC71" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-wordmark"><span>match</span><span>ply</span></span>
+      <span class="brand-product">LinkedIn</span>
+    </a>
+    <div id="connBadge" class="connection-badge" aria-live="polite">
+      <span class="connection-dot" aria-hidden="true"></span>
       <span id="connBadgeText">No vinculada</span>
     </div>
   </header>
 
-  <!-- SECCIÓN 1: VINCULAR CON MATCHPLY (Si no hay token) -->
-  <div id="pairingCard" class="card">
-    <p class="card-label">
-      <svg class="icon" viewBox="0 0 24 24">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-      </svg>
-      Vincular con tu cuenta
-    </p>
-    <p style="margin: 0 0 8px; color: var(--ink-muted); font-size: 12px; line-height: 1.4;">
-      Ve a <b>Matchply → Ajustes → Integraciones → LinkedIn</b>, genera un código temporal y pégalo aquí:
-    </p>
-    <div class="pairing-input-wrapper">
-      <input id="pairingCodeInput" class="pairing-input" type="text" maxlength="8" autocomplete="one-time-code" placeholder="ABCD2345">
-    </div>
-    <button id="pairBtn" class="btn-ai" type="button">
-      <svg class="icon" viewBox="0 0 24 24">
-        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
-      </svg>
-      Conectar extensión
-    </button>
-  </div>
-
-  <!-- SECCIÓN 2: PANEL DE CONTROL ACTIVO -->
-  <div id="connectedPanel" hidden>
-    <button id="saveNowBtn" class="btn-capture" type="button">
-      <svg class="icon" viewBox="0 0 24 24">
-        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
-      </svg>
-      Capturar oferta actual ahora
-    </button>
-
-    <div class="card">
-      <p class="card-label">
-        <svg class="icon" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
-        </svg>
-        Comportamiento en LinkedIn
-      </p>
-
-      <div class="mode-pills">
-        <button id="modeAutoBtn" class="mode-pill active" type="button">
-          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Automática
-        </button>
-        <button id="modeManualBtn" class="mode-pill" type="button">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
-          Manual
-        </button>
+  <main>
+    <section id="pairingCard" class="panel pairing-panel" aria-labelledby="pairTitle" hidden>
+      <div class="section-heading">
+        <span class="eyebrow">Conexión</span>
+        <h1 id="pairTitle">Vincula tu cuenta</h1>
+        <p>Conecta la extensión para guardar ofertas en tu espacio de Matchply.</p>
       </div>
 
-      <div id="delaySection">
-        <div class="delay-header">
-          <span style="font-size: 11.5px; color: var(--ink-muted); font-weight: 600;">Tiempo de lectura previo</span>
-          <span id="delayDisplay" class="delay-value">3s</span>
+      <ol class="steps">
+        <li>En Matchply, abre <strong>Ajustes → Integraciones → LinkedIn</strong>.</li>
+        <li>Genera un código temporal y escríbelo aquí.</li>
+      </ol>
+
+      <label class="field-label" for="pairingCodeInput">Código de conexión</label>
+      <input
+        id="pairingCodeInput"
+        class="pairing-input"
+        type="text"
+        maxlength="8"
+        autocomplete="one-time-code"
+        autocapitalize="characters"
+        spellcheck="false"
+        placeholder="ABCD2345"
+        aria-describedby="pairingHelp"
+      >
+      <p id="pairingHelp" class="field-help">Tiene 8 caracteres y caduca al poco tiempo.</p>
+
+      <button id="pairBtn" class="button button-ai button-full" type="button">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span>Conectar extensión</span>
+      </button>
+    </section>
+
+    <section id="connectedPanel" class="connected-panel" aria-labelledby="connectedTitle" hidden>
+      <div class="section-heading connected-heading">
+        <span class="eyebrow">LinkedIn Capture</span>
+        <h1 id="connectedTitle">Tu extensión está lista</h1>
+        <p id="saveNowHint">Guarda la oferta que tienes abierta en LinkedIn.</p>
+      </div>
+
+      <button id="saveNowBtn" class="button button-full capture-button" type="button" aria-describedby="saveNowHint">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span>Guardar oferta ahora</span>
+      </button>
+
+      <section class="panel settings-panel" aria-labelledby="settingsTitle">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Preferencias</span>
+            <h2 id="settingsTitle">Captura en LinkedIn</h2>
+          </div>
+          <svg class="heading-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         </div>
-        <input id="delaySlider" type="range" min="1" max="20" step="1" value="3">
-        <div class="presets-grid">
-          <button type="button" class="preset-btn" data-sec="1">1s</button>
-          <button type="button" class="preset-btn active" data-sec="3">3s</button>
-          <button type="button" class="preset-btn" data-sec="5">5s</button>
-          <button type="button" class="preset-btn" data-sec="10">10s</button>
-        </div>
-      </div>
 
-      <div class="toggle-row">
-        <label for="peopleToggle">Capturar personas</label>
-        <label class="switch"><input id="peopleToggle" type="checkbox" aria-describedby="peopleWarning"><span class="slider-switch"></span></label>
-      </div>
-      <p id="peopleWarning" style="font-size:11px;line-height:1.5;color:var(--ink-muted)">Guarda reclutadores y contactos visibles al abrir «Mostrar todo», incluida su foto cuando está disponible. La foto se copia a tu cuenta privada de Matchply. Respeta el modo automático/manual. LinkedIn prohíbe extensiones que copien perfiles y puede restringir tu cuenta; leer datos visibles tampoco garantiza estar permitido. <a href="https://www.linkedin.com/help/linkedin/answer/a1341387/prohibited-software-and-extensions" target="_blank" rel="noopener noreferrer">Ver restricciones</a>. También puedes añadir personas manualmente en Matchply.</p>
-      <div class="toggle-row">
-        <span>Indicador flotante en página</span>
-        <label class="switch">
-          <input id="widgetToggle" type="checkbox" checked>
-          <span class="slider-switch"></span>
+        <div class="setting-block">
+          <span class="field-label" id="modeLabel">Cuándo guardar ofertas</span>
+          <div class="mode-group" role="group" aria-labelledby="modeLabel">
+            <button id="modeAutoBtn" class="mode-button active" type="button" aria-pressed="true">Automática</button>
+            <button id="modeManualBtn" class="mode-button" type="button" aria-pressed="false">Manual</button>
+          </div>
+          <p id="modeHelp" class="field-help" aria-live="polite">Se guarda sola tras leer la oferta.</p>
+        </div>
+
+        <div id="delaySection" class="delay-section">
+          <div class="delay-heading">
+            <label class="field-label" for="delaySlider">Tiempo de lectura</label>
+            <output id="delayDisplay" class="delay-value" for="delaySlider">3 s</output>
+          </div>
+          <input id="delaySlider" class="delay-slider" type="range" min="1" max="20" step="1" value="3" aria-valuetext="3 segundos">
+          <div class="presets-grid" aria-label="Tiempos habituales">
+            <button type="button" class="preset-button" data-sec="1" aria-pressed="false">1 s</button>
+            <button type="button" class="preset-button active" data-sec="3" aria-pressed="true">3 s</button>
+            <button type="button" class="preset-button" data-sec="5" aria-pressed="false">5 s</button>
+            <button type="button" class="preset-button" data-sec="10" aria-pressed="false">10 s</button>
+          </div>
+        </div>
+
+        <label class="setting-row people-setting">
+          <span class="setting-copy">
+            <span class="setting-title">Capturar personas</span>
+            <span class="setting-description">Añade reclutadores y contactos que LinkedIn muestra en la oferta.</span>
+          </span>
+          <span class="switch-control">
+            <input id="peopleToggle" type="checkbox" aria-describedby="peopleWarning">
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
         </label>
-      </div>
-    </div>
+        <p id="peopleWarning" class="privacy-note">
+          Lee los perfiles visibles en la oferta y en «Mostrar todo», y puede guardar sus fotos disponibles en tu cuenta privada de Matchply. Respeta el modo de captura automático o manual. LinkedIn prohíbe extensiones que copian perfiles y puede restringir tu cuenta; que los datos sean visibles no garantiza que se permita recogerlos.
+          <a href="https://www.linkedin.com/help/linkedin/answer/a1341387/prohibited-software-and-extensions" target="_blank" rel="noopener noreferrer">Consulta las restricciones de LinkedIn</a>.
+          Puedes añadir personas manualmente en Matchply.
+        </p>
 
-    <button id="disconnectBtn" class="btn-ghost" type="button">
-      <svg class="icon" viewBox="0 0 24 24">
-        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-        <line x1="12" y1="2" x2="12" y2="12"/>
-      </svg>
-      Desconectar de Matchply
-    </button>
-  </div>
+        <label class="setting-row widget-setting">
+          <span class="setting-copy">
+            <span class="setting-title">Indicador en LinkedIn</span>
+            <span class="setting-description">Muestra el estado y los controles de captura en la oferta.</span>
+          </span>
+          <span class="switch-control">
+            <input id="widgetToggle" type="checkbox" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
+      </section>
 
-  <div id="statusMessage"></div>
+      <button id="disconnectBtn" class="button button-danger button-full" type="button">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
+        Desconectar de Matchply
+      </button>
+    </section>
+  </main>
+
+  <div id="statusMessage" class="feedback" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -4,25 +4,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const pairingCard = document.getElementById("pairingCard");
   const connectedPanel = document.getElementById("connectedPanel");
   const pairingCodeInput = document.getElementById("pairingCodeInput");
+  const pairingHelp = document.getElementById("pairingHelp");
   const pairBtn = document.getElementById("pairBtn");
   const disconnectBtn = document.getElementById("disconnectBtn");
   const connBadge = document.getElementById("connBadge");
   const connBadgeText = document.getElementById("connBadgeText");
   const saveNowBtn = document.getElementById("saveNowBtn");
+  const saveNowHint = document.getElementById("saveNowHint");
   const modeAutoBtn = document.getElementById("modeAutoBtn");
   const modeManualBtn = document.getElementById("modeManualBtn");
+  const modeHelp = document.getElementById("modeHelp");
   const delaySection = document.getElementById("delaySection");
   const delaySlider = document.getElementById("delaySlider");
   const delayDisplay = document.getElementById("delayDisplay");
   const peopleToggle = document.getElementById("peopleToggle");
   const widgetToggle = document.getElementById("widgetToggle");
-  const presetButtons = [...document.querySelectorAll(".preset-btn")];
+  const presetButtons = [...document.querySelectorAll(".preset-button")];
   const statusMessage = document.getElementById("statusMessage");
 
   function showMsg(text, type = "") {
     if (!statusMessage) return;
     statusMessage.textContent = text;
-    statusMessage.className = type === "ok" ? "msg-ok" : type === "err" ? "msg-err" : "";
+    statusMessage.className = `feedback${type === "ok" ? " msg-ok" : type === "err" ? " msg-err" : ""}`;
   }
 
   function clampDelay(val) {
@@ -34,15 +37,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const isAuto = mode !== "manual";
     modeAutoBtn?.classList.toggle("active", isAuto);
     modeManualBtn?.classList.toggle("active", !isAuto);
+    modeAutoBtn?.setAttribute("aria-pressed", String(isAuto));
+    modeManualBtn?.setAttribute("aria-pressed", String(!isAuto));
+    if (modeHelp) {
+      modeHelp.textContent = isAuto
+        ? "Se guarda sola tras leer la oferta."
+        : "La oferta solo se guarda cuando pulsas un botón de captura.";
+    }
     if (delaySection) delaySection.style.display = isAuto ? "block" : "none";
   }
 
   function updateDelayUI(sec) {
     if (delaySlider) delaySlider.value = String(sec);
-    if (delayDisplay) delayDisplay.textContent = `${sec}s`;
+    if (delaySlider) delaySlider.setAttribute("aria-valuetext", `${sec} ${sec === 1 ? "segundo" : "segundos"}`);
+    if (delayDisplay) delayDisplay.textContent = `${sec} s`;
     presetButtons.forEach(btn => {
-      btn.classList.toggle("active", Number(btn.dataset.sec) === Number(sec));
+      const isActive = Number(btn.dataset.sec) === Number(sec);
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
     });
+  }
+
+  async function updateCaptureAction() {
+    if (!saveNowBtn) return;
+    let tab;
+    try {
+      [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    } catch (_) {}
+
+    const isJobPage = /^https:\/\/(?:www|es)\.linkedin\.com\/jobs\//i.test(tab?.url || "");
+    const label = saveNowBtn.querySelector("span");
+    saveNowBtn.disabled = !isJobPage;
+    if (label) label.textContent = isJobPage ? "Guardar oferta ahora" : "Abre una oferta en LinkedIn";
+    if (saveNowHint) {
+      saveNowHint.textContent = isJobPage
+        ? "Captura la oferta visible en la pestaña activa."
+        : "Para guardar desde aquí, abre una oferta de empleo en LinkedIn.";
+    }
   }
 
   async function loadState() {
@@ -64,10 +95,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (connBadge) {
       if (isConnected) {
         if (connBadgeText) connBadgeText.textContent = "Conectada";
-        connBadge.className = "status-badge connected";
+        connBadge.className = "connection-badge connected";
       } else {
         if (connBadgeText) connBadgeText.textContent = "No vinculada";
-        connBadge.className = "status-badge";
+        connBadge.className = "connection-badge";
       }
     }
 
@@ -90,22 +121,38 @@ document.addEventListener("DOMContentLoaded", () => {
         if (connectedPanel) connectedPanel.hidden = true;
         if (connBadge) {
           if (connBadgeText) connBadgeText.textContent = "Sesión expirada";
-          connBadge.className = "status-badge";
+          connBadge.className = "connection-badge";
         }
         showMsg("La sesión fue revocada o caducó. Genera un nuevo código.", "err");
       }
     } catch (_) {}
+    await updateCaptureAction();
   }
+
+  pairingCodeInput?.addEventListener("input", () => {
+    pairingCodeInput.value = pairingCodeInput.value.toUpperCase().replace(/\s/g, "");
+    if (pairingHelp) pairingHelp.textContent = `${pairingCodeInput.value.length}/8 caracteres`;
+  });
+
+  pairingCodeInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      pairBtn?.click();
+    }
+  });
 
   pairBtn?.addEventListener("click", async () => {
     const code = pairingCodeInput?.value.trim().toUpperCase() || "";
     if (!/^[A-Z2-9]{8}$/.test(code)) {
       showMsg("Introduce un código válido de 8 caracteres.", "err");
+      pairingCodeInput?.focus();
       return;
     }
 
     pairBtn.disabled = true;
-    pairBtn.textContent = "Conectando…";
+    pairBtn.setAttribute("aria-busy", "true");
+    const pairLabel = pairBtn.querySelector("span");
+    if (pairLabel) pairLabel.textContent = "Conectando…";
     showMsg("");
 
     try {
@@ -139,7 +186,8 @@ document.addEventListener("DOMContentLoaded", () => {
       showMsg(err.message || "Error al conectar con Matchply.", "err");
     } finally {
       pairBtn.disabled = false;
-      pairBtn.textContent = "Conectar extensión";
+      pairBtn.removeAttribute("aria-busy");
+      if (pairLabel) pairLabel.textContent = "Conectar extensión";
     }
   });
 
@@ -175,7 +223,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   saveNowBtn?.addEventListener("click", async () => {
     saveNowBtn.disabled = true;
-    saveNowBtn.textContent = "⏳ Guardando…";
+    saveNowBtn.setAttribute("aria-busy", "true");
+    const saveLabel = saveNowBtn.querySelector("span");
+    if (saveLabel) saveLabel.textContent = "Guardando…";
     showMsg("");
 
     try {
@@ -201,8 +251,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       showMsg(err.message || "Error al guardar.", "err");
     } finally {
-      saveNowBtn.disabled = false;
-      saveNowBtn.textContent = "⚡ Capturar oferta actual ahora";
+      saveNowBtn.removeAttribute("aria-busy");
+      await updateCaptureAction();
     }
   });
 
