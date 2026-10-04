@@ -98,7 +98,6 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           <Logo iconSize="sm" textSize="sm" />
         </Link>
         <div className="flex items-center gap-2">
-          <LanguageToggle compact />
           <ThemeToggle />
           <button
             onClick={toggleSidebar}
@@ -125,13 +124,12 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
         } flex flex-col justify-between p-6 select-none`}
       >
         <div className="space-y-8">
-          {/* Logo & Controls at original position */}
+          {/* Logo & ThemeToggle at original position */}
           <div className="flex items-center justify-between">
             <Link href="/" className="hover:opacity-90 transition-opacity">
               <Logo />
             </Link>
-            <div className="hidden md:flex items-center gap-2">
-              <LanguageToggle compact />
+            <div className="hidden md:block">
               <ThemeToggle />
             </div>
           </div>
@@ -272,6 +270,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                     {language === 'es' ? 'Prueba sin registro' : 'Trial without signup'}
                   </span>
                 </div>
+                <LanguageToggle compact />
               </div>
 
               <div className="space-y-2 font-display">
