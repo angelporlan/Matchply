@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Gauge, ChevronDown, Calendar } from 'lucide-react';
+import { AnimatePresence, LazyMotion, m, domAnimation } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { quotaState, type QuotaBucketView } from '@/lib/plan-presentation';
 import { usePlanUsage } from './PlanUsageProvider';
@@ -106,101 +107,115 @@ export default function SidebarLimits() {
         </div>
       </button>
 
-      {isOpen && (
-        <div
-          id="sidebar-limits-content"
-          className="px-3 pb-3 pt-2.5 border-t border-subtle/60 space-y-3 bg-surface/50"
-        >
-          {/* Exact limits for each quota bucket */}
-          {quotaBuckets.map(({ key, bucket }) => {
-            const state = quotaState(bucket);
-            const usedTotal = bucket.used + bucket.reserved;
-            const percent = Math.min(100, Math.round((usedTotal / Math.max(1, bucket.limit)) * 100));
+      <LazyMotion features={domAnimation}>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <m.div
+              key="sidebar-limits-content"
+              id="sidebar-limits-content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{
+                height: { duration: 0.22, ease: [0.25, 1, 0.5, 1] },
+                opacity: { duration: 0.18, ease: 'easeOut' },
+              }}
+              className="overflow-hidden border-t border-subtle/60"
+            >
+              <div className="px-3 pb-3 pt-2.5 space-y-3 bg-surface/50">
+                {/* Exact limits for each quota bucket */}
+                {quotaBuckets.map(({ key, bucket }) => {
+                  const state = quotaState(bucket);
+                  const usedTotal = bucket.used + bucket.reserved;
+                  const percent = Math.min(100, Math.round((usedTotal / Math.max(1, bucket.limit)) * 100));
 
-            return (
-              <div key={key} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] leading-tight">
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] leading-tight">
+                        <span className="font-semibold text-text truncate font-display">
+                          {t(`plans.${key}`)}
+                        </span>
+                        <span className="text-text-muted font-mono text-[10px] shrink-0 font-medium">
+                          {bucket.used} de {bucket.limit}
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div
+                        className="w-full h-1.5 bg-surface-muted dark:bg-canvas rounded-full overflow-hidden border border-subtle/40"
+                        role="progressbar"
+                        aria-valuenow={usedTotal}
+                        aria-valuemin={0}
+                        aria-valuemax={bucket.limit}
+                        aria-label={t(`plans.${key}`)}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            state === 'exhausted'
+                              ? 'bg-rose-500'
+                              : state === 'warning'
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-text-muted font-sans">
+                        <span>{t('plans.remaining', { remaining: bucket.remaining })}</span>
+                        {bucket.reserved > 0 && (
+                          <span className="text-[9px] text-amber-500 font-medium">
+                            {t('plans.reserved', { reserved: bucket.reserved })}
+                          </span>
+                        )}
+                      </div>
+
+                      {state !== 'available' && (
+                        <p
+                          className={`text-[9px] ${
+                            state === 'exhausted' ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'
+                          }`}
+                        >
+                          {t(`plans.${state === 'warning' ? 'warning' : 'exhausted'}`, {
+                            bucket: t(`plans.${key}`).toLocaleLowerCase(language),
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* CVs guardados */}
+                <div className="pt-2 border-t border-subtle/50 flex items-center justify-between text-[11px]">
                   <span className="font-semibold text-text truncate font-display">
-                    {t(`plans.${key}`)}
+                    {t('plans.cvs')}
                   </span>
-                  <span className="text-text-muted font-mono text-[10px] shrink-0 font-medium">
-                    {bucket.used} de {bucket.limit}
+                  <span className="text-text-muted font-mono text-[10px] font-medium shrink-0">
+                    {data.cv.total} / {data.cv.max === null ? t('plans.unlimited') : data.cv.max}
                   </span>
                 </div>
 
-                {/* Progress bar */}
-                <div
-                  className="w-full h-1.5 bg-surface-muted dark:bg-canvas rounded-full overflow-hidden border border-subtle/40"
-                  role="progressbar"
-                  aria-valuenow={usedTotal}
-                  aria-valuemin={0}
-                  aria-valuemax={bucket.limit}
-                  aria-label={t(`plans.${key}`)}
-                >
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      state === 'exhausted'
-                        ? 'bg-rose-500'
-                        : state === 'warning'
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
+                {/* Renewal Date */}
+                {formattedRenewal && (
+                  <div className="pt-1 border-t border-subtle/40 flex items-center gap-1.5 text-[10px] text-text-muted font-sans">
+                    <Calendar className="w-3 h-3 stroke-[1.75] shrink-0 text-text-muted" />
+                    <span className="truncate">{t('plans.renews', { date: formattedRenewal })}</span>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between text-[10px] text-text-muted font-sans">
-                  <span>{t('plans.remaining', { remaining: bucket.remaining })}</span>
-                  {bucket.reserved > 0 && (
-                    <span className="text-[9px] text-amber-500 font-medium">
-                      {t('plans.reserved', { reserved: bucket.reserved })}
-                    </span>
-                  )}
-                </div>
-
-                {state !== 'available' && (
-                  <p
-                    className={`text-[9px] ${
-                      state === 'exhausted' ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'
-                    }`}
-                  >
-                    {t(`plans.${state === 'warning' ? 'warning' : 'exhausted'}`, {
-                      bucket: t(`plans.${key}`).toLocaleLowerCase(language),
+                {/* Pro trial expiration notice */}
+                {data.plan === 'pro' && data.trial?.endAt && new Date(data.trial.endAt).getTime() > Date.now() && (
+                  <p className="text-[10px] text-info-text text-center font-sans pt-1">
+                    {t('plans.trialEnds', {
+                      date: new Date(data.trial.endAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB'),
                     })}
                   </p>
                 )}
               </div>
-            );
-          })}
-
-          {/* CVs guardados */}
-          <div className="pt-2 border-t border-subtle/50 flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-text truncate font-display">
-              {t('plans.cvs')}
-            </span>
-            <span className="text-text-muted font-mono text-[10px] font-medium shrink-0">
-              {data.cv.total} / {data.cv.max === null ? t('plans.unlimited') : data.cv.max}
-            </span>
-          </div>
-
-          {/* Renewal Date */}
-          {formattedRenewal && (
-            <div className="pt-1 border-t border-subtle/40 flex items-center gap-1.5 text-[10px] text-text-muted font-sans">
-              <Calendar className="w-3 h-3 stroke-[1.75] shrink-0 text-text-muted" />
-              <span className="truncate">{t('plans.renews', { date: formattedRenewal })}</span>
-            </div>
+            </m.div>
           )}
-
-          {/* Pro trial expiration notice */}
-          {data.plan === 'pro' && data.trial?.endAt && new Date(data.trial.endAt).getTime() > Date.now() && (
-            <p className="text-[10px] text-info-text text-center font-sans pt-1">
-              {t('plans.trialEnds', {
-                date: new Date(data.trial.endAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB'),
-              })}
-            </p>
-          )}
-        </div>
-      )}
+        </AnimatePresence>
+      </LazyMotion>
     </div>
   );
 }

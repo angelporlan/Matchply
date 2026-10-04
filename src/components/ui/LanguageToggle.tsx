@@ -2,11 +2,11 @@
 
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
-function SpainFlag({ active }: { active: boolean }) {
+function SpainFlag({ active = true, className = 'h-3.5 w-3.5' }: { active?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={`h-3.5 w-3.5 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(30,27,75,0.12)] transition-opacity duration-200 ${
+      className={`${className} shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(30,27,75,0.12)] transition-opacity duration-200 ${
         active ? 'opacity-100' : 'opacity-50 group-hover/btn:opacity-80'
       }`}
       aria-hidden="true"
@@ -19,11 +19,11 @@ function SpainFlag({ active }: { active: boolean }) {
   );
 }
 
-function UnitedKingdomFlag({ active }: { active: boolean }) {
+function UnitedKingdomFlag({ active = true, className = 'h-3.5 w-3.5' }: { active?: boolean; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={`h-3.5 w-3.5 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(30,27,75,0.12)] transition-opacity duration-200 ${
+      className={`${className} shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(30,27,75,0.12)] transition-opacity duration-200 ${
         active ? 'opacity-100' : 'opacity-50 group-hover/btn:opacity-80'
       }`}
       aria-hidden="true"
@@ -37,9 +37,35 @@ function UnitedKingdomFlag({ active }: { active: boolean }) {
   );
 }
 
-export default function LanguageToggle() {
+interface LanguageToggleProps {
+  compact?: boolean;
+}
+
+export default function LanguageToggle({ compact = false }: LanguageToggleProps) {
   const { language, setLanguage } = useLanguage();
   const isSpanish = language === 'es';
+
+  if (compact) {
+    const toggleLabel = isSpanish
+      ? 'Cambiar idioma a Inglés'
+      : 'Switch language to Spanish';
+
+    return (
+      <button
+        type="button"
+        onClick={() => setLanguage(isSpanish ? 'en' : 'es')}
+        className="p-2 rounded-[8px] bg-surface border border-subtle text-text-muted dark:text-slate-300 hover:text-text dark:hover:text-white transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+        aria-label={toggleLabel}
+        title={toggleLabel}
+      >
+        {isSpanish ? (
+          <SpainFlag className="h-4 w-4" active={true} />
+        ) : (
+          <UnitedKingdomFlag className="h-4 w-4" active={true} />
+        )}
+      </button>
+    );
+  }
 
   return (
     <div

@@ -98,6 +98,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           <Logo iconSize="sm" textSize="sm" />
         </Link>
         <div className="flex items-center gap-2">
+          <LanguageToggle compact />
           <ThemeToggle />
           <button
             onClick={toggleSidebar}
@@ -121,15 +122,16 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
       <aside
         className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-canvas border-r border-subtle z-50 transition-all duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } flex flex-col justify-between p-6 select-none overflow-y-auto scrollbar-custom`}
+        } flex flex-col justify-between p-6 select-none`}
       >
         <div className="space-y-8">
-          {/* Logo & ThemeToggle at original position */}
+          {/* Logo & Controls at original position */}
           <div className="flex items-center justify-between">
             <Link href="/" className="hover:opacity-90 transition-opacity">
               <Logo />
             </Link>
-            <div className="hidden md:block">
+            <div className="hidden md:flex items-center gap-2">
+              <LanguageToggle compact />
               <ThemeToggle />
             </div>
           </div>
@@ -253,18 +255,10 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           </nav>
         </div>
 
-        {/* User profile, limits & language settings */}
+        {/* User profile & limits */}
         <div className="pt-4 border-t border-subtle space-y-3 mt-auto shrink-0">
           {/* Sleek Limits Accordion */}
           <SidebarLimits />
-
-          {/* Sleek Language Panel */}
-          <div className="flex items-center justify-between bg-surface-muted/30 border border-subtle px-3 py-2 rounded-[10px] shadow-xs">
-            <span className="text-[11px] font-bold text-text-muted font-display">
-              {language === 'es' ? 'Idioma' : 'Language'}
-            </span>
-            <LanguageToggle />
-          </div>
 
           {isGuest ? (
             <>
