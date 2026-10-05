@@ -382,3 +382,37 @@ test('a second content-script world does not mount another widget', async () => 
   await settle();
   assert.equal(browser.documentApi.querySelectorAll('[data-matchply-capture-host]').length, 1);
 });
+
+test('the title pill sits beside the job name and can be hidden', async () => {
+  const browser = createBrowser();
+  const titleBox = browser.documentApi.createElement('div');
+  titleBox.className = 'job-details-jobs-unified-top-card__job-title';
+  const link = browser.documentApi.createElement('a');
+  const heading = browser.documentApi.createElement('h1');
+  heading.className = 't-24 t-bold inline';
+  link.appendChild(heading);
+  titleBox.appendChild(link);
+  browser.documentApi.body.appendChild(titleBox);
+  boot(browser);
+  await settle();
+  browser.location.href = 'https://www.linkedin.com/jobs/view/123456/';
+  browser.listeners.navigatesuccess?.forEach((fn) => fn());
+  browser.advance(400);
+  await settle();
+  browser.advance(20);
+  await settle();
+
+  const titleHost = browser.documentApi.querySelector('[data-matchply-title-host]') as FakeNode | null;
+  const pill = titleHost?.shadowRoot?.children.find((child) => child.classList.contains('title-pill'));
+  assert.equal(titleBox.children[0], link);
+  assert.equal(titleBox.children[1], titleHost);
+  assert.match(pill?.innerHTML || '', /Sin guardar/);
+  assert.match(pill?.innerHTML || '', /Se guarda en/);
+  assert.match(pill?.innerHTML || '', /Capturar ahora/);
+  assert.equal(card(browser)?.hidden, false);
+
+  browser.onChanged()({ matchplyShowTitle: { newValue: false } }, 'local');
+  assert.equal(browser.documentApi.querySelector('[data-matchply-title-host]'), null);
+  assert.equal(card(browser)?.hidden, false);
+  assert.match(card(browser)?.innerHTML || '', /Se guarda en/);
+});
