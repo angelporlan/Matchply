@@ -47,6 +47,43 @@ body {
   margin-bottom: 16px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.power-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.power-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.power-switch .switch-control {
+  width: 40px;
+  height: 24px;
+}
+
+.power-switch .switch-track::before {
+  width: 16px;
+  height: 16px;
+}
+
+.power-switch .switch-control input:checked + .switch-track::before {
+  transform: translateX(14px);
+}
+
+.power-switch.is-off .power-label { color: var(--danger-text); }
+
 .brand {
   min-width: 0;
   min-height: 44px;

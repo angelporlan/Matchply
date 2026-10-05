@@ -21,8 +21,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const floatingToggle = document.getElementById("floatingToggle");
   const headerToggle = document.getElementById("headerToggle");
   const titleToggle = document.getElementById("titleToggle");
+  const powerToggle = document.getElementById("powerToggle");
+  const powerLabel = document.getElementById("powerLabel");
+  const powerSwitch = powerToggle?.closest(".power-switch");
   const presetButtons = [...document.querySelectorAll(".preset-button")];
   const statusMessage = document.getElementById("statusMessage");
+  let extensionEnabled = true;
   const JOB_PAGE = /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//i;
   const LINKEDIN_PAGE = /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\//i;
 
@@ -116,8 +120,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function applyPowerSwitch() {
+    if (powerToggle) powerToggle.checked = extensionEnabled;
+    const label = extensionEnabled ? "Activa" : "Apagada";
+    const hint = extensionEnabled
+      ? "Extensión activa. Pulsa para apagarla."
+      : "Extensión apagada. Pulsa para encenderla.";
+    if (powerLabel) powerLabel.textContent = label;
+    powerSwitch?.classList.toggle("is-off", !extensionEnabled);
+    if (powerToggle) {
+      powerToggle.setAttribute("aria-label", hint);
+      powerToggle.title = hint;
+    }
+  }
+
   async function updateCaptureAction() {
     if (!saveNowBtn) return;
+    if (!extensionEnabled) {
+      saveNowBtn.disabled = true;
+      const label = saveNowBtn.querySelector("span");
+      if (label) label.textContent = "Extensión apagada";
+      if (saveNowHint) saveNowHint.textContent = "Enciende la extensión para capturar ofertas en LinkedIn.";
+      return;
+    }
     let tab;
     try {
       [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -148,6 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "matchplyShowTitle",
       "matchplyCapturePeople",
       "matchplyWidgetAnchor",
+      "matchplyExtensionEnabled",
     ]);
 
     const token = stored.matchplyExtensionToken;
@@ -169,6 +195,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const mode = stored.matchplyCaptureMode || "auto";
     const delay = clampDelay(stored.matchplyCaptureDelay || 3);
     const surfaces = surfacesFromStored(stored);
+    extensionEnabled = stored.matchplyExtensionEnabled !== false;
+    applyPowerSwitch();
 
     updateModeUI(mode);
     updateDelayUI(delay);
@@ -293,6 +321,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   titleToggle?.addEventListener("change", async (e) => {
     await persistSurfaces(floatingToggle ? floatingToggle.checked : true, Boolean(headerToggle?.checked), e.target.checked);
+  });
+
+  powerToggle?.addEventListener("change", async (e) => {
+    extensionEnabled = e.target.checked;
+    applyPowerSwitch();
+    await chrome.storage.local.set({ matchplyExtensionEnabled: extensionEnabled });
+    await updateCaptureAction();
   });
 
   saveNowBtn?.addEventListener("click", async () => {

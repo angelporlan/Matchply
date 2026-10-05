@@ -17,29 +17,18 @@
   document.getElementById("matchply-header-slot")?.remove();
 
   const selectors = {
-    title: [
-      ".job-details-jobs-unified-top-card__job-title h1",
-      ".job-details-jobs-unified-top-card__job-title",
-      ".jobs-unified-top-card__job-title",
-      "main h1",
-    ],
-    company: [
-      ".job-details-jobs-unified-top-card__company-name",
-      ".jobs-unified-top-card__company-name",
-      ".job-details-jobs-unified-top-card__primary-description-container a",
-    ],
-    location: [
-      ".job-details-jobs-unified-top-card__tertiary-description-container span",
-      ".jobs-unified-top-card__bullet",
-      ".job-details-jobs-unified-top-card__primary-description-container span",
-    ],
     description: [
       "#job-details",
       ".jobs-description__content",
       ".jobs-box__html-content",
       ".jobs-description-content__text",
+      ".show-more-less-html__markup",
+      ".description__text",
+      ".jobs-description",
     ],
   };
+
+  const ABOUT_JOB_HEADING = /^(acerca del empleo|about the job|descripci[oó]n del empleo|job description)$/i;
 
   const DEFAULT_WIDGET_POSITION = Object.freeze({ x: 1, y: 0.82 });
 
@@ -49,6 +38,7 @@
     showFloating: true,
     showHeader: false,
     showTitle: false,
+    enabled: true,
     capturePeople: false,
     installationId: "",
     widgetPosition: { ...DEFAULT_WIDGET_POSITION },
@@ -474,16 +464,100 @@
     }
   `;
 
+  function classToken(element) {
+    const value = element?.className;
+    return typeof value === "string" ? value : "";
+  }
+
+  function isGlobalChrome(element) {
+    if (!element || element === document.body) return false;
+    if (element.id === "global-nav") return true;
+    return /\bglobal-nav\b/.test(classToken(element));
+  }
+
+  function isNoise(element) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current.tagName === "ASIDE" || isGlobalChrome(current)) return true;
+      const token = `${current.id || ""} ${classToken(current)}`;
+      if (/similar-jobs|people-also-viewed|jobs-similar|job-card-container/i.test(token)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  function linkedJobId(node) {
+    const href = node?.tagName === "A"
+      ? node.getAttribute("href")
+      : node?.querySelector?.("a")?.getAttribute("href");
+    return href?.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1] || "";
+  }
+
+  function titleBoxMatchesJob(box) {
+    if (!box || isNoise(box)) return false;
+    const linked = linkedJobId(box);
+    const jobId = currentJobId();
+    return !linked || !jobId || linked === jobId;
+  }
+
   function findJobTitleBox() {
     const selectorsForTitle = [
       ".job-details-jobs-unified-top-card__job-title",
       ".jobs-unified-top-card__job-title",
+      ".top-card-layout__title",
+      "h1.topcard__title",
+      ".topcard__title",
     ];
     for (const selector of selectorsForTitle) {
-      const box = document.querySelector(selector);
-      if (box) return box;
+      for (const box of document.querySelectorAll(selector)) {
+        if (titleBoxMatchesJob(box)) return box;
+      }
+    }
+    const scopes = [
+      document.querySelector("[data-view-name='job-detail-page']"),
+      document.querySelector("main"),
+      document.body,
+    ].filter(Boolean);
+    for (const scope of scopes) {
+      for (const heading of scope.querySelectorAll("h1")) {
+        if (isNoise(heading)) continue;
+        const text = elementText(heading);
+        if (!text || text.length > 180) continue;
+        return heading;
+      }
+    }
+    const titled = titleFromDocument();
+    if (titled) {
+      for (const scope of scopes) {
+        for (const node of scope.querySelectorAll("h2, h3, strong, span, div")) {
+          if (isNoise(node) || node.children?.length) continue;
+          if (elementText(node) === titled) return node;
+        }
+      }
     }
     return null;
+  }
+
+  function titlePlacement(box) {
+    const heading = box.tagName === "H1" || box.tagName === "H2" || box.tagName === "H3"
+      ? box
+      : box.querySelector("h1, h2, h3");
+    const target = heading || box;
+    if (!heading || heading === box) {
+      const link = target.parentElement?.tagName === "A" ? target.parentElement : null;
+      const anchor = link || target;
+      const parent = anchor.parentElement;
+      return parent ? { anchor, parent } : null;
+    }
+    let link = null;
+    let current = heading.parentElement;
+    while (current && current !== box) {
+      if (current.tagName === "A") link = current;
+      current = current.parentElement;
+    }
+    const anchor = link || heading;
+    const parent = anchor.parentElement || box;
+    return { anchor, parent };
   }
 
   function removeTitlePill() {
@@ -495,19 +569,12 @@
 
   function ensureTitlePill() {
     const box = findJobTitleBox();
-    if (!box) {
+    const placement = box ? titlePlacement(box) : null;
+    if (!placement) {
       removeTitlePill();
       return false;
     }
-    const heading = box.querySelector("h1, h2");
-    let link = null;
-    let current = heading?.parentElement;
-    while (current && current !== box) {
-      if (current.tagName === "A") link = current;
-      current = current.parentElement;
-    }
-    const anchor = link || heading;
-    const parent = anchor?.parentElement || box;
+    const { anchor, parent } = placement;
     if (!titleHost) {
       titleHost = document.createElement("div");
       titleHost.dataset.matchplyCaptureHost = CAPTURE_VERSION;
@@ -567,6 +634,7 @@
       "matchplyShowFloating",
       "matchplyShowHeader",
       "matchplyShowTitle",
+      "matchplyExtensionEnabled",
       "matchplyCapturePeople",
       "matchplyExtensionInstallation",
       "matchplyWidgetPosition",
@@ -578,6 +646,7 @@
     config.showFloating = surfaces.showFloating;
     config.showHeader = surfaces.showHeader;
     config.showTitle = surfaces.showTitle;
+    config.enabled = stored.matchplyExtensionEnabled !== false;
     config.capturePeople = stored.matchplyCapturePeople === true;
     config.installationId = stored.matchplyExtensionInstallation?.id || "";
     config.widgetPosition = normalizeWidgetPosition(stored.matchplyWidgetPosition);
@@ -616,6 +685,18 @@
       config.widgetPosition = normalizeWidgetPosition(widgetPosition.newValue);
       applyWidgetPosition();
     }
+    if (changes.matchplyExtensionEnabled) {
+      config.enabled = changes.matchplyExtensionEnabled.newValue !== false;
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      clearTimeout(captureRetryTimer);
+      candidateJobId = "";
+      if (!config.enabled) {
+        renderWidget();
+        return;
+      }
+      restart = true;
+    }
     if (changes.matchplyCapturePeople) { config.capturePeople = changes.matchplyCapturePeople.newValue === true; restart = true; }
     if (changes.matchplyExtensionInstallation) {
       config.installationId = changes.matchplyExtensionInstallation.newValue?.id || "";
@@ -636,28 +717,308 @@
     return String(value || "").replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   }
 
+  function elementText(element) {
+    return clean(element?.innerText || element?.textContent);
+  }
+
   function firstText(candidates) {
     for (const selector of candidates) {
-      const element = document.querySelector(selector);
-      const text = clean(element?.innerText || element?.textContent);
+      const text = elementText(document.querySelector(selector));
       if (text) return text;
     }
     return "";
   }
 
+  function childList(element) {
+    const children = element?.children;
+    if (!children) return [];
+    return Array.from(children);
+  }
+
+  function siblingText(element) {
+    const siblings = childList(element?.parentElement);
+    const index = siblings.indexOf(element);
+    if (index < 0) return "";
+    const chunks = [];
+    for (const sibling of siblings.slice(index + 1)) {
+      if (/^H[1-2]$/.test(sibling.tagName)) break;
+      if (sibling.dataset?.matchplyCaptureHost || sibling.dataset?.matchplyTitleHost) continue;
+      if (isNoise(sibling)) continue;
+      const text = elementText(sibling);
+      if (text) chunks.push(text);
+    }
+    return clean(chunks.join("\n"));
+  }
+
+  function findAboutHeading() {
+    for (const heading of document.querySelectorAll("h1, h2, h3, h4")) {
+      if (isNoise(heading)) continue;
+      if (ABOUT_JOB_HEADING.test(elementText(heading))) return heading;
+    }
+    for (const node of document.querySelectorAll("div, span, p")) {
+      if (isNoise(node) || node.children?.length) continue;
+      if (ABOUT_JOB_HEADING.test(elementText(node))) return node;
+    }
+    return null;
+  }
+
+  function descriptionFromHeading() {
+    const heading = findAboutHeading();
+    if (!heading) return "";
+    const direct = siblingText(heading);
+    if (direct.length >= 80) return direct;
+    let container = heading.parentElement;
+    for (let depth = 0; depth < 3 && container && container !== document.body; depth += 1) {
+      const after = siblingText(container);
+      if (after.length >= 80) return after;
+      container = container.parentElement;
+    }
+    return direct;
+  }
+
+  function expandableDescription() {
+    let best = "";
+    for (const box of document.querySelectorAll("[data-testid='expandable-text-box']")) {
+      if (isNoise(box)) continue;
+      const text = elementText(box);
+      if (text.length > best.length) best = text;
+    }
+    return best;
+  }
+
+  function stripTags(value) {
+    return clean(String(value || "").replace(/<[^>]+>/g, " "));
+  }
+
+  function jsonLdJob() {
+    for (const script of document.querySelectorAll("script")) {
+      if (script.getAttribute("type") !== "application/ld+json") continue;
+      let data;
+      try { data = JSON.parse(script.textContent || script.innerText || ""); } catch (_) { continue; }
+      const roots = Array.isArray(data) ? data : [data];
+      for (const root of roots) {
+        const nodes = Array.isArray(root?.["@graph"]) ? root["@graph"] : [root];
+        for (const node of nodes) {
+          const type = node?.["@type"];
+          const types = Array.isArray(type) ? type : [type];
+          if (types.includes("JobPosting")) return node;
+        }
+      }
+    }
+    return null;
+  }
+
+  function jsonLocation(posting) {
+    const place = Array.isArray(posting?.jobLocation) ? posting.jobLocation[0] : posting?.jobLocation;
+    const address = place?.address || {};
+    if (typeof address === "string") return clean(address);
+    return clean([address.addressLocality, address.addressRegion, address.addressCountry].filter(Boolean).join(", "));
+  }
+
+  function titleFromDocument() {
+    const raw = String(document.title || "").replace(/^\(\d+\)\s*/, "");
+    const parts = raw.split("|").map((part) => clean(part)).filter((part) => part && !/^linkedin$/i.test(part));
+    const title = parts[0] || "";
+    if (!title || title.length > 180) return "";
+    return title;
+  }
+
+  function companyFromDocument() {
+    const raw = String(document.title || "").replace(/^\(\d+\)\s*/, "");
+    const parts = raw.split("|").map((part) => clean(part)).filter((part) => part && !/^linkedin$/i.test(part));
+    return parts.length >= 2 && parts[1].length < 80 ? parts[1] : "";
+  }
+
+  function readTitle() {
+    const box = findJobTitleBox();
+    const heading = box && (box.tagName === "H1" || box.tagName === "H2" || box.tagName === "H3")
+      ? box
+      : box?.querySelector?.("h1, h2, h3");
+    return elementText(heading || box) || titleFromDocument();
+  }
+
+  function isCompanyNoise(text) {
+    const value = clean(text);
+    if (!value || value.length > 80) return true;
+    return /promocionad|promoted\b|t[eé]cnic[oa]s? de selecci|contratante|\bhirer\b|reclutador|publicado por|posted by|solicitud|applicant|easy apply/i.test(value);
+  }
+
+  function usableCompany(value) {
+    const text = clean(value);
+    return text && !isCompanyNoise(text) ? text : "";
+  }
+
+  function readCompany(titleBox) {
+    const known = usableCompany(firstOwnText([
+      ".job-details-jobs-unified-top-card__company-name",
+      ".jobs-unified-top-card__company-name",
+      ".job-details-jobs-unified-top-card__primary-description-container a",
+      ".topcard__org-name-link",
+    ]));
+    if (known) return known;
+    const region = titleBox?.parentElement || document.querySelector("main") || document.body;
+    for (const link of region?.querySelectorAll?.("a") || []) {
+      if (isNoise(link)) continue;
+      const href = link.getAttribute("href") || "";
+      if (!/\/company\//.test(href)) continue;
+      const text = usableCompany(elementText(link));
+      if (text && text.length < 120) return text;
+    }
+    const heading = titleBox && (titleBox.tagName === "H1" || titleBox.tagName === "H2") ? titleBox : titleBox?.querySelector?.("h1, h2");
+    const before = heading?.previousElementSibling || heading?.parentElement?.previousElementSibling;
+    const line = clean(elementText(before).split("\n")[0]);
+    return usableCompany(line);
+  }
+
+  function firstOwnText(candidates) {
+    for (const selector of candidates) {
+      for (const node of document.querySelectorAll(selector)) {
+        if (!titleBoxMatchesJob(node)) continue;
+        const text = elementText(node);
+        if (text) return text;
+      }
+    }
+    return "";
+  }
+
+  function readLocation(titleBox) {
+    const known = firstOwnText([
+      ".job-details-jobs-unified-top-card__tertiary-description-container span",
+      ".jobs-unified-top-card__bullet",
+      ".job-details-jobs-unified-top-card__primary-description-container span",
+      ".topcard__flavor--bullet",
+    ]);
+    if (known) return clean(known.split("\n")[0].split("·")[0]);
+    const heading = titleBox && (titleBox.tagName === "H1" || titleBox.tagName === "H2") ? titleBox : titleBox?.querySelector?.("h1, h2");
+    const siblings = childList(heading?.parentElement);
+    const index = siblings.indexOf(heading);
+    if (index < 0) return "";
+    for (const sibling of siblings.slice(index + 1, index + 5)) {
+      if (/^H[1-3]$/.test(sibling.tagName)) break;
+      if (sibling.dataset?.matchplyCaptureHost || sibling.dataset?.matchplyTitleHost) continue;
+      const line = clean(elementText(sibling).split("\n")[0]);
+      if (!line || line.length > 180) continue;
+      if (ABOUT_JOB_HEADING.test(line)) break;
+      const parts = line.split("·").map((part) => clean(part)).filter(Boolean);
+      const onlyMeta = (part) => {
+        const bare = clean(part.replace(/\([^)]*\)/g, ""));
+        return !bare || /^(h[ií]brido|hybrid|presencial|en remoto|remoto|remote|on-?site|telecommute|jornada completa|media jornada|full[ -]?time|part[ -]?time|pr[aá]cticas|internship|temporal|temporary|contrato|contract|freelance)$/i.test(bare);
+      };
+      if (parts.length >= 2 && !isCompanyNoise(parts[0]) && !parts.slice(1).every(onlyMeta)) {
+        const place = clean(parts.slice(1).join(" · ").replace(/\([^)]*\)/g, ""));
+        if (place) return place;
+      }
+      const place = parts[0] || "";
+      if (place && !onlyMeta(place)) return place;
+    }
+    return "";
+  }
+
+  function readDescription() {
+    for (const selector of selectors.description) {
+      const element = document.querySelector(selector);
+      if (!element || isNoise(element)) continue;
+      const text = elementText(element);
+      if (text.length >= 80) return text;
+    }
+    const headed = descriptionFromHeading();
+    if (headed.length >= 80) return headed;
+    const expandable = expandableDescription();
+    if (expandable.length >= 80) return expandable;
+    const flow = descriptionFromFlow();
+    if (flow.length >= 80) return flow;
+    return stripTags(jsonLdJob()?.description);
+  }
+
+  function jobRoots() {
+    const roots = [
+      document.querySelector(".jobs-search__job-details--container"),
+      document.querySelector(".jobs-details__main-content"),
+      document.querySelector(".job-view-layout"),
+      document.querySelector("[data-view-name='job-detail-page']"),
+      document.querySelector("main"),
+      document.body,
+    ].filter(Boolean);
+    return roots;
+  }
+
+  function isChromeLine(text) {
+    return text.length < 25 || /^(guardar|solicitud sencilla|easy apply|save|apply|reintentar|ver más|mostrar más|show more|see more|omitir)$/i.test(text);
+  }
+
+  function isMetaLine(text) {
+    if (!text.includes("·") || text.length > 180) return false;
+    const parts = text.split("·").map((part) => clean(part)).filter(Boolean);
+    return parts.length >= 2 && parts.length <= 4 && parts[0].length <= 60;
+  }
+
+  function hasBlockChild(node) {
+    return childList(node).some((child) => !/^(SPAN|STRONG|EM|B|I|A|BR|SMALL|MARK|U|S|SUB|SUP|WBR|CODE|FONT|LABEL)$/.test(child.tagName));
+  }
+
+  function descriptionFromFlow() {
+    const stop = /^(empleos similares|similar jobs|personas que también|people also viewed|acerca de la empresa|about the company|más empleos|more jobs|personas con las que puedes hablar|meet the hiring team|conoce al equipo)/i;
+    const pageTitle = titleFromDocument();
+    for (const root of jobRoots()) {
+      const chunks = [];
+      const seen = new Set();
+      let started = false;
+      for (const node of root.querySelectorAll("h2, h3, h4, p, li, div")) {
+        if (isNoise(node) || node.closest?.("[data-matchply-capture-host]")) continue;
+        if (node.tagName === "DIV" && hasBlockChild(node)) continue;
+        if (node.tagName !== "LI" && node.tagName !== "DIV" && node.querySelector("li")) continue;
+        const text = elementText(node);
+        if (!text || isChromeLine(text) || isMetaLine(text) || text === pageTitle) continue;
+        if (stop.test(text)) {
+          if (started) break;
+          continue;
+        }
+        if (!started) started = true;
+        if (ABOUT_JOB_HEADING.test(text) || seen.has(text)) continue;
+        seen.add(text);
+        chunks.push(text);
+        if (chunks.join("\n").length > 20000) break;
+      }
+      const description = clean(chunks.join("\n"));
+      if (description.length >= 80) return description;
+    }
+    return "";
+  }
+
+  function revealJobDescription() {
+    const click = (button) => { try { button.click(); } catch (_) {} };
+    document.querySelectorAll(".show-more-less-html__button--more, .jobs-description__footer-button, [data-testid='expandable-text-button']").forEach((button) => {
+      if (!isNoise(button)) click(button);
+    });
+    document.querySelectorAll("button").forEach((button) => {
+      if (isNoise(button)) return;
+      const label = elementText(button);
+      if (/^(ver m[aá]s|mostrar m[aá]s|show more|see more)$/i.test(label)) click(button);
+    });
+    const target = findAboutHeading()
+      || document.querySelector("#job-details, .jobs-description__content, .show-more-less-html__markup, .description__text");
+    try { target?.scrollIntoView?.({ block: "center" }); } catch (_) {}
+    const scroller = document.querySelector(".jobs-search__job-details--container, .jobs-details__main-content, main");
+    if (scroller) {
+      try { scroller.scrollTop = (Number(scroller.scrollTop) || 0) + 800; } catch (_) {}
+    }
+  }
+
   function extractWorkplace(text) {
-    if (/\b(en remoto|remote)\b/i.test(text)) return "Remoto";
-    if (/\b(h[ií]brido|hybrid)\b/i.test(text)) return "Híbrido";
-    if (/\b(presencial|on[ -]?site)\b/i.test(text)) return "Presencial";
+    const value = String(text || "").replace(/_/g, " ");
+    if (/\b(en remoto|remote|telecommute)\b/i.test(value)) return "Remoto";
+    if (/\b(h[ií]brido|hybrid)\b/i.test(value)) return "Híbrido";
+    if (/\b(presencial|on[ -]?site)\b/i.test(value)) return "Presencial";
     return "";
   }
 
   function extractEmployment(text) {
-    if (/\b(jornada completa|full[ -]?time)\b/i.test(text)) return "Jornada completa";
-    if (/\b(media jornada|part[ -]?time)\b/i.test(text)) return "Media jornada";
-    if (/\b(pr[aá]cticas|internship)\b/i.test(text)) return "Prácticas";
-    if (/\b(temporal|temporary)\b/i.test(text)) return "Temporal";
-    if (/\b(contrato|contract|freelance)\b/i.test(text)) return "Contrato";
+    const value = String(text || "").replace(/_/g, " ");
+    if (/\b(jornada completa|full[ -]?time)\b/i.test(value)) return "Jornada completa";
+    if (/\b(media jornada|part[ -]?time)\b/i.test(value)) return "Media jornada";
+    if (/\b(pr[aá]cticas|internship)\b/i.test(value)) return "Prácticas";
+    if (/\b(temporal|temporary)\b/i.test(value)) return "Temporal";
+    if (/\b(contrato|contract|freelance)\b/i.test(value)) return "Contrato";
     return "";
   }
 
@@ -680,25 +1041,61 @@
     if (result?.avatarRetryAt) peopleRetryAt = result.avatarRetryAt;
   }
   function detailMatches(jobId) {
-    const anchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a[href*="/jobs/view/"], .jobs-unified-top-card__job-title a[href*="/jobs/view/"]');
-    const detailId = anchor?.getAttribute('href')?.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1];
-    return !detailId || detailId === jobId;
+    const pathId = location.pathname.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1];
+    if (pathId) return pathId === jobId;
+    const anchors = document.querySelectorAll('.job-details-jobs-unified-top-card__job-title a[href*="/jobs/view/"], .jobs-unified-top-card__job-title a[href*="/jobs/view/"]');
+    for (const anchor of anchors) {
+      if (isNoise(anchor)) continue;
+      const detailId = anchor.getAttribute("href")?.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)?.[1];
+      if (detailId) return detailId === jobId;
+    }
+    return true;
   }
+  function stickyMeta() {
+    const root = document.querySelector("main") || document.body;
+    for (const node of root.querySelectorAll("span, div, p")) {
+      if (isNoise(node) || node.closest?.("[data-matchply-capture-host]")) continue;
+      const text = clean(elementText(node).split("\n")[0]);
+      if (!text || text.length > 180 || !text.includes("·")) continue;
+      const parts = text.split("·").map((part) => clean(part)).filter(Boolean);
+      if (parts.length < 2 || parts.length > 4 || parts[0].length > 60) continue;
+      if (/solicitud|applicant|guardar|easy apply/i.test(text) || isCompanyNoise(parts[0])) continue;
+      const rest = parts.slice(1).join(" · ");
+      return {
+        company: parts[0],
+        location: clean(rest.replace(/\([^)]*\)/g, "")),
+        workplace: extractWorkplace(rest),
+      };
+    }
+    return { company: "", location: "", workplace: "" };
+  }
+
   function buildPayload(jobId) {
     if (!detailMatches(jobId)) return null;
-    const title = firstText(selectors.title);
-    const company = firstText(selectors.company);
-    const locationMetadata = firstText(selectors.location);
-    const locationText = clean(locationMetadata.split("\n")[0].split("·")[0]);
-    const topCardText = firstText([
-      ".job-details-jobs-unified-top-card__container--two-pane",
-      ".job-details-jobs-unified-top-card",
-    ]);
-    const workplaceType = extractWorkplace(topCardText);
-    const employmentType = extractEmployment(topCardText);
-    const description = firstText(selectors.description);
+    const titleBox = findJobTitleBox();
+    const posting = jsonLdJob();
+    const sticky = stickyMeta();
+    const title = readTitle() || clean(posting?.title) || titleFromDocument();
+    const company = usableCompany(readCompany(titleBox))
+      || usableCompany(sticky.company)
+      || usableCompany(posting?.hiringOrganization?.name)
+      || usableCompany(companyFromDocument());
+    const locationText = readLocation(titleBox) || sticky.location || jsonLocation(posting);
+    const topCardText = [
+      firstText([
+        ".job-details-jobs-unified-top-card__container--two-pane",
+        ".job-details-jobs-unified-top-card",
+        ".jobs-unified-top-card",
+        ".top-card-layout",
+      ]),
+      elementText(titleBox?.parentElement),
+      sticky.workplace,
+    ].filter(Boolean).join("\n");
+    const workplaceType = extractWorkplace(topCardText) || sticky.workplace || extractWorkplace(String(posting?.jobLocationType || ""));
+    const employmentType = extractEmployment(topCardText) || extractEmployment(String(posting?.employmentType || ""));
+    const description = readDescription();
     if (!title || description.length < 80) return null;
-    const rawText = [title, company, locationMetadata, workplaceType, employmentType, "Acerca del empleo", description].filter(Boolean).join("\n");
+    const rawText = [title, company, locationText, workplaceType, employmentType, "Acerca del empleo", description].filter(Boolean).join("\n");
     return {
       job_id: jobId,
       url: `https://www.linkedin.com/jobs/view/${jobId}`,
@@ -1199,6 +1596,7 @@
   }
 
   function currentKind(state = {}) {
+    if (!config.enabled) return "hidden";
     if (!config.showFloating && !config.showHeader && !config.showTitle) return "hidden";
     const jobId = currentJobId();
     if (!jobId) return allowBrowse && onJobsSurface() ? "browse" : "hidden";
@@ -1543,9 +1941,13 @@
   async function waitForPayload(jobId) {
     let payload = buildPayload(jobId);
     if (payload) return payload;
+    revealJobDescription();
+    payload = buildPayload(jobId);
+    if (payload) return payload;
     renderWidget({ waiting: true });
-    for (let i = 0; i < 10 && currentJobId() === jobId; i += 1) {
+    for (let i = 0; i < 12 && currentJobId() === jobId; i += 1) {
       await sleep(350);
+      if (i === 4) revealJobDescription();
       payload = buildPayload(jobId);
       if (payload) return payload;
     }
@@ -1569,6 +1971,7 @@
   }
 
   async function attemptCapture(jobId, force) {
+    if (!config.enabled) return { ok: false, error: "La extensión está apagada." };
     if (captureInProgress) return { ok: false, error: "Captura en curso" };
     if (!jobId) return { ok: false, error: "No hay oferta visible" };
     if (!force && skippedJobs.has(jobId)) return { ok: false, error: "Oferta omitida" };
@@ -1622,6 +2025,10 @@
   }
 
   async function onJobMaybeChanged() {
+    if (!config.enabled) {
+      renderWidget();
+      return;
+    }
     const jobId = currentJobId();
     if (!jobId) {
       if (!onJobsSurface()) {

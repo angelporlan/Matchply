@@ -13,6 +13,8 @@ type FakeNode = {
   classList: { contains(token: string): boolean };
   innerHTML: string;
   hidden: boolean;
+  textContent: string;
+  innerText: string;
   shadowRoot: FakeNode | null;
   style: Record<string, string>;
   firstElementChild?: FakeNode | null;
@@ -138,6 +140,8 @@ function createBrowser() {
       releasePointerCapture() {},
       hasPointerCapture() { return false; },
       getBoundingClientRect() { return { width: 280, height: 48, top: 8, left: 12, right: 292, bottom: 56 }; },
+      click() {},
+      scrollIntoView() {},
       attachShadow() {
         node.shadowRoot = createElement('shadow');
         return node.shadowRoot;
@@ -163,6 +167,27 @@ function createBrowser() {
     Object.defineProperty(node, 'firstElementChild', {
       get: () => node.children[0] || null,
     });
+    let text = '';
+    const sibling = (offset: number) => {
+      const siblings = node.parentElement?.children || [];
+      const index = siblings.indexOf(node);
+      return index >= 0 ? siblings[index + offset] || null : null;
+    };
+    Object.defineProperty(node, 'textContent', {
+      get: () => text,
+      set: (value: string) => { text = String(value ?? ''); },
+    });
+    Object.defineProperty(node, 'innerText', {
+      get() {
+        const nested = node.children.map((child) => child.innerText || '').filter(Boolean);
+        return [text, ...nested].filter(Boolean).join('\n');
+      },
+      set: (value: string) => { text = String(value ?? ''); },
+    });
+    Object.defineProperty(node, 'nextSibling', { get: () => sibling(1) });
+    Object.defineProperty(node, 'previousSibling', { get: () => sibling(-1) });
+    Object.defineProperty(node, 'nextElementSibling', { get: () => sibling(1) });
+    Object.defineProperty(node, 'previousElementSibling', { get: () => sibling(-1) });
     return node;
   }
 
@@ -171,7 +196,7 @@ function createBrowser() {
   }
 
   function matches(node: FakeNode, step: string) {
-    const tag = step.match(/^[a-z]+/i)?.[0];
+    const tag = step.match(/^[a-z][\w-]*/i)?.[0];
     const id = step.match(/#([\w-]+)/)?.[1];
     const classes = Array.from(step.matchAll(/\.([\w-]+)/g)).map((match) => match[1]);
     const attr = step.match(/\[([\w-]+)\]/)?.[1];
@@ -226,6 +251,7 @@ function createBrowser() {
   Object.defineProperty(location, 'pathname', { get: () => new URL(location.href).pathname });
   const listeners: Record<string, Array<() => void>> = {};
   let onChanged: (changes: Record<string, { newValue?: unknown }>, area: string) => void = () => {};
+  let onMessage: (message: { type?: string }, sender: unknown, sendResponse: (value: unknown) => void) => boolean = () => false;
   const storage: Record<string, unknown> = {};
   const documentApi = {
     documentElement,
@@ -253,6 +279,7 @@ function createBrowser() {
     documentApi,
     windowApi,
     onChanged: () => onChanged,
+    onMessage: () => onMessage,
     setOnChanged: (fn: typeof onChanged) => { onChanged = fn; },
     chrome: {
       storage: {
@@ -264,7 +291,8 @@ function createBrowser() {
       },
       runtime: {
         getManifest: () => ({ version: '2.3.0' }),
-        onMessage: { addListener: () => {} },
+        onMessage: { addListener: (fn: typeof onMessage) => { onMessage = fn; } },
+        sendMessage: async (_message?: unknown) => ({ ok: true, result: {} }),
       },
     },
     timers: () => ({ setTimeout: (fn: () => void, ms: number) => arm(fn, ms || 0, 0), clearTimeout: clearTimer, setInterval: (fn: () => void, ms: number) => arm(fn, ms || 0, ms || 0), clearInterval: clearTimer }),
@@ -415,4 +443,203 @@ test('the title pill sits beside the job name and can be hidden', async () => {
   assert.equal(browser.documentApi.querySelector('[data-matchply-title-host]'), null);
   assert.equal(card(browser)?.hidden, false);
   assert.match(card(browser)?.innerHTML || '', /Se guarda en/);
+});
+
+test('a direct job page is read and the title pill sits beside its heading', async () => {
+  const browser = createBrowser();
+  const main = browser.documentApi.createElement('main');
+  const section = browser.documentApi.createElement('section');
+  const company = browser.documentApi.createElement('a');
+  company.textContent = 'Fynity';
+  company.setAttribute('href', '/company/fynity-png');
+  const heading = browser.documentApi.createElement('h1');
+  heading.textContent = 'Technical Lead';
+  const meta = browser.documentApi.createElement('span');
+  meta.textContent = 'Londres y alrededores, Reino Unido · Híbrido · Jornada completa';
+  const about = browser.documentApi.createElement('h2');
+  about.textContent = 'Acerca del empleo';
+  const description = browser.documentApi.createElement('p');
+  description.textContent = 'Ruby on Rails Tech Lead in London. This hands-on role builds and scales production platforms, owns architecture, and works with the managing director.';
+  const aside = browser.documentApi.createElement('aside');
+  const other = browser.documentApi.createElement('h1');
+  other.textContent = 'Another Technical Lead';
+  aside.appendChild(other);
+  section.append(company, heading, meta, about, description);
+  main.appendChild(section);
+  browser.documentApi.body.appendChild(main);
+  browser.documentApi.body.appendChild(aside);
+
+  let captured: any = null;
+  browser.chrome.runtime.sendMessage = async (message: any) => {
+    captured = message;
+    return { ok: true, result: {} };
+  };
+
+  boot(browser);
+  await settle();
+  browser.location.href = 'https://www.linkedin.com/jobs/view/4473662086/?trackingId=abc';
+  browser.listeners.navigatesuccess?.forEach((fn) => fn());
+  browser.advance(400);
+  await settle();
+  browser.advance(20);
+  await settle();
+
+  const titleHost = browser.documentApi.querySelector('[data-matchply-title-host]') as FakeNode | null;
+  const siblings = heading.parentElement?.children || [];
+  assert.equal(siblings[siblings.indexOf(heading) + 1], titleHost);
+  assert.equal(titleHost?.parentElement, section);
+  assert.equal(company.children.includes(titleHost as FakeNode), false);
+
+  let response: any = null;
+  browser.onMessage()({ type: 'trigger-manual-capture' }, {}, (value) => { response = value; });
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  assert.equal(response?.ok, true);
+  assert.equal(captured?.payload?.title, 'Technical Lead');
+  assert.equal(captured?.payload?.company, 'Fynity');
+  assert.equal(captured?.payload?.location, 'Londres y alrededores, Reino Unido');
+  assert.equal(captured?.payload?.workplace_type, 'Híbrido');
+  assert.equal(captured?.payload?.employment_type, 'Jornada completa');
+  assert.match(captured?.payload?.description || '', /Ruby on Rails Tech Lead/);
+
+  browser.onChanged()({ matchplyExtensionEnabled: { newValue: false } }, 'local');
+  assert.equal(browser.documentApi.querySelector('[data-matchply-title-host]'), null);
+  assert.equal(card(browser)?.hidden, true);
+
+  browser.onChanged()({ matchplyExtensionEnabled: { newValue: true } }, 'local');
+  browser.advance(80);
+  await settle();
+  assert.equal(card(browser)?.hidden, false);
+  assert.ok(browser.documentApi.querySelector('[data-matchply-title-host]'));
+});
+
+test('a logged-in job page is read from the sticky title and the visible bullets', async () => {
+  const browser = createBrowser();
+  const main = browser.documentApi.createElement('main');
+  const title = browser.documentApi.createElement('div');
+  title.textContent = 'Technical Lead';
+  const meta = browser.documentApi.createElement('span');
+  meta.textContent = 'Fynity · Londres y alrededores, Reino Unido (Híbrido)';
+  const otherJob = browser.documentApi.createElement('div');
+  otherJob.className = 'jobs-unified-top-card__job-title';
+  const otherLink = browser.documentApi.createElement('a');
+  otherLink.setAttribute('href', '/jobs/view/999');
+  otherLink.textContent = 'Other role';
+  otherJob.appendChild(otherLink);
+  const list = browser.documentApi.createElement('ul');
+  const first = browser.documentApi.createElement('li');
+  first.textContent = 'Solving complex challenges around scalability, performance and architecture for the core platform.';
+  const second = browser.documentApi.createElement('li');
+  second.textContent = 'Working closely with the MD as a trusted technical partner and shaping the technical direction of the products.';
+  list.append(first, second);
+  const paragraph = browser.documentApi.createElement('div');
+  paragraph.textContent = 'You will need to be a genuinely hands-on Engineer with deep Ruby on Rails expertise across the core platform.';
+  main.append(otherJob, title, meta, list, paragraph);
+  browser.documentApi.body.appendChild(main);
+  (browser.documentApi as { title?: string }).title = 'Technical Lead | Fynity | LinkedIn';
+
+  let captured: any = null;
+  browser.chrome.runtime.sendMessage = async (message: any) => {
+    captured = message;
+    return { ok: true, result: {} };
+  };
+
+  boot(browser);
+  await settle();
+  browser.location.href = 'https://www.linkedin.com/jobs/view/4473662086/?trackingId=abc';
+  browser.listeners.navigatesuccess?.forEach((fn) => fn());
+  browser.advance(400);
+  await settle();
+  browser.advance(20);
+  await settle();
+
+  const titleHost = browser.documentApi.querySelector('[data-matchply-title-host]') as FakeNode | null;
+  const siblings = title.parentElement?.children || [];
+  assert.equal(siblings[siblings.indexOf(title) + 1], titleHost);
+
+  let response: any = null;
+  browser.onMessage()({ type: 'trigger-manual-capture' }, {}, (value) => { response = value; });
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  assert.equal(response?.ok, true);
+  assert.equal(captured?.payload?.title, 'Technical Lead');
+  assert.equal(captured?.payload?.company, 'Fynity');
+  assert.equal(captured?.payload?.location, 'Londres y alrededores, Reino Unido');
+  assert.equal(captured?.payload?.workplace_type, 'Híbrido');
+  assert.match(captured?.payload?.description || '', /scalability, performance and architecture/);
+  assert.match(captured?.payload?.description || '', /trusted technical partner/);
+  assert.match(captured?.payload?.description || '', /genuinely hands-on Engineer/);
+  assert.doesNotMatch(captured?.payload?.description || '', /Other role/);
+});
+
+test('a promoted job does not use the recruiter label as the company', async () => {
+  const browser = createBrowser();
+  const main = browser.documentApi.createElement('main');
+  const promoted = browser.documentApi.createElement('div');
+  promoted.textContent = 'Promocionado por técnico de selección · 1.er';
+  const heading = browser.documentApi.createElement('h1');
+  heading.textContent = 'Technical Lead';
+  const badge = browser.documentApi.createElement('div');
+  badge.textContent = 'Promocionado por técnico de selección';
+  const meta = browser.documentApi.createElement('span');
+  meta.textContent = 'Fynity · Londres y alrededores, Reino Unido (Híbrido)';
+  const description = browser.documentApi.createElement('p');
+  description.textContent = 'Hands-on Ruby on Rails tech lead who owns architecture, scales the platform and works with the managing director.';
+  main.append(promoted, badge, heading, meta, description);
+  browser.documentApi.body.appendChild(main);
+  (browser.documentApi as { title?: string }).title = 'Technical Lead | Fynity | LinkedIn';
+
+  let captured: any = null;
+  browser.chrome.runtime.sendMessage = async (message: any) => {
+    captured = message;
+    return { ok: true, result: {} };
+  };
+  boot(browser);
+  await settle();
+  browser.location.href = 'https://www.linkedin.com/jobs/view/4473662086/';
+  browser.listeners.navigatesuccess?.forEach((fn) => fn());
+  browser.advance(400);
+  await settle();
+
+  let response: any = null;
+  browser.onMessage()({ type: 'trigger-manual-capture' }, {}, (value) => { response = value; });
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  assert.equal(response?.ok, true);
+  assert.equal(captured?.payload?.company, 'Fynity');
+  assert.equal(captured?.payload?.location, 'Londres y alrededores, Reino Unido');
+});
+
+test('a search pane that still shows another job is not captured', async () => {
+  const browser = createBrowser();
+  const pane = browser.documentApi.createElement('div');
+  pane.className = 'job-details-jobs-unified-top-card__job-title';
+  const link = browser.documentApi.createElement('a');
+  link.setAttribute('href', '/jobs/view/222');
+  const heading = browser.documentApi.createElement('h1');
+  heading.textContent = 'Other role';
+  link.appendChild(heading);
+  const description = browser.documentApi.createElement('p');
+  description.textContent = 'This description belongs to the previous offer and must stay unsaved while the selected card is still loading.';
+  pane.append(link, description);
+  browser.documentApi.body.appendChild(pane);
+
+  let captured: any = null;
+  browser.chrome.runtime.sendMessage = async (message: any) => {
+    captured = message;
+    return { ok: true, result: {} };
+  };
+  boot(browser);
+  await settle();
+  browser.location.href = 'https://www.linkedin.com/jobs/search/?currentJobId=111';
+  browser.listeners.navigatesuccess?.forEach((fn) => fn());
+  browser.advance(400);
+  await settle();
+
+  let response: any = null;
+  browser.onMessage()({ type: 'trigger-manual-capture' }, {}, (value) => { response = value; });
+  for (let i = 0; i < 20 && !response; i += 1) {
+    for (let j = 0; j < 10; j += 1) await Promise.resolve();
+    browser.advance(400);
+  }
+  for (let j = 0; j < 10; j += 1) await Promise.resolve();
+  assert.equal(response?.ok, false);
+  assert.equal(captured, null);
 });
