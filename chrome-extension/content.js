@@ -500,7 +500,12 @@
       return false;
     }
     const heading = box.querySelector("h1, h2");
-    const link = heading?.parentElement?.tagName === "A" ? heading.parentElement : null;
+    let link = null;
+    let current = heading?.parentElement;
+    while (current && current !== box) {
+      if (current.tagName === "A") link = current;
+      current = current.parentElement;
+    }
     const anchor = link || heading;
     const parent = anchor?.parentElement || box;
     if (!titleHost) {
