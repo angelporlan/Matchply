@@ -60,6 +60,61 @@ test('photo download/upload failure keeps the contact and offer saved, with a pe
     const state = bg.storage['matchply_capture_installation-a_123']; assert.equal(state.offer, true); assert.equal(state.people.length, 1); assert.equal(JSON.parse(state.people[0]).length, 5);
   }
 });
+test('capture stays on linkedin job pages for every subdomain', async () => {
+  const bg = background({ success: true }, { capturePeople: false });
+  const offer = { job_id: '123', title: 'Engineer', company: 'Client', description: 'Offer description' };
+  const feed = await bg.send({ type: 'capture-linkedin-job', payload: offer }, 'https://www.linkedin.com/feed/');
+  assert.equal(feed.ok, false);
+  const country = await bg.send({ type: 'capture-linkedin-job', payload: offer }, 'https://fr.linkedin.com/jobs/view/123/');
+  assert.equal(country.ok, true);
+  const spoof = await bg.send({ type: 'capture-linkedin-job', payload: offer }, 'https://www.linkedin.com.evil.test/jobs/view/123/');
+  assert.equal(spoof.ok, false);
+});
+test('linkedin stays armed across a client-side navigation into jobs', async () => {
+  const injected: Array<{ files?: string[] }> = [];
+  let onUpdated: (tabId: number, changeInfo: Record<string, string>, tab: { id: number; url?: string }) => void = () => {};
+  let onInstalled: () => void = () => {};
+  const sandbox: Record<string, unknown> = {};
+  runInNewContext(`${readFileSync('chrome-extension/people.js', 'utf8')}\n${readFileSync('chrome-extension/background.js', 'utf8')}`, Object.assign(sandbox, {
+    URL, setTimeout, clearTimeout, importScripts: () => {},
+    chrome: {
+      storage: { local: { get: async () => ({}), set: async () => {}, remove: async () => {} } },
+      action: { setBadgeBackgroundColor: async () => {}, setBadgeText: async () => {} },
+      runtime: {
+        getManifest: () => ({ version: '2.3.0' }),
+        onMessage: { addListener: () => {} },
+        onInstalled: { addListener: (fn: () => void) => { onInstalled = fn; } },
+        onStartup: { addListener: () => {} },
+      },
+      tabs: {
+        onUpdated: { addListener: (fn: typeof onUpdated) => { onUpdated = fn; } },
+        query: async () => [{ id: 7, url: 'https://www.linkedin.com/feed/' }],
+      },
+      scripting: {
+        executeScript: async (opts: { func?: (version: string) => boolean; args?: string[]; files?: string[] }) => {
+          if (opts.func) return [{ result: opts.func(...((opts.args || []) as [string])) }];
+          injected.push({ files: opts.files });
+          sandbox.__matchplyLinkedInCapture = '2.3.0';
+          return [];
+        },
+      },
+    },
+  }));
+  const wait = () => new Promise((resolve) => setTimeout(resolve, 150));
+  onUpdated(4, { url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' }, { id: 4, url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' });
+  await wait();
+  assert.deepEqual(injected.map((item) => [...(item.files || [])]), [['people.js', 'content.js']]);
+  onUpdated(4, { title: 'LinkedIn' }, { id: 4, url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' });
+  onUpdated(9, { status: 'complete' }, { id: 9, url: 'https://example.com/' });
+  onUpdated(4, { url: 'https://www.linkedin.com/jobs/view/2/' }, { id: 4, url: 'https://www.linkedin.com/jobs/view/2/' });
+  await wait();
+  assert.equal(injected.length, 1);
+  sandbox.__matchplyLinkedInCapture = undefined;
+  onInstalled();
+  await wait();
+  assert.equal(injected.length, 2);
+  assert.deepEqual([...(injected[1].files || [])], ['people.js', 'content.js']);
+});
 test('opt-out, invalid photo sources and messages outside job pages do not download images', async () => {
   const off = background({ success: true }, { capturePeople: false });
   await off.send({ type: 'capture-linkedin-people', payload: { sourceJobId: '123', people: [withPhoto] } }); assert.equal(off.calls.length, 1);

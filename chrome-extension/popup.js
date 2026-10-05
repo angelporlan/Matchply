@@ -18,9 +18,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const delaySlider = document.getElementById("delaySlider");
   const delayDisplay = document.getElementById("delayDisplay");
   const peopleToggle = document.getElementById("peopleToggle");
-  const widgetToggle = document.getElementById("widgetToggle");
+  const floatingToggle = document.getElementById("floatingToggle");
+  const headerToggle = document.getElementById("headerToggle");
+  const titleToggle = document.getElementById("titleToggle");
   const presetButtons = [...document.querySelectorAll(".preset-button")];
   const statusMessage = document.getElementById("statusMessage");
+  const JOB_PAGE = /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//i;
+  const LINKEDIN_PAGE = /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\//i;
 
   function showMsg(text, type = "") {
     if (!statusMessage) return;
@@ -47,6 +51,60 @@ document.addEventListener("DOMContentLoaded", () => {
     if (delaySection) delaySection.style.display = isAuto ? "block" : "none";
   }
 
+  function surfacesFromStored(stored) {
+    const legacyShow = stored.matchplyShowWidget;
+    const anchor = stored.matchplyWidgetAnchor === "header" ? "header" : "float";
+    const floatingSet = stored.matchplyShowFloating !== undefined;
+    const headerSet = stored.matchplyShowHeader !== undefined;
+    const titleSet = stored.matchplyShowTitle !== undefined;
+    const showTitle = titleSet ? stored.matchplyShowTitle !== false : legacyShow !== false;
+    if (!floatingSet && !headerSet) {
+      if (legacyShow === false) return { showFloating: false, showHeader: false, showTitle: false };
+      return { showFloating: anchor !== "header", showHeader: anchor === "header", showTitle };
+    }
+    return {
+      showFloating: floatingSet ? stored.matchplyShowFloating !== false : legacyShow !== false && anchor !== "header",
+      showHeader: headerSet ? stored.matchplyShowHeader !== false : anchor === "header" && legacyShow !== false,
+      showTitle,
+    };
+  }
+
+  async function persistSurfaces(showFloating, showHeader, showTitle) {
+    await chrome.storage.local.set({
+      matchplyShowFloating: showFloating,
+      matchplyShowHeader: showHeader,
+      matchplyShowTitle: showTitle,
+      matchplyShowWidget: showFloating || showHeader || showTitle,
+      matchplyWidgetAnchor: showHeader && !showFloating ? "header" : "float",
+    });
+  }
+
+  async function ensureLinkedInScript(tabId) {
+    try {
+      const version = chrome.runtime.getManifest().version;
+      const [probe] = await chrome.scripting.executeScript({
+        target: { tabId, allFrames: false },
+        func: (expected) => {
+          try {
+            if (globalThis.__matchplyLinkedInCapture === expected) return true;
+            return document.documentElement?.dataset?.matchplyCaptureLock === expected;
+          } catch (_) {
+            return globalThis.__matchplyLinkedInCapture === expected;
+          }
+        },
+        args: [version],
+      });
+      if (probe?.result) return true;
+      await chrome.scripting.executeScript({
+        target: { tabId, allFrames: false },
+        files: ["people.js", "content.js"],
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function updateDelayUI(sec) {
     if (delaySlider) delaySlider.value = String(sec);
     if (delaySlider) delaySlider.setAttribute("aria-valuetext", `${sec} ${sec === 1 ? "segundo" : "segundos"}`);
@@ -65,7 +123,9 @@ document.addEventListener("DOMContentLoaded", () => {
       [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     } catch (_) {}
 
-    const isJobPage = /^https:\/\/(?:www|es)\.linkedin\.com\/jobs\//i.test(tab?.url || "");
+    const isLinkedIn = LINKEDIN_PAGE.test(tab?.url || "");
+    const isJobPage = JOB_PAGE.test(tab?.url || "");
+    if (isLinkedIn && tab?.id) await ensureLinkedInScript(tab.id);
     const label = saveNowBtn.querySelector("span");
     saveNowBtn.disabled = !isJobPage;
     if (label) label.textContent = isJobPage ? "Guardar oferta ahora" : "Abre una oferta en LinkedIn";
@@ -83,7 +143,11 @@ document.addEventListener("DOMContentLoaded", () => {
       "matchplyCaptureMode",
       "matchplyCaptureDelay",
       "matchplyShowWidget",
+      "matchplyShowFloating",
+      "matchplyShowHeader",
+      "matchplyShowTitle",
       "matchplyCapturePeople",
+      "matchplyWidgetAnchor",
     ]);
 
     const token = stored.matchplyExtensionToken;
@@ -104,11 +168,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const mode = stored.matchplyCaptureMode || "auto";
     const delay = clampDelay(stored.matchplyCaptureDelay || 3);
-    const showWidget = stored.matchplyShowWidget !== false;
+    const surfaces = surfacesFromStored(stored);
 
     updateModeUI(mode);
     updateDelayUI(delay);
-    if (widgetToggle) widgetToggle.checked = showWidget;
+    if (floatingToggle) floatingToggle.checked = surfaces.showFloating;
+    if (headerToggle) headerToggle.checked = surfaces.showHeader;
+    if (titleToggle) titleToggle.checked = surfaces.showTitle;
     if (peopleToggle) peopleToggle.checked = stored.matchplyCapturePeople === true;
 
     if (!isConnected) return;
@@ -217,8 +283,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   peopleToggle?.addEventListener("change", async e => { await chrome.storage.local.set({ matchplyCapturePeople: e.target.checked }); });
 
-  widgetToggle?.addEventListener("change", async (e) => {
-    await chrome.storage.local.set({ matchplyShowWidget: e.target.checked });
+  floatingToggle?.addEventListener("change", async (e) => {
+    await persistSurfaces(e.target.checked, Boolean(headerToggle?.checked), titleToggle ? titleToggle.checked : true);
+  });
+
+  headerToggle?.addEventListener("change", async (e) => {
+    await persistSurfaces(floatingToggle ? floatingToggle.checked : true, e.target.checked, titleToggle ? titleToggle.checked : true);
+  });
+
+  titleToggle?.addEventListener("change", async (e) => {
+    await persistSurfaces(floatingToggle ? floatingToggle.checked : true, Boolean(headerToggle?.checked), e.target.checked);
   });
 
   saveNowBtn?.addEventListener("click", async () => {
@@ -230,7 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id || !/linkedin\.com\/jobs/i.test(tab.url || "")) {
+      if (!tab?.id || !JOB_PAGE.test(tab.url || "")) {
         showMsg("Abre una oferta en LinkedIn primero.", "err");
         return;
       }
@@ -239,7 +313,16 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         res = await chrome.tabs.sendMessage(tab.id, { type: "trigger-manual-capture" });
       } catch (_) {
-        showMsg("Recarga la pestaña de LinkedIn (F5) para activar la extensión.", "err");
+        const injected = await ensureLinkedInScript(tab.id);
+        if (injected) {
+          try {
+            res = await chrome.tabs.sendMessage(tab.id, { type: "trigger-manual-capture" });
+          } catch (_) {}
+        }
+      }
+
+      if (!res) {
+        showMsg("No se pudo activar la captura. Recarga la pestaña de LinkedIn.", "err");
         return;
       }
 

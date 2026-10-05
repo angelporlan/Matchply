@@ -118,11 +118,33 @@
 
         <label class="setting-row widget-setting">
           <span class="setting-copy">
-            <span class="setting-title">Indicador en LinkedIn</span>
-            <span class="setting-description">Muestra el estado y los controles de captura en la oferta.</span>
+            <span class="setting-title">Indicador libre</span>
+            <span class="setting-description">Tarjeta que puedes arrastrar. Puedes ocultarla y dejar solo la cabecera.</span>
           </span>
           <span class="switch-control">
-            <input id="widgetToggle" type="checkbox" checked>
+            <input id="floatingToggle" type="checkbox" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
+
+        <label class="setting-row widget-setting">
+          <span class="setting-copy">
+            <span class="setting-title">Indicador en la cabecera</span>
+            <span class="setting-description">Pastilla fija en la barra de LinkedIn. Sigue visible si ocultas el libre.</span>
+          </span>
+          <span class="switch-control">
+            <input id="headerToggle" type="checkbox">
+            <span class="switch-track" aria-hidden="true"></span>
+          </span>
+        </label>
+
+        <label class="setting-row widget-setting">
+          <span class="setting-copy">
+            <span class="setting-title">Indicador en el título</span>
+            <span class="setting-description">Pastilla junto al nombre de la oferta. Indica si está guardada, el tiempo restante y Capturar ahora.</span>
+          </span>
+          <span class="switch-control">
+            <input id="titleToggle" type="checkbox" checked>
             <span class="switch-track" aria-hidden="true"></span>
           </span>
         </label>

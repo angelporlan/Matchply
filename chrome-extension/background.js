@@ -80,7 +80,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const source = sender.url || sender.tab?.url || '';
-        if (!/^https:\/\/(?:www|es)\.linkedin\.com\/jobs\//.test(source)) {
+        if (!/^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//.test(source)) {
           sendResponse({ ok: false, error: 'Captura disponible solo en ofertas de LinkedIn.' });
           return;
         }
@@ -174,3 +174,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
+const LINKEDIN_PAGE = /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\//i;
+
+function isLinkedInPage(url) {
+  return LINKEDIN_PAGE.test(url || "");
+}
+
+async function ensureLinkedInCapture(tabId) {
+  if (!tabId || !chrome.scripting?.executeScript) return;
+  const version = chrome.runtime.getManifest().version;
+  try {
+    const [probe] = await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      func: (expected) => {
+        try {
+          if (globalThis.__matchplyLinkedInCapture === expected) return true;
+          return document.documentElement?.dataset?.matchplyCaptureLock === expected;
+        } catch (_) {
+          return globalThis.__matchplyLinkedInCapture === expected;
+        }
+      },
+      args: [version],
+    });
+    if (probe?.result) return;
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: ["people.js", "content.js"],
+    });
+  } catch (_) {
+    // The tab can close or discard before the script is allowed to run.
+  }
+}
+
+function watchLinkedInTabs() {
+  if (!chrome.tabs?.onUpdated?.addListener || !chrome.scripting?.executeScript || !chrome.runtime?.getManifest) return;
+  const pending = new Map();
+  const scheduleInject = (tabId) => {
+    clearTimeout(pending.get(tabId));
+    pending.set(tabId, setTimeout(() => {
+      pending.delete(tabId);
+      void ensureLinkedInCapture(tabId);
+    }, 100));
+  };
+  // LinkedIn changes sections with history.pushState. A script declared only
+  // for /jobs/ never starts if the tab was opened on the feed.
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    const url = changeInfo.url || (changeInfo.status === "complete" ? tab?.url : "");
+    if (!tabId || !isLinkedInPage(url)) return;
+    scheduleInject(tabId);
+  });
+  const reinjectOpenTabs = () => {
+    if (!chrome.tabs?.query) return;
+    void chrome.tabs.query({ url: ["https://*.linkedin.com/*", "https://linkedin.com/*"] })
+      .then((tabs) => {
+        for (const tab of tabs || []) {
+          if (tab?.id && isLinkedInPage(tab.url)) void ensureLinkedInCapture(tab.id);
+        }
+      })
+      .catch(() => {});
+  };
+  chrome.runtime.onInstalled?.addListener?.(reinjectOpenTabs);
+  chrome.runtime.onStartup?.addListener?.(reinjectOpenTabs);
+}
+
+watchLinkedInTabs();
