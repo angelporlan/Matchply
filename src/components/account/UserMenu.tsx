@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LanguageToggle from '@/components/ui/LanguageToggle';
+import Avatar from './UserAvatar';
 
 interface UserMenuProps {
   user: {
@@ -29,47 +30,6 @@ interface UserMenuProps {
   };
   isPremium: boolean;
   supportMode?: boolean;
-}
-
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name || email || '').trim();
-  if (!source) return '?';
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
-
-function Avatar({
-  image,
-  name,
-  email,
-  className,
-}: {
-  image?: string | null;
-  name?: string | null;
-  email?: string | null;
-  className: string;
-}) {
-  if (image) {
-    return (
-      <img
-        src={image}
-        alt={name || email || ''}
-        referrerPolicy="no-referrer"
-        className={`${className} rounded-full object-cover border border-subtle shrink-0`}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={`${className} rounded-full bg-gradient-to-tr from-ai to-ai-action text-white font-bold flex items-center justify-center shrink-0 select-none`}
-    >
-      {getInitials(name, email)}
-    </span>
-  );
 }
 
 export default function UserMenu({ user, isPremium, supportMode = false }: UserMenuProps) {

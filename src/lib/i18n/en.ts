@@ -1,6 +1,22 @@
 import { planTranslations } from './plans';
 
 const en = {
+    accountPhoto: {
+      title: 'Profile photo',
+      upload: 'Upload profile photo',
+      change: 'Change profile photo',
+      select: 'Select profile photo',
+      help: 'JPG, PNG or WebP, up to 10 MB. Automatic square crop.',
+      kept: 'Your photo is kept when you sign in with Google again.',
+      saving: 'Optimizing and saving photo…',
+      saved: 'Photo saved.',
+      formatError: 'Select a JPG, PNG or WebP image.',
+      sizeError: 'The image must be no larger than 10 MB.',
+      dimensionsError: 'The image is too large. Use one with up to 16 megapixels.',
+      invalidError: 'Could not read the image. Try another photo.',
+      rateLimitError: 'You have changed your photo several times. Wait a minute and try again.',
+      saveError: 'Could not save your photo. Please try again.',
+    },
     plans: planTranslations.en,
     offerImport: {
       label: "Job offer link",

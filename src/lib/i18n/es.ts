@@ -1,6 +1,22 @@
 import { planTranslations } from './plans';
 
 const es = {
+    accountPhoto: {
+      title: 'Foto de perfil',
+      upload: 'Subir foto de perfil',
+      change: 'Cambiar foto de perfil',
+      select: 'Seleccionar foto de perfil',
+      help: 'JPG, PNG o WebP, hasta 10 MB. Recorte cuadrado automático.',
+      kept: 'Tu foto se conserva al volver a iniciar sesión con Google.',
+      saving: 'Optimizando y guardando foto…',
+      saved: 'Foto guardada.',
+      formatError: 'Selecciona una imagen JPG, PNG o WebP.',
+      sizeError: 'La imagen debe ocupar como máximo 10 MB.',
+      dimensionsError: 'La imagen es demasiado grande. Usa una de hasta 16 megapíxeles.',
+      invalidError: 'No se pudo leer la imagen. Prueba con otra foto.',
+      rateLimitError: 'Has cambiado la foto varias veces. Espera un minuto y vuelve a intentarlo.',
+      saveError: 'No se pudo guardar la foto. Vuelve a intentarlo.',
+    },
     plans: planTranslations.es,
     offerImport: {
       label: "Enlace a la oferta",

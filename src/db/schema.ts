@@ -46,6 +46,16 @@ export const users = pgTable('user', {
   proGrantedIdx: index('user_pro_granted_idx').on(table.proGrantedUntil),
 }));
 
+// Uploaded profile photos stay out of session/dashboard queries. One photo per account.
+export const userAvatars = pgTable('user_avatar', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytes: text('bytes').notNull(), // Base64-encoded, optimized JPEG; never sent in list payloads.
+  byteSize: integer('byteSize').notNull(),
+  hash: text('hash').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
 // Tabla de Currículums
 export const cvs = pgTable('cv', {
   id: uuid('id').defaultRandom().primaryKey(),
