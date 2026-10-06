@@ -44,3 +44,27 @@ Sin navegador ni sesiones LinkedIn en servidor. Ofertas protegidas o no indexada
 Publicar worker compatible, comprobar OPENAI_API_KEY sin imprimirla y después publicar web. Verificar importación en ambas vistas y logs. Sin migración. Verificaciones locales no equivalen a despliegue.
 
 Documentación: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [web search](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+## Ampliación aprobada: tres variantes (06/10/2026)
+
+Esta ampliación conserva el servicio y las expectativas de importación de ofertas. Sustituye la selección previa de un modo y el contrato de optimización del editor.
+
+- REQ-V01: una acción MUST generar Fiel, Equilibrado y Máximo matching desde el mismo CV/perfil/oferta congelados; un análisis compartido y generaciones independientes, hasta tres llamadas simultáneas por trabajo.
+- REQ-V02: el conjunto MUST ocupar una ficha y una unidad general de IA. Equilibrado se abre primero, con fallback Fiel y Máximo matching.
+- REQ-V03: los hechos históricos MUST conservarse. Las citas inexistentes invalidan respaldo; objetivos profesionales no son evidencia. Las sugerencias de métricas (máximo cinco) y gaps MUST quedar fuera del CV. El idioma sigue la oferta y los datos históricos se conservan.
+- REQ-V04: resultados válidos MUST persistir como checkpoints. Fallos transitorios tienen tres intentos; reutilizan análisis y resultados. Cada salida inválida tiene una corrección. Fallo total libera cuota y conserva el destino anterior. Reintento explícito de modos fallidos reutiliza la cuota consumida y no modifica modos correctos.
+- REQ-V05: el editor MUST permitir alternar los tres modos junto a Markdown/comparación, mantener la vista y guardar cada borrador con revisión independiente. La comparación siempre usa el origen congelado; PDF usa el modo visible. Estilos compartidos.
+- REQ-V06: propiedad, permisos, CV base, transferencia de invitado y leases MUST conservarse. Los CV antiguos siguen funcionando. Listados MUST NOT cargar fuentes, análisis ni variantes.
+
+### Contratos y persistencia
+
+`cv_optimization` conserva fuentes, análisis, versión y configuración; `cv_variant` conserva contenido, estado y revisión por modo. `cv.content` refleja el modo activo; referencias nuevas son anulables para compatibilidad.
+
+`POST /api/ai/optimize` → `202 {jobId, cvId}`; `GET /api/ai/jobs/[id]` → etapa y estados por modo. `POST /api/ai/optimize/[id]/retry` recibe `modes`, `requestId`. `GET /api/cv/[cvId]/optimization` carga el detalle. Guardado y selección comprueban optimización/mode/revisión con transacción; PDF acepta `optimizationId` y `modeId`.
+
+- INV-V01: reserva/destino/admisión se realizan juntos bajo el lock de cuota del propietario. `requestId` repetido devuelve el mismo trabajo; entrada distinta devuelve conflicto.
+- INV-V02: publicación, selección y guardado se serializan por propietario; el lease y el intento deben seguir vigentes. La publicación y consumo son una sola transacción.
+- INV-V03: una escritura tardía de otro modo no cambia el contenido activo. Un conflicto de revisión conserva el borrador y bloquea cambio/descarga hasta recuperarlo.
+- INV-V04: el reintento no consume otra unidad ni sobrescribe ediciones. La caducidad del último intento publica éxitos ya guardados, si existen.
+
+Las validaciones comprueban estructura, placeholders, fechas, cargos, instituciones, cifras, niveles y un catálogo de tecnologías con alias. No certifican toda afirmación semántica, equivalencia o causalidad. La regla de seis viñetas y la traducción se instruyen en el prompt; no se afirman como verificación semántica automática.

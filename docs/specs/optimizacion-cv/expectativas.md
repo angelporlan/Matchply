@@ -22,3 +22,18 @@ Requisitos aprobados: [spec.md](spec.md). Fecha: 03/10/2026.
 | EXP-16 | Actor ausente/cuota agotada | 401/429; permisos y cuotas conservados | API y limitador |
 
 Las evidencias y limitaciones se detallan en [evidencias.md](evidencias.md).
+
+## Tres variantes — ampliación 06/10/2026
+
+| Expectativa | Requisito/invariante | Verificación |
+|---|---|---|
+| EXP-V01: mismo origen, tres modos, una ficha/cuota/candidatura, deduplicación | REQ-V01/02, INV-V01 | cv-optimization.integration.test.ts |
+| EXP-V02: revisiones y guardados tardíos independientes; origen inmutable | REQ-V05, INV-V03 | Integración + editor en navegador |
+| EXP-V03: éxito parcial, retry gratuito, recuperación transitoria y último lease | REQ-V04, INV-V02/04 | Integración PostgreSQL aislado |
+| EXP-V04: fallo total preserva destino y devuelve reserva; base protegido | REQ-V04/06 | Integración PostgreSQL aislado |
+| EXP-V05: citas falsas, números/stack/niveles inventados, placeholders y puestos duplicados | REQ-V03 | cv-optimization.test.ts |
+| EXP-V06: ajeno, solo lectura, Free/Pro, invitado transferido | REQ-V06 | Integración + prueba invitado en navegador |
+| EXP-V07: selector, Markdown, comparación, revisión, PDF y móvil/temas | REQ-V05 | Navegador y PDF ficticio con proveedor real |
+| EXP-V08: listados ligeros | REQ-V06 | Inspección de proyecciones y respuesta dashboard |
+
+No se atribuye a estas pruebas una garantía de contratación ni de fidelidad semántica completa.
