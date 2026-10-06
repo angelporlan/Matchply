@@ -65,6 +65,8 @@ export const cvs = pgTable('cv', {
   isBase: boolean('isBase').default(false).notNull(), // true = CV Base real del usuario
   isPrincipal: boolean('isPrincipal').default(false).notNull(), // true = CV Principal predeterminado para generación rápida
   pendingUsageOperationId: uuid('pendingUsageOperationId'),
+  optimizationId: uuid('optimizationId'),
+  activeOptimizeMode: text('activeOptimizeMode'),
   templateName: text('templateName').default('harvard').notNull(), // 'harvard'
   accentColor: text('accentColor').default('#000000'),
   fontFamily: text('fontFamily').default('helvetica'),
@@ -79,6 +81,36 @@ export const cvs = pgTable('cv', {
   // Base CV lookup for AI: ORDER BY isBase DESC, isPrincipal DESC LIMIT 1 per user.
   userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
+
+// Sources and variants are detail-only data. cv.content mirrors the active variant.
+export const cvOptimizations = pgTable('cv_optimization', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  cvId: uuid('cvId').references(() => cvs.id, { onDelete: 'cascade' }).notNull(),
+  sourceCvId: uuid('sourceCvId'),
+  sourceMarkdown: text('sourceMarkdown').notNull(),
+  sourceProfile: text('sourceProfile').notNull(),
+  offer: jsonb('offer').notNull(),
+  analysis: jsonb('analysis'),
+  promptVersion: text('promptVersion').notNull(),
+  resolvedAiConfig: jsonb('resolvedAiConfig').notNull(),
+  subscriptionStatus: text('subscriptionStatus').notNull(),
+  operationId: uuid('operationId').notNull().unique(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  userCreatedIdx: index('cv_optimization_user_created_idx').on(table.userId, table.createdAt),
+  cvIdx: index('cv_optimization_cv_idx').on(table.cvId),
+}));
+
+export const cvVariants = pgTable('cv_variant', {
+  optimizationId: uuid('optimizationId').references(() => cvOptimizations.id, { onDelete: 'cascade' }).notNull(),
+  modeId: text('modeId').notNull(),
+  content: text('content').default('').notNull(),
+  status: text('status').default('pending').notNull(),
+  error: text('error'),
+  revision: integer('revision').default(0).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({ pk: primaryKey({ columns: [table.optimizationId, table.modeId] }) }));
 
 // Catálogo compartido de empresas. Nombre, web, ubicación, sector e icono son comunes a todos los usuarios.
 // El nombre visible también se denormaliza en job_offer.company. Notas y postulaciones siguen siendo por usuario.
