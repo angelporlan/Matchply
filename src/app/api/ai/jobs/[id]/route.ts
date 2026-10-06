@@ -3,6 +3,8 @@ import { getActor } from '@/lib/actor';
 import { getAiJobForUser } from '@/lib/ai-jobs/queue';
 import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
 import { requireUserFeature } from '@/lib/permissions';
+import { readOptimizationProgress } from '@/lib/cv-optimization/service';
+import type { OptimizeJobPayload, OptimizeProgress } from '@/lib/cv-optimization/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +32,7 @@ export async function GET(
       id: job.id,
       kind: job.kind,
       status: job.status,
-      result: job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result,
+      result: job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued') : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result,
       lastError: job.lastError,
       createdAt: job.createdAt,
       completedAt: job.completedAt,

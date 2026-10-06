@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { cvs } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { cvs, cvVariants, cvOptimizations } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { isOptimizeModeId } from '@/lib/optimize-modes';
 import { renderPdf } from '@/lib/pdf-render';
 import { createAuditLog } from '@/lib/audit';
 import { getActor } from '@/lib/actor';
@@ -105,6 +106,16 @@ export async function GET(req: NextRequest) {
     // Comprobar propiedad
     if (cv.userId !== actor.userId) {
       return new NextResponse('Forbidden', { status: 403 });
+    }
+    const modeId = searchParams.get('modeId');
+    const optimizationId = searchParams.get('optimizationId');
+    if (modeId || optimizationId) {
+      if (!modeId || !isOptimizeModeId(modeId) || !optimizationId || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(optimizationId)) return new NextResponse('Invalid variant', { status: 400 });
+      const [variant] = await db.select({ content: cvVariants.content }).from(cvVariants)
+        .innerJoin(cvOptimizations, eq(cvOptimizations.id, cvVariants.optimizationId))
+        .where(and(eq(cvVariants.optimizationId, optimizationId), eq(cvVariants.modeId, modeId), eq(cvVariants.status, 'ready'), eq(cvOptimizations.cvId, cv.id), eq(cvOptimizations.userId, actor.userId))).limit(1);
+      if (!variant) return new NextResponse('Variant not available', { status: 409 });
+      cv.content = variant.content;
     }
 
     // Log de auditoría para descarga de PDF

@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { auditLogs, cvs, jobOffers, users } from '@/db/schema';
+import { auditLogs, cvs, cvOptimizations, aiJobs, jobOffers, users } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes, randomUUID } from 'crypto';
@@ -276,6 +276,8 @@ export async function claimGuestDataForUser(userId: string) {
     }
 
     await transferGuestCrm(tx, guest.id, userId);
+    await tx.update(cvOptimizations).set({ userId }).where(eq(cvOptimizations.userId, guest.id));
+    await tx.update(aiJobs).set({ userId }).where(eq(aiJobs.userId, guest.id));
 
     // Guest deletion nulls audit userId. Keep optimize/download on the new account.
     await tx.update(auditLogs).set({ userId }).where(eq(auditLogs.userId, guest.id));

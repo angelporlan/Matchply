@@ -13,6 +13,7 @@ import { importOffer, OFFER_IMPORT_MODEL, OfferImportError } from '@/lib/offer-i
 import { bindAiRuntime, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
+import { processCvOptimization } from '@/lib/cv-optimization/service';
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
@@ -38,7 +39,7 @@ export async function processAiJob(job: AiJob) {
   return bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const importController = new AbortController();
-  const heartbeat = ['match_batch', 'import_offer', 'networking'].includes(job.kind) ? setInterval(() => {
+  const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants'].includes(job.kind) ? setInterval(() => {
     if (renewing) return;
     renewing = true;
     void renewAiJobLease(job).then(owned => {
@@ -52,6 +53,9 @@ export async function processAiJob(job: AiJob) {
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
+      case 'optimize_cv_variants':
+        await processCvOptimization(job, importController.signal);
+        return;
       case 'networking':
         result = await processNetworking(job, importController.signal);
         break;
@@ -117,6 +121,7 @@ export async function processAiJob(job: AiJob) {
     await failAiJob(job, error);
   } finally {
     if (heartbeat) clearInterval(heartbeat);
+    if (job.kind === 'optimize_cv_variants') importController.abort();
   }
   });
 }

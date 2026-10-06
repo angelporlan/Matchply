@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { cvPlanSelections, cvs } from '@/db/schema';
+import { cvPlanSelections, cvs, cvVariants } from '@/db/schema';
 import { getUserPlan, type PlanDb } from '@/lib/plan-store';
 import { UsageError } from '@/lib/usage';
 export async function lockCvUser(tx: PlanDb, userId: string) { await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${userId}`}))`); }
@@ -70,6 +70,10 @@ export async function updateCvForUser(userId: string, cvId: string, values: Part
       if (max !== null && count.count >= max) throw new UsageError(403, 'CV_LIMIT', 'Your plan does not have room for this resume category');
     }
     const [updated] = await tx.update(cvs).set(values).where(and(eq(cvs.id, cvId), eq(cvs.userId, userId))).returning();
+    if (values.content !== undefined && updated.optimizationId && updated.activeOptimizeMode) {
+      await tx.update(cvVariants).set({ content: values.content, revision: sql`${cvVariants.revision} + 1`, updatedAt: new Date() })
+        .where(and(eq(cvVariants.optimizationId, updated.optimizationId), eq(cvVariants.modeId, updated.activeOptimizeMode), eq(cvVariants.status, 'ready')));
+    }
     return updated;
   });
 }

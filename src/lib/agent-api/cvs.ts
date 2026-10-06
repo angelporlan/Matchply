@@ -2,7 +2,7 @@ import { getUserPlan } from '@/lib/plan-store';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { cvs } from '@/db/schema';
+import { cvs, cvVariants } from '@/db/schema';
 import { AgentApiError } from '@/lib/agent-api/errors';
 import {
   copyCvTitle,
@@ -117,6 +117,10 @@ export async function updateAgentCv(auth: AgentPrincipal, cvId: string, body: un
       .update(cvs)
       .set({ ...fields, ...(makePrincipal ? { isPrincipal: true } : {}) })
       .where(and(eq(cvs.id, existing.id), eq(cvs.userId, auth.userId)));
+    if (fields.content !== undefined) {
+      const [current] = await tx.select({ optimizationId: cvs.optimizationId, modeId: cvs.activeOptimizeMode }).from(cvs).where(eq(cvs.id, existing.id)).limit(1);
+      if (current.optimizationId && current.modeId) await tx.update(cvVariants).set({ content: fields.content, revision: sql`${cvVariants.revision} + 1`, updatedAt: new Date() }).where(and(eq(cvVariants.optimizationId, current.optimizationId), eq(cvVariants.modeId, current.modeId)));
+    }
   });
 
   revalidatePath('/dashboard');

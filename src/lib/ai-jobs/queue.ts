@@ -119,7 +119,7 @@ export async function claimNextAiJob(): Promise<AiJob | null> {
   const now = new Date();
   // A dead worker's final attempt cannot be left in running forever.
   const expired = await db.select({ id: aiJobs.id, userId: aiJobs.userId }).from(aiJobs).where(and(
-    sql`${aiJobs.kind} IN ('match_batch', 'import_offer', 'networking')`, eq(aiJobs.status, 'running'),
+    sql`${aiJobs.kind} IN ('match_batch', 'import_offer', 'networking', 'optimize_cv_variants')`, eq(aiJobs.status, 'running'),
     sql`${aiJobs.leaseUntil} < ${now}`, sql`${aiJobs.attempt} >= ${MAX_ATTEMPTS}`,
   )).limit(100);
   for (const candidate of expired) await db.transaction(async tx => {
@@ -130,7 +130,8 @@ export async function claimNextAiJob(): Promise<AiJob | null> {
     }).where(and(eq(aiJobs.id, candidate.id), eq(aiJobs.status, 'running'),
       sql`${aiJobs.leaseUntil} < ${now}`, sql`${aiJobs.attempt} >= ${MAX_ATTEMPTS}`,
     )).returning();
-    if (failed?.usageOperationId) await releaseUsage(tx, failed.usageOperationId);
+    if (failed?.kind === 'optimize_cv_variants') await (await import('@/lib/cv-optimization/service')).failCvOptimization(tx, failed);
+    else if (failed?.usageOperationId) await releaseUsage(tx, failed.usageOperationId);
   });
   return db.transaction(async tx => {
     const result = await tx.execute(sql`
@@ -208,7 +209,7 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
     leaseUntil: null,
     completedAt: now,
     updatedAt: now,
-  }).where(owner && ['match_batch', 'import_offer', 'networking'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer', 'networking')`)).returning();
+  }).where(owner && ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer', 'networking', 'optimize_cv_variants')`)).returning();
   if (updated?.usageOperationId) {
     if (updated.kind !== 'match_batch') await consumeUsage(tx, updated.usageOperationId, result);
     await releaseUsage(tx, updated.usageOperationId);
@@ -220,7 +221,7 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
 export async function failAiJob(job: AiJob, error: unknown) {
   const retryableImport = error instanceof Error && 'retryable' in error && error.retryable === true;
   const rejected = error instanceof Error && 'status' in error && typeof error.status === 'number' && error.status >= 400 && error.status < 500 && error.status !== 429;
-  const terminal = rejected || job.attempt >= MAX_ATTEMPTS || (['import_offer', 'networking'].includes(job.kind) && !retryableImport);
+  const terminal = rejected || job.attempt >= MAX_ATTEMPTS || (['import_offer', 'networking', 'optimize_cv_variants'].includes(job.kind) && !retryableImport);
   const now = new Date();
   return db.transaction(async tx => {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${job.userId}`}))`);
@@ -231,8 +232,9 @@ export async function failAiJob(job: AiJob, error: unknown) {
     leaseUntil: null,
     completedAt: terminal ? now : null,
     updatedAt: now,
-  }).where(['match_batch', 'import_offer', 'networking'].includes(job.kind) ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
-  if (updated && terminal && updated.usageOperationId) await releaseUsage(tx, updated.usageOperationId);
+  }).where(['match_batch', 'import_offer', 'networking', 'optimize_cv_variants'].includes(job.kind) ? ownedAttempt(job) : eq(aiJobs.id, job.id)).returning();
+  if (updated && terminal && updated.kind === 'optimize_cv_variants') await (await import('@/lib/cv-optimization/service')).failCvOptimization(tx, updated);
+  else if (updated && terminal && updated.usageOperationId) await releaseUsage(tx, updated.usageOperationId);
   return updated;
   });
 }

@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           const publishedUserId = await db.transaction(async tx => {
             const ownerId = await assertCvPublication(tx, userId!, targetId!, operation.id);
             await tx.update(cvs).set({ isPrincipal: false, updatedAt: sql`${cvs.updatedAt}` }).where(eq(cvs.userId, ownerId));
-            await tx.update(cvs).set({ content, title, isBase: true, isPrincipal: true, pendingUsageOperationId: null })
+            await tx.update(cvs).set({ content, title, isBase: true, isPrincipal: true, pendingUsageOperationId: null, optimizationId: null, activeOptimizeMode: null })
               .where(and(eq(cvs.id, targetId!), eq(cvs.userId, ownerId)));
             await consumeUsage(tx, operation.id, { cvId: targetId });
             return ownerId;
