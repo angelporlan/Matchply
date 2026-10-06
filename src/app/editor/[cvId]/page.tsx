@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { cvs, jobOffers } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { cvs, jobOffers, aiJobs } from '@/db/schema';
+import { eq, and, desc, or, sql } from 'drizzle-orm';
 import { cvListColumns } from '@/lib/job-offer-queries';
 import EditorClient from '@/components/editor/EditorClient';
 import { getAllowedCvTemplate, hasProAccess } from '@/lib/subscription';
@@ -9,6 +9,7 @@ import { getActor } from '@/lib/actor';
 import { AccountSuspendedError } from '@/lib/request-errors';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
+import { getCvOptimizationView } from '@/lib/cv-optimization/service';
 
 interface EditorPageProps {
   params: {
@@ -41,6 +42,10 @@ export default async function EditorPage({ params }: EditorPageProps) {
   if (!cv) {
     redirect('/dashboard');
   }
+  const optimization = await getCvOptimizationView(userId, cvId);
+  const [pendingJob] = cv.pendingUsageOperationId || cv.optimizationId ? await db.select({ id: aiJobs.id, payload:aiJobs.payload }).from(aiJobs)
+    .where(and(eq(aiJobs.userId, userId), eq(aiJobs.kind, 'optimize_cv_variants'), or(eq(aiJobs.status,'queued'),eq(aiJobs.status,'running')),
+      cv.pendingUsageOperationId ? eq(aiJobs.usageOperationId,cv.pendingUsageOperationId) : sql`${aiJobs.payload}->>'optimizationId' = ${cv.optimizationId}`)).orderBy(desc(aiJobs.createdAt)).limit(1) : [];
 
   let baseCvContent: string | null = null;
   if (!cv.isBase) {
@@ -103,6 +108,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
         isPrincipal: item.isPrincipal,
       }))}
       linkedOffer={linkedRows[0] ?? null}
+      optimization={optimization}
+      pendingOptimizationJobId={pendingJob?.id}
+      pendingOptimizationIsRetry={Boolean((pendingJob?.payload as {retry?:boolean} | undefined)?.retry)}
     />
   );
 }

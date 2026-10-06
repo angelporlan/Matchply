@@ -124,6 +124,44 @@ const es = {
         errorUnexpected: 'Ocurrió un error inesperado al registrar el usuario',
       },
     },
+    variants: {
+      "label": "Versiones optimizadas",
+      "generationHelp": "Generaremos tres versiones: Fiel, Equilibrado y Máximo matching. Consume una optimización.",
+      "retry": "Reintentar",
+      "retryError": "No se pudo reintentar la versión.",
+      "saveError": "No se pudo guardar. Conserva tu borrador y reintenta.",
+      "gapsTitle": "Requisitos y sugerencias",
+      "gapsHelp": "Estos requisitos no tienen evidencia suficiente en tus fuentes. Añádelos al CV base solo si son reales y vuelve a optimizar.",
+      "noGaps": "No se han detectado requisitos imprescindibles sin respaldo suficiente.",
+      "metricsTitle": "Métricas que podrías añadir si son reales",
+      "names": {
+        "optimize_honest": "Fiel",
+        "optimize_adapted": "Equilibrado",
+        "optimize_aggressive": "Máximo matching"
+      },
+      "descriptions": {
+        "optimize_honest": "Conserva estructura y logros; adapta hasta seis viñetas.",
+        "optimize_adapted": "Prioriza la oferta conservando los hechos y la cronología.",
+        "optimize_aggressive": "Reestructura para destacar el máximo encaje respaldado por tu experiencia."
+      },
+      "status": {
+        "pending": "Pendiente",
+        "generating": "Generando",
+        "ready": "Disponible",
+        "error": "Error"
+      },
+      "stages": {
+        "queued": "Esperando al motor de IA…",
+        "analysis": "Analizando requisitos y evidencia…",
+        "generating": "Generando y comprobando las tres versiones…",
+        "completed": "Versiones disponibles"
+      },
+      "severity": {
+        "critico": "Crítico",
+        "moderado": "Moderado",
+        "menor": "Menor"
+      }
+    },
     landing: {
       nav: {
         features: 'Características',
@@ -145,7 +183,7 @@ const es = {
       features: {
         title: 'Una suite potente de optimización profesional',
         subtitle: 'Desde el editor interactivo con auto-guardado hasta la inteligencia semántica y el pipeline de trabajos.',
-        editor: {
+  editor: {
           title: 'Tu CV, listo para imprimir en segundos',
           desc: 'Editor en tiempo real con previsualización instantánea del PDF. Lo que escribes es lo que envías.',
         },

@@ -11,7 +11,6 @@ import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import { 
   updateJobOfferDetails, 
   updateJobOfferCv,
-  prepareCvForJobOffer,
 } from '@/app/dashboard/applications/actions';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
@@ -270,22 +269,12 @@ export default function JobOfferDetailsModal({
     }
     setOptimizingCv(true);
     try {
-      let targetCvId = replacementCvId || offer.cvId;
-      if (!targetCvId) {
-        const prep = await prepareCvForJobOffer(offer.id, baseCv.id);
-        if (prep.error || !prep.cvId) {
-          if (prep.code) reportPlanRestriction({ code: prep.code }, 'offer-cv-adapt');
-          throw new Error(prep.error || t('dashboard.errors.unexpected'));
-        }
-        targetCvId = prep.cvId;
-      } else if (replacementCvId && replacementCvId !== offer.cvId) {
-        const linked = await updateJobOfferCv(offer.id, replacementCvId);
-        if (linked.error) throw new Error(linked.error);
-      }
+      const targetCvId = replacementCvId || (userCvs.find(item => item.id === offer.cvId)?.isBase ? undefined : offer.cvId);
 
       const params = {
         baseCvId: baseCv.id,
-        targetCvId,
+        ...(targetCvId ? { targetCvId } : {}),
+        jobOfferId: offer.id,
         jobTitle: offer.title,
         company: offer.company,
         url: offer.url || undefined,
@@ -298,7 +287,7 @@ export default function JobOfferDetailsModal({
 
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
       onClose();
-      router.push(`/editor/${targetCvId}?optimize=true`);
+      router.push(`/editor/${targetCvId || baseCv.id}?optimize=true`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('dashboard.errors.unexpected'));
       setOptimizingCv(false);
@@ -680,6 +669,7 @@ export default function JobOfferDetailsModal({
                             </div>
 
                             <InlineAllowance />
+                            <p className="text-xs text-text-muted">{t('variants.generationHelp')}</p>
                             <div className="border-t border-subtle pt-3 flex flex-wrap items-center justify-end gap-2">
                               {offer.cvId ? (
                                 <>

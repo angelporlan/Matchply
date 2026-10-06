@@ -11,7 +11,11 @@ import ResumeSheet from './ResumeSheet';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { updateCvStyling, saveCvContent } from '@/app/dashboard/actions';
+import { updateCvStyling, saveCvContent, selectCvVariant } from '@/app/dashboard/actions';
+import { consumeCvOptimization } from '@/lib/cv-optimization/client';
+import { OPTIMIZE_MODE_IDS, isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
+import type { CvOptimizationView, OptimizeProgress } from '@/lib/cv-optimization/types';
+import { EditorPersistenceContext, useEditorPersistence } from './EditorPersistence';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
@@ -64,6 +68,9 @@ interface EditorClientProps {
   guestCanDownloadPdf?: boolean;
   cvChoices?: EditorCvChoice[];
   linkedOffer?: LinkedOffer | null;
+  optimization?: CvOptimizationView | null;
+  pendingOptimizationJobId?: string;
+  pendingOptimizationIsRetry?: boolean;
 }
 
 const loadingTips = [
@@ -87,10 +94,10 @@ const loadingTipsEn = [
 ];
 
 export default function EditorClient(props: EditorClientProps) {
-  return <PlanUsageProvider><EditorContent {...props} /><PlanFeedback /></PlanUsageProvider>;
+  return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
-function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null }: EditorClientProps) {
+function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
@@ -100,16 +107,6 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
-
-  // Dynamic Prompt Configs Mapper
-  const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
-    const isEn = language === 'en';
-    return {
-      color: prompt.color || '#8b5cf6',
-      desc: (isEn && prompt.descriptionEn) ? prompt.descriptionEn : (prompt.description || ''),
-      displayName: (isEn && prompt.nameEn) ? prompt.nameEn : prompt.name,
-    };
-  };
 
   const [fullscreenPanel, setFullscreenPanel] = useState<'none' | 'editor'>('none');
 
@@ -125,7 +122,13 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
 
   const [sessionBase, setSessionBase] = useState<string | null>(null);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
-  const diffBase = baseCvContent || sessionBase;
+  const [optimization, setOptimization] = useState(initialOptimization);
+  const [activeMode, setActiveMode] = useState<OptimizeModeId>(isOptimizeModeId(cv.activeOptimizeMode || '') ? cv.activeOptimizeMode as OptimizeModeId : 'optimize_adapted');
+  const [variantBusy, setVariantBusy] = useState(false);
+  const variantSwitchLock = useRef(false);
+  const [optimizeProgress, setOptimizeProgress] = useState<OptimizeProgress | null>(null);
+  const retryRequest = useRef<{ mode: OptimizeModeId; id: string } | null>(null);
+  const diffBase = optimization?.sourceMarkdown || baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -157,11 +160,46 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const [streamingError, setStreamingError] = useState<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
+  const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
+  const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
+  const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
+  const switchVariant = async (mode: OptimizeModeId) => {
+    if (!optimization || mode === activeMode || variantSwitchLock.current) return;
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    try {
+      if (!await persistence.flush()) return;
+      const selected = await selectCvVariant(cv.id, optimization.id, mode);
+      if (!selected.success || selected.content === undefined || selected.revision === undefined) throw new Error(selected.error || t('variants.saveError'));
+      setActiveMode(mode); setReviewContent(selected.content); setCvContent(selected.content);
+      persistence.reset(selected.content, { optimizationId: optimization.id, modeId: mode, revision: selected.revision });
+      setPageCount(null); setPageBreaks(null); setContentVersion(v => v+1);
+      setSaveStatus('saved');
+    } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.saveError')); }
+    finally { variantSwitchLock.current = false; setVariantBusy(false); }
+  };
+  const retryVariant = async (mode: OptimizeModeId) => {
+    if (!optimization || variantSwitchLock.current) return;
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    try {
+      if (!await persistence.flush()) return;
+      if (retryRequest.current?.mode !== mode) retryRequest.current = { mode, id: crypto.randomUUID() };
+      const response = await fetch(`/api/ai/optimize/${optimization.id}/retry`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modes: [mode], requestId: retryRequest.current.id }) });
+      if (!response.ok) { const problem = await response.json(); if (shouldResetAiOperation(problem)) retryRequest.current = null; throw new Error(problem.error || t('variants.retryError')); }
+      await consumeCvOptimization(response, setOptimizeProgress);
+      const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
+      const result = await refreshed.json(); if (refreshed.ok) setOptimization(result.optimization);
+      retryRequest.current = null; setOptimizeProgress(null);
+    } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.retryError')); }
+    finally { variantSwitchLock.current = false; setVariantBusy(false); }
+  };
   
   useEffect(() => {
+    if (saveStatus !== 'saved') return;
     setCvContent(cv.content);
     setReviewContent(cv.content);
-  }, [cv.content]);
+    if (initialOptimization) { setOptimization(initialOptimization); setActiveMode(cv.activeOptimizeMode as OptimizeModeId); }
+    persistence.reset(cv.content, initialOptimization && isOptimizeModeId(cv.activeOptimizeMode || '') ? { optimizationId: initialOptimization.id, modeId: cv.activeOptimizeMode as OptimizeModeId, revision: initialOptimization.variants.find(v => v.modeId === cv.activeOptimizeMode)?.revision || 0 } : undefined);
+  }, [cv.content, initialOptimization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -217,7 +255,9 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       }
     }
 
-    if (shouldOptimize) {
+    if (pendingOptimizationJobId) {
+      void runOptimizeStream({ jobId: pendingOptimizationJobId, resultCvId: cv.id, baseCvId: cv.id, resumeMode:pendingOptimizationIsRetry ? cv.activeOptimizeMode : undefined });
+    } else if (shouldOptimize || (!shouldImport && (() => { try { const saved = JSON.parse(sessionStorage.getItem('matchply_optimize_params') || '{}'); return saved.baseCvId === cv.id || saved.resultCvId === cv.id; } catch { return false; } })())) {
       window.history.replaceState(null, '', window.location.pathname);
       const paramsStr = sessionStorage.getItem('matchply_optimize_params');
       if (paramsStr) {
@@ -240,12 +280,12 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
         runImportStream(rawText);
       }
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- Recover once per CV mount; changes must not re-admit a job.
 
   const runOptimizeStream = async (params: any) => {
     params = { ...params, requestId: typeof params.requestId === 'string' ? params.requestId : crypto.randomUUID() };
     sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-    const proceed = await inspectOrExecutePrompt({
+    const proceed = params.jobId ? true : await inspectOrExecutePrompt({
       action: 'optimize_cv',
       title: 'Optimización de CV con IA',
       data: {
@@ -265,13 +305,9 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     setStreamingError(null);
     setSaveStatus('saving');
     setStreamingStep(t('editor.aiModal.steps.keywords'));
-    if (params.targetCvId === cv.id) {
-      setCvContent('');
-      setReviewContent('');
-    }
 
     try {
-      const response = await fetch('/api/ai/optimize', {
+      const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id }), { status: 202 }) : await fetch('/api/ai/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
@@ -290,17 +326,22 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
         throw new Error(text || 'Error en la optimización.');
       }
 
-      const result = await consumeCvAiStream(response, content => {
-        if (content.length > 50) setStreamingStep(t('editor.aiModal.steps.generate'));
-        // A new version is rendered in its own editor after the server publishes it.
-        if (!params.targetCvId || params.targetCvId !== cv.id) {
-          return;
-        }
-        setCvContent(content);
-        setReviewContent(content);
+      const admission = await response.clone().json();
+      params.jobId = admission.jobId; params.resultCvId = admission.cvId;
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      const result = await consumeCvOptimization(response, progress => {
+        setOptimizeProgress(progress);
+        setStreamingStep(t(`variants.stages.${progress.stage}`));
       });
       if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
-      else { setCvContent(result.content); setReviewContent(result.content); }
+      else {
+        const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
+        const view = (await refreshed.json()).optimization as CvOptimizationView;
+        const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
+        setOptimization(view); setActiveMode(selected.modeId); setCvContent(selected.content); setReviewContent(selected.content);
+        persistence.reset(selected.content, { optimizationId: view.id, modeId: selected.modeId, revision: selected.revision });
+      }
+      setOptimizeProgress(null);
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
@@ -316,7 +357,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
-      setCvContent(cv.content); setReviewContent(cv.content);
+      if (params.jobId) { const status = await fetch(`/api/ai/jobs/${params.jobId}`).then(r => r.json()).catch(() => null); if (status?.status === 'failed') { delete params.jobId; delete params.resultCvId; delete params.requestId; sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params)); } }
       setSaveStatus('error');
       setIsStreaming(false);
     }
@@ -432,12 +473,10 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
 
   const revertToBase = async () => {
     if (!diffBase) return;
-    setCvContent(diffBase);
-    setReviewContent(diffBase);
+    onEditorContent(diffBase);
     setContentVersion((version) => version + 1);
     setSaveStatus('saving');
-    const result = await saveCvContent(cv.id, diffBase);
-    setSaveStatus(result.success ? 'saved' : 'error');
+    await persistence.flush();
   };
 
   const scheduleStyleSave = () => {
@@ -505,6 +544,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     });
 
     if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
+    if (!await persistence.flush()) return;
     if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
     const allCvs = planUsage?.cv.cvs || cvChoices;
     const adaptedCount = allCvs.filter(item => !item.isBase).length;
@@ -640,6 +680,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
+              beforeDownload={persistence.flush}
+              variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
           </div>
         </div>
@@ -674,6 +716,11 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               ? t('editor.footer.error')
               : (isGuest ? t('editor.footer.savedGuest') : t('editor.footer.saved'))
         }
+        variants={optimizeProgress?.variants || optimization?.variants}
+        activeMode={activeMode}
+        onSelectVariant={mode => { void switchVariant(mode); }}
+        onRetryVariant={mode => { void retryVariant(mode); }}
+        variantBusy={variantBusy || isStreaming}
       />}
 
       {!isStreaming && planUsage?.firstValueAt && planUsage.plan !== 'pro' && <div className="m-4"><UpgradePaywall source="first-value" dismissible accountId={cv.userId} /></div>}
@@ -741,7 +788,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
                 accentColor={accentColor}
                 zoom={zoom}
                 pageBreaks={pageBreaks}
-                onContentChange={setReviewContent}
+                onContentChange={onEditorContent}
                 setSaveStatus={setSaveStatus}
               />
             )}
@@ -752,7 +799,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
                 initialContent={reviewContent}
                 originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
-                onContentChange={setReviewContent}
+                onContentChange={onEditorContent}
                 saveStatus={saveStatus}
                 setSaveStatus={setSaveStatus}
                 isFullScreen={fullscreenPanel === 'editor'}
@@ -792,7 +839,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
             <EditorReviewRail
               cvId={cv.id}
               content={reviewContent}
-              onContentChange={setReviewContent}
+              onContentChange={onEditorContent}
               setSaveStatus={setSaveStatus}
               isBase={cv.isBase}
               linkedOffer={linkedOffer}
@@ -807,6 +854,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               aiLoading={aiLoading}
               onSubmit={() => { void handleAiOptimize(); }}
               titleInputRef={adaptTitleRef}
+              analysis={optimization?.analysis || null}
+              activeMode={activeMode}
             />
           </div>
         )}
@@ -953,70 +1002,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-ai animate-pulse stroke-[1.75]" />
-                      {t('editor.aiModal.mode')}
-                    </label>
-                    {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-canvas/40 border border-subtle rounded-[8px] px-4 py-3 text-xs text-text-muted font-sans">
-                        {t('editor.aiModal.defaultMode')}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {availablePrompts.map((prompt) => {
-                          const config = getPromptConfig(prompt);
-                          const isSelected = aiFormData.promptId === prompt.id;
-                          
-                          return (
-                            <div
-                              key={prompt.id}
-                              onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${
-                                isSelected 
-                                  ? 'shadow-lg border-transparent' 
-                                  : 'border-subtle hover:border-control dark:hover:border-white/20'
-                              }`}
-                              style={isSelected ? {
-                                borderColor: config.color,
-                                boxShadow: `0 10px 15px -3px ${config.color}15, 0 4px 6px -4px ${config.color}15`,
-                                outline: `2px solid ${config.color}25`,
-                                outlineOffset: '-1px'
-                              } : undefined}
-                              title={config.desc}
-                            >
-                              <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span 
-                                    className="text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded transition-colors"
-                                    style={{
-                                      backgroundColor: `${config.color}1a`,
-                                      color: config.color
-                                    }}
-                                  >
-                                    {config.displayName.replace('Modo ', '').replace(' Mode', '')}
-                                  </span>
-                                  <div 
-                                    className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
-                                    style={{ backgroundColor: config.color }}
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-[9.5px] text-text-muted leading-normal font-light font-sans">
-                                {config.desc}
-                              </p>
-                              {isSelected && (
-                                <div 
-                                  className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
-                                  style={{ backgroundColor: config.color }}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-text-muted">{t('variants.generationHelp')}</p>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">

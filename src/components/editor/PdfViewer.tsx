@@ -52,6 +52,8 @@ export function PdfDownloadLink({
   onDownloaded,
   className,
   children,
+  beforeDownload,
+  variantQuery = '',
 }: {
   cvId: string;
   isGuest?: boolean;
@@ -60,10 +62,12 @@ export function PdfDownloadLink({
   onDownloaded?: () => void;
   className?: string;
   children?: React.ReactNode;
+  beforeDownload?: () => Promise<boolean>;
+  variantQuery?: string;
 }) {
   const { t } = useLanguage();
   const [savePromptOpen, setSavePromptOpen] = useState(false);
-  const downloadUrl = `/api/pdf?cvId=${cvId}&download=true`;
+  const downloadUrl = `/api/pdf?cvId=${cvId}&download=true${variantQuery}`;
   const guestRegisterHref = '/register?source=guest-pdf';
   const guestDownloadLabel = guestCanDownload
     ? t('editor.pdf.guestDownloadBtn')
@@ -79,6 +83,7 @@ export function PdfDownloadLink({
       return;
     }
 
+    if (beforeDownload && !await beforeDownload()) return;
     await downloadPdf({
       url: downloadUrl,
       filename: isGuest || onDownloaded ? 'CV.pdf' : undefined,

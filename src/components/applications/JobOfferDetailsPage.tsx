@@ -12,7 +12,6 @@ import {
   updateJobOfferDetails, 
   updateJobOfferCv, 
   updateJobOfferStatus,
-  prepareCvForJobOffer,
   evaluateSingleOfferMatchAction,
   markApplicationSent,
 } from '@/app/dashboard/applications/actions';
@@ -258,22 +257,12 @@ export default function JobOfferDetailsPage({
     }
     setOptimizingCv(true);
     try {
-      let targetCvId = replacementCvId || offer.cvId;
-      if (!targetCvId) {
-        const prep = await prepareCvForJobOffer(offer.id, baseCv.id);
-        if (prep.error || !prep.cvId) {
-          if (prep.code) reportPlanRestriction({ code: prep.code }, 'offer-cv-adapt');
-          throw new Error(prep.error || t('dashboard.errors.unexpected'));
-        }
-        targetCvId = prep.cvId;
-      } else if (replacementCvId && replacementCvId !== offer.cvId) {
-        const linked = await updateJobOfferCv(offer.id, replacementCvId);
-        if (linked.error) throw new Error(linked.error);
-      }
+      const targetCvId = replacementCvId || (userCvs.find(item => item.id === offer.cvId)?.isBase ? undefined : offer.cvId);
 
       const params = {
         baseCvId: baseCv.id,
-        targetCvId,
+        ...(targetCvId ? { targetCvId } : {}),
+        jobOfferId: offer.id,
         jobTitle: offer.title,
         company: offer.company,
         url: offer.url || undefined,
@@ -285,7 +274,7 @@ export default function JobOfferDetailsPage({
       };
 
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-      router.push(`/editor/${targetCvId}?optimize=true`);
+      router.push(`/editor/${targetCvId || baseCv.id}?optimize=true`);
     } catch (err: any) {
       setError(err.message || t('dashboard.errors.unexpected'));
       setOptimizingCv(false);
@@ -481,6 +470,7 @@ export default function JobOfferDetailsPage({
             </select>
           </div>
 
+          <div className="flex flex-col items-end gap-1 max-w-sm">
           <Button
             type="button"
             variant="ai"
@@ -492,6 +482,8 @@ export default function JobOfferDetailsPage({
             {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
             <span>{offer.cvId ? 'Re-optimizar CV con IA' : 'Optimizar CV con IA'}</span>
           </Button>
+          <p className="text-[11px] text-text-muted text-right">{t('variants.generationHelp')}</p>
+          </div>
 
           <Button
             type="button"

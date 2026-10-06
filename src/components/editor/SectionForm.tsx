@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ArrowLeft, Plus, X } from 'lucide-react';
+import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
 import {
@@ -52,6 +53,7 @@ export default function SectionForm({
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
   onBack: () => void;
 }) {
+  const managedSave = useManagedEditorSave();
   const { t } = useLanguage();
   const [doc, setDoc] = useState<CVContent>(() => parseCvDocument(content));
   const [entryIndex, setEntryIndex] = useState(0);
@@ -88,6 +90,7 @@ export default function SectionForm({
     emitted.current = markdown;
     setDoc(next);
     onChangeRef.current(markdown);
+    if (managedSave) return;
     pendingSave.current = markdown;
     setSaveStatusRef.current('saving');
     if (saveTimer.current) clearTimeout(saveTimer.current);

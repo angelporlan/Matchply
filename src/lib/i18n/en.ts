@@ -124,6 +124,44 @@ const en = {
         errorUnexpected: 'An unexpected error occurred while registering the user',
       },
     },
+    variants: {
+      "label": "Optimized versions",
+      "generationHelp": "We will generate three versions: Faithful, Balanced and Maximum match. Uses one optimization.",
+      "retry": "Retry",
+      "retryError": "Could not retry this version.",
+      "saveError": "Could not save. Keep your draft and retry.",
+      "gapsTitle": "Requirements and suggestions",
+      "gapsHelp": "These requirements do not have enough evidence in your sources. Add them to your base CV only if true, then optimize again.",
+      "noGaps": "No essential requirements lacking sufficient evidence were identified.",
+      "metricsTitle": "Metrics you could add if accurate",
+      "names": {
+        "optimize_honest": "Faithful",
+        "optimize_adapted": "Balanced",
+        "optimize_aggressive": "Maximum match"
+      },
+      "descriptions": {
+        "optimize_honest": "Preserves structure and achievements; adapts up to six bullets.",
+        "optimize_adapted": "Prioritizes the offer while preserving facts and chronology.",
+        "optimize_aggressive": "Restructures your CV to emphasize the strongest supported match."
+      },
+      "status": {
+        "pending": "Pending",
+        "generating": "Generating",
+        "ready": "Ready",
+        "error": "Error"
+      },
+      "stages": {
+        "queued": "Waiting for the AI worker…",
+        "analysis": "Analyzing requirements and evidence…",
+        "generating": "Generating and validating all three versions…",
+        "completed": "Versions ready"
+      },
+      "severity": {
+        "critico": "Critical",
+        "moderado": "Moderate",
+        "menor": "Minor"
+      }
+    },
     landing: {
       nav: {
         features: 'Features',
@@ -145,7 +183,7 @@ const en = {
       features: {
         title: 'A powerful suite for professional optimization',
         subtitle: 'From an autosaving interactive editor to semantic intelligence and an application pipeline.',
-        editor: {
+  editor: {
           title: 'Your CV, ready to print in seconds',
           desc: 'Real-time editor with instant PDF preview. What you write is what you send.',
         },

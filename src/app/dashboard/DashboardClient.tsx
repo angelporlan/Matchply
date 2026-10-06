@@ -23,82 +23,13 @@ import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { consumeCvOptimization } from '@/lib/cv-optimization/client';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 const CvQuickPreviewModal = dynamic(() => import('@/components/dashboard/CvQuickPreviewModal'), { ssr: false });
-
-const promptConfigs: Record<
-  string,
-  {
-    color: string;
-    hoverBg: string;
-    text: string;
-    bg: string;
-    activeBorder: string;
-    desc: string;
-  }
-> = {
-  'Modo Fidelidad': {
-    color: '#38bdf8', // Azulito (sky-400)
-    hoverBg: 'hover:bg-sky-500/5',
-    text: 'text-sky-400',
-    bg: 'bg-sky-500/10',
-    activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-    desc: 'Fidelidad absoluta a tu trayectoria real. No inventa habilidades ni herramientas; optimiza tu redacción e integra palabras clave para pasar filtros ATS.'
-  },
-  'Modo Rendimiento': {
-    color: '#eab308', // Amarillo (yellow-500)
-    hoverBg: 'hover:bg-yellow-500/5',
-    text: 'text-yellow-400',
-    bg: 'bg-yellow-500/10',
-    activeBorder: 'border-yellow-500 ring-2 ring-yellow-500/20',
-    desc: 'Amplía y potencia tu experiencia de forma realista. Si dominas tecnologías equivalentes, las integra estratégicamente y optimiza la densidad ATS.'
-  },
-  'Modo Extremo': {
-    color: '#ea580c', // Naranjado casi rojo (orange-600)
-    hoverBg: 'hover:bg-orange-500/5',
-    text: 'text-orange-400',
-    bg: 'bg-orange-500/10',
-    activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
-    desc: 'Foco absoluto en superar el filtro ATS. Adapta tu CV e inyecta cualquier tecnología o requisito crítico exigido por la oferta para un match del 100%.'
-  },
-  'Modo Honesto': {
-    color: '#3b82f6', // Azul (blue-500)
-    hoverBg: 'hover:bg-blue-500/5',
-    text: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    activeBorder: 'border-blue-500 ring-2 ring-blue-500/20',
-    desc: ''
-  },
-  'Modo Adaptado': {
-    color: '#f97316', // Naranja (orange-500)
-    hoverBg: 'hover:bg-orange-500/5',
-    text: 'text-orange-400',
-    bg: 'bg-orange-500/10',
-    activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
-    desc: ''
-  },
-  'Modo Agresivo': {
-    color: '#ef4444', // Rojo (red-500)
-    hoverBg: 'hover:bg-red-500/5',
-    text: 'text-red-400',
-    bg: 'bg-red-500/10',
-    activeBorder: 'border-red-500 ring-2 ring-red-500/20',
-    desc: ''
-  }
-};
-
-const defaultPromptConfig = {
-  color: '#38bdf8',
-  hoverBg: 'hover:bg-sky-500/5',
-  text: 'text-sky-400',
-  bg: 'bg-sky-500/10',
-  activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
-  desc: 'Optimiza tu currículum de acuerdo a la oferta elegida.'
-};
 
 interface DashboardClientProps {
   initialCvs: CvListItem[];
@@ -443,45 +374,6 @@ export default function DashboardClient({
     }
   };
 
-  // Helper to translate prompt titles & descs
-  const getPromptTranslation = (prompt: typeof availablePrompts[0]) => {
-    const isEn = language === 'en';
-
-    // Prioritize custom database configured translations
-    const displayName = (isEn && prompt.nameEn) ? prompt.nameEn : prompt.name;
-    const displayDesc = (isEn && prompt.descriptionEn) ? prompt.descriptionEn : prompt.description;
-
-    if (displayDesc) {
-      return {
-        name: displayName,
-        desc: displayDesc,
-      };
-    }
-
-    if (prompt.name === 'Modo Fidelidad') {
-      return {
-        name: t('dashboard.modes.fidelity.name'),
-        desc: t('dashboard.modes.fidelity.desc'),
-      };
-    }
-    if (prompt.name === 'Modo Rendimiento') {
-      return {
-        name: t('dashboard.modes.performance.name'),
-        desc: t('dashboard.modes.performance.desc'),
-      };
-    }
-    if (prompt.name === 'Modo Extremo') {
-      return {
-        name: t('dashboard.modes.extreme.name'),
-        desc: t('dashboard.modes.extreme.desc'),
-      };
-    }
-    return {
-      name: displayName,
-      desc: t('dashboard.modes.default.desc'),
-    };
-  };
-
   // Adaptar y abrir el CV confirmado por el servidor.
   const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
@@ -522,18 +414,24 @@ export default function DashboardClient({
         ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
         confirmOverwrite: confirmed,
       };
+      const requestId = requestForCv(params);
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard' }));
       trackUmamiConversion('offer_pasted');
       const response = await fetch('/api/ai/optimize', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...params, requestId: requestForCv(params) }),
+        body: JSON.stringify({ ...params, requestId }),
       });
       if (!response.ok) {
         const problem = await response.json().catch(() => ({}));
+        if (response.status < 500 && response.status !== 429) sessionStorage.removeItem('matchply_optimize_params');
         if (shouldResetAiOperation(problem)) cvRequest.current = null;
         reportPlanRestriction(problem, 'cv-adapt');
         throw new Error(problem.error || t('dashboard.errors.unexpected'));
       }
-      const result = await consumeCvAiStream(response, content => { if (content.length > 50) setAiStep(t('dashboard.steps.keywords')); });
+      const admission = await response.clone().json();
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard', jobId: admission.jobId, resultCvId: admission.cvId }));
+      const result = await consumeCvOptimization(response, progress => setAiStep(t(`variants.stages.${progress.stage}`)));
+      sessionStorage.removeItem('matchply_optimize_params');
       cvRequest.current = null;
       refreshPlanUsage();
       trackUmamiConversion('cv_optimized');
@@ -547,6 +445,13 @@ export default function DashboardClient({
       setAiLoading(false);
     }
   };
+
+  useEffect(() => {
+    try {
+      const pending = JSON.parse(sessionStorage.getItem('matchply_optimize_params') || '{}');
+      if (pending.origin === 'dashboard' && pending.baseCvId) router.replace(`/editor/${pending.resultCvId || pending.baseCvId}?optimize=true`);
+    } catch { /* An invalid local draft cannot start another request. */ }
+  }, [router]);
 
   return (
     <div>
@@ -988,68 +893,7 @@ export default function DashboardClient({
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={aiLoading} />
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-ai animate-pulse stroke-[1.75]" />
-                      {t('dashboard.modal.ai.mode')}
-                    </label>
-                    {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-canvas/40 border border-subtle rounded-[8px] px-4 py-3 text-xs text-text-muted font-sans">
-                        {t('dashboard.modal.ai.defaultMode')}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {availablePrompts.map((prompt) => {
-                          const config = promptConfigs[prompt.name] || defaultPromptConfig;
-                          const promptColor = prompt.color || config.color;
-                          const isSelected = aiFormData.promptId === prompt.id;
-                          const shadowClass = (prompt.name === 'Modo Fidelidad' || prompt.name.includes('Honesto'))
-                            ? 'shadow-sky-500/5'
-                            : (prompt.name === 'Modo Rendimiento' || prompt.name.includes('Adaptado'))
-                              ? 'shadow-yellow-500/5'
-                              : 'shadow-red-500/5';
-
-                          const promptInfo = getPromptTranslation(prompt);
-
-                          return (
-                            <button
-                              type="button"
-                              aria-pressed={isSelected}
-                              key={prompt.id}
-                              onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 text-left cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${config.hoverBg} ${isSelected ? `border-ai ring-2 ring-ai/20 shadow-lg ${shadowClass}` : 'border-subtle hover:border-control dark:hover:border-white/20'}`}
-                            >
-                              <div>
-                                {/* Header / Color dot */}
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className={`text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${config.bg} ${config.text}`}>
-                                    {promptInfo.name.replace('Modo ', '').replace(' Mode', '')}
-                                  </span>
-                                  <div
-                                    className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
-                                    style={{ backgroundColor: promptColor }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Description / Summary */}
-                              <p className="text-[9.5px] text-text-muted leading-normal font-light font-sans">
-                                {promptInfo.desc}
-                              </p>
-
-                              {/* Selected checkmark dot glow */}
-                              {isSelected && (
-                                <div
-                                  className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
-                                  style={{ backgroundColor: promptColor }}
-                                />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-text-muted">{t('variants.generationHelp')}</p>
 
                   <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
                     <input

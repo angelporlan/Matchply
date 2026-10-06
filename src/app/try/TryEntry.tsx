@@ -409,6 +409,7 @@ export default function TryEntry() {
             )}
 
             {/* Acciones del Paso 2 */}
+            {hasJob && <p className="mb-3 text-xs text-text-muted">{t('variants.generationHelp')}</p>}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Button

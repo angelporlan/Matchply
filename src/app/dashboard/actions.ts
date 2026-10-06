@@ -18,8 +18,11 @@ import { parseMatchConstraints } from "@/lib/curation-constraints";
 import { normalizeCareerProfileFields } from "@/lib/career-profile";
 import { createTrySourceCv } from '@/lib/try-cv';
 import { log } from '@/lib/logger';
+import { saveCvVariant, activateCvVariant } from '@/lib/cv-optimization/service';
+import type { VariantSaveContext } from '@/lib/cv-optimization/types';
+import type { OptimizeModeId } from '@/lib/optimize-modes';
 
-type ActionResult = { success?: boolean; error?: string; code?: string; cvId?: string; title?: string; name?: string };
+type ActionResult = { success?: boolean; error?: string; code?: string; cvId?: string; title?: string; name?: string; revision?: number; content?: string };
 
 export async function createTryBaseCv(input: { id: string; title: string; content: string }): Promise<ActionResult> {
   try {
@@ -202,7 +205,7 @@ export async function updateCvStyling(
   }
 }
 
-export async function saveCvContent(cvId: string, content: string): Promise<ActionResult> {
+export async function saveCvContent(cvId: string, content: string, context?: VariantSaveContext): Promise<ActionResult> {
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
@@ -214,12 +217,29 @@ export async function saveCvContent(cvId: string, content: string): Promise<Acti
       throw new Error("Forbidden");
     }
 
+    if (context) {
+      const saved = await saveCvVariant(actor.userId, cvId, content, context);
+      return { success: true, revision: saved.revision };
+    }
     await updateCvForUser(actor.userId, cvId, { content });
 
     return { success: true };
   } catch (error: any) {
-    console.error("Error saving CV content:", error);
+    log({ event: 'cv_content_save_failed', level: 'error', error });
     return { error: error.message || "Failed to save CV content", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+  }
+}
+
+export async function selectCvVariant(cvId: string, optimizationId: string, modeId: OptimizeModeId): Promise<ActionResult> {
+  try {
+    const actor = await getActor({ allowGuest: true });
+    if (!actor) throw new Error('Unauthorized');
+    const selected = await activateCvVariant(actor.userId, cvId, optimizationId, modeId);
+    revalidatePath('/dashboard');
+    return { success: true, ...selected };
+  } catch (error) {
+    log({ event: 'cv_variant_select_failed', level: 'error', error });
+    return { error: error instanceof Error ? error.message : 'No se pudo cambiar de versión.', ...(error instanceof UsageError ? { code: error.code } : {}) };
   }
 }
 

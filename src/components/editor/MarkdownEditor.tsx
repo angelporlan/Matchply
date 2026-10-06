@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useDeferredValue } from 'react';
+import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   FileEdit, Bold, Italic, List, Heading1, Heading2, Heading3, Eraser, Code, Eye,
@@ -343,6 +344,7 @@ export default function MarkdownEditor({
   forcedMode,
   onRevert,
 }: MarkdownEditorProps) {
+  const managedSave = useManagedEditorSave();
   const { t, language } = useLanguage();
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
@@ -430,6 +432,7 @@ export default function MarkdownEditor({
 
   // Handle autosave debounce for both modes
   const triggerAutosave = (value: string) => {
+    if (managedSave) return;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
