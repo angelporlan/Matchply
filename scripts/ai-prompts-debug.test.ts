@@ -78,7 +78,7 @@ test('formatPromptForClipboard outputs structured markdown for clipboard', () =>
   assert.match(formatted, /CV Base:\nContenido del CV\.\.\./);
 });
 
-test('AIService.buildDebugPrompt resolves optimize_cv prompt with CV and job data', async () => {
+test('AIService.buildDebugPrompt exposes shared analysis and all three modes with source data', async () => {
   const result = await AIService.buildDebugPrompt('optimize_cv', {
     baseCvMarkdown: '# Carlos García\n\nDesarrollador Full Stack',
     jobDescription: 'Buscamos desarrollador React y Node.js',
@@ -87,11 +87,15 @@ test('AIService.buildDebugPrompt resolves optimize_cv prompt with CV and job dat
     subscriptionStatus: 'active',
   });
 
-  assert.equal(result.actionTitle, 'Optimización de CV con IA');
+  assert.equal(result.actionTitle, 'Optimización de CV: análisis compartido y tres variantes');
   assert.ok(result.provider);
   assert.ok(result.model);
-  assert.match(result.systemPrompt, /Carlos García/);
-  assert.match(result.systemPrompt, /REGLAS DE FIDELIDAD DEL CV/);
+  assert.match(result.userPrompt, /Carlos García/);
+  assert.match(result.systemPrompt, /REGLAS INAMOVIBLES/);
+  assert.match(result.systemPrompt, /MODO FIEL/);
+  assert.match(result.systemPrompt, /MODO EQUILIBRADO/);
+  assert.match(result.systemPrompt, /MODO MÁXIMO MATCHING/);
+  assert.match(result.systemPrompt, /cita_cv/);
   assert.match(result.userPrompt, /Buscamos desarrollador React y Node\.js/);
 });
 
