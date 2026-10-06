@@ -10,13 +10,13 @@ import { CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
 import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import { 
   updateJobOfferDetails, 
-  updateJobOfferCv
+  updateJobOfferCv,
+  prepareCvForJobOffer,
 } from '@/app/dashboard/applications/actions';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
-import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -270,27 +270,39 @@ export default function JobOfferDetailsModal({
     }
     setOptimizingCv(true);
     try {
-      const params = { baseCvId: baseCv.id, jobTitle: offer.title, company: offer.company,
-        url: offer.url || undefined, platform: offer.platform || 'linkedin', jobDescription: offer.description || '',
-        addToApplications: false, confirmOverwrite: confirmed, ...(replacementCvId ? { targetCvId: replacementCvId } : {}) };
-      const signature = JSON.stringify(params);
-      if (pendingAiRequest.current?.signature !== signature) pendingAiRequest.current = { signature, id: crypto.randomUUID() };
-      const response = await fetch('/api/ai/optimize', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...params, requestId: pendingAiRequest.current.id }) });
-      if (!response.ok) {
-        const problem = await response.json().catch(() => ({}));
-        if (shouldResetAiOperation(problem)) pendingAiRequest.current = null;
-        reportPlanRestriction(problem, 'offer-cv-adapt');
-        throw new Error(problem.error || t('dashboard.errors.unexpected'));
+      let targetCvId = replacementCvId || offer.cvId;
+      if (!targetCvId) {
+        const prep = await prepareCvForJobOffer(offer.id, baseCv.id);
+        if (prep.error || !prep.cvId) {
+          if (prep.code) reportPlanRestriction({ code: prep.code }, 'offer-cv-adapt');
+          throw new Error(prep.error || t('dashboard.errors.unexpected'));
+        }
+        targetCvId = prep.cvId;
+      } else if (replacementCvId && replacementCvId !== offer.cvId) {
+        const linked = await updateJobOfferCv(offer.id, replacementCvId);
+        if (linked.error) throw new Error(linked.error);
       }
-      const result = await consumeCvAiStream(response);
-      const linked = await updateJobOfferCv(offer.id, result.cvId);
-      if (linked.error) throw new Error(linked.error);
-      pendingAiRequest.current = null;
-      refreshPlanUsage(); router.refresh(); onClose(); router.push(`/editor/${result.cvId}`);
+
+      const params = {
+        baseCvId: baseCv.id,
+        targetCvId,
+        jobTitle: offer.title,
+        company: offer.company,
+        url: offer.url || undefined,
+        platform: offer.platform || 'linkedin',
+        jobDescription: offer.description || '',
+        addToApplications: false,
+        confirmOverwrite: confirmed || Boolean(replacementCvId) || Boolean(offer.cvId),
+        requestId: crypto.randomUUID(),
+      };
+
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      onClose();
+      router.push(`/editor/${targetCvId}?optimize=true`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('dashboard.errors.unexpected'));
-    } finally { setOptimizingCv(false); }
+      setOptimizingCv(false);
+    }
   };
 
   // Cambiar CV vinculado

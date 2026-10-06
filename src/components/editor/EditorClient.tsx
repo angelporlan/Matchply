@@ -66,6 +66,26 @@ interface EditorClientProps {
   linkedOffer?: LinkedOffer | null;
 }
 
+const loadingTips = [
+  "Extrayendo palabras clave y requisitos de la oferta...",
+  "Analizando tu experiencia y habilidades del CV Base...",
+  "Alineando tu perfil con los requisitos clave...",
+  "Tip: El formato Harvard destaca tus logros usando verbos de acción.",
+  "Tip: Puedes editar cualquier texto directamente después de la optimización.",
+  "Tip: Recuerda que puedes descargar el PDF en cualquier momento.",
+  "Tip: El motor de IA PRO ofrece una mayor precisión semántica."
+];
+
+const loadingTipsEn = [
+  "Extracting keywords and job description requirements...",
+  "Analyzing your experience and skills from the Base CV...",
+  "Aligning your profile with key job requirements...",
+  "Tip: The Harvard format highlights achievements using action verbs.",
+  "Tip: You can edit any text directly after optimization is complete.",
+  "Tip: Remember you can download the PDF at any time.",
+  "Tip: The PRO AI engine offers greater semantic precision."
+];
+
 export default function EditorClient(props: EditorClientProps) {
   return <PlanUsageProvider><EditorContent {...props} /><PlanFeedback /></PlanUsageProvider>;
 }
@@ -135,12 +155,26 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   
   useEffect(() => {
     setCvContent(cv.content);
     setReviewContent(cv.content);
   }, [cv.content]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const isContentEmpty = !reviewContent || reviewContent.trim().length === 0;
+    if (isStreaming && isContentEmpty) {
+      interval = setInterval(() => {
+        setTipIndex((prev) => (prev + 1) % (language === 'es' ? loadingTips.length : loadingTipsEn.length));
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isStreaming, reviewContent, language]);
   const [aiFormData, setAiFormData] = useState({
     jobTitle: '',
     company: '',
@@ -231,6 +265,10 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     setStreamingError(null);
     setSaveStatus('saving');
     setStreamingStep(t('editor.aiModal.steps.keywords'));
+    if (params.targetCvId === cv.id) {
+      setCvContent('');
+      setReviewContent('');
+    }
 
     try {
       const response = await fetch('/api/ai/optimize', {
@@ -253,9 +291,9 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       }
 
       const result = await consumeCvAiStream(response, content => {
+        if (content.length > 50) setStreamingStep(t('editor.aiModal.steps.generate'));
         // A new version is rendered in its own editor after the server publishes it.
         if (!params.targetCvId || params.targetCvId !== cv.id) {
-          if (content.length > 50) setStreamingStep(t('editor.aiModal.steps.generate'));
           return;
         }
         setCvContent(content);
@@ -692,7 +730,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
         {readOnly && <PdfViewer cvId={cv.id} version={String(cv.updatedAt)} zoom={zoom} variant="sheet" />}
         {!readOnly && (showDocument || showSource) && (
-          <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 ${showSource ? 'p-4 sm:p-6' : ''}`}>
+          <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 relative ${showSource ? 'p-4 sm:p-6' : ''}`}>
             {showDocument && (
               <ResumeSheet
                 cvId={cv.id}
@@ -723,6 +761,28 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
                 streamingStep={streamingStep}
                 onRevert={diffBase ? () => { void revertToBase(); } : undefined}
               />
+            )}
+            {isStreaming && (!reviewContent || reviewContent.trim().length === 0) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-canvas/95 backdrop-blur-md select-none z-50 transition-all duration-300">
+                <div className="relative mb-6">
+                  <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
+                    <RefreshCw className="w-6 h-6 text-ai animate-spin stroke-[1.75]" />
+                  </div>
+                  <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-ai animate-pulse" />
+                </div>
+                
+                <h4 className="text-sm font-bold text-text mb-2 font-display uppercase tracking-wider">
+                  {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
+                </h4>
+                
+                <p className="text-xs text-ai dark:text-purple-300 font-semibold tracking-wide h-6 flex items-center justify-center animate-pulse mb-3 font-display">
+                  {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
+                </p>
+                
+                <p className="text-[11px] text-slate-500 dark:text-text-muted font-light max-w-sm h-10 flex items-center justify-center leading-relaxed font-sans px-4 py-2 bg-control/5 dark:bg-white/5 rounded-xl border border-slate-500/10 dark:border-white/5 shadow-sm">
+                  {language === 'es' ? loadingTips[tipIndex] : loadingTipsEn[tipIndex]}
+                </p>
+              </div>
             )}
           </div>
         )}

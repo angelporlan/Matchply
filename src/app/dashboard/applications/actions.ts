@@ -14,6 +14,8 @@ import { settleAiJob } from '@/lib/ai-jobs/settle';
 import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
 import { aiRequestId } from '@/lib/ai-usage-http';
 import { decideApplicationSent } from "@/lib/application-sent";
+import { createCvForUser } from "@/lib/cv-access";
+import { UsageError } from "@/lib/usage";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
   revalidatePath("/dashboard/applications");
@@ -165,6 +167,77 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
   } catch (error: any) {
     console.error("Error updating offer CV:", error);
     return { error: error.message || "Failed to link CV" };
+  }
+}
+
+export async function prepareCvForJobOffer(offerId: string, baseCvId: string): Promise<{ success?: boolean; cvId?: string; error?: string; code?: string }> {
+  try {
+    const ctx = await requireApplicationContext();
+    const userId = ctx.effectiveUser!.id;
+
+    const [offer] = await db
+      .select(jobOfferOwnershipColumns)
+      .from(jobOffers)
+      .where(eq(jobOffers.id, offerId))
+      .limit(1);
+
+    if (!offer || offer.userId !== userId) {
+      return { error: "Forbidden or Offer not found" };
+    }
+
+    if (offer.cvId) {
+      return { success: true, cvId: offer.cvId };
+    }
+
+    const [baseCv] = await db
+      .select({
+        id: cvs.id,
+        templateName: cvs.templateName,
+        accentColor: cvs.accentColor,
+        fontFamily: cvs.fontFamily,
+        pageMargin: cvs.pageMargin,
+        scale: cvs.scale,
+      })
+      .from(cvs)
+      .where(and(eq(cvs.id, baseCvId), eq(cvs.userId, userId)))
+      .limit(1);
+
+    if (!baseCv) {
+      return { error: "Base CV not found" };
+    }
+
+    const title = `Optimizado - ${offer.title} (${offer.company})`;
+    const newCv = await createCvForUser(userId, {
+      title,
+      content: '',
+      isBase: false,
+      isPrincipal: false,
+      templateName: baseCv.templateName || 'harvard',
+      accentColor: baseCv.accentColor || '#000000',
+      fontFamily: baseCv.fontFamily || 'helvetica',
+      pageMargin: baseCv.pageMargin ?? 36,
+      scale: baseCv.scale ?? 1.0,
+    });
+
+    await db
+      .update(jobOffers)
+      .set({
+        cvId: newCv.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobOffers.id, offerId));
+
+    revalidateApplicationPaths();
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/applications/offer/${offerId}`);
+
+    return { success: true, cvId: newCv.id };
+  } catch (error: any) {
+    console.error("Error preparing CV for job offer:", error);
+    return {
+      error: error.message || "Failed to prepare CV for job offer",
+      ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}),
+    };
   }
 }
 
