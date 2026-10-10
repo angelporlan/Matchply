@@ -705,3 +705,11 @@ details[open] .faq-answer {
     display: none;
   }
 }
+@keyframes cv-generation-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(400%); }
+}
+.cv-generation-sweep { animation: cv-generation-sweep 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cv-generation-sweep { animation: none; transform: none; width: 100%; opacity: .35; }
+}

@@ -54,6 +54,7 @@ export function PdfDownloadLink({
   children,
   beforeDownload,
   variantQuery = '',
+  disabled = false,
 }: {
   cvId: string;
   isGuest?: boolean;
@@ -64,6 +65,7 @@ export function PdfDownloadLink({
   children?: React.ReactNode;
   beforeDownload?: () => Promise<boolean>;
   variantQuery?: string;
+  disabled?: boolean;
 }) {
   const { t } = useLanguage();
   const [savePromptOpen, setSavePromptOpen] = useState(false);
@@ -78,6 +80,7 @@ export function PdfDownloadLink({
 
   const handleDownload = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
+    if (disabled) return;
     if (isGuest && !guestCanDownload) {
       window.location.href = guestRegisterHref;
       return;
@@ -104,11 +107,13 @@ export function PdfDownloadLink({
   return (
     <>
       <a
-        href={downloadHref}
+        href={disabled ? undefined : downloadHref}
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : undefined}
         onClick={handleDownload}
         target={isGuest ? undefined : '_blank'}
         rel={isGuest ? undefined : 'noopener noreferrer'}
-        className={className ?? 'btn-raised btn-raised--sm'}
+        className={`${className ?? 'btn-raised btn-raised--sm'} ${disabled ? 'opacity-50 cursor-wait' : ''}`}
       >
         {children ?? (
           <>

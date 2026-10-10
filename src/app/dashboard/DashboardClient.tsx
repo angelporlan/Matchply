@@ -23,7 +23,6 @@ import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
-import { consumeCvOptimization } from '@/lib/cv-optimization/client';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -430,15 +429,11 @@ export default function DashboardClient({
       }
       const admission = await response.clone().json();
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard', jobId: admission.jobId, resultCvId: admission.cvId }));
-      const result = await consumeCvOptimization(response, progress => setAiStep(t(`variants.stages.${progress.stage}`)));
-      sessionStorage.removeItem('matchply_optimize_params');
       cvRequest.current = null;
       refreshPlanUsage();
-      trackUmamiConversion('cv_optimized');
       setIsAiOpen(false);
       setAiLoading(false);
-      router.refresh();
-      router.push(`/editor/${result.cvId}`);
+      router.push(`/editor/${admission.cvId}`);
 
     } catch (err: any) {
       setAiError(err.message || t('dashboard.errors.unexpected'));

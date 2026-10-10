@@ -126,7 +126,12 @@ const en = {
     },
     variants: {
       "label": "Optimized versions",
-      "generationHelp": "We will generate three versions: Faithful, Balanced and Maximum match. Uses one optimization.",
+      "generationHelp": "We will create Balanced. You can then generate Faithful or Maximum match in the editor. The set uses one optimization.",
+      "confirmTitle": "Optimize in {mode} mode?",
+      "confirmBody": "We will create this version using the original resume and the same job offer. Your other versions will be kept. No additional optimization is used.",
+      "confirm": "Yes, optimize",
+      "cancel": "Cancel",
+      "words": "words",
       "retry": "Retry",
       "retryError": "Could not retry this version.",
       "saveError": "Could not save. Keep your draft and retry.",
@@ -145,6 +150,7 @@ const en = {
         "optimize_aggressive": "Restructures your CV to emphasize the strongest supported match."
       },
       "status": {
+        "idle": "Not generated",
         "pending": "Pending",
         "generating": "Generating",
         "ready": "Ready",
@@ -153,7 +159,7 @@ const en = {
       "stages": {
         "queued": "Waiting for the AI worker…",
         "analysis": "Analyzing requirements and evidence…",
-        "generating": "Generating and validating all three versions…",
+        "generating": "Writing and checking your resume…",
         "completed": "Versions ready"
       },
       "severity": {

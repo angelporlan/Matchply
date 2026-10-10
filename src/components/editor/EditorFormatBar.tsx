@@ -9,7 +9,8 @@ import {
   ChevronDown,
   Maximize2,
   FileCode2,
-  GitCompare
+  GitCompare,
+  Sparkles
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { PdfZoom } from './PdfViewer';
@@ -364,11 +365,11 @@ export default function EditorFormatBar({
             {OPTIMIZE_MODE_IDS.map(mode => {
               const variant = variants.find(v => v.modeId === mode);
               return <div key={mode} className="flex items-center gap-1">
-                <button type="button" aria-pressed={activeMode === mode} disabled={variantBusy || variant?.status !== 'ready'}
+                <button type="button" aria-pressed={activeMode === mode && variant?.status === 'ready'} disabled={variantBusy || !variant || ['pending', 'generating', 'error'].includes(variant.status)}
                   title={t(`variants.descriptions.${mode}`)}
                   onClick={() => onSelectVariant?.(mode)}
                   className={`min-h-11 px-2.5 rounded-[8px] text-xs font-semibold border transition-colors disabled:opacity-50 ${activeMode === mode ? 'bg-surface-muted border-control text-text' : 'bg-canvas border-subtle text-text-muted hover:text-text'}`}>
-                  {t(`variants.names.${mode}`)}{variant?.status !== 'ready' && <span className="ml-1 font-normal">· {t(`variants.status.${variant?.status || 'pending'}`)}</span>}
+                  {variant?.status === 'idle' && <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{t(`variants.names.${mode}`)}{variant && !['ready','idle'].includes(variant.status) && <span className="ml-1 font-normal">· {t(`variants.status.${variant.status}`)}</span>}
                 </button>
                 {variant?.status === 'error' && <button type="button" disabled={variantBusy} onClick={() => onRetryVariant?.(mode)} aria-label={`${t('variants.retry')}: ${t(`variants.names.${mode}`)}`} className="min-h-11 px-2 text-xs font-semibold text-text underline disabled:opacity-50">{t('variants.retry')}</button>}
               </div>;

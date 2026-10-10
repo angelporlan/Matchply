@@ -10,6 +10,7 @@ import { AccountSuspendedError } from '@/lib/request-errors';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { getCvOptimizationView } from '@/lib/cv-optimization/service';
+import type { OptimizeJobPayload } from '@/lib/cv-optimization/types';
 
 interface EditorPageProps {
   params: {
@@ -111,6 +112,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
       optimization={optimization}
       pendingOptimizationJobId={pendingJob?.id}
       pendingOptimizationIsRetry={Boolean((pendingJob?.payload as {retry?:boolean} | undefined)?.retry)}
+      pendingOptimizationMode={(pendingJob?.payload as OptimizeJobPayload | undefined)?.activateMode}
     />
   );
 }

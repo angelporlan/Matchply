@@ -126,7 +126,12 @@ const es = {
     },
     variants: {
       "label": "Versiones optimizadas",
-      "generationHelp": "Generaremos tres versiones: Fiel, Equilibrado y Máximo matching. Consume una optimización.",
+      "generationHelp": "Crearemos Equilibrado. Después podrás generar Fiel o Máximo matching desde el editor. El conjunto consume una optimización.",
+      "confirmTitle": "¿Optimizar en modo {mode}?",
+      "confirmBody": "Crearemos esta versión con el CV original y la misma oferta. Tus otras versiones se conservarán. No consume otra optimización.",
+      "confirm": "Sí, optimizar",
+      "cancel": "Cancelar",
+      "words": "palabras",
       "retry": "Reintentar",
       "retryError": "No se pudo reintentar la versión.",
       "saveError": "No se pudo guardar. Conserva tu borrador y reintenta.",
@@ -145,6 +150,7 @@ const es = {
         "optimize_aggressive": "Reestructura para destacar el máximo encaje respaldado por tu experiencia."
       },
       "status": {
+        "idle": "Sin generar",
         "pending": "Pendiente",
         "generating": "Generando",
         "ready": "Disponible",
@@ -153,7 +159,7 @@ const es = {
       "stages": {
         "queued": "Esperando al motor de IA…",
         "analysis": "Analizando requisitos y evidencia…",
-        "generating": "Generando y comprobando las tres versiones…",
+        "generating": "Escribiendo y comprobando tu CV…",
         "completed": "Versiones disponibles"
       },
       "severity": {

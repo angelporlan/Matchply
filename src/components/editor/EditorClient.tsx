@@ -13,9 +13,11 @@ import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorRev
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, saveCvContent, selectCvVariant } from '@/app/dashboard/actions';
 import { consumeCvOptimization } from '@/lib/cv-optimization/client';
-import { OPTIMIZE_MODE_IDS, isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
+import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
 import type { CvOptimizationView, OptimizeProgress } from '@/lib/cv-optimization/types';
 import { EditorPersistenceContext, useEditorPersistence } from './EditorPersistence';
+import { CvVariantConfirm } from './CvVariantConfirm';
+import { useCvGenerationAnimation } from './useCvGenerationAnimation';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
@@ -71,6 +73,7 @@ interface EditorClientProps {
   optimization?: CvOptimizationView | null;
   pendingOptimizationJobId?: string;
   pendingOptimizationIsRetry?: boolean;
+  pendingOptimizationMode?: OptimizeModeId;
 }
 
 const loadingTips = [
@@ -97,7 +100,7 @@ export default function EditorClient(props: EditorClientProps) {
   return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
-function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry }: EditorClientProps) {
+function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
@@ -127,6 +130,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const [variantBusy, setVariantBusy] = useState(false);
   const variantSwitchLock = useRef(false);
   const [optimizeProgress, setOptimizeProgress] = useState<OptimizeProgress | null>(null);
+  const [confirmVariant, setConfirmVariant] = useState<OptimizeModeId | null>(null);
+  const {preview:liveGeneration,update:setLiveGeneration,finish:finishPreview}=useCvGenerationAnimation();
   const retryRequest = useRef<{ mode: OptimizeModeId; id: string } | null>(null);
   const diffBase = optimization?.sourceMarkdown || baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
@@ -163,6 +168,12 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
   const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
   const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
+  const displayContent = liveGeneration?.content ?? reviewContent;
+  const receiveProgress = (progress: OptimizeProgress) => {
+    setOptimizeProgress(progress); setStreamingStep(t(`variants.stages.${progress.stage}`));
+    if (progress.preview) setLiveGeneration({modeId:progress.preview.modeId,content:progress.preview.content});
+    else if (progress.stage !== 'completed') setLiveGeneration(current => current && progress.variants.find(v=>v.modeId===current.modeId)?.status !== 'ready' ? {...current,content:''} : current);
+  };
   const switchVariant = async (mode: OptimizeModeId) => {
     if (!optimization || mode === activeMode || variantSwitchLock.current) return;
     variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
@@ -177,20 +188,42 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.saveError')); }
     finally { variantSwitchLock.current = false; setVariantBusy(false); }
   };
-  const retryVariant = async (mode: OptimizeModeId) => {
+  const generateVariant = async (mode: OptimizeModeId, retry = false) => {
     if (!optimization || variantSwitchLock.current) return;
     variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
     try {
       if (!await persistence.flush()) return;
+      setIsStreaming(true); setLiveGeneration({modeId:mode,content:''});
+      setStreamingStep(t('variants.stages.queued'));
       if (retryRequest.current?.mode !== mode) retryRequest.current = { mode, id: crypto.randomUUID() };
-      const response = await fetch(`/api/ai/optimize/${optimization.id}/retry`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modes: [mode], requestId: retryRequest.current.id }) });
+      const response = await fetch(`/api/ai/optimize/${optimization.id}/${retry ? 'retry' : 'generate'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(retry ? {modes:[mode]} : {mode}), requestId: retryRequest.current.id }) });
       if (!response.ok) { const problem = await response.json(); if (shouldResetAiOperation(problem)) retryRequest.current = null; throw new Error(problem.error || t('variants.retryError')); }
-      await consumeCvOptimization(response, setOptimizeProgress);
+      await consumeCvOptimization(response, receiveProgress);
       const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
-      const result = await refreshed.json(); if (refreshed.ok) setOptimization(result.optimization);
+      const result = await refreshed.json();
+      if (!refreshed.ok || !result.optimization) throw new Error(t('variants.retryError'));
+      const view = result.optimization as CvOptimizationView; setOptimization(view);
+      const variant = view.variants.find(v=>v.modeId===mode);
+      if (variant?.status !== 'ready') throw new Error(t('variants.retryError'));
+      await finishPreview({modeId:mode,content:variant.content});
+      const selected = await selectCvVariant(cv.id,view.id,mode);
+      if (!selected.success || selected.content === undefined || selected.revision === undefined) throw new Error(selected.error || t('variants.saveError'));
+      setActiveMode(mode); setCvContent(selected.content); setReviewContent(selected.content);
+      persistence.reset(selected.content,{optimizationId:view.id,modeId:mode,revision:selected.revision});
+      setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1); setSaveStatus('saved');
       retryRequest.current = null; setOptimizeProgress(null);
-    } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.retryError')); }
-    finally { variantSwitchLock.current = false; setVariantBusy(false); }
+    } catch (error) {
+      // A failed job can still have changed the variant status. Keep the saved
+      // document visible and expose its retry action without requiring a reload.
+      const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' }).then(async response => response.ok ? response.json() : null).catch(() => null);
+      if (refreshed?.optimization?.id === optimization.id) {
+        const view = refreshed.optimization as CvOptimizationView;
+        setOptimization(view);
+        if (view.variants.find(v=>v.modeId===mode)?.status === 'error') retryRequest.current = null;
+      }
+      setStreamingError(error instanceof Error ? error.message : t('variants.retryError'));
+    }
+    finally { variantSwitchLock.current = false; setVariantBusy(false); setIsStreaming(false); setLiveGeneration(null); setOptimizeProgress(null); }
   };
   
   useEffect(() => {
@@ -256,7 +289,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     }
 
     if (pendingOptimizationJobId) {
-      void runOptimizeStream({ jobId: pendingOptimizationJobId, resultCvId: cv.id, baseCvId: cv.id, resumeMode:pendingOptimizationIsRetry ? cv.activeOptimizeMode : undefined });
+      void runOptimizeStream({ jobId: pendingOptimizationJobId, resultCvId: cv.id, baseCvId: cv.id, resumeMode:pendingOptimizationMode || (pendingOptimizationIsRetry ? cv.activeOptimizeMode : undefined) });
     } else if (shouldOptimize || (!shouldImport && (() => { try { const saved = JSON.parse(sessionStorage.getItem('matchply_optimize_params') || '{}'); return saved.baseCvId === cv.id || saved.resultCvId === cv.id; } catch { return false; } })())) {
       window.history.replaceState(null, '', window.location.pathname);
       const paramsStr = sessionStorage.getItem('matchply_optimize_params');
@@ -302,6 +335,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     }
 
     setIsStreaming(true);
+    setLiveGeneration({modeId:isOptimizeModeId(params.resumeMode || '') ? params.resumeMode : 'optimize_adapted',content:''});
     setStreamingError(null);
     setSaveStatus('saving');
     setStreamingStep(t('editor.aiModal.steps.keywords'));
@@ -329,18 +363,19 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       const admission = await response.clone().json();
       params.jobId = admission.jobId; params.resultCvId = admission.cvId;
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-      const result = await consumeCvOptimization(response, progress => {
-        setOptimizeProgress(progress);
-        setStreamingStep(t(`variants.stages.${progress.stage}`));
-      });
+      const result = await consumeCvOptimization(response, receiveProgress);
+      const refreshed = await fetch(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
+      const view = (await refreshed.json()).optimization as CvOptimizationView;
+      if (!refreshed.ok || !view) throw new Error(t('variants.retryError'));
+      const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
+      await finishPreview({modeId:selected.modeId,content:selected.content});
       if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
       else {
-        const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
-        const view = (await refreshed.json()).optimization as CvOptimizationView;
-        const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
         setOptimization(view); setActiveMode(selected.modeId); setCvContent(selected.content); setReviewContent(selected.content);
         persistence.reset(selected.content, { optimizationId: view.id, modeId: selected.modeId, revision: selected.revision });
+        setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1);
       }
+      setLiveGeneration(null);
       setOptimizeProgress(null);
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
@@ -360,6 +395,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       if (params.jobId) { const status = await fetch(`/api/ai/jobs/${params.jobId}`).then(r => r.json()).catch(() => null); if (status?.status === 'failed') { delete params.jobId; delete params.resultCvId; delete params.requestId; sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params)); } }
       setSaveStatus('error');
       setIsStreaming(false);
+      setLiveGeneration(null);
     }
   };
 
@@ -680,6 +716,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
+              disabled={isStreaming || variantBusy}
               beforeDownload={persistence.flush}
               variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
@@ -718,8 +755,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
         }
         variants={optimizeProgress?.variants || optimization?.variants}
         activeMode={activeMode}
-        onSelectVariant={mode => { void switchVariant(mode); }}
-        onRetryVariant={mode => { void retryVariant(mode); }}
+        onSelectVariant={mode => { if (optimization?.variants.find(v=>v.modeId===mode)?.status === 'idle') setConfirmVariant(mode); else void switchVariant(mode); }}
+        onRetryVariant={mode => { void generateVariant(mode,true); }}
         variantBusy={variantBusy || isStreaming}
       />}
 
@@ -727,15 +764,16 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       {readOnly && <p role="status" className="m-4 rounded-[8px] bg-warning-surface p-3 text-sm text-warning-text">{t('plans.readOnlyBody')} <LinkNext href="/dashboard" className="underline">{t('plans.chooseActive')}</LinkNext></p>}
 
       {isStreaming && (
-        <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-ai text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
+        <div role="status" className="relative mx-4 sm:mx-6 mt-4 overflow-hidden p-3 bg-ai-surface border border-ai-action/20 text-ai-action text-xs rounded-[8px] flex flex-wrap gap-2 items-center justify-between z-15">
+          <span aria-hidden className="cv-generation-sweep absolute bottom-0 left-0 h-0.5 w-1/3 bg-ai-action" />
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-ai animate-spin" />
+            <Sparkles className="w-4 h-4 text-ai-action" aria-hidden />
             <span className="font-bold uppercase tracking-wider font-display text-[10px]">Asistente de IA Matchply</span>
             <span className="text-slate-400">|</span>
-            <span className="font-medium text-slate-700 dark:text-slate-350">{streamingStep}</span>
+            <span className="font-medium text-text">{liveGeneration ? `${t(`variants.names.${liveGeneration.modeId}`)} · ` : ''}{streamingStep}</span>
           </div>
           <span className="font-mono text-[10px] px-2 py-0.5 bg-ai/10 rounded border border-ai/20 font-bold">
-            {cvContent.split(/\s+/).filter(Boolean).length} palabras
+            {displayContent.split(/\s+/).filter(Boolean).length} {t('variants.words')}
           </span>
         </div>
       )}
@@ -777,29 +815,31 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
         {readOnly && <PdfViewer cvId={cv.id} version={String(cv.updatedAt)} zoom={zoom} variant="sheet" />}
         {!readOnly && (showDocument || showSource) && (
-          <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 relative ${showSource ? 'p-4 sm:p-6' : ''}`}>
+          <div data-cv-generating={liveGeneration ? 'true' : undefined} aria-busy={isStreaming} className={`h-full min-h-0 min-w-0 flex flex-col flex-1 relative ${showSource ? 'p-4 sm:p-6' : ''}`}>
             {showDocument && (
+              <div className="contents" ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }}>
               <ResumeSheet
                 cvId={cv.id}
-                content={reviewContent}
+                content={displayContent}
                 fontFamily={fontFamily}
                 pageMargin={pageMargin}
                 scale={scale}
                 accentColor={accentColor}
                 zoom={zoom}
-                pageBreaks={pageBreaks}
-                onContentChange={onEditorContent}
+                pageBreaks={liveGeneration ? null : pageBreaks}
+                onContentChange={liveGeneration ? () => {} : onEditorContent}
                 setSaveStatus={setSaveStatus}
               />
+              </div>
             )}
             {showSource && (
               <MarkdownEditor
                 key={`${surface}-${contentVersion}`}
                 cvId={cv.id}
-                initialContent={reviewContent}
+                initialContent={displayContent}
                 originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
-                onContentChange={onEditorContent}
+                onContentChange={liveGeneration ? () => {} : onEditorContent}
                 saveStatus={saveStatus}
                 setSaveStatus={setSaveStatus}
                 isFullScreen={fullscreenPanel === 'editor'}
@@ -809,7 +849,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
                 onRevert={diffBase ? () => { void revertToBase(); } : undefined}
               />
             )}
-            {isStreaming && (!reviewContent || reviewContent.trim().length === 0) && (
+            {isStreaming && !displayContent.trim() && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-canvas/95 backdrop-blur-md select-none z-50 transition-all duration-300">
                 <div className="relative mb-6">
                   <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
@@ -835,7 +875,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
         )}
 
         {!readOnly && showReview && (
-          <div className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
+          <div ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }} className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
             <EditorReviewRail
               cvId={cv.id}
               content={reviewContent}
@@ -862,6 +902,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       </div>
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
+      <CvVariantConfirm mode={confirmVariant} onClose={()=>setConfirmVariant(null)} onConfirm={()=>{ const mode=confirmVariant; setConfirmVariant(null); if (mode) void generateVariant(mode); }} />
       <ApplicationSentPrompt
         open={sentPromptOpen}
         onYes={() => closeSentPrompt('yes')}
