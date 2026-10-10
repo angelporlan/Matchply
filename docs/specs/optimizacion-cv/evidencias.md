@@ -84,3 +84,26 @@ Se eliminaron el invitado sintético y la base aislada después de las pruebas. 
 ### Activación pendiente
 
 La implementación está verificada y la migración aplicada **en local**. El usuario eligió expresamente **mantenerlo en local por ahora**. No se han cambiado producción, `main` ni el remoto. La rama actual contiene además 19 commits anteriores sobre planes, Stripe, extensión, cuentas y landing respecto al `origin/main` local; publicarla y fusionarla supone una release más amplia que este incremento. El rollout documentado conserva el orden: copia de seguridad, migración, worker compatible y web; queda para una futura publicación autorizada y su comprobación operativa posterior.
+
+## Revisión: Equilibrado primero y generación bajo demanda — 06/10/2026
+
+Esta revisión aplica la nueva petición del usuario y sustituye el comportamiento inicial de tres generaciones simultáneas descrito arriba. La importación de ofertas conserva su alcance.
+
+- La admisión genera únicamente Equilibrado. Fiel y Máximo matching permanecen sin generar (`idle`) y sus botones abren una confirmación. Cancelar no crea un trabajo; aceptar genera solo el modo solicitado con las fuentes y el análisis congelados. Una variante disponible se abre directamente y conserva la vista de documento, Markdown o comparación.
+- Se mantiene una unidad por conjunto y una ficha/candidatura. Las generaciones posteriores y los reintentos no reservan otra cuota. Los trabajos antiguos que ya incluían tres modos siguen siendo compatibles. No hay cambios de esquema ni nueva migración.
+- El proveedor envía texto mediante streaming SSE; el worker guarda avances acotados en la variante en generación, protegidos por lease/intento. El polling del propietario lee ese avance sin guardar texto personal en `ai_job.result` ni en logs. La vista revela únicamente texto recibido, incluyendo respuestas rápidas, y espera a terminar esa animación antes de cambiar al resultado. La preferencia de movimiento reducido muestra el texto directamente.
+- El borrador incompleto se usa solo para la vista previa: no modifica el documento canónico, las ediciones guardadas ni la revisión de guardado. La hoja, la revisión y la descarga quedan bloqueadas durante la generación. Una reparación elimina su avance anterior; un fallo conserva el CV disponible, limpia el avance y permite reintentar.
+- El dashboard abre el editor tras la admisión, para que la animación sea visible durante el trabajo. La recarga recupera la generación pendiente, incluido el modo solicitado.
+
+### Verificación de la revisión
+
+- `scripts/cv-optimization-stream.test.ts`: **4 pruebas pasan**. Deltas/UTF-8, límites de eventos SSE, uso de tokens, Gemini sin texto de razonamiento, respuestas truncadas o inválidas y cancelación por rechazo del checkpoint.
+- Integración PostgreSQL aislada `matchply_cv_variants_lazy_test_20261006`: **12 pruebas pasan**, incluidas raíz y once subcasos. Equilibrado inicialmente y dos modos sin generar, generación individual idempotente, reutilización de análisis/fuentes y cuota, preservación de variantes listas, vista previa separada del documento canónico, limpieza al fallar y rechazo de escrituras de un lease caducado. Conserva pruebas de trabajos antiguos con tres modos, propiedad, edición por revisión, invitado, Free/Pro, recuperación y fallo total.
+- `npm test`: **373 pruebas; 359 pasan, 14 omisiones de integración sin configuración, cero fallos**. La integración de variantes omitida por defecto se ejecutó explícitamente en PostgreSQL aislado.
+- `npm run typecheck`, `npm run lint`, `npm run build` y `git diff --check`: correctos. Lint conserva los avisos anteriores, sin errores nuevos.
+- Navegador con otro invitado y CV exclusivamente ficticios: llamadas reales al proveedor configurado. Primero quedó Equilibrado disponible y los otros modos sin generar; cancelar Fiel no lo generó. Aceptar Fiel y, después, Máximo matching creó trabajos individuales y abrió sus resultados. Postgres confirmó tres trabajos, tres variantes disponibles, una candidatura y una unidad consumida, con el CV de origen intacto. Se observó el indicador animado y el primer avance de texto durante la generación, con descarga bloqueada. Cambiar entre variantes listas mantuvo la comparación seleccionada.
+- Confirmaciones y controles comprobados en español/inglés y tema claro/oscuro. Tab circula entre cancelar/confirmar; Escape devuelve el foco al activador. A 375 px los tres botones caben, tienen 44 px de altura y no producen desbordamiento horizontal. No se ha realizado una auditoría completa con lector de pantalla.
+
+Capturas locales: `/tmp/matchply-lazy-generating.jpg`, `/tmp/matchply-lazy-confirm.jpg`, `/tmp/matchply-lazy-confirm-dark.jpg`, `/tmp/matchply-lazy-filling.jpg` y `/tmp/matchply-lazy-mobile.jpg`. La descarga sigue utilizando el modo visible; esta revisión no modifica el motor de PDF, comprobado en el incremento anterior.
+
+Se eliminaron el invitado ficticio y la base aislada creados para esta revisión. Se mantiene la decisión del usuario: **todo permanece en local, sin publicación ni despliegue**.

@@ -49,18 +49,23 @@ Documentación: [Structured Outputs](https://developers.openai.com/api/docs/guid
 
 Esta ampliación conserva el servicio y las expectativas de importación de ofertas. Sustituye la selección previa de un modo y el contrato de optimización del editor.
 
-- REQ-V01: una acción MUST generar Fiel, Equilibrado y Máximo matching desde el mismo CV/perfil/oferta congelados; un análisis compartido y generaciones independientes, hasta tres llamadas simultáneas por trabajo.
-- REQ-V02: el conjunto MUST ocupar una ficha y una unidad general de IA. Equilibrado se abre primero, con fallback Fiel y Máximo matching.
+- REQ-V01: una acción MUST generar inicialmente solo Equilibrado desde CV/perfil/oferta congelados. Fiel y Máximo matching MUST permanecer sin generar hasta pulsar su botón y confirmar. Cada modo utiliza el mismo análisis y las mismas fuentes originales.
+- REQ-V02: el conjunto MUST ocupar una ficha y una unidad general de IA. Equilibrado se abre primero. Generar un modo adicional no crea otra ficha/candidatura ni repite el consumo inicial.
 - REQ-V03: los hechos históricos MUST conservarse. Las citas inexistentes invalidan respaldo; objetivos profesionales no son evidencia. Las sugerencias de métricas (máximo cinco) y gaps MUST quedar fuera del CV. El idioma sigue la oferta y los datos históricos se conservan.
 - REQ-V04: resultados válidos MUST persistir como checkpoints. Fallos transitorios tienen tres intentos; reutilizan análisis y resultados. Cada salida inválida tiene una corrección. Fallo total libera cuota y conserva el destino anterior. Reintento explícito de modos fallidos reutiliza la cuota consumida y no modifica modos correctos.
 - REQ-V05: el editor MUST permitir alternar los tres modos junto a Markdown/comparación, mantener la vista y guardar cada borrador con revisión independiente. La comparación siempre usa el origen congelado; PDF usa el modo visible. Estilos compartidos.
 - REQ-V06: propiedad, permisos, CV base, transferencia de invitado y leases MUST conservarse. Los CV antiguos siguen funcionando. Listados MUST NOT cargar fuentes, análisis ni variantes.
+- REQ-V07: durante la generación MUST mostrarse animación de espera y el CV rellenándose con el texto real del proveedor. La aparición progresiva solo revela texto ya recibido; también se aplica a respuestas rápidas que terminan entre consultas de estado. La vista previa incompleta MUST NOT guardarse como edición ni descargarse; solo el resultado validado se publica. Un fallo conserva el documento previo. Movimiento reducido muestra el texto recibido directamente y mantiene progreso sin animación decorativa.
 
 ### Contratos y persistencia
 
 `cv_optimization` conserva fuentes, análisis, versión y configuración; `cv_variant` conserva contenido, estado y revisión por modo. `cv.content` refleja el modo activo; referencias nuevas son anulables para compatibilidad.
 
 `POST /api/ai/optimize` → `202 {jobId, cvId}`; `GET /api/ai/jobs/[id]` → etapa y estados por modo. `POST /api/ai/optimize/[id]/retry` recibe `modes`, `requestId`. `GET /api/cv/[cvId]/optimization` carga el detalle. Guardado y selección comprueban optimización/mode/revisión con transacción; PDF acepta `optimizationId` y `modeId`.
+
+Revisión solicitada por el usuario el 06/10: reemplaza la generación simultánea inicial por modos bajo demanda y recupera la animación de llenado. Los registros nuevos de Fiel/Máximo matching tienen estado `idle`. `POST /api/ai/optimize/[id]/generate` recibe un modo sin generar y `requestId`; reutiliza la operación consumida. Los modos ya disponibles se seleccionan sin confirmación ni regeneración. Cancelar el diálogo no inicia trabajos. Los conjuntos anteriores conservan sus variantes. Sin cambios destructivos ni nueva migración: el estado es texto y se asigna explícitamente al insertar. Se conserva como decisión heredada una cuota única para el conjunto. Producción sigue fuera del alcance por decisión del usuario.
+
+El progreso del trabajo puede incluir `preview` (modo, texto y tentativa) solo para su propietario. Se almacena en el registro de variante mientras se genera, con escrituras acotadas y protegidas por lease, y se descarta ante fallo/corrección. Nunca se duplica en `ai_job.result` ni en listados.
 
 - INV-V01: reserva/destino/admisión se realizan juntos bajo el lock de cuota del propietario. `requestId` repetido devuelve el mismo trabajo; entrada distinta devuelve conflicto.
 - INV-V02: publicación, selección y guardado se serializan por propietario; el lease y el intento deben seguir vigentes. La publicación y consumo son una sola transacción.

@@ -27,7 +27,7 @@ Las evidencias y limitaciones se detallan en [evidencias.md](evidencias.md).
 
 | Expectativa | Requisito/invariante | Verificación |
 |---|---|---|
-| EXP-V01: mismo origen, tres modos, una ficha/cuota/candidatura, deduplicación | REQ-V01/02, INV-V01 | cv-optimization.integration.test.ts |
+| EXP-V01: solo Equilibrado inicial; modos bajo demanda, mismo origen, una ficha/cuota/candidatura y deduplicación | REQ-V01/02, INV-V01 | cv-optimization.integration.test.ts |
 | EXP-V02: revisiones y guardados tardíos independientes; origen inmutable | REQ-V05, INV-V03 | Integración + editor en navegador |
 | EXP-V03: éxito parcial, retry gratuito, recuperación transitoria y último lease | REQ-V04, INV-V02/04 | Integración PostgreSQL aislado |
 | EXP-V04: fallo total preserva destino y devuelve reserva; base protegido | REQ-V04/06 | Integración PostgreSQL aislado |
@@ -35,5 +35,8 @@ Las evidencias y limitaciones se detallan en [evidencias.md](evidencias.md).
 | EXP-V06: ajeno, solo lectura, Free/Pro, invitado transferido | REQ-V06 | Integración + prueba invitado en navegador |
 | EXP-V07: selector, Markdown, comparación, revisión, PDF y móvil/temas | REQ-V05 | Navegador y PDF ficticio con proveedor real |
 | EXP-V08: listados ligeros | REQ-V06 | Inspección de proyecciones y respuesta dashboard |
+| EXP-V09: pulsar Fiel/Máximo pide confirmación; cancelar no genera; confirmar genera y abre; volver no regenera | REQ-V01/05 | Integración + navegador, teclado y ambos idiomas |
+| EXP-V10: texto parcial real durante la generación; no altera documento guardado; fallo/lease no publica borradores | REQ-V07, INV-V02/03 | Transporte SSE unitario, PostgreSQL aislado y navegador |
+| EXP-V11: generación desde dashboard abre el editor mientras el trabajo sigue en curso; progreso tras recarga | REQ-V07 | Navegador + contrato 202/polling |
 
 No se atribuye a estas pruebas una garantía de contratación ni de fidelidad semántica completa.
