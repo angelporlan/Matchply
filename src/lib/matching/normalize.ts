@@ -16,6 +16,7 @@ export function normalizeMatchItem(input: {
   kind: MatchKind;
   model: string;
   provider?: string;
+  scoringMethod?: string;
 }): CuratedMatchItem {
   const candidate = input.candidateEvidence ?? {
     card: input.candidateCard, sourceHash: evidenceHash(input.candidateCard), sources: [{ id: 'profile', text: input.candidateCard }],
@@ -38,7 +39,7 @@ export function normalizeMatchItem(input: {
   const rejectedByPreference = enforceCurationConstraints({ ...enforcementInput, targetThreshold: 0 }).decision === 'archive';
   if (enforced.score < adjusted.score) adjusted.adjustments.push({ code: 'user_preference', requirementIds: [], overallCap: enforced.score, reason: enforced.fitReason });
   const sourceHash = matchSourceHash({ candidateEvidence: candidate, offerCard: input.offerCard, constraints: input.constraints });
-  const inputHash = matchInputHash({ sourceHash, offerCard: input.offerCard, provider: input.provider, model: input.model });
+  const inputHash = matchInputHash({ sourceHash, offerCard: input.offerCard, provider: input.provider, model: input.model, scoringMethod: input.scoringMethod });
   const evidence: MatchEvidenceSnapshot = {
     version: MATCH_PROMPT_VERSION, sourceHash, inputHash, score: enforced.score,
     baseScore: adjusted.baseScore, baseBreakdown, scoreBreakdown: adjusted.scoreBreakdown,

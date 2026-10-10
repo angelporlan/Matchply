@@ -19,13 +19,19 @@ export function matchInputHash(input: {
   sourceHash?: string;
   provider?: string;
   model: string;
+  /** Set only by the Decisions scorer so chat-completion caches are not reused. */
+  scoringMethod?: string;
   /** Retained for call compatibility; presentation depth never changes scoring inputs. */
   kind?: MatchKind;
 }): string {
   const sourceHash = input.sourceHash ?? (input.candidateEvidence
     ? matchSourceHash({ candidateEvidence: input.candidateEvidence, offerCard: input.offerCard, constraints: input.constraints })
     : evidenceHash({ candidate: input.candidateCard?.match(/candidate_source_hash:([a-f0-9]{64})/)?.[1] ?? input.candidateCard ?? '', offer: input.offerCard.sourceHash, constraints: input.constraints ?? {} }));
-  return evidenceHash({ sourceHash, provider: input.provider ?? '', model: input.model, scoringVersion: MATCH_PROMPT_VERSION, extractionVersion: MATCH_EXTRACTOR_VERSION });
+  return evidenceHash({
+    sourceHash, provider: input.provider ?? '', model: input.model,
+    scoringVersion: MATCH_PROMPT_VERSION, extractionVersion: MATCH_EXTRACTOR_VERSION,
+    ...(input.scoringMethod ? { scoringMethod: input.scoringMethod } : {}),
+  });
 }
 
 export function canReuseCachedMatch(input: {

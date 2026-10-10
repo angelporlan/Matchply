@@ -15,7 +15,7 @@ const llm = (id = 'offer1', score = 90) => ({ id,
 const input = { baseCvMarkdown: '', userCareerProfile: profile, offers: [offer], userSubscriptionStatus: 'active' };
 
 test('triage and deep share the same score; explanation is generated once and not recalculated', async t => {
-  t.mock.method(AIService as any, 'getSetting', async (key: string) => key.endsWith('provider') ? 'gemini' : 'model-test');
+  t.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'gemini', model: 'model-test' }));
   const prompts: string[] = [];
   t.mock.method(AIService as any, 'callMatchText', async (_provider: string, _model: string, system: string, user: string) => {
     prompts.push(system);
@@ -46,7 +46,7 @@ test('triage and deep share the same score; explanation is generated once and no
 });
 
 test('invalid dimensions or missing IDs never fabricate a 50; a valid zero is retained', async t => {
-  t.mock.method(AIService as any, 'getSetting', async () => 'test');
+  t.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'gemini', model: 'model-test' }));
   const responses = [{ curated: [{ id: offer.id }] }, { curated: [] }, { curated: [llm(offer.id, 0)] }];
   t.mock.method(AIService as any, 'callMatchText', async () => JSON.stringify(responses.shift()));
   for (let i = 0; i < 2; i++) {
@@ -60,7 +60,7 @@ test('invalid dimensions or missing IDs never fabricate a 50; a valid zero is re
 });
 
 test('a missing batch item preserves successful siblings; persistence failure propagates', async t => {
-  t.mock.method(AIService as any, 'getSetting', async () => 'test');
+  t.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'gemini', model: 'model-test' }));
   t.mock.method(AIService as any, 'callMatchText', async () => JSON.stringify({ curated: [llm()] }));
   const result = await AIService.curateOffersBatch({ ...input, offers: [offer, { ...offer, id: 'offer2' }] });
   assert.deepEqual(result.curated.map(item => item.id), ['offer1']);

@@ -66,7 +66,12 @@ function explicitYears(text: string): number[] {
   return Array.from(text.matchAll(/\b(\d+(?:\.\d+)?)\s*(?:\+|[-–]\s*\d+)?\s*(?:years?|a[nñ]os?)\b/gi))
     .map((match) => Number(match[1])).filter((years) => years <= 80);
 }
-function assertMandatoryCoverage(requirements: MatchRequirement[], offer: MatchOfferCard) {
+
+export type MandatorySentence = { sentence: string; years: number[]; skills: string[] };
+
+/** Sentences the scorer must cover with a verbatim offer quote, a skill row and a years row. */
+export function listMandatorySentences(offer: MatchOfferCard): MandatorySentence[] {
+  const found: MandatorySentence[] = [];
   let requirementsSection = false;
   for (const rawLine of offer.requirementsExtract.split('\n')) {
     const line = rawLine.replace(/^[\s#*•✅_\-]+/, '').trim();
@@ -76,14 +81,21 @@ function assertMandatoryCoverage(requirements: MatchRequirement[], offer: MatchO
     if (heading && !line.includes(':') && line.length < 70 && !MANDATORY.test(line) && !explicitYears(line).length && !extractSkillsFromText(line).length) continue;
     for (const sentence of line.split(/;|(?<=[.!?])\s+/).map((item) => item.trim()).filter(Boolean)) {
       const years = explicitYears(sentence);
-      const skills = extractSkillsFromText(sentence).filter((skill) => skillPresent(skill.name, sentence));
+      const skills = extractSkillsFromText(sentence).map((skill) => skill.name).filter((name) => skillPresent(name, sentence));
       if (OPTIONAL.test(sentence) || sentence.length < 12 || (!MANDATORY.test(sentence) && !(requirementsSection && (years.length || skills.length)))) continue;
-      const normalized = normalizedEvidenceText(sentence);
-      const refs = requirements.filter((requirement) => normalizedEvidenceText(requirement.offerEvidence.quote).includes(normalized));
-      if (!refs.length) throw new MatchValidationError('La IA omitió evidencia de una frase obligatoria de la oferta.');
-      if (years.some((year) => !refs.some((requirement) => requirement.kind === 'experience' && requirement.requiredYears === year))) throw new MatchValidationError('La IA omitió o alteró el mínimo de años de un requisito obligatorio.');
-      if (skills.some((skill) => !refs.some((requirement) => requirement.kind === 'skill' && [requirement.name, ...requirement.alternatives].some((name) => skillPresent(skill.name, name))))) throw new MatchValidationError('La IA omitió una competencia de un requisito obligatorio.');
+      found.push({ sentence, years: [...new Set(years)], skills: [...new Set(skills)] });
     }
+  }
+  return found;
+}
+
+function assertMandatoryCoverage(requirements: MatchRequirement[], offer: MatchOfferCard) {
+  for (const item of listMandatorySentences(offer)) {
+    const normalized = normalizedEvidenceText(item.sentence);
+    const refs = requirements.filter((requirement) => normalizedEvidenceText(requirement.offerEvidence.quote).includes(normalized));
+    if (!refs.length) throw new MatchValidationError('La IA omitió evidencia de una frase obligatoria de la oferta.');
+    if (item.years.some((year) => !refs.some((requirement) => requirement.kind === 'experience' && requirement.requiredYears === year))) throw new MatchValidationError('La IA omitió o alteró el mínimo de años de un requisito obligatorio.');
+    if (item.skills.some((skill) => !refs.some((requirement) => requirement.kind === 'skill' && [requirement.name, ...requirement.alternatives].some((name) => skillPresent(skill, name))))) throw new MatchValidationError('La IA omitió una competencia de un requisito obligatorio.');
   }
 }
 function positiveSkillEvidence(name: string, evidence: string): boolean {
@@ -92,6 +104,38 @@ function positiveSkillEvidence(name: string, evidence: string): boolean {
     if (!skillPresent(name, clause)) return false;
     return !/\b(?:no|not(?!\s+only\b)|never|without|sin|nunca|carezco)\b/i.test(clause);
   });
+}
+
+function skillPatterns(name: string): RegExp[] {
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (/^(?:go|golang)$/i.test(name)) {
+    return [
+      /\bgolang\b/i,
+      /\bGo\b(?!\s+(?:to|home|back|out|ahead|through|away|on)\b)/,
+      /\bgo\s+(?:lang(?:uage)?|programming|developer|development|backend|microservices?|engineer)\b/i,
+      /["']go["']/i,
+    ];
+  }
+  const aliases: Record<string, string[]> = { 'node.js': ['node.js', 'nodejs', 'node'], typescript: ['typescript'] };
+  return (aliases[name.toLowerCase()] ?? [name]).map((alias) => new RegExp(`(?:^|[^\\p{L}\\p{N}])(${escape(alias)})(?=$|[^\\p{L}\\p{N}])`, 'iu'));
+}
+
+/** A literal slice of profile or CV that proves the skill. Preferences never count. */
+export function findCandidateSkillQuote(name: string, sources: Array<{ id: string; text: string }>): EvidenceQuote | null {
+  for (const source of sources) {
+    if (source.id === 'preferences') continue;
+    for (const pattern of skillPatterns(name)) {
+      const match = pattern.exec(source.text);
+      if (!match) continue;
+      const token = match[1] || match[0];
+      const index = source.text.indexOf(token, Math.max(0, match.index));
+      if (index < 0) continue;
+      const quote = source.text.slice(Math.max(0, index - 40), Math.min(source.text.length, index + token.length + 40)).trim();
+      if (quote.length < 4 || quote.length > 1500 || !positiveSkillEvidence(name, quote)) continue;
+      return { sourceId: source.id, quote };
+    }
+  }
+  return null;
 }
 
 export function readMatchBreakdown(value: unknown): MatchBreakdown {
