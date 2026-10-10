@@ -12,7 +12,7 @@ export async function consumeCvOptimization(response: Response, onProgress?: (pr
     if (job.status === 'failed') throw new Error('No se pudo completar la optimización. Tu CV anterior se conserva.');
     await new Promise<void>((resolve, reject) => {
       const abort = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
-      const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, 1500);
+      const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, 650);
       if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
     });
   }

@@ -1,5 +1,6 @@
 import { ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS, analysisUserPrompt } from '@/lib/cv-optimization/prompts';
 import { factualProfile } from '@/lib/cv-optimization/validation';
+import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
 import { resolveRouteModel, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import type { AiFunctionKey } from '@/lib/ai-runtime-config';
 import { resolveAiPrompt } from '@/lib/ai-prompts';
@@ -18,23 +19,34 @@ import { log } from './logger';
 import {
   buildCandidateCard,
   buildCandidateEvidence,
+  buildMatchDecision,
   buildMatchExplanationPrompt,
   normalizeMatchDetails,
   isMatchDetails,
   isMatchEvidenceSnapshot,
   matchSourceHash,
   MATCH_PROMPT_VERSION,
+  MATCH_DECISION_SYSTEM_PROMPT,
+  MATCH_DECISION_VERSION,
+  DECISION_MODEL,
+  DECISION_QUESTION_CHUNK,
   MatchValidationError,
   buildMatchSystemPrompt,
   buildMatchUserPrompt,
   buildOfferCard,
   cachedMatchItem,
   canReuseCachedMatch,
+  formatMatchDecisionPreview,
   isCanonicalMatchBreakdown,
+  llmItemFromDecision,
   matchInputHash,
   normalizeMatchItem,
+  type CandidateEvidence,
   type CuratedMatchItem,
+  type DecisionAnswer,
+  type DecisionQuestion,
   type MatchKind,
+  type MatchOfferCard,
 } from './matching';
 
 import {
@@ -1009,7 +1021,13 @@ Descripción: ${jobDescription}`;
     const started = Date.now();
     if (!offers.length) return { curated: [], errors: [] };
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    const { provider, model } = await this.routeModel(isPro, 'matching');
+    const routed = await this.routeModel(isPro, 'matching');
+    const provider = routed.provider;
+    const model = provider === 'openai' ? DECISION_MODEL : routed.model;
+    const scoringMethod = provider === 'openai' ? MATCH_DECISION_VERSION : undefined;
+    if (provider === 'openai' && routed.model !== DECISION_MODEL) {
+      log({ event: 'match_decisions_model', routedModel: routed.model, model: DECISION_MODEL });
+    }
     const constraints = parseMatchConstraints(userCareerProfile || {});
     const candidateEvidence = buildCandidateEvidence(userCareerProfile, baseCvMarkdown, constraints);
     const systemPrompt = buildMatchSystemPrompt({ kind: 'triage', targetThreshold });
@@ -1026,7 +1044,7 @@ Descripción: ${jobDescription}`;
     const prepared = offers.map(offer => {
       const offerCard = buildOfferCard(offer, 'triage');
       const sourceHash = matchSourceHash({ candidateEvidence, offerCard, constraints });
-      return { offer, offerCard, sourceHash, hash: matchInputHash({ candidateEvidence, offerCard, constraints, provider, model }) };
+      return { offer, offerCard, sourceHash, hash: matchInputHash({ candidateEvidence, offerCard, constraints, provider, model, scoringMethod }) };
     });
     type Prepared = (typeof prepared)[number];
     const pending: Prepared[] = [];
@@ -1068,12 +1086,17 @@ Descripción: ${jobDescription}`;
       } else pending.push(row);
     }
     const batches: Prepared[][] = [];
-    for (let i = 0; i < pending.length; i += 2) batches.push(pending.slice(i, i + 2));
+    const batchSize = provider === 'openai' ? 1 : 2;
+    for (let i = 0; i < pending.length; i += batchSize) batches.push(pending.slice(i, i + batchSize));
     await this.mapWithConcurrency(batches, 4, async batch => {
       let parsed: any;
       try {
-        const userPrompt = buildMatchUserPrompt({ candidateCard: candidateEvidence.card, offers: batch.map(row => row.offerCard) });
-        parsed = this.parseMatchJson(await this.callMatchText(provider, model, systemPrompt, userPrompt));
+        if (provider === 'openai') {
+          parsed = { curated: [await this.evaluateOfferWithDecisions(candidateEvidence, batch[0].offerCard)] };
+        } else {
+          const userPrompt = buildMatchUserPrompt({ candidateCard: candidateEvidence.card, offers: batch.map(row => row.offerCard) });
+          parsed = this.parseMatchJson(await this.callMatchText(provider, model, systemPrompt, userPrompt));
+        }
         if (!parsed || !Array.isArray(parsed.curated)) throw new MatchValidationError('La IA no devolvió un cálculo válido.');
       } catch (error) {
         for (const row of batch) await reportError(row.offer.id, error);
@@ -1085,7 +1108,7 @@ Descripción: ${jobDescription}`;
           const matches = parsed.curated.filter((value: any) => value && value.id === row.offer.id);
           if (matches.length !== 1) throw new MatchValidationError('La respuesta no contiene un único resultado para esta oferta.');
           item = normalizeMatchItem({ offer: row.offer, offerCard: row.offerCard, candidateCard: candidateEvidence.card,
-            candidateEvidence, llm: matches[0], constraints, targetThreshold, kind: 'triage', model, provider });
+            candidateEvidence, llm: matches[0], constraints, targetThreshold, kind: 'triage', model, provider, scoringMethod });
           item = await finish(row, item);
         } catch (error) { await reportError(row.offer.id, error); continue; }
         await onBatchComplete?.([item]);
@@ -1097,6 +1120,35 @@ Descripción: ${jobDescription}`;
     log({ event: 'match_batch_finished', version: MATCH_PROMPT_VERSION, provider, model,
       durationMs: Date.now() - started, succeeded: results.size, failed: errors.length });
     return { curated: offers.flatMap(offer => results.has(offer.id) ? [results.get(offer.id)!] : []), errors };
+  }
+
+  private static async evaluateOfferWithDecisions(candidate: CandidateEvidence, offer: MatchOfferCard) {
+    const decision = buildMatchDecision({ candidate, offer });
+    const answers: DecisionAnswer[] = [];
+    for (let index = 0; index < decision.questions.length; index += DECISION_QUESTION_CHUNK) {
+      answers.push(...await this.callOpenAIDecisions(decision.input, decision.questions.slice(index, index + DECISION_QUESTION_CHUNK)));
+    }
+    return llmItemFromDecision({ offerId: offer.id, shells: decision.shells, candidate, answers });
+  }
+
+  private static async callOpenAIDecisions(input: string, questions: DecisionQuestion[]): Promise<DecisionAnswer[]> {
+    const key = this.resolveProviderApiKey('OPENAI_API_KEY', 'OpenAI');
+    if (!key) throw new Error('AI_PROVIDER_NOT_CONFIGURED');
+    const started = Date.now();
+    const response = await fetchWithTimeout('https://api.openai.com/v1/decisions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: DECISION_MODEL, input, questions }),
+    }, AI_FETCH_TIMEOUT_MS);
+    const body = await response.text();
+    if (!response.ok) throw new Error(`Error de API de OpenAI Decisions (${response.status}): ${body.slice(0, 500)}`);
+    let data: { answers?: DecisionAnswer[]; usage?: { input_tokens?: number; output_tokens?: number } };
+    try { data = JSON.parse(body); } catch { throw new MatchValidationError('La API Decisions devolvió una respuesta ilegible.'); }
+    if (!Array.isArray(data.answers)) throw new MatchValidationError('La API Decisions no devolvió respuestas.');
+    log({ event: 'ai_usage', provider: 'openai', model: DECISION_MODEL, endpoint: 'decisions',
+      inputTokens: data.usage?.input_tokens, outputTokens: data.usage?.output_tokens ?? 0,
+      questions: questions.length, durationMs: Date.now() - started });
+    return data.answers;
   }
 
   private static parseMatchJson(raw: string): any {
@@ -1567,9 +1619,10 @@ DIRECTRICES:
     const { provider, model } = await this.routeModel(isPro, debugFn);
 
     if (action === 'optimize_cv') {
+      const mode: OptimizeModeId = isOptimizeModeId(payload.mode) ? payload.mode : 'optimize_adapted';
       return {
-        actionTitle: 'Optimización de CV: análisis compartido y tres variantes', provider, model,
-        systemPrompt: [ANALYSIS_PROMPT, CV_GENERATION_BASE, ...Object.values(CV_MODE_BLOCKS)].join('\n\n'),
+        actionTitle: 'Optimización de CV: análisis y modo solicitado', provider, model,
+        systemPrompt: [ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS[mode]].join('\n\n'),
         userPrompt: analysisUserPrompt(payload.baseCvMarkdown || '', factualProfile(userContext.careerProfile), payload.jobDescription || ''),
       };
     }
@@ -1591,13 +1644,27 @@ DIRECTRICES:
         sourceMetadata: offer.sourceMetadata,
       }, kind));
 
-      return {
+      const jsonPrompt = {
         actionTitle: `Curar y calcular Match con IA (${offerCards.length} ofertas)`,
         provider,
         model,
         systemPrompt: buildMatchSystemPrompt({ kind, targetThreshold }),
         userPrompt: buildMatchUserPrompt({ candidateCard, offers: offerCards }),
       };
+      if (provider !== 'openai') return jsonPrompt;
+      try {
+        const evidence = buildCandidateEvidence(userProfile, payload.baseCvMarkdown || '', constraints);
+        const preview = offerCards.map((card) => formatMatchDecisionPreview(buildMatchDecision({ candidate: evidence, offer: card }))).join('\n\n');
+        return {
+          ...jsonPrompt,
+          model: DECISION_MODEL,
+          systemPrompt: MATCH_DECISION_SYSTEM_PROMPT,
+          userPrompt: preview,
+        };
+      } catch (error) {
+        log({ event: 'match_decisions_preview_failed', level: 'warn', error });
+        return jsonPrompt;
+      }
     }
 
     if (action === 'outreach') {
@@ -1769,5 +1836,3 @@ DIRECTRICES:
     };
   }
 }
-
-

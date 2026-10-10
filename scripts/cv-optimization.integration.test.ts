@@ -16,20 +16,43 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
   const ids: string[] = [];
   const user = async () => { const id = randomUUID(); ids.push(id); await db.insert(users).values({ id, email: `variants-${id}@example.test` }); const [source] = await db.insert(cvs).values({ userId: id, title: 'Base', content: cv, isBase: true }).returning(); return { id, source }; };
   const input = (id: string) => ({ baseCvId: id, requestId: randomUUID(), jobTitle: 'Backend', company: 'Hiring Co', jobDescription: 'Python APIs', url: null, platform: 'other', addToApplications: true });
-  const call = async (_ref: unknown, _system: string, _user: string, _temp: number, _signal: AbortSignal, mode: string, _plan: string) => mode.startsWith('analysis') ? JSON.stringify(analysis) : cv;
+  const call = async (_ref: unknown, _system: string, _user: string, _temp: number, _signal: AbortSignal, mode: string, _plan: string, _onContent?: (content:string)=>Promise<void>) => mode.startsWith('analysis') ? JSON.stringify(analysis) : cv;
+  // Jobs admitted by the previous release still contain three requested modes.
+  const legacyAdmission = async (owner:string, params:ReturnType<typeof input>) => {
+    const created=await service.enqueueCvOptimization(owner,params);
+    const [job]=await db.select().from(aiJobs).where(eq(aiJobs.id,created.jobId));
+    const payload=job.payload as {optimizationId:string};
+    await db.update(aiJobs).set({payload:{...(job.payload as object),modes:['optimize_honest','optimize_adapted','optimize_aggressive']}}).where(eq(aiJobs.id,created.jobId));
+    await db.update(cvVariants).set({status:'pending'}).where(eq(cvVariants.optimizationId,payload.optimizationId));
+    return created;
+  };
   try {
-    await t.test('one admission, three variants, one quota unit and one application; revisions isolate saves', async () => {
+    await t.test('Balanced first; one on-demand mode reuses analysis, quota and sources; revisions isolate saves', async () => {
       const u = await user(); const params = input(u.source.id);
       const [a,b] = await Promise.all([service.enqueueCvOptimization(u.id,params), service.enqueueCvOptimization(u.id,params)]); assert.deepEqual(a,b);
       await assert.rejects(service.enqueueCvOptimization(u.id,{ ...params, company: 'Other' }), /otra optimización/);
       const job = await queue.claimAiJobById(a.jobId); assert.ok(job);
       const result = await service.processCvOptimization(job, new AbortController().signal, call);
-      const view = await service.getCvOptimizationView(u.id,a.cvId); assert.ok(view); assert.equal(view.variants.filter(v => v.status === 'ready').length,3);
+      const view = await service.getCvOptimizationView(u.id,a.cvId); assert.ok(view); assert.equal(view.variants.filter(v => v.status === 'ready').length,1);
+      assert.deepEqual(view.variants.filter(v=>v.status==='idle').map(v=>v.modeId).sort(),['optimize_aggressive','optimize_honest']);
       assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
       const [saved] = await db.select().from(cvs).where(eq(cvs.id,a.cvId)); assert.equal(saved.activeOptimizeMode,'optimize_adapted');
       assert.equal((await db.select().from(jobOffers).where(eq(jobOffers.cvId,a.cvId))).length,1);
       const stranger = await user(); assert.equal(await service.getCvOptimizationView(stranger.id,a.cvId),null);
       await assert.rejects(service.activateCvVariant(stranger.id,a.cvId,view.id,'optimize_honest'));
+      await assert.rejects(service.generateCvOptimizationMode(stranger.id,view.id,'optimize_honest',randomUUID()));
+      await assert.rejects(service.activateCvVariant(u.id,a.cvId,view.id,'optimize_honest'),/disponible/);
+      await db.update(cvs).set({content:'# Base cambiado'}).where(eq(cvs.id,u.source.id));
+      const demandId=randomUUID();
+      const [d1,d2]=await Promise.all([service.generateCvOptimizationMode(u.id,view.id,'optimize_honest',demandId),service.generateCvOptimizationMode(u.id,view.id,'optimize_honest',demandId)]); assert.deepEqual(d1,d2);
+      await assert.rejects(service.generateCvOptimizationMode(u.id,view.id,'optimize_aggressive',randomUUID()),/curso/);
+      const demandJob=await queue.claimAiJobById(d1.jobId); assert.ok(demandJob); const generated:string[]=[];
+      await service.processCvOptimization(demandJob,new AbortController().signal,async (...args)=>{ generated.push(args[5]); assert.ok(args[2].includes(cv)); assert.ok(!args[2].includes('# Base cambiado')); return call(...args); });
+      assert.deepEqual(generated,['optimize_honest']);
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
+      assert.equal((await db.select().from(cvs).where(eq(cvs.id,a.cvId)))[0].activeOptimizeMode,'optimize_honest');
+      await assert.rejects(service.generateCvOptimizationMode(u.id,view.id,'optimize_honest',randomUUID()),/solicitado/);
+      await service.activateCvVariant(u.id,a.cvId,view.id,'optimize_adapted');
       await service.saveCvVariant(u.id,a.cvId,cv+'\nTexto propio.',{ optimizationId:view.id,modeId:'optimize_adapted',revision:0 });
       await assert.rejects(service.saveCvVariant(u.id,a.cvId,'Stale',{ optimizationId:view.id,modeId:'optimize_adapted',revision:0 }),/otra ventana/);
       await service.activateCvVariant(u.id,a.cvId,view.id,'optimize_honest');
@@ -40,7 +63,7 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       assert.equal(result.cvId,a.cvId);
     });
     await t.test('partial success retries only failed modes without another reservation or overwriting edits', async () => {
-      const u = await user(); const created = await service.enqueueCvOptimization(u.id,input(u.source.id)); const job = await queue.claimAiJobById(created.jobId); assert.ok(job);
+      const u = await user(); const created = await legacyAdmission(u.id,input(u.source.id)); const job = await queue.claimAiJobById(created.jobId); assert.ok(job);
       await service.processCvOptimization(job,new AbortController().signal,async (...args) => { if (args[5].startsWith('optimize_aggressive')) throw new CvOptimizationError('INVALID_CV_VARIANT'); return call(...args); });
       const view = (await service.getCvOptimizationView(u.id,created.cvId))!; assert.equal(view.variants.filter(v => v.status === 'ready').length,2);
       await service.saveCvVariant(u.id,created.cvId,cv+'\nMi edición.',{ optimizationId:view.id,modeId:'optimize_adapted',revision:0 });
@@ -64,7 +87,7 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       await assert.rejects(service.enqueueCvOptimization(u.id,{ ...input(u.source.id),targetCvId:u.source.id,confirmOverwrite:true }),/CV base/);
     });
     await t.test('transient errors reuse analysis and completed modes on the next attempt', async () => {
-      const u = await user(); const c = await service.enqueueCvOptimization(u.id,input(u.source.id)); const j = await queue.claimAiJobById(c.jobId); assert.ok(j);
+      const u = await user(); const c = await legacyAdmission(u.id,input(u.source.id)); const j = await queue.claimAiJobById(c.jobId); assert.ok(j);
       const error = new CvOptimizationError('AI_HTTP_503',true);
       await assert.rejects(service.processCvOptimization(j,new AbortController().signal,async (...args) => { if (args[5]==='optimize_aggressive') throw error; return call(...args); }),/AI_HTTP_503/);
       await queue.failAiJob(j,error); await db.update(aiJobs).set({ nextAttemptAt:new Date(0) }).where(eq(aiJobs.id,j.id));
@@ -95,7 +118,9 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       await selectActiveCvs(u.id,u.source.id,rows.map(r=>r.id));
       await assert.rejects(service.activateCvVariant(u.id,c.cvId,view.id,'optimize_honest'),/read-only/);
       await assert.rejects(service.saveCvVariant(u.id,c.cvId,cv,{optimizationId:view.id,modeId:'optimize_adapted',revision:0}),/read-only/);
-      await db.update(users).set({ subscriptionStatus:'active' }).where(eq(users.id,u.id)); assert.ok(await service.activateCvVariant(u.id,c.cvId,view.id,'optimize_honest'));
+      await assert.rejects(service.generateCvOptimizationMode(u.id,view.id,'optimize_honest',randomUUID()),/read-only/);
+      await db.update(users).set({ subscriptionStatus:'active' }).where(eq(users.id,u.id)); assert.ok(await service.activateCvVariant(u.id,c.cvId,view.id,'optimize_adapted'));
+      assert.ok(await service.generateCvOptimizationMode(u.id,view.id,'optimize_honest',randomUUID()));
     });
     await t.test('last expired worker publishes checkpointed successes rather than losing them', async () => {
       const u = await user(); const c = await service.enqueueCvOptimization(u.id,input(u.source.id)); const j=await queue.claimAiJobById(c.jobId); assert.ok(j);
@@ -134,7 +159,7 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       const snapshot=await usage.getUsageSnapshot(u.id); assert.equal(snapshot.usage.general.used,0); assert.equal(snapshot.usage.general.reserved,0);
     });
     await t.test('one repair per invalid output and no more than three simultaneous generation calls', async () => {
-      const u=await user(); const c=await service.enqueueCvOptimization(u.id,input(u.source.id)); const j=await queue.claimAiJobById(c.jobId); assert.ok(j);
+      const u=await user(); const c=await legacyAdmission(u.id,input(u.source.id)); const j=await queue.claimAiJobById(c.jobId); assert.ok(j);
       const calls:string[]=[]; let active=0, peak=0, entered=0; let unblock!:()=>void; const barrier=new Promise<void>(resolve=>{unblock=resolve;});
       await service.processCvOptimization(j,new AbortController().signal,async (...args)=>{
         const mode=args[5]; calls.push(mode);
@@ -150,6 +175,37 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       assert.equal(calls.filter(m=>m.endsWith(':repair')).length,1); assert.ok(calls.includes('optimize_honest:repair'));
       assert.equal((await service.getCvOptimizationView(u.id,c.cvId))?.variants.filter(v=>v.status==='ready').length,3);
       assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
+    });
+    await t.test('live preview is fenced, never canonical, and an on-demand failure preserves other modes', async () => {
+      const u=await user(); const c=await service.enqueueCvOptimization(u.id,input(u.source.id)); const j=await queue.claimAiJobById(c.jobId); assert.ok(j);
+      await service.processCvOptimization(j,new AbortController().signal,async (...args)=>{
+        if (args[7]) {
+          await args[7]('# Ana Pérez\n\nTexto en curso');
+          const progress=await service.readOptimizationProgress((j.payload as {optimizationId:string}).optimizationId,'generating',{modes:['optimize_adapted'],attempt:j.attempt});
+          assert.equal(progress.preview?.content,'# Ana Pérez\n\nTexto en curso');
+          assert.equal((await db.select().from(cvs).where(eq(cvs.id,c.cvId)))[0].content,'');
+        }
+        return call(...args);
+      });
+      const view=(await service.getCvOptimizationView(u.id,c.cvId))!;
+      const d=await service.generateCvOptimizationMode(u.id,view.id,'optimize_aggressive',randomUUID()); const attempt=await queue.claimAiJobById(d.jobId); assert.ok(attempt);
+      await service.processCvOptimization(attempt,new AbortController().signal,async (...args)=>{
+        await args[7]?.('# Unvalidated draft');
+        throw new CvOptimizationError('INVALID_CV_VARIANT');
+      });
+      const after=(await service.getCvOptimizationView(u.id,c.cvId))!;
+      assert.equal(after.variants.find(v=>v.modeId==='optimize_aggressive')?.status,'error');
+      assert.equal(after.variants.find(v=>v.modeId==='optimize_aggressive')?.content,'');
+      assert.equal(after.variants.find(v=>v.modeId==='optimize_honest')?.status,'idle');
+      assert.equal((await db.select().from(cvs).where(eq(cvs.id,c.cvId)))[0].content,cv);
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
+      const retry=await service.retryCvOptimization(u.id,view.id,['optimize_aggressive'],randomUUID()); const old=await queue.claimAiJobById(retry.jobId); assert.ok(old);
+      await assert.rejects(service.processCvOptimization(old,new AbortController().signal,async (...args)=>{
+        await db.update(aiJobs).set({leaseUntil:new Date(0)}).where(eq(aiJobs.id,old.id));
+        await args[7]?.('# Stale worker draft');
+        return call(...args);
+      }),/LEASE_LOST/);
+      assert.equal((await service.getCvOptimizationView(u.id,c.cvId))?.variants.find(v=>v.modeId==='optimize_aggressive')?.content,'');
     });
   } finally { await db.delete(users).where(inArray(users.id,ids)); await pool.end(); }
 });

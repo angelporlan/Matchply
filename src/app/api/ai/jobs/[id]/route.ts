@@ -32,7 +32,7 @@ export async function GET(
       id: job.id,
       kind: job.kind,
       status: job.status,
-      result: job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued') : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result,
+      result: job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued', { modes: (job.payload as OptimizeJobPayload).modes, attempt: job.attempt }) : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result,
       lastError: job.lastError,
       createdAt: job.createdAt,
       completedAt: job.completedAt,

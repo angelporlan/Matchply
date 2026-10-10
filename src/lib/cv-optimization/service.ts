@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, cvs, cvOptimizations, cvVariants, jobOffers, users, usageOperations, type AiJob } from '@/db/schema';
 import { lockCvUser, requireEditableCv, reserveCvTarget } from '@/lib/cv-access';
@@ -57,15 +57,21 @@ export async function enqueueCvOptimization(userId: string, input: Admission) {
     await tx.insert(cvOptimizations).values({ id: optimizationId, userId, cvId, sourceCvId: source.id, sourceMarkdown: source.content,
       sourceProfile: factualProfile(user.careerProfile), offer, promptVersion: CV_OPTIMIZATION_PROMPT_VERSION, resolvedAiConfig: config,
       subscriptionStatus: effectiveSubscriptionStatus(user), operationId: operation.id });
-    await tx.insert(cvVariants).values(OPTIMIZE_MODE_IDS.map(modeId => ({ optimizationId, modeId })));
+    await tx.insert(cvVariants).values(OPTIMIZE_MODE_IDS.map(modeId => ({ optimizationId, modeId, status: modeId === 'optimize_adapted' ? 'pending' : 'idle' })));
     await tx.insert(aiJobs).values({ id: jobId, userId, initiatedByUserId: userId, kind: 'optimize_cv_variants', usageOperationId: operation.id,
-      resolvedAiConfig: config, payload: { optimizationId, requestId: input.requestId, modes: [...OPTIMIZE_MODE_IDS], inputHash }, nextAttemptAt: new Date(),
-      result: { stage: 'queued', cvId, optimizationId, variants: OPTIMIZE_MODE_IDS.map(modeId => ({ modeId, status: 'pending', error: null })) } });
+      resolvedAiConfig: config, payload: { optimizationId, requestId: input.requestId, modes: ['optimize_adapted'], inputHash }, nextAttemptAt: new Date(),
+      result: { stage: 'queued', cvId, optimizationId, variants: OPTIMIZE_MODE_IDS.map(modeId => ({ modeId, status: modeId === 'optimize_adapted' ? 'pending' : 'idle', error: null })) } });
     return { jobId, cvId };
   });
 }
 
 export async function retryCvOptimization(userId: string, optimizationId: string, modes: OptimizeModeId[], requestId: string) {
+  return enqueueVariantGeneration(userId, optimizationId, modes, requestId, false);
+}
+export async function generateCvOptimizationMode(userId: string, optimizationId: string, mode: OptimizeModeId, requestId: string) {
+  return enqueueVariantGeneration(userId, optimizationId, [mode], requestId, true);
+}
+async function enqueueVariantGeneration(userId: string, optimizationId: string, modes: OptimizeModeId[], requestId: string, onDemand: boolean) {
   return db.transaction(async tx => {
     await lockCvUser(tx, userId);
     const [run] = await tx.select().from(cvOptimizations).where(and(eq(cvOptimizations.id, optimizationId), eq(cvOptimizations.userId, userId))).limit(1);
@@ -84,13 +90,13 @@ export async function retryCvOptimization(userId: string, optimizationId: string
     }
     if (jobs.some(j => j.status === 'queued' || j.status === 'running')) throw new UsageError(409, 'OPERATION_IN_PROGRESS', 'Ya hay un reintento en curso.');
     const variants = await tx.select().from(cvVariants).where(eq(cvVariants.optimizationId, optimizationId));
-    if (!modes.length || modes.some(mode => !isOptimizeModeId(mode) || variants.find(v => v.modeId === mode)?.status !== 'error')) throw new UsageError(400, 'INVALID_RETRY_MODES', 'Solo puedes reintentar los modos fallidos.');
+    if (!modes.length || modes.some(mode => !isOptimizeModeId(mode) || variants.find(v => v.modeId === mode)?.status !== (onDemand ? 'idle' : 'error'))) throw new UsageError(400, onDemand ? 'VARIANT_ALREADY_REQUESTED' : 'INVALID_RETRY_MODES', onDemand ? 'Esta versión ya se ha solicitado.' : 'Solo puedes reintentar los modos fallidos.');
     const [operation] = await tx.select({ status: usageOperations.status }).from(usageOperations).where(eq(usageOperations.id, run.operationId)).limit(1);
     if (operation?.status !== 'consumed') throw new UsageError(409, 'OPERATION_RELEASED', 'Esta optimización no tiene resultados publicados.');
     const jobId = randomUUID();
     for (const mode of modes) await tx.update(cvVariants).set({ status: 'pending', error: null }).where(modeFilter(optimizationId, mode));
     await tx.insert(aiJobs).values({ id: jobId, userId, initiatedByUserId: userId, kind: 'optimize_cv_variants', usageOperationId: run.operationId,
-      resolvedAiConfig: run.resolvedAiConfig, payload: { optimizationId, modes, requestId, retry: true, inputHash }, nextAttemptAt: new Date(), result: { stage: 'queued', cvId: run.cvId, optimizationId } });
+      resolvedAiConfig: run.resolvedAiConfig, payload: { optimizationId, modes, requestId, retry: true, inputHash, ...(onDemand ? { activateMode: modes[0] } : {}) }, nextAttemptAt: new Date(), result: { stage: 'queued', cvId: run.cvId, optimizationId } });
     return { jobId, cvId: run.cvId };
   });
 }
@@ -113,11 +119,14 @@ async function lockPublication(tx: PlanDb, job: AiJob, terminal = false) {
 async function checkpoint(job: AiJob, update: (tx: PlanDb) => Promise<unknown>) {
   await db.transaction(async tx => { await lockPublication(tx, job); await update(tx); });
 }
-export async function readOptimizationProgress(optimizationId: string, stage: OptimizeProgress['stage']): Promise<OptimizeProgress> {
+export async function readOptimizationProgress(optimizationId: string, stage: OptimizeProgress['stage'], live?: { modes: OptimizeModeId[]; attempt: number }): Promise<OptimizeProgress> {
   const [run] = await db.select({ cvId: cvOptimizations.cvId }).from(cvOptimizations).where(eq(cvOptimizations.id, optimizationId)).limit(1);
   if (!run) throw new CvOptimizationError('OPTIMIZATION_NOT_FOUND');
   const variants = await db.select({ modeId: cvVariants.modeId, status: cvVariants.status, error: cvVariants.error }).from(cvVariants).where(eq(cvVariants.optimizationId, optimizationId));
-  return { stage, cvId: run.cvId, optimizationId, variants: variants as OptimizeProgress['variants'] };
+  const [preview] = live?.modes.length ? await db.select({ modeId: cvVariants.modeId, content: cvVariants.content }).from(cvVariants)
+    .where(and(eq(cvVariants.optimizationId, optimizationId), inArray(cvVariants.modeId, live.modes), eq(cvVariants.status, 'generating'))).limit(1) : [];
+  return { stage, cvId: run.cvId, optimizationId, variants: variants as OptimizeProgress['variants'],
+    ...(preview ? { preview: { modeId: preview.modeId as OptimizeModeId, content: preview.content, attempt: live!.attempt } } : {}) };
 }
 const temperature = { optimize_honest: 0.2, optimize_adapted: 0.4, optimize_aggressive: 0.5 };
 export async function processCvOptimization(job: AiJob, signal: AbortSignal, call = callCvAi) {
@@ -147,13 +156,20 @@ export async function processCvOptimization(job: AiJob, signal: AbortSignal, cal
     const [variant] = await db.select().from(cvVariants).where(modeFilter(run.id, mode)).limit(1);
     if (!variant || variant.status === 'ready') return;
     const started = Date.now();
-    await checkpoint(job, async tx => { await tx.update(cvVariants).set({ status: 'generating', error: null, updatedAt: new Date() }).where(modeFilter(run.id, mode)); });
+    await checkpoint(job, async tx => { await tx.update(cvVariants).set({ content: '', status: 'generating', error: null, updatedAt: new Date() }).where(modeFilter(run.id, mode)); });
+    let lastPreviewAt = 0;
+    const onContent = async (content: string) => {
+      if (Date.now() - lastPreviewAt < 450 && content) return;
+      lastPreviewAt = Date.now();
+      await checkpoint(job, async tx => { await tx.update(cvVariants).set({ content, updatedAt: new Date() }).where(and(modeFilter(run.id, mode), eq(cvVariants.status, 'generating'))); });
+    };
     try {
       const prompts = generationPrompts(mode, run.sourceMarkdown, run.sourceProfile, offer.jobDescription, analysis);
-      let content = await call(model, prompts.systemPrompt, prompts.userPrompt, temperature[mode], signal, mode, plan);
+      let content = await call(model, prompts.systemPrompt, prompts.userPrompt, temperature[mode], signal, mode, plan, onContent);
       let issues = validateVariant(content, run.sourceMarkdown, run.sourceProfile, analysis);
       if (issues.length) {
-        content = await call(model, prompts.systemPrompt, `${prompts.userPrompt}\n\nCorrige tu propuesta inválida usando solo las fuentes. Errores: ${issues.join(', ')}\nPROPUESTA:\n${content}`, temperature[mode], signal, `${mode}:repair`, plan);
+        await onContent('');
+        content = await call(model, prompts.systemPrompt, `${prompts.userPrompt}\n\nCorrige tu propuesta inválida usando solo las fuentes. Errores: ${issues.join(', ')}\nPROPUESTA:\n${content}`, temperature[mode], signal, `${mode}:repair`, plan, onContent);
         issues = validateVariant(content, run.sourceMarkdown, run.sourceProfile, analysis);
       }
       if (issues.length) throw new CvOptimizationError('INVALID_CV_VARIANT');
@@ -164,7 +180,7 @@ export async function processCvOptimization(job: AiJob, signal: AbortSignal, cal
       log({event:'cv_variant_generation_failed',level:'warn',jobId:job.id,modeId:mode,durationMs:Date.now()-started,errorCode:failure.code});
       if (failure.code === 'OPTIMIZATION_LEASE_LOST' || failure.code === 'STALE_OPTIMIZATION' || signal.aborted) throw failure;
       if (failure.retryable && job.attempt < 3) transient = failure;
-      await checkpoint(job, async tx => { await tx.update(cvVariants).set({ status: failure.retryable && job.attempt < 3 ? 'pending' : 'error', error: failure.code, updatedAt: new Date() }).where(modeFilter(run.id, mode)); });
+      await checkpoint(job, async tx => { await tx.update(cvVariants).set({ content: '', status: failure.retryable && job.attempt < 3 ? 'pending' : 'error', error: failure.code, updatedAt: new Date() }).where(modeFilter(run.id, mode)); });
     }
     await progress('generating');
   }));
@@ -195,6 +211,9 @@ async function settleCvOptimization(tx: PlanDb, job: AiJob, terminal = false) {
       // Resolve its link before changing the preserved destination document.
       await tx.update(cvs).set({ content: ready.content, optimizationId: run.id, activeOptimizeMode: ready.modeId, pendingUsageOperationId: null }).where(eq(cvs.id, cv.id));
       await recordFirstValue(ownerId, tx);
+    } else if (jobPayload(job).activateMode) {
+      const selected = variants.find(v => v.modeId === jobPayload(job).activateMode && v.status === 'ready');
+      if (selected) await tx.update(cvs).set({ content: selected.content, activeOptimizeMode: selected.modeId }).where(eq(cvs.id, cv.id));
     }
     const result = { stage: 'completed', cvId: cv.id, optimizationId: run.id, variants: variants.map(v => ({ modeId: v.modeId, status: v.status, error: v.error })) };
     await consumeUsage(tx, run.operationId, result);
@@ -206,7 +225,7 @@ async function settleCvOptimization(tx: PlanDb, job: AiJob, terminal = false) {
 /** Called inside terminal settlement; never disturb a replacement's preserved content. */
 export async function failCvOptimization(tx: PlanDb, job: AiJob) {
   const payload = jobPayload(job);
-  await tx.update(cvVariants).set({ status: 'error', error: 'GENERATION_FAILED', updatedAt: new Date() }).where(and(eq(cvVariants.optimizationId, payload.optimizationId), sql`${cvVariants.status} IN ('pending', 'generating')`));
+  await tx.update(cvVariants).set({ content: '', status: 'error', error: 'GENERATION_FAILED', updatedAt: new Date() }).where(and(eq(cvVariants.optimizationId, payload.optimizationId), inArray(cvVariants.modeId, payload.modes), sql`${cvVariants.status} IN ('pending', 'generating')`));
   const ready = await tx.select({ mode: cvVariants.modeId }).from(cvVariants).where(and(eq(cvVariants.optimizationId, payload.optimizationId), eq(cvVariants.status, 'ready'))).limit(1);
   if (ready.length) {
     try { await settleCvOptimization(tx, job, true); return; }
