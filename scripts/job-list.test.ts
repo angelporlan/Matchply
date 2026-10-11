@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { load } from 'cheerio';
-import { listStubCanTakeDescription } from '@/lib/extension-capture';
+import { isSeparatorLabel, listStubCanTakeDescription, separatorCompanyCanTakeIdentity } from '@/lib/extension-capture';
 
 const require = createRequire(import.meta.url);
 const jobList = require('../chrome-extension/job-list.js');
@@ -98,6 +98,41 @@ test('visible capture reads mounted semantic cards and ignores hidden, nested an
   assert.equal(offers[0].url, 'https://www.linkedin.com/jobs/view/4477259122');
   assert.equal(offers[1].title, 'Full-Stack Developer (ReactJs / NodeJS) | €60K - €80K');
   assert.equal(offers[1].company, 'Joppy');
+});
+
+test('a verified badge inside the title does not turn the company into the role', () => {
+  const html = `
+    <div data-testid="lazy-column">
+      <div role="button" componentkey="job-card-component-ref-4477203782">
+        <p>
+          <span>Seleccionado, Graduate AI software engineer (empleo verificado)</span>
+          <span aria-hidden="true">Graduate AI software engineer<span> </span><span aria-hidden="true"><svg><path></path></svg></span></span>
+        </p>
+        <p>Bending Spoons</p>
+        <p>Madrid (Híbrido)</p>
+        <p>Visto</p>
+        <p>·</p>
+        <p>Adelántate a solicitar el empleo</p>
+      </div>
+      <div role="button" componentkey="job-card-component-ref-4400000001">
+        <p><span aria-hidden="true">Role without a company<span> </span></span></p>
+        <p>·</p>
+        <p>Barcelona (Presencial)</p>
+      </div>
+    </div>
+  `;
+  const { offers } = jobList.read(dom(html));
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].job_id, '4477203782');
+  assert.equal(offers[0].title, 'Graduate AI software engineer');
+  assert.equal(offers[0].company, 'Bending Spoons');
+  assert.equal(offers[0].location, 'Madrid');
+  assert.equal(offers[0].workplace_type, 'Híbrido');
+  assert.equal(isSeparatorLabel('·'), true);
+  assert.equal(isSeparatorLabel('.'), true);
+  assert.equal(separatorCompanyCanTakeIdentity('·', { title: 'Graduate AI software engineer', company: 'Bending Spoons' }), true);
+  assert.equal(separatorCompanyCanTakeIdentity('Joppy', { title: 'Engineer', company: 'Other' }), false);
+  assert.equal(separatorCompanyCanTakeIdentity('·', { title: 'Bending Spoons', company: '·' }), false);
 });
 
 test('classic job cards dedupe and keep the company off the promotion label', () => {

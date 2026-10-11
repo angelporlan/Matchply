@@ -78,9 +78,22 @@
     return /^[\p{L}\s,.'’-]{2,60}$/u.test(line) && line.includes(",") && line.split(/\s+/).length <= 6;
   }
 
+  function isSeparatorLabel(value) {
+    const label = clean(value);
+    if (!label || label.length > 4) return false;
+    return !/[0-9A-Za-z\u00C0-\u024F]/.test(label);
+  }
+
+  function hasMeaningfulLeaf(node) {
+    for (const child of node.querySelectorAll?.(LEAF_SELECTOR) || []) {
+      if (cleanTitle(text(child)).length > 1) return true;
+    }
+    return false;
+  }
+
   function usableCompany(value) {
     const company = clean(value);
-    if (!company || company.length > 80) return "";
+    if (!company || company.length > 80 || isSeparatorLabel(company)) return "";
     if (isPlace(company) || isTimeLine(company) || isNoiseLine(company) || isSalary(company)) return "";
     if (/promocionad|promoted\b|t[eé]cnic[oa]s? de selecci|contratante|\bhirer\b|reclutador|publicado por|posted by|solicitud|applicant|easy apply/i.test(company)) return "";
     return company;
@@ -103,7 +116,8 @@
     const lines = [];
     for (const node of card.querySelectorAll?.(LEAF_SELECTOR) || []) {
       if (node.closest?.("button, svg, [data-matchply-capture-host]")) continue;
-      if (node.querySelector?.(LEAF_SELECTOR)) continue;
+      // A verified badge is an empty span inside the visible title. Keep that title.
+      if (hasMeaningfulLeaf(node)) continue;
       const siblings = node.parentElement ? [...(node.parentElement.children || [])] : [];
       const hiddenTwin = siblings.some((child) => child !== node && child.getAttribute?.("aria-hidden") === "true" && text(child).length > 4);
       if (hiddenTwin && node.getAttribute?.("aria-hidden") !== "true") continue;
@@ -120,7 +134,7 @@
     let employment = "";
     const useful = [];
     for (const line of lines) {
-      if (isNoiseLine(line)) continue;
+      if (isNoiseLine(line) || isSeparatorLabel(line)) continue;
       if (isTimeLine(line)) {
         if (!postedAt) postedAt = clean(line.replace(/^publicado\s+/i, ""));
         continue;
