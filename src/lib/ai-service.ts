@@ -1654,7 +1654,7 @@ DIRECTRICES:
       if (provider !== 'openai') return jsonPrompt;
       try {
         const evidence = buildCandidateEvidence(userProfile, payload.baseCvMarkdown || '', constraints);
-        const preview = offerCards.map((card) => formatMatchDecisionPreview(buildMatchDecision({ candidate: evidence, offer: card }))).join('\n\n');
+        const preview = offerCards.map((card: MatchOfferCard) => formatMatchDecisionPreview(buildMatchDecision({ candidate: evidence, offer: card }))).join('\n\n');
         return {
           ...jsonPrompt,
           model: DECISION_MODEL,
