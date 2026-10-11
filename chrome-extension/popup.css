@@ -285,6 +285,17 @@ h2 {
 .capture-button:hover:not(:disabled) { background: var(--action-hover); transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--text); }
 .capture-button:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
 
+.capture-list-button {
+  margin-bottom: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+.capture-list-button:hover:not(:disabled) { background: var(--surface-muted); transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--text); }
+.capture-list-button:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+#captureVisibleHint { margin: 6px 0 12px; }
+
 .button-danger {
   border-color: var(--border-control);
   background: var(--surface);

@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const connBadgeText = document.getElementById("connBadgeText");
   const saveNowBtn = document.getElementById("saveNowBtn");
   const saveNowHint = document.getElementById("saveNowHint");
+  const captureVisibleBtn = document.getElementById("captureVisibleBtn");
+  const captureVisibleHint = document.getElementById("captureVisibleHint");
   const modeAutoBtn = document.getElementById("modeAutoBtn");
   const modeManualBtn = document.getElementById("modeManualBtn");
   const modeHelp = document.getElementById("modeHelp");
@@ -101,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (probe?.result) return true;
       await chrome.scripting.executeScript({
         target: { tabId, allFrames: false },
-        files: ["people.js", "content.js"],
+        files: ["people.js", "job-list.js", "content.js"],
       });
       return true;
     } catch (_) {
@@ -134,6 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function setVisibleCapture(enabled, hint) {
+    if (captureVisibleBtn) captureVisibleBtn.disabled = !enabled;
+    if (captureVisibleHint && hint) captureVisibleHint.textContent = hint;
+  }
+
   async function updateCaptureAction() {
     if (!saveNowBtn) return;
     if (!extensionEnabled) {
@@ -141,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const label = saveNowBtn.querySelector("span");
       if (label) label.textContent = "Extensión apagada";
       if (saveNowHint) saveNowHint.textContent = "Enciende la extensión para capturar ofertas en LinkedIn.";
+      setVisibleCapture(false, "Enciende la extensión para capturar la lista.");
       return;
     }
     let tab;
@@ -159,6 +167,14 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "Captura la oferta visible en la pestaña activa."
         : "Para guardar desde aquí, abre una oferta de empleo en LinkedIn.";
     }
+    const visibleLabel = captureVisibleBtn?.querySelector("span");
+    if (visibleLabel) visibleLabel.textContent = "Capturar visibles";
+    setVisibleCapture(
+      isJobPage,
+      isJobPage
+        ? "Guarda las ofertas que LinkedIn ya muestra en la lista, sin abrirlas. La descripción completa entra al abrir cada una."
+        : "Abre la búsqueda de empleos en LinkedIn para capturar la lista.",
+    );
   }
 
   async function loadState() {
@@ -328,6 +344,43 @@ document.addEventListener("DOMContentLoaded", () => {
     applyPowerSwitch();
     await chrome.storage.local.set({ matchplyExtensionEnabled: extensionEnabled });
     await updateCaptureAction();
+  });
+
+  captureVisibleBtn?.addEventListener("click", async () => {
+    captureVisibleBtn.disabled = true;
+    captureVisibleBtn.setAttribute("aria-busy", "true");
+    const visibleLabel = captureVisibleBtn.querySelector("span");
+    if (visibleLabel) visibleLabel.textContent = "Guardando la lista…";
+    showMsg("");
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !JOB_PAGE.test(tab.url || "")) {
+        showMsg("Abre la búsqueda de empleos en LinkedIn.", "err");
+        return;
+      }
+      let res;
+      try {
+        res = await chrome.tabs.sendMessage(tab.id, { type: "trigger-visible-capture" });
+      } catch (_) {
+        const injected = await ensureLinkedInScript(tab.id);
+        if (injected) {
+          try {
+            res = await chrome.tabs.sendMessage(tab.id, { type: "trigger-visible-capture" });
+          } catch (_) {}
+        }
+      }
+      if (!res) {
+        showMsg("No se pudo activar la captura. Recarga la pestaña de LinkedIn.", "err");
+        return;
+      }
+      if (res.ok) showMsg(res.message || "Ofertas guardadas en Matchply.", "ok");
+      else showMsg(res.error || "No se pudo guardar la lista.", "err");
+    } catch (err) {
+      showMsg(err.message || "Error al guardar la lista.", "err");
+    } finally {
+      captureVisibleBtn.removeAttribute("aria-busy");
+      await updateCaptureAction();
+    }
   });
 
   saveNowBtn?.addEventListener("click", async () => {

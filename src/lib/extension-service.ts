@@ -7,6 +7,7 @@ import { PeopleError } from '@/lib/people/types';
 import { createAuditLog } from '@/lib/audit';
 import { upsertExternalApplication } from '@/lib/application-service';
 import { markExtensionCapture } from '@/lib/extension-auth';
+import { listStubCanTakeDescription } from '@/lib/extension-capture';
 
 const MAX_TITLE_LENGTH = 240;
 const MAX_COMPANY_LENGTH = 240;
@@ -98,6 +99,8 @@ function normalizeSourceMetadata(input: unknown, location: string | null, workpl
     postedAt: boundedText(source.postedAt, 'sourceMetadata.postedAt', 120),
     poster,
   };
+  const captureKind = source.captureKind === 'list' || source.captureKind === 'detail' ? source.captureKind : null;
+  if (captureKind) Object.assign(metadata, { captureKind });
   if (JSON.stringify(metadata).length > MAX_METADATA_LENGTH) {
     throw new ExtensionPayloadError('sourceMetadata exceeds the allowed size');
   }
@@ -130,8 +133,23 @@ export async function ingestLinkedInOffer(
 
   let captures;
   try { captures = captureInput(input.people); } catch (error) { throw new ExtensionPayloadError(error instanceof PeopleError ? error.message : 'Invalid people'); }
-  const [existing] = await db.select({ id: jobOffers.id }).from(jobOffers).where(and(eq(jobOffers.userId, userId), eq(jobOffers.externalSource, 'linkedin'), eq(jobOffers.externalId, sourceJobId))).limit(1);
-  // Recapture is additive: preserve existing analysis, CV, letters and user edits.
+  const [existing] = await db.select({
+    id: jobOffers.id,
+    description: jobOffers.description,
+    sourceMetadata: jobOffers.sourceMetadata,
+  }).from(jobOffers).where(and(eq(jobOffers.userId, userId), eq(jobOffers.externalSource, 'linkedin'), eq(jobOffers.externalId, sourceJobId))).limit(1);
+  // Recapture keeps the company, analysis, CV, letters and a description already saved.
+  // A list stub may receive the full description the first time that offer is opened.
+  if (existing && description && listStubCanTakeDescription(existing, description)) {
+    const previous = existing.sourceMetadata && typeof existing.sourceMetadata === 'object' && !Array.isArray(existing.sourceMetadata)
+      ? existing.sourceMetadata as Record<string, unknown>
+      : {};
+    await db.update(jobOffers).set({
+      description,
+      sourceMetadata: { ...previous, ...sourceMetadata, captureKind: 'detail' },
+      updatedAt: new Date(),
+    }).where(and(eq(jobOffers.id, existing.id), eq(jobOffers.userId, userId)));
+  }
   const { offer, created } = existing ? { offer: existing, created: false } : await upsertExternalApplication(userId, {
     title,
     company,
@@ -149,9 +167,11 @@ export async function ingestLinkedInOffer(
   let peopleError: string | undefined;
   if (captures.length) { try { peopleResult = await capturePeople(userId, sourceJobId, captures); } catch { peopleError = 'PEOPLE_CAPTURE_FAILED'; } }
   await markExtensionCapture(installationId);
+  const savedKind = (sourceMetadata as { captureKind?: string }).captureKind;
   await createAuditLog(created ? 'extension_job_capture_create' : 'extension_job_capture_update', userId, null, {
     offerId: offer.id,
     sourceJobId,
+    ...(savedKind ? { captureKind: savedKind } : {}),
   });
 
   return {

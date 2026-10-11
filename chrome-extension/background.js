@@ -75,7 +75,118 @@ async function saveAvatars(contacts, jobId, token) {
   return { saved, failed };
 }
 
+function listedOffer(raw) {
+  return {
+    sourceJobId: String(raw?.sourceJobId || raw?.job_id || ""),
+    canonicalUrl: String(raw?.canonicalUrl || raw?.url || `https://www.linkedin.com/jobs/view/${raw?.job_id || ""}`),
+    title: String(raw?.title || ""),
+    company: String(raw?.company || ""),
+    location: raw?.location || null,
+    workplaceType: raw?.workplaceType || raw?.workplace_type || null,
+    employmentType: raw?.employmentType || raw?.employment_type || null,
+    description: raw?.description || null,
+    rawText: raw?.rawText || raw?.raw_text || null,
+    sourceMetadata: raw?.sourceMetadata || null,
+  };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "capture-linkedin-jobs") {
+    (async () => {
+      try {
+        const source = sender.url || sender.tab?.url || "";
+        if (!/^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//.test(source)) {
+          sendResponse({ ok: false, error: "Captura disponible solo en empleos de LinkedIn." });
+          return;
+        }
+        const token = await getSession();
+        if (!token) {
+          await setBadge(sender.tab?.id, "?", "#8b5cf6");
+          sendResponse({ ok: false, code: "not_paired", error: "Conecta primero la extensión desde Matchply." });
+          return;
+        }
+        const offers = Array.isArray(message.payload?.offers) ? message.payload.offers.slice(0, 25) : [];
+        if (!offers.length) {
+          sendResponse({ ok: false, error: "No hay ofertas visibles en la lista." });
+          return;
+        }
+        let created = 0;
+        let existing = 0;
+        let failed = 0;
+        let error = "";
+        let code = "";
+        for (const raw of offers) {
+          const payload = listedOffer(raw);
+          let response;
+          try {
+            response = await fetch(INGEST_ENDPOINT, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify(payload),
+            });
+          } catch {
+            error = error || "El archivo local no está en marcha.";
+            break;
+          }
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              await chrome.storage.local.remove(["matchplyExtensionToken", "matchplyExtensionScope", "matchplyExtensionInstallation"]);
+              code = "session_expired";
+              error = "La sesión de la extensión ha caducado o fue revocada.";
+              break;
+            }
+            if (response.status === 429) {
+              error = "Demasiadas ofertas seguidas. Espera un momento y vuelve a pulsar.";
+              break;
+            }
+            failed += 1;
+            error = error || "No se pudo guardar una oferta.";
+            continue;
+          }
+          let result;
+          try { result = await response.json(); }
+          catch {
+            failed += 1;
+            error = error || "No se pudo guardar una oferta.";
+            continue;
+          }
+          const stub = payload.sourceMetadata?.captureKind === "list" || String(payload.description || "").length < 80;
+          if (!stub && payload.sourceJobId) {
+            const stored = await chrome.storage.local.get("matchplyExtensionInstallation");
+            const installationId = stored.matchplyExtensionInstallation?.id;
+            if (installationId) {
+              const key = `matchply_capture_${installationId}_${payload.sourceJobId}`;
+              const previous = (await chrome.storage.local.get(key))[key] || {};
+              await chrome.storage.local.set({ [key]: { ...previous, offer: true } });
+            }
+          }
+          if (result.created) created += 1;
+          else existing += 1;
+        }
+        const unfinished = offers.length - created - existing - failed;
+        if (unfinished > 0) failed += unfinished;
+        if (code === "session_expired" && created + existing > 0) {
+          error = `Se guardaron ${created + existing} antes de que caducara la sesión.`;
+        }
+        const ok = created + existing > 0 && !code;
+        await setBadge(sender.tab?.id, ok ? "✓" : "!", ok ? "#10b981" : "#ef4444");
+        sendResponse({
+          ok,
+          created,
+          existing,
+          failed,
+          total: offers.length,
+          ...(code ? { code } : {}),
+          ...(!ok && error ? { error } : {}),
+        });
+      } catch (error) {
+        await setBadge(sender.tab?.id, "!", "#ef4444");
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    })();
+    return true;
+  }
+
   if (["capture-linkedin-job", "capture-linkedin-people"].includes(message?.type)) {
     (async () => {
       try {
@@ -200,7 +311,7 @@ async function ensureLinkedInCapture(tabId) {
     if (probe?.result) return;
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: false },
-      files: ["people.js", "content.js"],
+      files: ["people.js", "job-list.js", "content.js"],
     });
   } catch (_) {
     // The tab can close or discard before the script is allowed to run.

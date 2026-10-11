@@ -77,6 +77,8 @@
   let photoWarning = false;
   let allowBrowse = false;
   let browseTimer = null;
+  let batchRunning = false;
+  let listNotice = "";
   let configReady = Promise.resolve();
   let jobsObserverAttached = false;
 
@@ -1247,6 +1249,26 @@
         font-size: 12px;
         line-height: 1.45;
       }
+      .list-capture {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .list {
+        width: 100%;
+        color: #1E1B4B;
+        background: #FFFFFF;
+        box-shadow: 2px 2px 0 #1E1B4B;
+      }
+      .list:active { transform: translate(2px, 2px); box-shadow: none; }
+      .hint {
+        margin: 0;
+        color: #596174;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .card.docked .list-capture { display: none; }
       .actions {
         display: flex;
         gap: 8px;
@@ -1418,6 +1440,7 @@
       }
       @media (hover: hover) {
         .save:hover, .quick:hover { background: #27AE60; transform: translate(1px, 1px); box-shadow: 1px 1px 0 #1E1B4B; }
+        .list:hover { background: #F1F3F5; color: #1E1B4B; }
         .card.docked .quick:hover, .quick.quiet:hover { transform: none; box-shadow: none; }
         .skip:hover, .expand:hover, .position-reset:hover, .pin:hover, .quick.quiet:hover { color: #1E1B4B; border-color: #1E1B4B; background: #F1F3F5; }
         .pin.active:hover { border-color: #7C3AED; background: #EDE9FE; color: #6D28D9; }
@@ -1450,6 +1473,7 @@
       event.preventDefault();
       const { action, value } = control.dataset;
       if (action === "save") void attemptCapture(currentJobId(), true);
+      if (action === "capture-visible") void captureVisible();
       if (action === "skip") skipCurrent();
       if (action === "toggle-settings") {
         widgetExpanded = !widgetExpanded;
@@ -1598,6 +1622,7 @@
   function currentKind(state = {}) {
     if (!config.enabled) return "hidden";
     if (!config.showFloating && !config.showHeader && !config.showTitle) return "hidden";
+    if (batchRunning || state.batch) return "batch";
     const jobId = currentJobId();
     if (!jobId) return allowBrowse && onJobsSurface() ? "browse" : "hidden";
     if (state.saving) return "saving";
@@ -1832,6 +1857,7 @@
     const collapseSvg = `<svg class="icon" viewBox="0 0 24 24"><path d="M8 3v5H3"/><path d="M16 3v5h5"/><path d="M3 16h5v5"/><path d="M21 16h-5v5"/></svg>`;
     const pinSvg = `<svg class="icon" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1 2 2 0 0 0-2-2 2 2 0 0 0-2 2 1 1 0 0 0-1 1z"/></svg>`;
     const brand = `<div class="brand-box">${brandSvg}<span class="wordmark"><span class="wordmark-match">match</span><span class="wordmark-ply">ply</span></span></div>`;
+    const listSvg = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>`;
     const headerStatus = {
       saved: `<span class="status ok" role="status" aria-live="polite">${checkSvg}<span>Oferta guardada</span></span>`,
       saving: `<span class="status" role="status" aria-live="polite">Guardando oferta…</span>`,
@@ -1840,6 +1866,7 @@
       skipped: `<span class="status" role="status" aria-live="polite">Oferta omitida</span>`,
       manual: `<span class="status">Captura manual</span>`,
       browse: `<span class="status">Elige una oferta</span>`,
+      batch: `<span class="status" role="status" aria-live="polite">Guardando la lista…</span>`,
       countdown: `<span class="time">Se guarda en <span data-remaining aria-live="off">${state.remaining ?? remainingSeconds()} s</span></span>`,
     };
     const docked = headerOnly();
@@ -1849,22 +1876,27 @@
       : (kind === "manual" || kind === "skipped" || kind === "error" || (kind === "saved" && newPeople().length))
         ? `<button class="quick" data-action="save" type="button" aria-label="${quickLabel}" title="${quickLabel}">${zapSvg}</button>`
         : "";
+    const listQuick = docked && !["saving", "waiting", "batch"].includes(kind)
+      ? `<button class="quick quiet" data-action="capture-visible" type="button" aria-label="Capturar ofertas visibles" title="Capturar las ofertas que ya se ven en la lista">${listSvg}</button>`
+      : "";
     const pinButton = `<button class="pin${config.showHeader ? " active" : ""}" type="button" data-action="toggle-header" aria-pressed="${config.showHeader}" aria-label="${config.showHeader ? "Quitar el indicador de la cabecera" : "Mostrar el indicador en la cabecera de LinkedIn"}" title="${config.showHeader ? "Quitar de la cabecera" : "Mostrar en la cabecera"}">${pinSvg}</button>`;
     const dragAttrs = docked ? "" : ` data-drag-handle tabindex="0" role="group" aria-label="Mover indicador: usa las flechas para desplazarlo" title="Arrastra aquí para mover el indicador"`;
     const grip = docked ? "" : `<span class="drag-cue">${gripSvg}</span>`;
-    const header = `<div class="top"${dragAttrs}>${brand}${grip}<div class="top-actions">${headerStatus[kind] || ""}${quick}${pinButton}<button class="expand" type="button" data-action="toggle-settings" aria-label="${widgetExpanded ? "Cerrar" : "Abrir"} ajustes de Matchply" aria-expanded="${widgetExpanded}" aria-controls="matchply-inline-settings" title="${widgetExpanded ? "Cerrar ajustes" : "Ver y cambiar ajustes"}">${widgetExpanded ? collapseSvg : expandSvg}</button></div></div>`;
+    const header = `<div class="top"${dragAttrs}>${brand}${grip}<div class="top-actions">${headerStatus[kind] || ""}${quick}${listQuick}${pinButton}<button class="expand" type="button" data-action="toggle-settings" aria-label="${widgetExpanded ? "Cerrar" : "Abrir"} ajustes de Matchply" aria-expanded="${widgetExpanded}" aria-controls="matchply-inline-settings" title="${widgetExpanded ? "Cerrar ajustes" : "Ver y cambiar ajustes"}">${widgetExpanded ? collapseSvg : expandSvg}</button></div></div>`;
 
     const blocks = {
       saved: `${photoWarning ? '<p class="notice">Los contactos se guardaron; alguna foto no está disponible. Puedes reintentar.</p>' : ''}${newPeople().length ? `<div class="actions"><button class="save" data-action="save" type="button">${photoWarning ? 'Reintentar fotos' : 'Capturar personas'} (${newPeople().length})</button></div>` : ""}`,
       saving: "",
       waiting: "",
-      browse: `<p class="notice">Abre una oferta para guardarla en Matchply.</p>`,
+      browse: `<p class="notice">Abre una oferta para guardarla con su descripción, o captura las que ya se ven.</p>`,
+      batch: `<p class="notice">Leyendo las ofertas que ya se ven. No se abre ninguna.</p>`,
       error: `<p class="status-detail">${escapeHtml(state.error || "No se pudo guardar la oferta.")}</p><div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Reintentar</button></div>`,
       skipped: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar oferta</button></div>`,
       manual: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar oferta</button></div>`,
       countdown: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar ahora</button><button class="skip" data-action="skip" type="button">${skipSvg} Omitir</button></div>`,
     };
-    widgetCard.innerHTML = `${header}<div class="dock-panel">${blocks[kind] || blocks.countdown}${renderWidgetSettingsMarkup()}</div>`;
+    const listCapture = !["saving", "waiting", "batch"].includes(kind) ? `<div class="list-capture"><button class="list" data-action="capture-visible" type="button">Capturar visibles</button><p class="hint">Guarda las ofertas que LinkedIn ya muestra, sin abrirlas. La descripción entra al abrir cada una. Si bajas en la lista, puedes volver a pulsarlo.</p>${listNotice ? `<p class="notice">${escapeHtml(listNotice)}</p>` : ""}</div>` : "";
+    widgetCard.innerHTML = `${header}<div class="dock-panel">${blocks[kind] || blocks.countdown}${listCapture}${renderWidgetSettingsMarkup()}</div>`;
     widgetCard.classList.toggle("expanded", widgetExpanded);
     widgetRenderedExpanded = widgetExpanded;
     widgetRenderedFloating = config.showFloating;
@@ -1970,6 +2002,83 @@
     finally { captureInProgress = false; }
   }
 
+  function readVisibleOffers() {
+    const reader = globalThis.MatchplyJobList;
+    if (!reader?.read) return { offers: [], truncated: false };
+    const listed = reader.read(document);
+    const openId = currentJobId();
+    const offers = (listed.offers || []).map((offer) => {
+      if (!openId || offer.job_id !== openId) return offer;
+      const full = buildPayload(openId);
+      if (!full || full.description.length < 80) return offer;
+      return {
+        job_id: full.job_id,
+        url: full.url,
+        title: full.title,
+        company: full.company,
+        location: full.location,
+        workplace_type: full.workplace_type,
+        employment_type: full.employment_type,
+        description: full.description,
+        raw_text: full.raw_text,
+        sourceMetadata: { captureKind: "detail" },
+      };
+    });
+    return { offers, truncated: !!listed.truncated };
+  }
+
+  async function captureVisible() {
+    if (!config.enabled) return { ok: false, error: "La extensión está apagada." };
+    if (captureInProgress || batchRunning) return { ok: false, error: "Captura en curso" };
+    if (!onJobsSurface()) return { ok: false, error: "Abre la búsqueda de empleos en LinkedIn." };
+    if (!globalThis.MatchplyJobList?.read) return { ok: false, error: "Recarga la extensión y esta pestaña de LinkedIn." };
+    const { offers, truncated } = readVisibleOffers();
+    if (!offers.length) return { ok: false, error: "No hay ofertas visibles en la lista." };
+
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+    clearTimeout(captureRetryTimer);
+    captureInProgress = true;
+    batchRunning = true;
+    renderWidget({ batch: true });
+    let result;
+    try {
+      result = await chrome.runtime.sendMessage({ type: "capture-linkedin-jobs", payload: { offers } });
+    } catch (err) {
+      result = {
+        ok: false,
+        error: /Extension context invalidated/i.test(String(err))
+          ? "Recarga la pestaña de LinkedIn."
+          : "El archivo local no está en marcha.",
+      };
+    } finally {
+      batchRunning = false;
+      captureInProgress = false;
+    }
+    const created = Number(result?.created) || 0;
+    const existing = Number(result?.existing) || 0;
+    const failed = Number(result?.failed) || 0;
+    if (!result?.ok) {
+      const error = result?.error || "No se pudo guardar la lista.";
+      listNotice = "";
+      renderWidget({ error });
+      return { ok: false, error, created, existing, failed, total: offers.length };
+    }
+    listNotice = globalThis.MatchplyJobList.summary({ created, existing, failed, truncated });
+    const openId = currentJobId();
+    const detailed = offers.some((offer) => offer.job_id === openId && offer.sourceMetadata?.captureKind === "detail");
+    if (openId && detailed) {
+      lastCompletedJobId = openId;
+      renderWidget({ saved: true });
+      if (config.capturePeople && config.mode === "auto") await attemptPeople(openId, false);
+    } else if (openId) {
+      startCountdown(openId);
+    } else {
+      renderWidget();
+    }
+    return { ok: true, message: listNotice, created, existing, failed, total: offers.length };
+  }
+
   async function attemptCapture(jobId, force) {
     if (!config.enabled) return { ok: false, error: "La extensión está apagada." };
     if (captureInProgress) return { ok: false, error: "Captura en curso" };
@@ -2029,6 +2138,7 @@
       renderWidget();
       return;
     }
+    if (batchRunning) return;
     const jobId = currentJobId();
     if (!jobId) {
       if (!onJobsSurface()) {
@@ -2063,6 +2173,7 @@
     if (jobId !== widgetJobId) {
       widgetJobId = jobId;
       widgetExpanded = false;
+      listNotice = "";
     }
     if (jobId === lastCompletedJobId) {
       if (config.mode === "auto") await attemptPeople(jobId, false);
@@ -2123,10 +2234,12 @@
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== "trigger-manual-capture") return false;
+    if (message?.type !== "trigger-manual-capture" && message?.type !== "trigger-visible-capture") return false;
     (async () => {
       await configReady;
-      sendResponse(await attemptCapture(currentJobId(), true));
+      sendResponse(message.type === "trigger-visible-capture"
+        ? await captureVisible()
+        : await attemptCapture(currentJobId(), true));
     })();
     return true;
   });
