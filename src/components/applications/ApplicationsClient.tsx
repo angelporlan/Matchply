@@ -13,6 +13,7 @@ import { setRowsFavoriteAction } from '@/app/dashboard/applications/crm-actions'
 import { CrmPagination } from '@/components/crm/CrmControls';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
+import { ApplicationBulkStatusSelect } from './ApplicationStatusSelect';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
@@ -580,6 +581,14 @@ export default function ApplicationsClient({
       end: Math.min(start + localOffers.length, filteredTotal),
     };
   }, [localOffers, filteredTotal, page, pageSize]);
+
+  const areAllSelectedFavorites = useMemo(() => {
+    if (selectedIds.size === 0) return false;
+    const selectedList = localOffers.filter(offer => selectedIds.has(offer.id));
+    if (selectedList.length === 0) return false;
+    return selectedList.every(offer => !!offer.isFavorite);
+  }, [localOffers, selectedIds]);
+
   const hasActiveFilters = favoritesOnly || Boolean(searchQuery.trim()) || cvFilter !== 'all' || dateFilter !== 'all' || statusFilter !== 'all' || followupFilter !== 'all' || columnFilters.length > 0;
 
   useEffect(() => {
@@ -767,9 +776,9 @@ export default function ApplicationsClient({
 
       <div className="w-full">
           {selectedIds.size > 0 && (
-            <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[12px] border border-ai/25 bg-ai/5 px-4 py-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-text font-display">
+            <div className="mb-3 flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[12px] border border-ai/20 bg-ai/5 px-4 py-2.5 shadow-sm">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ai/15 text-ai text-xs font-bold font-display">
                   {selectedIds.size === filteredTotal
                     ? t('applications.table.bulk.allSelected').replace('{count}', String(filteredTotal))
                     : t('applications.table.bulk.selected').replace('{count}', String(selectedIds.size))}
@@ -778,15 +787,14 @@ export default function ApplicationsClient({
                   <button
                     type="button"
                     onClick={() => void handleToggleAll([], true)}
-                    className="text-xs font-bold text-ai hover:underline underline-offset-2 ml-1"
+                    className="text-xs font-semibold text-ai hover:underline underline-offset-2"
                   >
                     {t('applications.table.bulk.selectAllCount').replace('{count}', String(filteredTotal))}
                   </button>
                 )}
               </div>
+
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="secondary" size="sm" disabled={pendingFavoriteIds.size > 0} onClick={() => void handleFavoriteChange(Array.from(selectedIds), true)}><Star className="w-3.5 h-3.5" />{t('crm.markFavorites')}</Button>
-                <Button variant="ghost" size="sm" disabled={pendingFavoriteIds.size > 0} onClick={() => void handleFavoriteChange(Array.from(selectedIds), false)}><Star className="w-3.5 h-3.5" />{t('crm.removeFavorites')}</Button>
                 <button
                   type="button"
                   onClick={handleCurateSelected}
@@ -797,38 +805,43 @@ export default function ApplicationsClient({
                   <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />
                   <span>{t('applications.table.bulk.matchWithAi')}</span>
                 </button>
-                <button
-                  type="button"
+
+                <ApplicationBulkStatusSelect
+                  onChange={(status) => void handleBulkStatusChange(status)}
+                />
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={pendingFavoriteIds.size > 0}
+                  onClick={() => void handleFavoriteChange(Array.from(selectedIds), !areAllSelectedFavorites)}
+                  title={areAllSelectedFavorites ? t('applications.table.bulk.removeFavorites') : t('applications.table.bulk.markFavorites')}
+                >
+                  <Star className={`w-3.5 h-3.5 ${areAllSelectedFavorites ? 'fill-current text-ai' : ''}`} />
+                  <span>{areAllSelectedFavorites ? t('applications.table.bulk.unfavorite') : t('applications.table.bulk.favorite')}</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setIsExportModalOpen(true)}
-                  className="btn-raised btn-raised--secondary btn-raised--sm"
+                  title={t('applications.table.bulk.exportData')}
                 >
                   <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-                  <span>{t('applications.table.bulk.exportData')}</span>
-                </button>
-                <label className="sr-only" htmlFor="bulk-status">{t('applications.table.bulk.changeStatus')}</label>
-                <select
-                  id="bulk-status"
-                  value=""
-                  onChange={(event) => {
-                    if (event.target.value) void handleBulkStatusChange(event.target.value);
-                  }}
-                  className="bg-surface border border-subtle rounded-[8px] px-3 py-2 text-xs font-semibold text-text focus:outline-none focus:border-ai transition-all cursor-pointer font-sans"
-                >
-                  <option value="">{t('applications.table.bulk.changeStatus')}</option>
-                  <option value="interested">{t('applications.columns.interested.title')}</option>
-                  <option value="applied">{t('applications.columns.applied.title')}</option>
-                  <option value="interview">{t('applications.columns.interview.title')}</option>
-                  <option value="offer">{t('applications.columns.offer.title')}</option>
-                  <option value="rejected">{t('applications.columns.rejected.title')}</option>
-                  <option value="archived">{t('applications.columns.archived.title')}</option>
-                </select>
+                  <span>{t('applications.table.bulk.export')}</span>
+                </Button>
+
+                <div className="hidden sm:block h-4 w-px bg-subtle mx-0.5" aria-hidden="true" />
+
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-xs font-semibold text-text-muted hover:text-text transition-colors"
+                  aria-label={t('applications.table.bulk.clear')}
+                  title={t('applications.table.bulk.clear')}
+                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-[8px] text-xs font-medium text-text-muted hover:text-text hover:bg-canvas transition-colors"
                 >
                   <X className="w-3.5 h-3.5 stroke-[1.75]" />
-                  {t('applications.table.bulk.clear')}
+                  <span className="hidden sm:inline">{t('applications.table.bulk.clear')}</span>
                 </button>
               </div>
             </div>
