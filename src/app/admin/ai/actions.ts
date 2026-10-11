@@ -17,6 +17,7 @@ import { clearAiRuntimeCache, getResolvedAiRuntime } from '@/lib/ai-runtime-stor
 import { AiConfigConflictError } from '@/lib/request-errors';
 import { requireAdminContext, auditActorFields } from '@/lib/request-context';
 import { getAllProviderCatalogs } from '@/lib/ai-model-catalog';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 
 export async function loadAiAdminState() {
   await requireAdminContext();
@@ -41,10 +42,10 @@ export async function loadAiAdminState() {
 }
 
 export async function testAiModelAction(provider: string, model: string) {
-  await requireAdminContext();
+  const { admin } = await requireAdminContext();
   const started = Date.now();
   try {
-    const text = await AIService.probeModel(provider, model);
+    const text = await withAiUsageContext({ userId: admin.id, functionKey: 'admin_model_test' }, () => AIService.probeModel(provider, model));
     return {
       success: true,
       sample: (text || '').slice(0, 280),

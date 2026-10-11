@@ -10,6 +10,7 @@ import { aiRequestId, aiUsageErrorResponse, AiUsageHttpError } from '@/lib/ai-us
 import { getCvAccess, requireEditableCv } from '@/lib/cv-access';
 import { assertUsagePublication } from '@/lib/ai-cv-publication';
 import { log } from '@/lib/logger';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 
 const outreachOfferColumns = {
   id: jobOffers.id,
@@ -103,13 +104,13 @@ export async function POST(req: NextRequest) {
     }
     await db.transaction(tx => requireEditableCv(tx, userId, selectedCv!.id));
 
-    const aiResult = await AIService.generateOutreachAndPrep({
+    const aiResult = await withAiUsageContext({ userId, functionKey: 'outreach' }, () => AIService.generateOutreachAndPrep({
       cvContent: selectedCv.content,
       jobDescription: offer.description || 'No description provided.',
       company: offer.company,
       jobTitle: offer.title,
       userSubscriptionStatus: effectiveSubscriptionStatus(user)
-    });
+    }));
 
     const result = { success: true, outreachMessage: aiResult.outreachMessage, coverLetter: aiResult.coverLetter, interviewQuestions: aiResult.interviewQuestions };
     await db.transaction(async tx => {

@@ -13,6 +13,7 @@ import { assertCvPublication } from '@/lib/ai-cv-publication';
 import { aiRequestId, aiUsageErrorResponse } from '@/lib/ai-usage-http';
 import { consumeRateLimit } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 // @ts-ignore
 import pdf from 'pdf-parse';
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     targetId = await db.transaction(tx => reserveCvTarget(tx, userId!, { targetCvId, confirmOverwrite, operationId: operation.id,
       values: { title, isBase: true, isPrincipal: true, templateName: 'harvard', accentColor: '#1a5f7a', fontFamily: 'helvetica', pageMargin: 36, scale: 1 },
     }));
-    const stream = await AIService.importCVStream({ rawText: text, userSubscriptionStatus: effectiveSubscriptionStatus(actor), candidateName: actor.name || '' });
+    const stream = await withAiUsageContext({ userId, functionKey: 'import_cv' }, () => AIService.importCVStream({ rawText: text, userSubscriptionStatus: effectiveSubscriptionStatus(actor), candidateName: actor.name || '' }));
     const reader = stream.getReader(), decoder = new TextDecoder(), encoder = new TextEncoder();
     let cancelled = false;
     const response = new ReadableStream<Uint8Array>({

@@ -2,6 +2,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, jobResearchAgentRuns, jobResearchRuns, jobResearchSources, users } from '@/db/schema';
 import { getCvAccess } from '@/lib/cv-access';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 import { consumeUsage } from '@/lib/usage';
 import type { PlanDb } from '@/lib/plan-store';
 import { completeJson, fetchPublicSource, getProModelConfig, searchWeb } from './providers';
@@ -293,6 +294,7 @@ function reportMarkdown(report: ResearchReport) {
 export async function runResearch(runId: string, options: { attempt: number; signal: AbortSignal }) {
   const [run] = await db.select().from(jobResearchRuns).where(eq(jobResearchRuns.id, runId)).limit(1);
   if (!run) throw new Error('RESEARCH_RUN_NOT_FOUND');
+  return withAiUsageContext({ userId: run.userId, jobId: run.id, functionKey: 'research' }, async () => {
   const owner = { ...run, attempt: options.attempt };
   options.signal.throwIfAborted();
   await withResearchLease(owner, async () => {});
@@ -341,4 +343,5 @@ export async function runResearch(runId: string, options: { attempt: number; sig
     if (run.usageOperationId) await consumeUsage(tx, run.usageOperationId, { runId: run.id, status: finalStatus });
   });
   return { status: finalStatus, report };
+  });
 }

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, numeric, index, uniqueIndex, jsonb, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
 import type { NetworkingAdvice, ProposedMessage } from '@/lib/people/types';
 import { relations } from 'drizzle-orm';
 
@@ -561,6 +561,36 @@ export const aiRunStats = pgTable('ai_run_stat', {
   createdIdx: index('ai_run_stat_created_idx').on(table.createdAt),
   functionCreatedIdx: index('ai_run_stat_function_created_idx').on(table.functionKey, table.createdAt),
   providerCreatedIdx: index('ai_run_stat_provider_created_idx').on(table.provider, table.createdAt),
+}));
+
+// One row per provider request, independent of logical jobs and product quotas.
+// Deliberately excludes prompts, completions, CVs, URLs and API credentials.
+export const aiRequestUsage = pgTable('ai_request_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'set null' }),
+  jobId: uuid('jobId'),
+  functionKey: text('functionKey').notNull(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  endpoint: text('endpoint').notNull(),
+  providerRequestId: text('providerRequestId'),
+  success: boolean('success').notNull(),
+  latencyMs: integer('latencyMs').notNull(),
+  inputTokens: integer('inputTokens'),
+  outputTokens: integer('outputTokens'),
+  cachedInputTokens: integer('cachedInputTokens'),
+  cacheWriteTokens: integer('cacheWriteTokens'),
+  reasoningTokens: integer('reasoningTokens'),
+  webSearchCalls: integer('webSearchCalls').notNull().default(0),
+  costUsd: numeric('costUsd', { precision: 20, scale: 10 }),
+  costSource: text('costSource').notNull(),
+  pricing: jsonb('pricing'),
+  errorCode: text('errorCode'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  createdIdx: index('ai_request_usage_created_idx').on(table.createdAt),
+  userCreatedIdx: index('ai_request_usage_user_created_idx').on(table.userId, table.createdAt),
+  functionCreatedIdx: index('ai_request_usage_function_created_idx').on(table.functionKey, table.createdAt),
 }));
 
 export const aiJobs = pgTable('ai_job', {

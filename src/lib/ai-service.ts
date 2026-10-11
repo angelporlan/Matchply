@@ -297,6 +297,7 @@ export class AIService {
         },
         body: JSON.stringify({
           model: sanitizedModel,
+          usage: { include: true },
           messages: [
             {
               role: "system",
@@ -530,6 +531,7 @@ export class AIService {
         model: model,
         ...(isFixedTemp ? {} : { temperature: 0.2 }),
         stream: true,
+        stream_options: { include_usage: true },
         messages,
       })
     }, AI_STREAM_CONNECT_TIMEOUT_MS);
@@ -575,6 +577,7 @@ export class AIService {
       },
       body: JSON.stringify({
         model: sanitizedModel,
+        usage: { include: true },
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
@@ -613,6 +616,7 @@ export class AIService {
         model: model,
         temperature: 0.2,
         stream: true,
+        stream_options: { include_usage: true },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

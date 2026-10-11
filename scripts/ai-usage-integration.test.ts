@@ -98,6 +98,7 @@ test('AI usage is reserved at admission and settled with durable results', { ski
       const { AIService } = await import('@/lib/ai-service');
       const { MATCH_DIMENSION_KEYS } = await import('@/lib/matching');
       const { processAiJob } = await import('@/lib/ai-jobs/process');
+      sub.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'openrouter', model: 'fixture/matcher' }));
       const provider = sub.mock.method(AIService as any, 'callMatchText', async () => JSON.stringify({ curated: [{ id: offers[0].id,
         ...Object.fromEntries(MATCH_DIMENSION_KEYS.map(key => [key, 0])), requirements: [{ id: 'r1', name: 'React', kind: 'skill', importance: 'required', core: true, status: 'met', offerEvidence: { sourceId: 'offer', quote: 'React is required for building customer interfaces.' }, candidateEvidence: [{ sourceId: 'profile', quote: 'React' }], alternatives: [] }],
       }] }));
@@ -118,6 +119,7 @@ test('AI usage is reserved at admission and settled with durable results', { ski
       const { AIService } = await import('@/lib/ai-service');
       const { MATCH_DIMENSION_KEYS } = await import('@/lib/matching');
       const { processAiJob } = await import('@/lib/ai-jobs/process');
+      sub.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'openrouter', model: 'fixture/matcher' }));
       sub.mock.method(AIService as any, 'callMatchText', async () => JSON.stringify({ curated: offers.map(target => ({ id: target.id,
         ...Object.fromEntries(MATCH_DIMENSION_KEYS.map(key => [key, 0])), requirements: [{ id: 'r1', name: 'React', kind: 'skill', importance: 'required', core: true, status: 'met', offerEvidence: { sourceId: 'offer', quote: 'React is required for building customer interfaces.' }, candidateEvidence: [{ sourceId: 'profile', quote: 'React' }], alternatives: [] }],
       })) }));

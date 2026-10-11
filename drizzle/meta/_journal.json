@@ -274,6 +274,13 @@
       "when": 1791279113158,
       "tag": "0038_yellow_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1791713880559,
+      "tag": "0039_far_nekra",
+      "breakpoints": true
     }
   ]
 }

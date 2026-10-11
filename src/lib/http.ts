@@ -1,3 +1,5 @@
+import { fetchWithAiUsage } from './ai-usage-fetch';
+
 export const AI_FETCH_TIMEOUT_MS = 60_000;
 export const AI_STREAM_CONNECT_TIMEOUT_MS = 30_000;
 
@@ -18,7 +20,7 @@ export async function fetchWithTimeout(
   }
 
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetchWithAiUsage(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Request timed out after ${timeoutMs}ms`);

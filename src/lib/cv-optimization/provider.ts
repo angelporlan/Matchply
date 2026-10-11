@@ -1,5 +1,6 @@
 import type { AiModelRef } from '@/lib/ai-runtime-config';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
+import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
 import { CvOptimizationError } from './validation';
 import { readCvAiStream } from './stream';
 
@@ -32,10 +33,11 @@ export async function callCvAi(ref: AiModelRef, system: string, user: string, te
         headers['X-OpenRouter-Title'] = 'Matchply';
       }
       body = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-        ...(onContent ? {stream:true, ...(ref.provider === 'openai' ? {stream_options:{include_usage:true}} : {})} : {}),
+        ...(ref.provider === 'openrouter' ? { usage: { include: true } } : {}),
+        ...(onContent ? {stream:true, ...(['openai', 'deepseek'].includes(ref.provider) ? {stream_options:{include_usage:true}} : {})} : {}),
         ...((ref.provider === 'openai' && /luna|^o\d|^gpt-[56]/i.test(model)) ? {} : { temperature }) };
     }
-    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
+    const response = await fetchWithAiUsage(url, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal }, { functionKey: `optimize_cv:${mode}` });
     if (!response.ok) throw new CvOptimizationError(`AI_HTTP_${response.status}`, response.status === 429 || response.status >= 500);
     let result: unknown;
     if (onContent) {

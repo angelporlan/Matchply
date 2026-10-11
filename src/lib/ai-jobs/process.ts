@@ -14,6 +14,7 @@ import { bindAiRuntime, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
 import { processCvOptimization } from '@/lib/cv-optimization/service';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
@@ -36,7 +37,7 @@ export async function processAiJob(job: AiJob) {
   const snapshot = job.resolvedAiConfig
     ? parseAiRuntimeConfig(job.resolvedAiConfig)
     : await getResolvedAiRuntime();
-  return bindAiRuntime(snapshot, async () => {
+  return withAiUsageContext({ userId: job.userId, jobId: job.id, functionKey: job.kind }, () => bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const importController = new AbortController();
   const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants'].includes(job.kind) ? setInterval(() => {
@@ -123,5 +124,5 @@ export async function processAiJob(job: AiJob) {
     if (heartbeat) clearInterval(heartbeat);
     if (job.kind === 'optimize_cv_variants') importController.abort();
   }
-  });
+  }));
 }

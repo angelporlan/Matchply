@@ -1,4 +1,5 @@
 import { log } from '@/lib/logger';
+import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
 import { NEUTRAL_COMPANY, NEUTRAL_JOB_TITLE } from '@/lib/offer-fields';
 import { extractOffer, type ExtractedOffer } from './extract';
 import { assertPublicOfferUrl, downloadPublicPage, type PublicPage } from './public-page';
@@ -61,10 +62,10 @@ export function parseStructuredOffer(text: string): { jobTitle: string; company:
 export async function callOfferResponses(body: Record<string, unknown>, signal: AbortSignal, apiKey: string): Promise<ResponsesResult> {
   let response: Response;
   try {
-    response = await fetch('https://api.openai.com/v1/responses', {
+    response = await fetchWithAiUsage('https://api.openai.com/v1/responses', {
       method: 'POST', signal, headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: OFFER_IMPORT_MODEL, reasoning: { effort: 'low' }, store: false, max_output_tokens: 16_000, ...body }),
-    });
+    }, { functionKey: 'import_offer' });
   } catch {
     throw new OfferImportError(signal.aborted ? 'OFFER_IMPORT_TIMEOUT' : 'OFFER_AI_UNAVAILABLE', true);
   }

@@ -3,6 +3,7 @@ import { isIP } from 'net';
 import { lookup } from 'node:dns/promises';
 import { resolveRouteModel } from '@/lib/ai-runtime-store';
 import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER } from '@/lib/models';
+import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_FETCHED_TEXT = 24_000;
@@ -180,7 +181,7 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.any([controller.signal, ...(init.signal ? [init.signal] : [])]) });
+    return await fetchWithAiUsage(url, { ...init, signal: AbortSignal.any([controller.signal, ...(init.signal ? [init.signal] : [])]) });
   } finally {
     clearTimeout(timeout);
   }
@@ -243,6 +244,7 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
       },
       body: JSON.stringify({
         model,
+        ...(provider === 'openrouter' ? { usage: { include: true } } : {}),
         temperature: 0.1,
         response_format: { type: 'json_object' },
         messages: [

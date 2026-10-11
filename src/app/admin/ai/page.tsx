@@ -3,6 +3,7 @@ import { requireAdminContext } from '@/lib/request-context';
 import { AdminErrorState } from '@/components/admin/AdminStates';
 import AiConfigForm from '@/components/admin/AiConfigForm';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export default async function AdminAiPage() {
       <div className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold font-display">IA</h2>
+          <Link href="/admin/ai/usage" className="inline-flex items-center min-h-[44px] text-sm font-semibold text-ai-text underline">Ver consumo, costes y uso por usuario</Link>
           <p className="text-sm text-text-muted mt-1">Los prompts viven en código. El selector del editor muestra estos modos:</p>
           <ul className="mt-2 text-sm list-disc pl-5">
             {publicOptimizeModes().map((mode) => (

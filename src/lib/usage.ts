@@ -1,8 +1,9 @@
 import { createHash } from 'crypto';
 import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { aiJobs, cvs, jobResearchRuns, usageItems, usageOperations, usagePeriods, users, monetizationAssignments, monetizationEvents } from '@/db/schema';
+import { aiJobs, aiRequestUsage, cvs, jobResearchRuns, usageItems, usageOperations, usagePeriods, users, monetizationAssignments, monetizationEvents } from '@/db/schema';
 import { getUserPlan, type PlanDb } from '@/lib/plan-store';
+import { withAiUsageContext } from '@/lib/ai-usage-context';
 export type UsageBucket = 'general' | 'matching' | 'research';
 export type UsageOperation = typeof usageOperations.$inferSelect;
 export class UsageError extends Error {
@@ -122,13 +123,14 @@ export async function transferGuestUsage(tx: PlanDb, guestId: string, userId: st
     await tx.insert(monetizationAssignments).values({ userId, experimentVersion: assignment.experimentVersion, variant: assignment.variant, firstExposedAt: assignment.firstExposedAt, createdAt: assignment.createdAt }).onConflictDoUpdate({ target: [monetizationAssignments.userId, monetizationAssignments.experimentVersion], set: { variant: assignment.variant, firstExposedAt: sql`least(${monetizationAssignments.firstExposedAt}, ${assignment.firstExposedAt})` } });
   }
   await tx.update(monetizationEvents).set({ userId }).where(eq(monetizationEvents.userId, guestId));
+  await tx.update(aiRequestUsage).set({ userId }).where(eq(aiRequestUsage.userId, guestId));
   await tx.execute(sql`UPDATE "user" target SET "firstValueAt"=coalesce(target."firstValueAt",guest."firstValueAt") FROM "user" guest WHERE target.id=${userId} AND guest.id=${guestId}`);
 }
 export async function runWithUsage<T>(userId: string, input: UsageInput, fn: (operation: UsageOperation) => Promise<T>): Promise<T> {
   const operation = await beginUsage(userId, input);
   if (operation.status === 'consumed') return operation.result as T;
   try {
-    const result = await fn(operation);
+    const result = await withAiUsageContext({ userId, functionKey: input.action }, () => fn(operation));
     await db.transaction(tx => consumeUsage(tx, operation.id, result));
     return result;
   } catch (error) {
