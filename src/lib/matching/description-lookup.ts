@@ -18,6 +18,8 @@ const FAILURE_MESSAGES: Record<string, string> = {
 
 /** Automatic match retries stay inside this window, so a confirmed miss is not searched again. */
 export const LOOKUP_FAILURE_TTL_MS = 2 * 60 * 60 * 1000;
+// A newer retrieval strategy must retry misses recorded by the previous one.
+const LOOKUP_FAILURE_VERSION = 2;
 
 export type DescriptionLookupDecision =
   | { action: 'ready' }
@@ -79,6 +81,7 @@ export function rememberedLookupFailure(
   const lookup = metadataRecord(sourceMetadata).descriptionLookup;
   if (!lookup || typeof lookup !== 'object' || Array.isArray(lookup)) return null;
   const record = lookup as Record<string, unknown>;
+  if (record.version !== LOOKUP_FAILURE_VERSION) return null;
   if (record.status !== 'failed' || typeof record.code !== 'string' || !isPermanentLookupFailure(record.code)) return null;
   if ((typeof record.url === 'string' ? record.url : '') !== String(url || '').trim()) return null;
   if (typeof record.at !== 'string') return null;
@@ -108,7 +111,7 @@ export function classifyLookupError(error: unknown): { code: string; message: st
 }
 
 export function failedLookupMetadata(existing: unknown, code: string, url: string, at = new Date().toISOString()): Record<string, unknown> {
-  return { ...metadataRecord(existing), descriptionLookup: { status: 'failed', code, url, at } };
+  return { ...metadataRecord(existing), descriptionLookup: { version: LOOKUP_FAILURE_VERSION, status: 'failed', code, url, at } };
 }
 
 export function recoveredDescriptionMetadata(

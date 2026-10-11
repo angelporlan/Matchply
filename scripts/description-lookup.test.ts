@@ -49,6 +49,7 @@ test('a confirmed miss is skipped only for the same URL and only for two hours',
   assert.equal(decideDescriptionLookup({ ...card, sourceMetadata }, now + LOOKUP_FAILURE_TTL_MS).action, 'search');
   const retryable = failedLookupMetadata(card.sourceMetadata, 'OFFER_IMPORT_TIMEOUT', card.url, at);
   assert.equal(rememberedLookupFailure(retryable, card.url, now), null);
+  assert.equal(rememberedLookupFailure({ descriptionLookup: { status: 'failed', code: 'OFFER_SOURCE_MISMATCH', url: card.url, at } }, card.url, now), null, 'retry cached misses after the retrieval strategy changes');
 });
 
 test('lookup failures stay separate from the description text', () => {

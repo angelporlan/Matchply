@@ -22,7 +22,7 @@ const FORMAT = {
 
 export type ResponsesResult = {
   status?: string;
-  output?: Array<{ type?: string; action?: { sources?: Array<{ url?: string }> }; content?: Array<{
+  output?: Array<{ type?: string; action?: { type?: string; url?: string; sources?: Array<{ url?: string }> }; content?: Array<{
     type?: string; text?: string; annotations?: Array<{ type?: string; url?: string }>;
   }> }>;
   usage?: { input_tokens?: number; output_tokens?: number };
@@ -38,6 +38,7 @@ export function responseText(response: ResponsesResult): string {
 
 export function responseSources(response: ResponsesResult): string[] {
   return Array.from(new Set((response.output || []).flatMap(item => [
+    ...(item.type === 'web_search_call' && item.action?.type === 'open_page' && item.action.url ? [item.action.url] : []),
     ...(item.action?.sources || []).flatMap(source => source.url ? [source.url] : []),
     ...(item.content || []).flatMap(content => (content.annotations || []).flatMap(source =>
       source.type === 'url_citation' && source.url ? [source.url] : [])),

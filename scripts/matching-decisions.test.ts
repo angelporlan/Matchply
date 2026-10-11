@@ -13,7 +13,7 @@ import {
 } from '@/lib/matching';
 
 const profile = { skills: [{ name: 'React', category: 'frontend', proficiency: 'core' }], experienceYears: 3 };
-const reactOffer = { id: 'offer1', title: 'Frontend', company: 'Acme', description: 'Requirements\nReact is required for building customer interfaces.' };
+const reactOffer = { id: 'offer1', title: 'Frontend', company: 'Acme', platform: 'linkedin', description: 'Requirements\nReact is required for building customer interfaces.' };
 
 function answersFor(questions: Array<{ type: string; name: string }>, choice = 'met', score = 4): DecisionAnswer[] {
   return questions.map((question) => question.type === 'score'
@@ -46,6 +46,26 @@ test('host quotes cover the offer and Decisions only classifies them', () => {
   assert.equal(item.score, 100);
   assert.equal(item.evidence.requirements[0].status, 'met');
   assert.equal(item.evidence.requirements[0].offerEvidence.quote.includes('React is required'), true);
+});
+
+test('mandatory conditions without known skills or years retain their own evidence', () => {
+  const candidate = buildCandidateEvidence(profile, '', {});
+  for (const description of [
+    'Requirements\nReact is required for building customer interfaces.\nYou must be eligible to work in Spain.',
+    'You must enjoy working with customers and communicating clearly.',
+  ]) {
+    const raw = { ...reactOffer, description };
+    const offer = buildOfferCard(raw, 'triage');
+    const decision = buildMatchDecision({ candidate, offer });
+    assert.ok(decision.shells.some(shell => shell.kind === 'other' && shell.importance === 'required'));
+    const item = normalizeMatchItem({
+      offer: raw, offerCard: offer, candidateCard: candidate.card, candidateEvidence: candidate,
+      llm: llmItemFromDecision({ offerId: offer.id, shells: decision.shells, candidate, answers: answersFor(decision.questions) }),
+      constraints: {}, targetThreshold: 65, kind: 'triage', model: 'gpt-6-luna', provider: 'openai', scoringMethod: 'decisions-v1',
+    });
+    assert.equal(item.score, 100);
+    assert.equal(item.evidence.requirements.find(requirement => requirement.kind === 'other')?.status, 'unknown');
+  }
 });
 
 test('a missing core skill still caps the score when Decisions says missing', () => {

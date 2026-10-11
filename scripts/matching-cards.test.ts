@@ -21,9 +21,17 @@ test('keeps a mandatory requirement in the middle instead of taking only head an
 });
 
 test('oversized relevant evidence is flagged incomplete and never silently sliced into a valid offer', () => {
-  const card = buildOfferCard({ ...offer, description: `Requirements\n${'TypeScript required for production systems. '.repeat(500)}` }, 'triage');
+  const card = buildOfferCard({ ...offer, description: `Requirements\n${'TypeScript required for production systems. '.repeat(3500)}` }, 'triage');
   assert.equal(card.complete, false);
-  assert.ok(card.requirementsExtract.length <= 14000);
+  assert.ok(card.requirementsExtract.length <= 120000);
+});
+
+test('a long imported description keeps all relevant evidence beyond 14k', () => {
+  const description = `${'Building software with customers and supporting their product teams. '.repeat(300)}\nRequirements\nReact required for production customer interfaces.`;
+  const card = buildOfferCard({ ...offer, description }, 'triage');
+  assert.equal(card.complete, true);
+  assert.ok(card.requirementsExtract.length > 14000);
+  assert.match(card.requirementsExtract, /React required/);
 });
 
 test('triage and deep see identical input facts and ignore generated tldr', () => {

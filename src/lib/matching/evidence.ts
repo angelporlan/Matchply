@@ -83,7 +83,7 @@ export function listMandatorySentences(offer: MatchOfferCard): MandatorySentence
       const years = explicitYears(sentence);
       const skills = extractSkillsFromText(sentence).map((skill) => skill.name).filter((name) => skillPresent(name, sentence));
       if (OPTIONAL.test(sentence) || sentence.length < 12 || (!MANDATORY.test(sentence) && !(requirementsSection && (years.length || skills.length)))) continue;
-      found.push({ sentence, years: [...new Set(years)], skills: [...new Set(skills)] });
+      found.push({ sentence, years: Array.from(new Set(years)), skills: Array.from(new Set(skills)) });
     }
   }
   return found;

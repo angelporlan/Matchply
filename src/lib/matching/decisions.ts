@@ -105,6 +105,12 @@ export function decisionRequirementShells(offer: MatchOfferCard): DecisionRequir
         offerEvidence: { sourceId: 'offer', quote }, alternatives: [], requiredYears: year,
       });
     }
+    if (!item.skills.length && !item.years.length) {
+      shells.push({
+        id: `r${++next}`, name: 'Requisito de la oferta', kind: 'other', importance: 'required', core: false,
+        offerEvidence: { sourceId: 'offer', quote }, alternatives: [],
+      });
+    }
     if (!item.skills.length) continue;
     if (OR_SPLIT.test(item.sentence) && item.skills.length > 1) {
       const [name, ...alternatives] = item.skills;

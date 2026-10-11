@@ -142,6 +142,16 @@ test('Unavailable public page uses required web search, matching citations, then
   assert.ok(calls[1].text);
 });
 
+test('an exact open_page action confirms the source even without inline citations', async () => {
+  const result = await importOffer(url, { ...dependencies, download: async () => { throw new Error('blocked by portal'); },
+    respond: async body => body.tools
+      ? { ...response(description), output: [{ type: 'web_search_call', action: { type: 'open_page', url } }, ...response(description).output!] }
+      : response(structured),
+  });
+  assert.equal(result.sourceMethod, 'web_search');
+  assert.deepEqual(result.sources, [url]);
+});
+
 test('Unrelated source or changed LinkedIn job ID must not produce a successful import', async () => {
   let calls = 0;
   await assert.rejects(importOffer(url, { ...dependencies,
