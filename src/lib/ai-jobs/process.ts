@@ -75,7 +75,7 @@ export async function processAiJob(job: AiJob) {
         break;
       }
       case 'match_batch':
-        result = await processMatchBatch(job);
+        result = await processMatchBatch(job, importController.signal);
         break;
       default:
         throw new Error(`Unknown AI job kind: ${job.kind}`);

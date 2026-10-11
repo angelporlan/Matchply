@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
-  addMatchBatchError, addMatchBatchScore, matchBatchCounts, pendingMatchOfferIds, readMatchBatchResult,
+  addMatchBatchError, addMatchBatchScore, matchBatchCounts, pendingMatchOfferIds, readMatchBatchResult, unfinishedMatchOfferIds,
 } from '@/lib/ai-jobs/match-batch-state';
 
 test('batch progress preserves valid zero scores and retries only unsaved offers', () => {
@@ -23,6 +23,17 @@ test('successful retry removes its failure and never creates missing scores', ()
   progress = addMatchBatchError(progress, { id: 'b', message: 'Late obsolete failure' });
   assert.equal(progress.errors.length, 0);
   assert.deepEqual(pendingMatchOfferIds(['a', 'b'], progress), []);
+});
+
+test('a confirmed description miss finishes that offer without hiding a scoring failure', () => {
+  const progress = readMatchBatchResult({ total: 3, items: [{ id: 'scored', score: 70 }], errors: [
+    { id: 'missing', message: 'No se encontró la descripción pública de esta oferta.', code: 'lookup' },
+    { id: 'retry', message: 'No se pudo recuperar la descripción de la oferta. Vuelve a intentarlo.' },
+  ] });
+  assert.equal(progress.errors.find(error => error.id === 'missing')?.code, 'lookup');
+  assert.equal(progress.errors.find(error => error.id === 'retry')?.code, undefined);
+  assert.deepEqual(unfinishedMatchOfferIds(['scored', 'missing', 'retry'], progress), ['retry']);
+  assert.deepEqual(pendingMatchOfferIds(['scored', 'missing', 'retry'], progress), ['missing', 'retry']);
 });
 
 test('public batch progress discards invalid scores and narrative fields', () => {

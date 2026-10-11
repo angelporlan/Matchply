@@ -2,9 +2,15 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvs, jobOffers, users, type AiJob } from '@/db/schema';
 import { AIService } from '@/lib/ai-service';
+import { listStubCanTakeDescription } from '@/lib/extension-capture';
 import { baseCvForAiColumns, curateOfferColumns } from '@/lib/job-offer-queries';
 import { persistMatchResult } from '@/lib/match-persistence';
 import { log } from '@/lib/logger';
+import {
+  classifyLookupError, decideDescriptionLookup, failedLookupMetadata, isPermanentLookupFailure, offerNeedsDescriptionLookup, recoveredDescriptionMetadata,
+} from '@/lib/matching/description-lookup';
+import { importOffer } from '@/lib/offer-import/service';
+import type { ImportedOffer } from '@/lib/offer-import/types';
 import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { getUserPlan } from '@/lib/plan-store';
@@ -16,11 +22,66 @@ import {
   addMatchBatchError,
   addMatchBatchScore,
   pendingMatchOfferIds,
+  unfinishedMatchOfferIds,
   type MatchBatchError,
   type MatchBatchResult,
 } from './match-batch-state';
 
-export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & { inputHashes: Record<string, string> }> {
+type MatchOfferRow = {
+  id: string;
+  title: string;
+  company: string;
+  description: string | null;
+  sourceMetadata: unknown;
+};
+
+async function readOfferText(userId: string, offerId: string) {
+  const [row] = await db.select({
+    description: jobOffers.description,
+    sourceMetadata: jobOffers.sourceMetadata,
+  }).from(jobOffers).where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId))).limit(1);
+  return row ?? null;
+}
+
+function useStoredText(offer: MatchOfferRow, row: { description: string | null; sourceMetadata: unknown }) {
+  offer.description = row.description;
+  offer.sourceMetadata = row.sourceMetadata;
+}
+
+/** Keep a confirmed miss on the same URL so the match retry does not search it again. */
+async function rememberLookupFailure(userId: string, offer: MatchOfferRow, code: string, url: string): Promise<'ready' | 'failed' | 'gone'> {
+  const fresh = await readOfferText(userId, offer.id);
+  if (!fresh) return 'gone';
+  if (!offerNeedsDescriptionLookup({ ...offer, description: fresh.description, sourceMetadata: fresh.sourceMetadata })) {
+    useStoredText(offer, fresh);
+    return 'ready';
+  }
+  const sourceMetadata = failedLookupMetadata(fresh.sourceMetadata, code, url);
+  await db.update(jobOffers).set({ sourceMetadata, updatedAt: new Date() })
+    .where(and(eq(jobOffers.id, offer.id), eq(jobOffers.userId, userId)));
+  offer.sourceMetadata = sourceMetadata;
+  return 'failed';
+}
+
+/** Save the looked-up description only. Title and company stay as captured. */
+async function saveRecoveredDescription(userId: string, offer: MatchOfferRow, imported: ImportedOffer): Promise<'ready' | 'gone'> {
+  const fresh = await readOfferText(userId, offer.id);
+  if (!fresh) return 'gone';
+  const current = { ...offer, description: fresh.description, sourceMetadata: fresh.sourceMetadata };
+  if (!offerNeedsDescriptionLookup(current) || !listStubCanTakeDescription(fresh, imported.jobDescription)) {
+    useStoredText(offer, fresh);
+    return 'ready';
+  }
+  const sourceMetadata = recoveredDescriptionMetadata(fresh.sourceMetadata, imported.sources, imported.sourceMethod);
+  await db.update(jobOffers).set({ description: imported.jobDescription, sourceMetadata, updatedAt: new Date() })
+    .where(and(eq(jobOffers.id, offer.id), eq(jobOffers.userId, userId)));
+  offer.description = imported.jobDescription;
+  offer.sourceMetadata = sourceMetadata;
+  log({ event: 'offer_description_recovered', userId, offerId: offer.id, sourceMethod: imported.sourceMethod });
+  return 'ready';
+}
+
+export async function processMatchBatch(job: AiJob, signal?: AbortSignal): Promise<MatchBatchResult & { inputHashes: Record<string, string> }> {
   const payload = job.payload as MatchBatchPayload;
   if (!Array.isArray(payload.offerIds) || payload.offerIds.some(id => typeof id !== 'string')) {
     throw new Error('INVALID_MATCH_BATCH');
@@ -70,11 +131,13 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
     if (!foundIds.has(id)) await recordError({ id, message: 'La oferta ya no está disponible.' });
   }
 
-  await AIService.curateOffersBatch({
+  // Decisions only scores. Offers that already have a description are scored first.
+  // A list card or a blank description is retrieved with the existing Responses search, then scored the same way.
+  const scoreOffers = (rows: typeof offers) => AIService.curateOffersBatch({
     baseCvMarkdown: cvRows[0]?.content || '',
     userCareerProfile: user.careerProfile || {},
     userSubscriptionStatus: effectiveSubscriptionStatus(user),
-    offers,
+    offers: rows,
     kind: payload.kind || 'triage',
     targetThreshold: payload.targetThreshold,
     evaluationStartedAt: job.createdAt.toISOString(),
@@ -97,6 +160,42 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
       }
     }),
   });
+
+  const ready = offers.filter(offer => decideDescriptionLookup(offer).action === 'ready');
+  const readyIds = new Set(ready.map(offer => offer.id));
+  await scoreOffers(ready);
+
+  const recovered: typeof offers = [];
+  const reportLookup = async (offer: typeof offers[number], failure: { code: string; message: string; remember: boolean }, url: string) => {
+    const kept = failure.remember ? await rememberLookupFailure(job.userId, offer, failure.code, url) : 'failed';
+    if (kept === 'ready') recovered.push(offer);
+    else if (kept === 'gone') await recordError({ id: offer.id, message: 'La oferta ya no está disponible.' });
+    else {
+      await recordError({ id: offer.id, message: failure.message, ...(isPermanentLookupFailure(failure.code) ? { code: 'lookup' as const } : {}) });
+      log({ event: 'offer_description_lookup_failed', level: 'warn', userId: job.userId, offerId: offer.id, jobId: job.id, code: failure.code });
+    }
+  };
+  for (const offer of offers) {
+    if (readyIds.has(offer.id)) continue;
+    const decision = decideDescriptionLookup(offer);
+    if (decision.action === 'ready') { recovered.push(offer); continue; }
+    if (signal?.aborted || !await ownsAiJobLease(job)) throw new Error('AI_JOB_LEASE_LOST');
+    if (decision.action === 'fail') {
+      await reportLookup(offer, decision, String(offer.url || '').trim());
+      continue;
+    }
+    try {
+      const imported = await importOffer(decision.url, { signal });
+      if (signal?.aborted || !await ownsAiJobLease(job)) throw new Error('AI_JOB_LEASE_LOST');
+      if (await saveRecoveredDescription(job.userId, offer, imported) === 'gone') {
+        await recordError({ id: offer.id, message: 'La oferta ya no está disponible.' });
+      } else recovered.push(offer);
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Error && error.message === 'AI_JOB_LEASE_LOST')) throw new Error('AI_JOB_LEASE_LOST');
+      await reportLookup(offer, classifyLookupError(error), decision.url);
+    }
+  }
+  await scoreOffers(recovered);
   await progressTail;
 
   for (const id of pendingMatchOfferIds(payload.offerIds, progress)) {
@@ -106,7 +205,7 @@ export async function processMatchBatch(job: AiJob): Promise<MatchBatchResult & 
   }
   log({ event: 'match_batch_progress', jobId: job.id, userId: job.userId,
     evaluated: progress.items.length, failed: progress.errors.length, attempt: job.attempt });
-  if (progress.items.length !== new Set(payload.offerIds).size) {
+  if (unfinishedMatchOfferIds(payload.offerIds, progress).length) {
     throw new Error('Algunas ofertas no se han actualizado; se conservan sus resultados anteriores.');
   }
   return { ...progress, inputHashes };

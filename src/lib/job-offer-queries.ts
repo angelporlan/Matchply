@@ -115,6 +115,7 @@ export const curateOfferColumns = {
   title: jobOffers.title,
   company: jobOffers.company,
   description: jobOffers.description,
+  url: jobOffers.url,
   platform: jobOffers.platform,
   scoreOverall: jobOffers.scoreOverall,
   scoreBreakdown: jobOffers.scoreBreakdown,
