@@ -17,10 +17,11 @@ import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import { createJobOffer, updateJobOfferStatus, deleteJobOffer, getOwnedJobOffer } from '@/app/dashboard/applications/actions';
-import { queryApplicationIdsAction, queryApplicationsAction } from '@/app/dashboard/applications/query-actions';
+import { queryApplicationIdsAction, queryApplicationsAction, querySelectedApplicationsAction } from '@/app/dashboard/applications/query-actions';
 import { createApplicationView, deleteApplicationView, setDefaultApplicationView, updateApplicationView } from '@/app/dashboard/applications/view-actions';
 import { replaceUrlQuery } from '@/lib/client-url';
 import { EXPORT_OFFER_ID_LIMIT } from '@/lib/application-filter-bounds';
+import { reportPlanRestriction } from '@/lib/plan-presentation';
 import {
   APPLICATION_COLUMN_IDS,
   DEFAULT_VIEW_CONFIG,
@@ -147,6 +148,7 @@ export default function ApplicationsClient({
   const [startDate, setStartDate] = useState(initialConfig.filters.startDate || '');
   const [endDate, setEndDate] = useState(initialConfig.filters.endDate || '');
   const [isCurateModalOpen, setIsCurateModalOpen] = useState(false);
+  const [isPreparingMatch, setIsPreparingMatch] = useState(false);
   const [curateTargetOffers, setCurateTargetOffers] = useState<ApplicationSummary[] | null>(null);
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -514,22 +516,22 @@ export default function ApplicationsClient({
   };
 
   const handleCurateSelected = async () => {
-    if (selectedIds.size === 0) return;
-    const selectedOffers = localOffers.filter((o) => selectedIds.has(o.id));
-    if (selectedOffers.length === 0) return;
-
-    const proceed = await inspectOrExecutePrompt({
-      action: 'curate_offers',
-      title: `Curar y calcular Match con IA (${selectedOffers.length} ofertas)`,
-      data: {
-        targetThreshold: 65,
-        offerIds: selectedOffers.map((o) => o.id),
-      },
-    });
-    if (!proceed) return;
-
-    setCurateTargetOffers(selectedOffers);
-    setIsCurateModalOpen(true);
+    if (selectedIds.size === 0 || isPreparingMatch) return;
+    const ids = Array.from(selectedIds);
+    setIsPreparingMatch(true);
+    try {
+      const result = await querySelectedApplicationsAction(ids);
+      if ('error' in result) { reportPlanRestriction(result, 'match-batch'); showToast(result.error, 'info'); return; }
+      const proceed = await inspectOrExecutePrompt({
+        action: 'curate_offers',
+        title: `Curar y calcular Match con IA (${result.offers.length} ofertas)`,
+        data: { targetThreshold: 65, offerIds: ids },
+      });
+      if (!proceed) return;
+      setCurateTargetOffers(result.offers);
+      setIsCurateModalOpen(true);
+    } catch { showToast('No se pudieron cargar las ofertas seleccionadas. Vuelve a intentarlo.', 'info'); }
+    finally { setIsPreparingMatch(false); }
   };
 
   const handleOpenDetails = async (offer: ApplicationSummary) => {
@@ -788,6 +790,8 @@ export default function ApplicationsClient({
                 <button
                   type="button"
                   onClick={handleCurateSelected}
+                  disabled={isPreparingMatch}
+                  aria-busy={isPreparingMatch}
                   className="btn-raised btn-raised--ai btn-raised--sm"
                 >
                   <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />

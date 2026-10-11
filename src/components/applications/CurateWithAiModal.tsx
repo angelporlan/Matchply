@@ -272,7 +272,7 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
         <div className="space-y-3 px-5 py-4">
           <p id="match-batch-help" className="text-sm text-text-muted">
             {isSimulation ? 'Se muestran las puntuaciones guardadas del ejemplo.'
-              : inProgress ? 'Puedes cerrar esta ventana. El cálculo continúa y los resultados se guardan al completarse.'
+              : inProgress ? 'Si falta la descripción, se busca y se guarda antes de calcular el match. Puedes cerrar esta ventana; el proceso continúa.'
                 : 'El porcentaje mide la afinidad con tu perfil y tus preferencias.'}
           </p>
           <div className="flex items-center justify-between text-sm text-text-muted" role="status" aria-live="polite">
@@ -294,7 +294,7 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-text" title={offer.title}>{offer.title}</p>
                   <p className="truncate text-xs text-text-muted">{offer.company}</p>
-                  {failure && score === undefined && <p className="mt-1 text-xs text-warning-text">{outdatedScores.has(offer.id) ? 'Datos modificados · Pendiente de recalcular' : `Sin actualizar${inProgress ? ' · Se reintentará' : ''}`}</p>}
+                  {failure && score === undefined && <p className="mt-1 text-xs text-warning-text">{outdatedScores.has(offer.id) ? 'Datos modificados · Pendiente de recalcular' : failure}</p>}
                 </div>
                 <span className="shrink-0 font-display text-lg font-bold tabular-nums text-text">
                   {score !== undefined ? `${score}%` : failure && !outdatedScores.has(offer.id) && offer.scoreOverall !== null ? `${offer.scoreOverall}%`

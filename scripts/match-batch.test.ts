@@ -143,7 +143,7 @@ test('durable match queue enforces lease ownership, recovery, and user isolation
       const job = await queue.enqueueMatchBatchJob(userIds[0], { requestId: randomUUID(), offerIds: ids, targetThreshold: 65 });
       const claimed = await queue.claimAiJobById(job.id);
       assert.ok(claimed);
-      workerTest.mock.method(AIService as any, 'getSetting', async (key: string) => key.endsWith('provider') ? 'gemini' : 'queue-test');
+      workerTest.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'gemini', model: 'queue-test' }));
       const prompts: string[] = [];
       workerTest.mock.method(AIService as any, 'callMatchText', async (_provider: string, _model: string, _system: string, userPrompt: string) => {
         prompts.push(userPrompt);
@@ -199,7 +199,7 @@ test('durable match queue enforces lease ownership, recovery, and user isolation
       const job = await queue.enqueueMatchBatchJob(userIds[0], { requestId: randomUUID(), offerIds: ids, targetThreshold: 65 });
       const claimed = await queue.claimAiJobById(job.id);
       assert.ok(claimed);
-      workerTest.mock.method(AIService as any, 'getSetting', async () => 'queue-test');
+      workerTest.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'gemini', model: 'queue-test' }));
       const prompts: string[] = [];
       workerTest.mock.method(AIService as any, 'callMatchText', async (_provider: string, _model: string, _system: string, userPrompt: string) => {
         prompts.push(userPrompt);
@@ -230,6 +230,81 @@ test('durable match queue enforces lease ownership, recovery, and user isolation
       const rows = await db.select({ score: jobOffers.scoreOverall }).from(jobOffers).where(inArray(jobOffers.id, offerIds));
       assert.ok(rows.every(row => row.score === 42));
       await db.update(users).set({ subscriptionStatus: 'active' }).where(eq(users.id, userIds[1]));
+    });
+    await t.test('50 selected offers cross pagination, recover missing descriptions and publish each score immediately', async workerTest => {
+      const { AIService } = await import('@/lib/ai-service');
+      const { processMatchBatch } = await import('@/lib/ai-jobs/match-batch');
+      const { listApplicationsPage, listApplicationIds, listSelectedApplications } = await import('@/lib/application-list-query');
+      const ids: string[] = Array.from({ length: 50 }, () => randomUUID());
+      const owner = randomUUID(); userIds.push(owner);
+      await db.insert(users).values({ id: owner, email: `selection-${owner}@example.test`, subscriptionStatus: 'active',
+        careerProfile: { skills: [{ name: 'React', category: 'frontend', proficiency: 'core' }], experienceYears: 3 } });
+      const description = 'Requirements\nReact is required for building customer interfaces.\nYou must be eligible to work in Spain.';
+      const sourceUrls = ids.map((_id, index) => `https://www.linkedin.com/jobs/view/${8000000000 + index}/`);
+      await db.insert(jobOffers).values(ids.map((id, index) => ({ id, userId: owner, title: `Captured role ${index}`, company: 'Captured company',
+        url: sourceUrls[index], description: index < 25 ? description : index % 2 ? '' : `Captured role ${index}\nCaptured company\nMadrid`,
+        sourceMetadata: index < 25 ? { captureKind: 'detail' } : { captureKind: 'list', location: 'Madrid' },
+        rawReport: 'PRIVATE_REPORT_SENTINEL', coverLetter: 'PRIVATE_LETTER_SENTINEL' })));
+      const query = { userId: owner, filters: {}, sort: { key: 'createdAt' as const, direction: 'desc' as const }, pageSize: 25 };
+      assert.equal((await listApplicationsPage(query)).items.length, 25);
+      const selectedIds = await listApplicationIds(query);
+      assert.equal(selectedIds.length, 50);
+      const selected = await listSelectedApplications(owner, selectedIds);
+      assert.deepEqual(selected.map(row => row.id), selectedIds);
+      assert.equal(selected.length, 50);
+      assert.ok(selected.every(row => !('description' in row) && !('rawReport' in row) && !('coverLetter' in row)));
+      assert.ok(!JSON.stringify(selected).includes('PRIVATE_'));
+      await assert.rejects(listSelectedApplications(userIds[1], selectedIds), /no están disponibles/);
+      await assert.rejects(listSelectedApplications(owner, [...selectedIds, randomUUID()]), /no están disponibles/);
+
+      const job = await queue.enqueueMatchBatchJob(owner, { requestId: randomUUID(), offerIds: selectedIds, targetThreshold: 65 });
+      const claimed = await queue.claimAiJobById(job.id); assert.ok(claimed);
+      workerTest.mock.method(AIService as any, 'routeModel', async () => ({ provider: 'openai', model: 'gpt-6-luna' }));
+      workerTest.mock.method(AIService as any, 'callOpenAIDecisions', async (input: string, questions: Array<{ type: string; name: string }>) => {
+        const id = input.match(/Oferta ([0-9a-f-]{36})/)?.[1]; assert.ok(id);
+        const [row] = await db.select({ description: jobOffers.description }).from(jobOffers).where(eq(jobOffers.id, id));
+        assert.equal(row.description, description, 'the recovered description must be saved before scoring');
+        return questions.map(question => question.type === 'score'
+          ? { type: 'score', name: question.name, score: id === ids[0] ? 0 : 4 }
+          : { type: 'choice', name: question.name, choice: 'met' });
+      });
+      let lastRecoveredId: string | null = null;
+      let currentUrl = '';
+      let downloads = 0;
+      let searches = 0;
+      const output = (text: string) => ({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text }] }] });
+      const progress = await processMatchBatch(claimed, undefined, {
+        apiKey: 'test-only',
+        download: async url => {
+          if (lastRecoveredId) {
+            const currentJob = await queue.getAiJob(job.id);
+            assert.ok(readMatchBatchResult(currentJob?.result).items.some(item => item.id === lastRecoveredId), 'publish each recovered score before downloading the next offer');
+          }
+          currentUrl = url;
+          const index = sourceUrls.indexOf(url); assert.ok(index >= 25);
+          downloads += 1; lastRecoveredId = ids[index];
+          if (downloads === 1) throw new Error('Public page unavailable');
+          return { url, visitedUrls: [url], html: `<script type="application/ld+json">${JSON.stringify({ '@type': 'JobPosting', url, title: 'Recovered role', hiringOrganization: { name: 'Recovered company' }, description })}</script>` };
+        },
+        respond: async body => {
+          if (body.tools) { searches += 1; return { ...output(description), output: [{ type: 'web_search_call', action: { type: 'open_page', url: currentUrl } }, ...output(description).output] }; }
+          return output(JSON.stringify({ isJobOffer: true, jobTitle: 'Recovered role', company: 'Recovered company', jobDescription: description }));
+        },
+      });
+      assert.equal(downloads, 25); assert.equal(searches, 1);
+      assert.equal(progress.total, 50); assert.equal(progress.items.length, 50); assert.equal(progress.errors.length, 0);
+      assert.equal(progress.items.find(item => item.id === ids[0])?.score, 0);
+      const saved = await db.select({ id: jobOffers.id, description: jobOffers.description, title: jobOffers.title, company: jobOffers.company,
+        score: jobOffers.scoreOverall, sourceMetadata: jobOffers.sourceMetadata }).from(jobOffers).where(eq(jobOffers.userId, owner));
+      for (const row of saved) {
+        assert.equal(row.description, description);
+        assert.equal(row.title, `Captured role ${ids.indexOf(row.id)}`);
+        assert.equal(row.company, 'Captured company');
+        assert.equal((row.sourceMetadata as any).captureKind, 'detail');
+        assert.equal(row.score, row.id === ids[0] ? 0 : 100);
+      }
+      assert.ok(await queue.completeAiJob(job.id, progress, claimed));
+      assert.equal((await queue.getAiJob(job.id))?.status, 'completed');
     });
     await t.test('expired leases lose write authority and can be reclaimed', async () => {
       const job = await create(userIds[0]);

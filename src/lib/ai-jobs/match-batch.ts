@@ -9,7 +9,7 @@ import { log } from '@/lib/logger';
 import {
   classifyLookupError, decideDescriptionLookup, failedLookupMetadata, isPermanentLookupFailure, offerNeedsDescriptionLookup, recoveredDescriptionMetadata,
 } from '@/lib/matching/description-lookup';
-import { importOffer } from '@/lib/offer-import/service';
+import { importOffer, type ImportDependencies } from '@/lib/offer-import/service';
 import type { ImportedOffer } from '@/lib/offer-import/types';
 import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { SubscriptionAccessError } from '@/lib/permissions';
@@ -43,7 +43,7 @@ async function readOfferText(userId: string, offerId: string) {
   return row ?? null;
 }
 
-function useStoredText(offer: MatchOfferRow, row: { description: string | null; sourceMetadata: unknown }) {
+function applyStoredText(offer: MatchOfferRow, row: { description: string | null; sourceMetadata: unknown }) {
   offer.description = row.description;
   offer.sourceMetadata = row.sourceMetadata;
 }
@@ -53,7 +53,7 @@ async function rememberLookupFailure(userId: string, offer: MatchOfferRow, code:
   const fresh = await readOfferText(userId, offer.id);
   if (!fresh) return 'gone';
   if (!offerNeedsDescriptionLookup({ ...offer, description: fresh.description, sourceMetadata: fresh.sourceMetadata })) {
-    useStoredText(offer, fresh);
+    applyStoredText(offer, fresh);
     return 'ready';
   }
   const sourceMetadata = failedLookupMetadata(fresh.sourceMetadata, code, url);
@@ -69,7 +69,7 @@ async function saveRecoveredDescription(userId: string, offer: MatchOfferRow, im
   if (!fresh) return 'gone';
   const current = { ...offer, description: fresh.description, sourceMetadata: fresh.sourceMetadata };
   if (!offerNeedsDescriptionLookup(current) || !listStubCanTakeDescription(fresh, imported.jobDescription)) {
-    useStoredText(offer, fresh);
+    applyStoredText(offer, fresh);
     return 'ready';
   }
   const sourceMetadata = recoveredDescriptionMetadata(fresh.sourceMetadata, imported.sources, imported.sourceMethod);
@@ -81,7 +81,11 @@ async function saveRecoveredDescription(userId: string, offer: MatchOfferRow, im
   return 'ready';
 }
 
-export async function processMatchBatch(job: AiJob, signal?: AbortSignal): Promise<MatchBatchResult & { inputHashes: Record<string, string> }> {
+export async function processMatchBatch(
+  job: AiJob,
+  signal?: AbortSignal,
+  lookupDependencies: Pick<ImportDependencies, 'download' | 'respond' | 'apiKey'> = {},
+): Promise<MatchBatchResult & { inputHashes: Record<string, string> }> {
   const payload = job.payload as MatchBatchPayload;
   if (!Array.isArray(payload.offerIds) || payload.offerIds.some(id => typeof id !== 'string')) {
     throw new Error('INVALID_MATCH_BATCH');
@@ -165,10 +169,9 @@ export async function processMatchBatch(job: AiJob, signal?: AbortSignal): Promi
   const readyIds = new Set(ready.map(offer => offer.id));
   await scoreOffers(ready);
 
-  const recovered: typeof offers = [];
   const reportLookup = async (offer: typeof offers[number], failure: { code: string; message: string; remember: boolean }, url: string) => {
     const kept = failure.remember ? await rememberLookupFailure(job.userId, offer, failure.code, url) : 'failed';
-    if (kept === 'ready') recovered.push(offer);
+    if (kept === 'ready') await scoreOffers([offer]);
     else if (kept === 'gone') await recordError({ id: offer.id, message: 'La oferta ya no está disponible.' });
     else {
       await recordError({ id: offer.id, message: failure.message, ...(isPermanentLookupFailure(failure.code) ? { code: 'lookup' as const } : {}) });
@@ -178,24 +181,27 @@ export async function processMatchBatch(job: AiJob, signal?: AbortSignal): Promi
   for (const offer of offers) {
     if (readyIds.has(offer.id)) continue;
     const decision = decideDescriptionLookup(offer);
-    if (decision.action === 'ready') { recovered.push(offer); continue; }
+    if (decision.action === 'ready') { await scoreOffers([offer]); continue; }
     if (signal?.aborted || !await ownsAiJobLease(job)) throw new Error('AI_JOB_LEASE_LOST');
     if (decision.action === 'fail') {
       await reportLookup(offer, decision, String(offer.url || '').trim());
       continue;
     }
+    let recovered = false;
     try {
-      const imported = await importOffer(decision.url, { signal });
+      const imported = await importOffer(decision.url, { ...lookupDependencies, signal });
       if (signal?.aborted || !await ownsAiJobLease(job)) throw new Error('AI_JOB_LEASE_LOST');
       if (await saveRecoveredDescription(job.userId, offer, imported) === 'gone') {
         await recordError({ id: offer.id, message: 'La oferta ya no está disponible.' });
-      } else recovered.push(offer);
+      } else recovered = true;
     } catch (error) {
       if (signal?.aborted || (error instanceof Error && error.message === 'AI_JOB_LEASE_LOST')) throw new Error('AI_JOB_LEASE_LOST');
       await reportLookup(offer, classifyLookupError(error), decision.url);
     }
+    // Persist and publish this score before retrieving the next description.
+    // Scoring/persistence failures must not be classified as retrieval failures.
+    if (recovered) await scoreOffers([offer]);
   }
-  await scoreOffers(recovered);
   await progressTail;
 
   for (const id of pendingMatchOfferIds(payload.offerIds, progress)) {
