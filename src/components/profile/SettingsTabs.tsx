@@ -54,6 +54,9 @@ export default function SettingsTabs({
   const [account, setAccount] = useState<AccountSettingsPayload | null>(initialAccount);
   const [loadingTab, setLoadingTab] = useState<SettingsTab | null>(null);
 
+  // Keep the lazily loaded account tab current after a profile photo/name save.
+  useEffect(() => { if (initialAccount) setAccount(initialAccount); }, [initialAccount]);
+
   useEffect(() => {
     const fromUrl = readTab(searchParams.get('tab'));
     if (fromUrl && fromUrl !== activeTab) {

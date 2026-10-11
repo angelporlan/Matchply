@@ -29,7 +29,7 @@ export default function NameForm({ initialName, onSaved }: NameFormProps) {
 
     const result = await updateUserNameAction(value);
 
-    if (!result || 'error' in result) {
+    if (!result || result.error || typeof result.name !== 'string') {
       setError(
         result?.error === 'INVALID_NAME'
           ? t('sidebar.userMenu.nameError')

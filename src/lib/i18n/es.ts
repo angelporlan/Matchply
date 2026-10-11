@@ -1,4 +1,23 @@
+import { planTranslations } from './plans';
+
 const es = {
+    accountPhoto: {
+      title: 'Foto de perfil',
+      upload: 'Subir foto de perfil',
+      change: 'Cambiar foto de perfil',
+      select: 'Seleccionar foto de perfil',
+      help: 'JPG, PNG o WebP, hasta 10 MB. Recorte cuadrado automático.',
+      kept: 'Tu foto se conserva al volver a iniciar sesión con Google.',
+      saving: 'Optimizando y guardando foto…',
+      saved: 'Foto guardada.',
+      formatError: 'Selecciona una imagen JPG, PNG o WebP.',
+      sizeError: 'La imagen debe ocupar como máximo 10 MB.',
+      dimensionsError: 'La imagen es demasiado grande. Usa una de hasta 16 megapíxeles.',
+      invalidError: 'No se pudo leer la imagen. Prueba con otra foto.',
+      rateLimitError: 'Has cambiado la foto varias veces. Espera un minuto y vuelve a intentarlo.',
+      saveError: 'No se pudo guardar la foto. Vuelve a intentarlo.',
+    },
+    plans: planTranslations.es,
     offerImport: {
       label: "Enlace a la oferta",
       import: "Importar oferta",
@@ -46,6 +65,22 @@ const es = {
         working: 'Adaptando tu CV...',
         baseTitle: 'CV base',
         untitledSection: 'Currículum',
+        cvStep: '1. Tu currículum',
+        offerStep: '2. La oferta',
+        optional: '(Opcional)',
+        chooseCv: 'Paso 1: Selecciona tu CV actual',
+        chooseHelp: 'Sube tu PDF para extraer tus datos o pégalo directamente en texto.',
+        upload: 'Haz clic o arrastra tu currículum en PDF',
+        uploadHelp: 'Formato PDF estándar hasta 10 MB',
+        selectedPdf: 'PDF seleccionado ({size} KB)',
+        change: 'Cambiar',
+        next: 'Continuar al paso 2 (añadir oferta)',
+        skip: 'Saltar oferta y crear mi CV',
+        hideText: 'Ocultar editor de texto',
+        showText: '¿No tienes PDF? Pega el texto',
+        ready: 'CV preparado:',
+        pasted: 'Texto pegado ({words} palabras)',
+        back: 'Atrás',
         errors: {
           cv: 'Pega tu CV o sube un PDF.',
           job: 'Pega la descripción de la oferta.',
@@ -89,6 +124,50 @@ const es = {
         errorUnexpected: 'Ocurrió un error inesperado al registrar el usuario',
       },
     },
+    variants: {
+      "label": "Versiones optimizadas",
+      "generationHelp": "Crearemos Equilibrado. Después podrás generar Fiel o Máximo matching desde el editor. El conjunto consume una optimización.",
+      "confirmTitle": "¿Optimizar en modo {mode}?",
+      "confirmBody": "Crearemos esta versión con el CV original y la misma oferta. Tus otras versiones se conservarán. No consume otra optimización.",
+      "confirm": "Sí, optimizar",
+      "cancel": "Cancelar",
+      "words": "palabras",
+      "retry": "Reintentar",
+      "retryError": "No se pudo reintentar la versión.",
+      "saveError": "No se pudo guardar. Conserva tu borrador y reintenta.",
+      "gapsTitle": "Requisitos y sugerencias",
+      "gapsHelp": "Estos requisitos no tienen evidencia suficiente en tus fuentes. Añádelos al CV base solo si son reales y vuelve a optimizar.",
+      "noGaps": "No se han detectado requisitos imprescindibles sin respaldo suficiente.",
+      "metricsTitle": "Métricas que podrías añadir si son reales",
+      "names": {
+        "optimize_honest": "Fiel",
+        "optimize_adapted": "Equilibrado",
+        "optimize_aggressive": "Máximo matching"
+      },
+      "descriptions": {
+        "optimize_honest": "Conserva estructura y logros; adapta hasta seis viñetas.",
+        "optimize_adapted": "Prioriza la oferta conservando los hechos y la cronología.",
+        "optimize_aggressive": "Reestructura para destacar el máximo encaje respaldado por tu experiencia."
+      },
+      "status": {
+        "idle": "Sin generar",
+        "pending": "Pendiente",
+        "generating": "Generando",
+        "ready": "Disponible",
+        "error": "Error"
+      },
+      "stages": {
+        "queued": "Esperando al motor de IA…",
+        "analysis": "Analizando requisitos y evidencia…",
+        "generating": "Escribiendo y comprobando tu CV…",
+        "completed": "Versiones disponibles"
+      },
+      "severity": {
+        "critico": "Crítico",
+        "moderado": "Moderado",
+        "menor": "Menor"
+      }
+    },
     landing: {
       nav: {
         features: 'Características',
@@ -110,7 +189,7 @@ const es = {
       features: {
         title: 'Una suite potente de optimización profesional',
         subtitle: 'Desde el editor interactivo con auto-guardado hasta la inteligencia semántica y el pipeline de trabajos.',
-        editor: {
+  editor: {
           title: 'Tu CV, listo para imprimir en segundos',
           desc: 'Editor en tiempo real con previsualización instantánea del PDF. Lo que escribes es lo que envías.',
         },
@@ -319,8 +398,8 @@ const es = {
         planFree: 'Plan Gratuito',
         planPro: 'PRO',
         planActive: 'Activo',
-        planFreeDesc: 'Optimización IA básica con la plantilla Harvard. Mejora a PRO para desbloquear integraciones y CVs ilimitados.',
-        planProDesc: 'Acceso completo a optimización IA avanzada, integraciones, trabajos y descargas ilimitadas.',
+        planFreeDesc: 'Consulta tu saldo de IA y los límites de CVs. El editor, CRM, extensión y PDF están incluidos.',
+        planProDesc: 'Tu plan amplía las cuotas de IA, matching e investigación. Consulta aquí el uso y los límites actuales.',
         manageBilling: 'Gestionar facturación',
         upgrade: 'Mejorar a PRO',
         memberSince: 'Miembro desde {date}',
@@ -453,16 +532,6 @@ const es = {
         emptyCvError: 'El contenido del currículum está vacío o no se pudo extraer texto del PDF.',
         genericAiError: 'Error al procesar el currículum con Inteligencia Artificial.',
         dbSaveError: 'Error al guardar tu currículum base en la base de datos.',
-      },
-      overwrite: {
-        title: 'Tu plan gratuito guarda 1 CV',
-        body: 'Tu plan gratuito guarda 1 CV. Adaptarlo a esta oferta reemplazará el actual.',
-        bodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Adaptarlo a esta oferta lo reemplazará.',
-        importBody: 'Tu plan gratuito guarda 1 CV. Importar otro reemplazará el actual.',
-        importBodyBase: 'Tu plan gratuito guarda 1 CV. Este currículum es tu CV base. Importar otro lo reemplazará.',
-        replace: 'Reemplazar',
-        upgrade: 'Pasar a PRO',
-        cancel: 'Cancelar',
       },
       modes: {
         fidelity: {
@@ -638,6 +707,11 @@ const es = {
           allSelected: 'Las {count} candidaturas seleccionadas',
           selectAllCount: 'Seleccionar las {count} candidaturas',
           matchWithAi: 'Match con IA',
+          markFavorites: 'Marcar favoritos',
+          removeFavorites: 'Quitar favoritos',
+          favorite: 'Favorito',
+          unfavorite: 'Desmarcar',
+          export: 'Exportar',
           exportData: 'Exportar datos',
           changeStatus: 'Cambiar estado',
           clear: 'Quitar selección',

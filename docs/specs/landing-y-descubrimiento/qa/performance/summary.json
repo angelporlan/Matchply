@@ -1,0 +1,44 @@
+{
+  "measuredAt": "2026-10-04T07:00:14.803Z",
+  "url": "http://127.0.0.1:3104/",
+  "snapshot": "/private/tmp/matchply-landing-production-final",
+  "mode": "Next.js production standalone build served locally; local PostgreSQL; existing analytics gates preserved",
+  "measurement": "Three independent Lighthouse mobile navigations; a new Chrome profile and reset storage for each run",
+  "viewport": {
+    "width": 412,
+    "height": 823,
+    "deviceScaleFactor": 1.75
+  },
+  "cpuSlowdownMultiplier": 4,
+  "networkRttMs": 150,
+  "throttlingMethod": "simulate",
+  "lcpMedianMs": 2709.2450000000003,
+  "clsMaximum": 0,
+  "acceptance": {
+    "lcpMedianBelow3000": true,
+    "clsAllAtMostPointOne": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "lighthouseVersion": "13.3.0",
+      "performanceScore": 0.96,
+      "lcpMs": 2817.876,
+      "cls": 0
+    },
+    {
+      "run": 2,
+      "lighthouseVersion": "13.3.0",
+      "performanceScore": 0.96,
+      "lcpMs": 2709.2450000000003,
+      "cls": 0
+    },
+    {
+      "run": 3,
+      "lighthouseVersion": "13.3.0",
+      "performanceScore": 0.96,
+      "lcpMs": 2707.9974999999995,
+      "cls": 0
+    }
+  ]
+}

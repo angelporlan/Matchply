@@ -29,6 +29,8 @@ test('score fingerprint is shared between triage/deep and changes with provider/
   assert.notEqual(base, matchInputHash({ ...input, provider: 'q' }));
   assert.notEqual(base, matchInputHash({ ...input, model: 'n' }));
   assert.notEqual(base, matchInputHash({ ...input, constraints: { salaryMin: 90000 } }));
+  assert.notEqual(base, matchInputHash({ ...input, scoringMethod: 'decisions-v1' }));
+  assert.equal(base, matchInputHash({ ...input, scoringMethod: undefined }));
 });
 
 test('cache requires verified matching snapshot; legacy and fake fallback scores never qualify', () => {

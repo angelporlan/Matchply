@@ -30,7 +30,9 @@ test('guests and free users stay off Pro features', () => {
 
 test('CV caps and Harvard fallback match the paid plan', () => {
   assert.equal(canCreateCv('none', 0), true);
-  assert.equal(canCreateCv('none', 1), false);
+  assert.equal(canCreateCv('none', 1), true);
+  assert.equal(canCreateCv('none', 2), true);
+  assert.equal(canCreateCv('none', 3), false);
   assert.equal(canCreateCv('none', 2, { isGuest: true }), true);
   assert.equal(canCreateCv('none', 3, { isGuest: true }), false);
   assert.equal(canCreateCv('active', 40), true);

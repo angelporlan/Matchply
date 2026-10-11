@@ -3,9 +3,11 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { canAccessFeature, SubscriptionFeature } from '@/lib/subscription';
 import { requestCache } from '@/lib/request-cache';
+import { userPlanFeature } from '@/lib/plan-store';
 
 export class SubscriptionAccessError extends Error {
   readonly status = 403;
+  readonly code = 'PLAN_REQUIRED';
 
   constructor(public readonly feature: SubscriptionFeature) {
     super(`A PRO subscription is required to access ${feature}.`);
@@ -54,10 +56,7 @@ export async function requireUserFeature(userId: string, feature: SubscriptionFe
     throw new SubscriptionAccessError(feature);
   }
 
-  if (!canAccessFeature(user.subscriptionStatus, feature, {
-    isGuest: user.isGuest,
-    proGrantedUntil: user.proGrantedUntil,
-  })) {
+  if (!await userPlanFeature(userId, feature)) {
     throw new SubscriptionAccessError(feature);
   }
 

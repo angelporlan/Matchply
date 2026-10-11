@@ -1,132 +1,54 @@
-# Landing, demostraciones y descubrimiento — comportamiento deseado
+# Landing, demostración y conversión
 
-Estado: **Borrador — pendiente de rellenar**  
-Responsable: [POR DEFINIR]  
-Fecha de revisión: [POR DEFINIR]  
-Prioridad: [Imprescindible / Importante / Más adelante / Sin cambio]
+Estado: **Implementado; comprobaciones automáticas y rendimiento aprobados, QA manual parcial**. Resultados y límites en [evidence.md](evidence.md).
 
-Referencia: [lo que hace actualmente](estado-actual.md). Las observaciones ACT son una fotografía del código; no son requisitos aprobados.
+Revisión: **04/10/2026**.
 
-Puedes empezar rellenando solo las secciones 1, 2 y 7. Escribe con tus palabras; el resto ayuda a concretar cuando lo necesites. Usa «No aplica» en vez de inventar una decisión. Ningún campo vacío implica aceptar el comportamiento actual.
+Referencias: [expectativas](expectations.md), [plan](plan.md), [evidencia](evidence.md), [diseño del producto](../../../design.md). El [inventario anterior](estado-actual.md) es una fotografía histórica.
 
-## 1. Lo que quiero
+## Objetivo y alcance
 
-**Quiero que esta funcionalidad…**
+La página `/` debe permitir entender qué hace Matchply, ver una adaptación ilustrativa, conocer el precio de PRO y empezar con una oferta propia. Se prioriza al visitante que quiere adaptar un CV; las cuentas existentes conservan acceso a su espacio y a su suscripción.
 
-[ESCRIBE AQUÍ]
+La narrativa muestra experiencia real, propuesta revisable y PDF. El rediseño incluye contenido ES/EN, ambos temas, navegación accesible, una demostración ligera y preparación del test A/B. No modifica reglas de acceso, el editor, las cuotas, los endpoints PDF o el tratamiento de los proveedores de IA. La medición no se activa mediante este cambio.
 
-**El problema que quiero resolver y para quién:**
+## Requisitos
 
-[ESCRIBE AQUÍ]
+- **REQ-LAND-01:** El hero DEBE incluir un beneficio completo desde el HTML inicial, descripción del flujo, demostración y precio **10 €/mes**. No escribir el titular progresivamente ni prometer resultados laborales o un tiempo de adaptación sin verificar.
+- **REQ-LAND-02:** Cada sección DEBE tener como máximo un CTA de conversión. Hero, «Cómo funciona» y cierre ofrecen empezar gratis; precios ofrece PRO. Navegación, FAQ y controles de la demo conservan su función sin competir como CTA comerciales.
+- **REQ-LAND-03:** La demo DEBE mostrar «CV → oferta → revisión → PDF» con datos ficticios y los mismos hechos antes y después. Reproduce una vez durante 12 segundos, permite pausar, continuar, repetir y elegir paso, y se detiene fuera de vista o con la pestaña oculta. Con movimiento reducido muestra un resultado estático y conserva los controles de paso.
+- **REQ-LAND-04:** Precios y FAQ DEBEN distinguir prueba sin cuenta, cuenta gratuita y PRO según los permisos reales. El seguimiento de candidaturas está incluido en Gratis. Capacidad de CV y cuotas de IA, matching e investigación para Gratis/PRO proceden de `getPlanConfig()`, sin fijar valores en la copy; los límites de invitado proceden de las constantes vigentes. La FAQ cubre prueba, precio/cancelación, hechos de la IA, ATS y privacidad.
+- **REQ-LAND-05:** El contenido DEBE respetar `design.md`, ES/EN, claro/oscuro, teclado, foco visible y controles táctiles. La cabecera incluye salto al contenido, navegación por anclas y menú móvil con estado accesible y cierre con Escape.
+- **REQ-LAND-06:** La landing DEBE renderizar su contenido principal en servidor y limitar las islas de cliente a interacción y medición. La demo no monta editor, PDF.js, generador PDF ni llamadas IA. Objetivos de aceptación: LCP móvil **<3 s** y CLS **≤0,1**, medidos con build de producción y condiciones registradas.
+- **REQ-LAND-07:** El experimento `landing_headline_v1` DEBE cambiar únicamente el H1, repartir A/B al 50 % entre nuevos participantes visitantes/invitados y conservar la variante en `matchply_landing_headline` con valor `v1:A` o `v1:B`, HttpOnly, SameSite=Lax, Secure en producción y caducidad de siete días. La primera respuesta SSR recibe la misma asignación que la cookie; se ignoran cabeceras de variante aportadas por el visitante. Una asignación anónima previa se conserva al registrarse; no incorporar nuevas cuentas ya autenticadas al experimento.
+- **REQ-LAND-08:** La medición DEBE usar los gates Umami existentes, respetar DNT y excluir administración e impersonación. Prefetch no asigna ni expone; sí conserva en el contenido SSR una variante válida existente para la navegación posterior. Exposición, primer clic, primer PDF y registro se deduplican por variante durante la sesión de pestaña mediante `sessionStorage`, con respaldo en memoria cuando el almacenamiento no esté disponible.
+- **REQ-LAND-09:** `cv_downloaded` DEBE registrarse tras respuesta correcta, PDF no vacío e inicio de descarga. `first_pdf` y `signup` experimentales requieren exposición de esa variante en la misma sesión de pestaña. Preview, error, 403 o clic duplicado en vuelo no constituyen una descarga exitosa.
 
-**Al terminar, la persona debe obtener/ver…**
+## Flujos e interfaces
 
-[ESCRIBE AQUÍ]
+- Visitante/invitado: «Probar gratis con mi oferta» abre `/try`; su gate existente reutiliza la prueba o lleva al dashboard si ya tiene trabajo. Cuenta registrada: «Abrir mi espacio» abre `/dashboard`.
+- PRO: el visitante conserva el registro con intención de plan y destino `/dashboard/subscription?interval=monthly&source=landing-pricing`; una cuenta Gratis accede a esa pantalla para revisar las opciones; una cuenta con PRO accede a `/dashboard/subscription` para gestionarlo. El pago sigue el flujo de facturación existente y no empieza al mostrar la landing.
+- Componentes de cliente: cabecera, demo, enlaces de CTA y beacon de exposición. El contenido y el H1 elegido se resuelven en servidor con idioma y actor efectivo.
+- Eventos: `landing_headline_v1_{a|b}_{exposed|cta|first_pdf|signup}`. Se conservan los eventos genéricos de conversión. El payload experimental identifica variante y etapa, sin CV, oferta, email ni identificador de cuenta.
+- Con la medición deshabilitada o excluida se muestra A y no se crea una asignación experimental nueva. Un fallo de almacenamiento o del script de analítica no bloquea navegación, registro ni descarga.
 
-## 2. Decisiones específicas de esta funcionalidad
+## Experimento y decisiones
 
-**¿Cuál debe ser la promesa principal y qué acción quieres que haga primero el visitante?**
+**A:** «Adapta tu CV a cada oferta sin empezar de cero.»
 
-[ESCRIBE AQUÍ]
+**B:** «Presenta tu experiencia con un CV adaptado a cada oferta.»
 
-**¿Qué demostraciones, precios y comparaciones deben mostrarse y con qué datos reales?**
+Las traducciones EN mantienen el mismo contraste de beneficios. Durante la comparación se mantienen constantes precio, CTA, demo y resto del contenido.
 
-[ESCRIBE AQUÍ]
+- Métrica primaria: primeras descargas PDF confirmadas / sesiones de pestaña expuestas a cada variante. Clic y registro son métricas secundarias.
+- Evaluar tras **al menos 14 días completos de medición habilitada**, con denominadores y tasas por variante y un intervalo de confianza del **95 %** de la diferencia entre tasas. Usar intervalos Wilson para cada proporción y Newcombe para la diferencia.
+- No declarar ganador antes del mínimo temporal ni cuando el intervalo de la diferencia incluya cero o la muestra sea insuficiente para una decisión. Conservar A en ese caso y continuar recogiendo evidencia si la medición sigue autorizada.
+- La unidad medida es la sesión de pestaña, no una persona única. Borrar almacenamiento, abrir otra pestaña o caducar la cookie permite nuevas observaciones; registrar esta limitación al interpretar el intervalo. El test queda preparado, no ejecutado por este cambio.
 
-**¿Quieres mantener la prueba sin cuenta y la calculadora de coste por candidatura?**
+## Invariantes y límites
 
-[ESCRIBE AQUÍ]
+- **INV-LAND-01:** Las rutas existentes conservan propiedad, autenticación, cuotas, recuperación del invitado y gestión de suscripción. La landing no crea CVs ni candidaturas al mostrarse.
+- **INV-LAND-02:** No activar `UMAMI_ENABLED`, `UMAMI_AEPD_CLEARED` ni configuración de producción. Sin gates habilitados, el producto sigue utilizable.
+- **INV-LAND-03:** Mantener el original, explicar que la IA propone y evitar cifras inventadas, logos como aval, testimonios ficticios o garantías ATS/entrevistas.
 
-## 3. Qué conservar y qué cambiar
-
-Consulta los puntos ACT de la ficha actual. Puedes mantener, modificar o eliminar cada comportamiento que sea relevante.
-
-| Referencia actual o comportamiento | Mantener / Cambiar / Eliminar / Añadir | Mi decisión y motivo |
-| --- | --- | --- |
-| [ACT-… o descripción] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Lo que debe seguir funcionando siempre, incluso si hay errores:**
-
-- INV-01: [POR DEFINIR]
-
-**Lo que queda fuera de este cambio:**
-
-[POR DEFINIR]
-
-## 4. Quién puede usarlo y con qué límites
-
-| Persona o plan | Puede verlo | Puede usarlo o modificarlo | Límite y qué ocurre al agotarlo |
-| --- | --- | --- | --- |
-| Visitante / invitado | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario Gratis | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Usuario PRO | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| Administrador / integración, si aplica | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-## 5. Cómo debe funcionar
-
-**Dónde comienza y qué debe existir antes:** [POR DEFINIR]
-
-1. La persona o integración hace: [POR DEFINIR].
-2. La aplicación comprueba: [POR DEFINIR].
-3. La aplicación procesa y muestra: [POR DEFINIR].
-4. La persona revisa o confirma, si procede: [POR DEFINIR].
-5. La aplicación guarda y termina en: [POR DEFINIR].
-
-| Dato de entrada | Obligatorio | Formato, ejemplo ficticio y validación |
-| --- | --- | --- |
-| [POR DEFINIR] | [Sí / No] | [POR DEFINIR] |
-
-| Resultado o dato guardado | Dónde se muestra/guarda | Momento de guardado y si sustituye algo |
-| --- | --- | --- |
-| [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Confirmación, deshacer, versiones o recuperación:** [POR DEFINIR]
-
-## 6. Casos especiales y errores
-
-| Situación | Qué debe ver la persona | Qué debe conservar/hacer el sistema |
-| --- | --- | --- |
-| No hay datos o es el primer uso | [POR DEFINIR] | [POR DEFINIR] |
-| Datos incompletos o inválidos | [POR DEFINIR] | [POR DEFINIR] |
-| Falta sesión, permiso o cuota | [POR DEFINIR] | [POR DEFINIR] |
-| IA/servicio lento, caído o respuesta inválida | [POR DEFINIR / No aplica] | [POR DEFINIR / No aplica] |
-| Cierre de pestaña o pérdida de conexión | [POR DEFINIR] | [POR DEFINIR] |
-| Reintento, doble clic o dos cambios simultáneos | [POR DEFINIR] | [POR DEFINIR] |
-| Éxito parcial o datos ya existentes | [POR DEFINIR] | [POR DEFINIR] |
-
-## 7. Resultado esperado y criterios para darlo por correcto
-
-Escribe ejemplos observables. Una frase como «que funcione bien» no permite comprobar el resultado. Estos criterios se completarán antes de implementar; todavía no son pruebas realizadas.
-
-| ID | Dado este contexto | Cuando ocurre esta acción | Entonces espero exactamente |
-| --- | --- | --- | --- |
-| CA-01 | [POR DEFINIR] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-02 | [Caso de error] | [POR DEFINIR] | [POR DEFINIR] |
-| CA-03 | [Caso de permiso/límite] | [POR DEFINIR] | [POR DEFINIR] |
-
-**Ejemplo completo con datos ficticios (entrada → resultado):**
-
-[ESCRIBE AQUÍ]
-
-**Cómo lo comprobaré manualmente:** [POR DEFINIR]
-
-## 8. Experiencia, datos y condiciones adicionales (si aplica)
-
-- Pantalla, textos, botones, móvil y accesibilidad: [POR DEFINIR; referencia visual en design.md].
-- Idiomas de interfaz y de resultados: [POR DEFINIR].
-- Tiempo de respuesta, progreso y coste máximo: [POR DEFINIR].
-- Datos enviados a IA/terceros y confirmación necesaria: [POR DEFINIR].
-- Conservación, exportación, borrado y registro de acciones: [POR DEFINIR].
-- Qué ocurre con datos existentes al activar el cambio: [POR DEFINIR].
-- Dependencias de otras funcionalidades: [POR DEFINIR; enlazar sus fichas].
-- Dudas por resolver: [POR DEFINIR].
-
-## 9. Revisión antes de implementar
-
-- [ ] He definido el objetivo y el resultado esperado.
-- [ ] He decidido qué conservar y qué cambiar.
-- [ ] He revisado permisos, errores y datos existentes.
-- [ ] Los criterios CA describen resultados comprobables.
-
-Decisión final: [Borrador / Listo para revisión / Aprobado para implementar]  
-Quién y cuándo toma la decisión: [POR DEFINIR]
+Supuestos: el precio objetivo sigue siendo 10 €/mes; Harvard es la plantilla disponible. El trabajo concurrente autorizado de monetización define por defecto Gratis con 3 CV (1 base y 2 adaptados); la landing debe reflejar la configuración publicada vigente, no congelar ese total. Invitado conserva hasta 3 CV y 1 PDF. Este rediseño no publica ni modifica esa configuración. Los tiempos, accesibilidad final y mejora de conversión deben acreditarse en [evidence.md](evidence.md).

@@ -1,0 +1,146 @@
+
+> matchply@1.0.0 prebuild
+> npm run build:workers
+
+
+> matchply@1.0.0 build:workers
+> node scripts/build-workers.mjs
+
+
+  dist/workers/pdf-worker.js  26.0kb
+
+⚡ Done in 7ms
+
+> matchply@1.0.0 build
+> next build
+
+  ▲ Next.js 14.2.35
+  - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+./src/components/account/UserMenu.tsx
+55:7  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/applications/ResearchPanel.tsx
+57:6  Warning: React Hook useEffect has missing dependencies: 'load' and 'research'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/editor/EditorClient.tsx
+208:6  Warning: React Hook useEffect has missing dependencies: 'baseCvContent', 'runImportStream', and 'runOptimizeStream'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/editor/EditorCvMenu.tsx
+72:6  Warning: React Hook useEffect has a missing dependency: 'setMenuOpen'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/editor/MarkdownEditor.tsx
+382:6  Warning: React Hook useEffect has a missing dependency: 'mode'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/editor/ResumeSheet.tsx
+88:6  Warning: React Hook useLayoutEffect has a missing dependency: 'paint'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+393:6  Warning: React Hook useLayoutEffect has missing dependencies: 'factor', 'pageBreaks', and 'ready'. Either include them or remove the dependency array. If 'setPagePlan' needs the current value of 'pageBreaks', you can also switch to useReducer instead of useState and read 'pageBreaks' in the reducer.  react-hooks/exhaustive-deps
+
+./src/components/profile/AccountSettings.tsx
+24:7  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/37) ...
+   Generating static pages (9/37) 
+   Generating static pages (18/37) 
+   Generating static pages (27/37) 
+ ✓ Generating static pages (37/37)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size     First Load JS
+┌ ƒ /                                       11.1 kB         156 kB
+├ ƒ /_not-found                             179 B          88.1 kB
+├ ƒ /account/suspended                      960 B           105 kB
+├ ƒ /admin                                  195 B          96.8 kB
+├ ƒ /admin/ai                               3.15 kB         107 kB
+├ ƒ /admin/audit                            195 B          96.8 kB
+├ ƒ /admin/plans                            6.67 kB         146 kB
+├ ƒ /admin/traffic                          199 B          96.8 kB
+├ ƒ /admin/users                            200 B          96.8 kB
+├ ƒ /admin/users/[id]                       2.23 kB         106 kB
+├ ƒ /api/ai/curate                          0 B                0 B
+├ ƒ /api/ai/debug-prompt                    0 B                0 B
+├ ƒ /api/ai/jobs/[id]                       0 B                0 B
+├ ƒ /api/ai/networking                      0 B                0 B
+├ ƒ /api/ai/offers/import                   0 B                0 B
+├ ƒ /api/ai/optimize                        0 B                0 B
+├ ƒ /api/ai/outreach                        0 B                0 B
+├ ƒ /api/ai/profile/extract                 0 B                0 B
+├ ƒ /api/ai/profile/interview               0 B                0 B
+├ ƒ /api/auth/[...nextauth]                 0 B                0 B
+├ ƒ /api/companies/[id]/icon                0 B                0 B
+├ ƒ /api/cv/import                          0 B                0 B
+├ ƒ /api/cv/parse-pdf                       0 B                0 B
+├ ƒ /api/email/opt-out                      0 B                0 B
+├ ƒ /api/extension/linkedin/ingest          0 B                0 B
+├ ƒ /api/extension/linkedin/people          0 B                0 B
+├ ƒ /api/extension/linkedin/people/avatar   0 B                0 B
+├ ƒ /api/extension/pair/claim               0 B                0 B
+├ ƒ /api/extension/pairings                 0 B                0 B
+├ ƒ /api/extension/pairings/[id]            0 B                0 B
+├ ƒ /api/extension/status                   0 B                0 B
+├ ƒ /api/gtm/content                        0 B                0 B
+├ ƒ /api/gtm/search                         0 B                0 B
+├ ƒ /api/guest                              0 B                0 B
+├ ƒ /api/health                             0 B                0 B
+├ ƒ /api/internal/user-data-import          0 B                0 B
+├ ƒ /api/internal/user-role-promotion       0 B                0 B
+├ ƒ /api/monetization                       0 B                0 B
+├ ƒ /api/monetization/metrics               0 B                0 B
+├ ƒ /api/pdf                                0 B                0 B
+├ ○ /api/pdf-worker                         0 B                0 B
+├ ƒ /api/people/[id]/avatar                 0 B                0 B
+├ ƒ /api/research/[offerId]                 0 B                0 B
+├ ƒ /api/research/quota                     0 B                0 B
+├ ƒ /api/stripe/catalog                     0 B                0 B
+├ ƒ /api/stripe/checkout                    0 B                0 B
+├ ƒ /api/stripe/interval                    0 B                0 B
+├ ƒ /api/stripe/portal                      0 B                0 B
+├ ƒ /api/stripe/status                      0 B                0 B
+├ ƒ /api/stripe/webhook                     0 B                0 B
+├ ƒ /api/usage                              0 B                0 B
+├ ƒ /api/usage/cvs                          0 B                0 B
+├ ƒ /api/v1/agent/applications              0 B                0 B
+├ ƒ /api/v1/agent/applications/[id]         0 B                0 B
+├ ƒ /api/v1/agent/applications/evaluations  0 B                0 B
+├ ƒ /api/v1/agent/cvs                       0 B                0 B
+├ ƒ /api/v1/agent/cvs/[id]                  0 B                0 B
+├ ƒ /api/v1/agent/profile                   0 B                0 B
+├ ƒ /auth/claim                             0 B                0 B
+├ ƒ /cookies                                199 B          96.8 kB
+├ ƒ /dashboard                              19.2 kB         185 kB
+├ ƒ /dashboard/applications                 18.1 kB         176 kB
+├ ƒ /dashboard/applications/companies       2.41 kB         170 kB
+├ ƒ /dashboard/applications/companies/[id]  8.07 kB         156 kB
+├ ƒ /dashboard/applications/offer/[id]      21.7 kB         178 kB
+├ ƒ /dashboard/applications/people          3.43 kB         177 kB
+├ ƒ /dashboard/applications/people/[id]     13.8 kB         163 kB
+├ ƒ /dashboard/integrations                 178 B          88.1 kB
+├ ƒ /dashboard/profile                      3.19 kB         135 kB
+├ ƒ /dashboard/subscription                 4.82 kB         152 kB
+├ ƒ /editor/[cvId]                          37.5 kB         241 kB
+├ ƒ /gtm                                    7.43 kB         188 kB
+├ ○ /icon.svg                               0 B                0 B
+├ ƒ /login                                  4.25 kB         147 kB
+├ ƒ /logout                                 2.07 kB        93.1 kB
+├ ƒ /privacy                                195 B          96.8 kB
+├ ƒ /register                               6.81 kB         152 kB
+├ ƒ /terms                                  199 B          96.8 kB
+└ ƒ /try                                    9.31 kB         155 kB
++ First Load JS shared by all               87.9 kB
+  ├ chunks/8f1dcf46-f14239e1e05de1ab.js     53.7 kB
+  ├ chunks/9670-55d62fd426b10eb6.js         31.9 kB
+  └ other shared chunks (total)             2.36 kB
+
+
+ƒ Middleware                                26.8 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -9,6 +9,7 @@ import { enqueueMatchBatchJob, getAiJobForUser, isTerminalAiJob } from '@/lib/ai
 import { matchBatchCounts } from '@/lib/ai-jobs/match-batch-state';
 import { log } from '@/lib/logger';
 import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
+import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,10 +58,15 @@ export async function POST(req: Request) {
   if (requestedIds && offers.length !== requestedIds.length) {
     return new NextResponse('One or more offers are unavailable', { status: 404 });
   }
-  const job = await enqueueMatchBatchJob(userId, {
+  let job;
+  try { job = await enqueueMatchBatchJob(userId, {
     offerIds: offers.map(offer => offer.id), targetThreshold,
     requestId: body.requestId || randomUUID(),
-  }, { initiatedByUserId });
+  }, { initiatedByUserId }); } catch (error) {
+    const response = aiUsageErrorResponse(error); if (response) return response;
+    log({ event: 'match_batch_enqueue_failed', level: 'error', userId, error });
+    return NextResponse.json({ error: 'No se pudo iniciar el cálculo.' }, { status: 500 });
+  }
 
   const encoder = new TextEncoder();
   let cancelled = false;

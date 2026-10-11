@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
+import { parseAvatarImage } from '@/lib/avatar/image-input';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { jobOffers, people, personAvatars, personOffers } from '@/db/schema';
-import { PeopleError, type PersonAvatarInput } from './types';
+import { PeopleError } from './types';
 import { id, linkedinUrl } from './validation';
 
 import { PERSON_AVATAR_MAX_BYTES, PERSON_AVATAR_MAX_EDGE } from './avatar-limits';
@@ -10,28 +10,8 @@ export { PERSON_AVATAR_MAX_BYTES, PERSON_AVATAR_MAX_EDGE } from './avatar-limits
 
 /** Accept only the small JPEG produced by the upload or extension canvas. */
 export function avatarInput(input: unknown) {
-  const value = input as PersonAvatarInput | null;
-  if (!value || value.mime !== 'image/jpeg' || typeof value.data !== 'string' || value.data.length > Math.ceil(PERSON_AVATAR_MAX_BYTES / 3) * 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value.data)) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-  const bytes = Buffer.from(value.data, 'base64');
-  if (bytes.toString('base64') !== value.data || bytes.length < 12 || bytes.length > PERSON_AVATAR_MAX_BYTES || bytes.readUInt16BE(0) !== 0xffd8 || bytes.readUInt16BE(bytes.length - 2) !== 0xffd9) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-  let offset = 2, dimensions: { width: number; height: number } | null = null;
-  while (offset + 4 <= bytes.length) {
-    if (bytes[offset++] !== 0xff) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-    while (bytes[offset] === 0xff) offset++;
-    if (offset + 3 > bytes.length) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-    const marker = bytes[offset++];
-    if (marker === 0xda || marker === 0xd9) break;
-    const length = bytes.readUInt16BE(offset);
-    if (length < 2 || offset + length > bytes.length) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-    if ([0xc0, 0xc1, 0xc2].includes(marker)) {
-      if (length < 8) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-      dimensions = { height: bytes.readUInt16BE(offset + 3), width: bytes.readUInt16BE(offset + 5) };
-      break;
-    }
-    offset += length;
-  }
-  if (!dimensions || dimensions.width < 1 || dimensions.height < 1 || dimensions.width > PERSON_AVATAR_MAX_EDGE || dimensions.height > PERSON_AVATAR_MAX_EDGE) throw new PeopleError('PEOPLE_INVALID_AVATAR');
-  return { bytes, mime: 'image/jpeg' as const, hash: createHash('sha256').update(bytes).digest('hex').slice(0, 24) };
+  try { return parseAvatarImage(input, { maxBytes: PERSON_AVATAR_MAX_BYTES, maxEdge: PERSON_AVATAR_MAX_EDGE }); }
+  catch { throw new PeopleError('PEOPLE_INVALID_AVATAR'); }
 }
 
 type AvatarTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
   htmlToInlineMarkdown,
@@ -210,6 +211,7 @@ export default function ResumeSheet({
   onSave?: () => void;
   setSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
 }) {
+  const managedSave = useManagedEditorSave();
   const { t } = useLanguage();
   const [doc, setDoc] = useState<CVContent>(() => parseCvDocument(content));
   const emitted = useRef(content);
@@ -337,6 +339,7 @@ export default function ResumeSheet({
     emitted.current = markdown;
     setDoc(next);
     onChangeRef.current(markdown);
+    if (managedSave) return;
     pendingSave.current = markdown;
     setSaveStatusRef.current('saving');
     if (saveTimer.current) clearTimeout(saveTimer.current);

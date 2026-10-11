@@ -5,6 +5,7 @@ import { getRequestContext } from '@/lib/request-context';
 import Sidebar from '../dashboard/Sidebar';
 import AdminNav from '@/components/admin/AdminNav';
 import { isGtmViewerAvailable } from '@/lib/gtm-access';
+import { getServerTranslations } from '@/lib/i18n/server';
 
 export default async function AdminLayout({
   children,
@@ -18,6 +19,7 @@ export default async function AdminLayout({
     redirect('/dashboard');
   }
 
+  const { language } = getServerTranslations();
   const isPremium = hasProAccess(ctx.realUser);
   const showGtm = isGtmViewerAvailable(headers().get('host'));
 
@@ -28,8 +30,8 @@ export default async function AdminLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           <header className="space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted font-display">Administración</p>
-              <h1 className="text-2xl md:text-[2rem] font-semibold font-display text-text">Panel de soporte</h1>
+              <p className="text-xs font-semibold uppercase tracking-wider text-text-muted font-display">{language === 'es' ? 'Administración' : 'Administration'}</p>
+              <h1 className="text-2xl md:text-[2rem] font-semibold font-display text-text">{language === 'es' ? 'Panel de soporte' : 'Support panel'}</h1>
             </div>
             <AdminNav showGtm={showGtm} />
           </header>

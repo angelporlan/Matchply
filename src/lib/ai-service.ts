@@ -1,3 +1,6 @@
+import { ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS, analysisUserPrompt } from '@/lib/cv-optimization/prompts';
+import { factualProfile } from '@/lib/cv-optimization/validation';
+import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
 import { resolveRouteModel, getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import type { AiFunctionKey } from '@/lib/ai-runtime-config';
 import { resolveAiPrompt } from '@/lib/ai-prompts';
@@ -16,23 +19,34 @@ import { log } from './logger';
 import {
   buildCandidateCard,
   buildCandidateEvidence,
+  buildMatchDecision,
   buildMatchExplanationPrompt,
   normalizeMatchDetails,
   isMatchDetails,
   isMatchEvidenceSnapshot,
   matchSourceHash,
   MATCH_PROMPT_VERSION,
+  MATCH_DECISION_SYSTEM_PROMPT,
+  MATCH_DECISION_VERSION,
+  DECISION_MODEL,
+  DECISION_QUESTION_CHUNK,
   MatchValidationError,
   buildMatchSystemPrompt,
   buildMatchUserPrompt,
   buildOfferCard,
   cachedMatchItem,
   canReuseCachedMatch,
+  formatMatchDecisionPreview,
   isCanonicalMatchBreakdown,
+  llmItemFromDecision,
   matchInputHash,
   normalizeMatchItem,
+  type CandidateEvidence,
   type CuratedMatchItem,
+  type DecisionAnswer,
+  type DecisionQuestion,
   type MatchKind,
+  type MatchOfferCard,
 } from './matching';
 
 import {
@@ -104,26 +118,6 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
 ¡REGLA DE ENTREGA SUPERESTRICTA!: Devuelve única y exclusivamente el contenido del currículum optimizado en formato Markdown (.MD). No incluyas explicaciones, preámbulos, comentarios iniciales ni finales, ni envuelvas tu respuesta en bloques de código triple acento grave (\`\`\`markdown o \`\`\`). Tu respuesta completa debe ser directamente el currículum parseable.
 `;
 
-const CV_HONESTY_INSTRUCTIONS = `
-REGLAS DE FIDELIDAD DEL CV:
-- No inventes experiencia, tecnologías, responsabilidades, empresas, fechas, logros ni métricas.
-- No conviertas conocimiento adyacente en experiencia directa. Conserva claramente el nivel de evidencia respaldado por el CV base o por el perfil profesional del usuario.
-- Mantén todos los logros relevantes existentes y evita lenguaje genérico o clichés propios de textos generados por IA.
-- Reescribe como máximo 6 viñetas del CV completo. El resto debe conservarse sustancialmente igual.
-- Si una palabra clave de la oferta no está respaldada ni por el CV base ni por el perfil profesional del usuario, no la añadas como habilidad o experiencia. Puedes incorporar habilidades o competencias reales presentes en el perfil del usuario si son relevantes para la oferta.
-`;
-
-
-export interface OptimizeRequest {
-  baseCvMarkdown: string;
-  jobDescription: string;
-  userSubscriptionStatus: string; // 'active' o 'none'
-  promptId?: string;
-  modeId?: string;
-  candidateName?: string;
-  careerProfileContext?: string;
-}
-
 export class AIService {
   private static extractCandidateName(markdown: string): string | null {
     if (!markdown) return null;
@@ -159,12 +153,6 @@ export class AIService {
     return defaultValue;
   }
 
-  private static templatePrompt(template: string, cv: string, job: string): string {
-    return template
-      .replace(/\{\{cv\}\}/g, cv)
-      .replace(/\{\{job\}\}/g, job);
-  }
-
   /**
    * Resuelve un prompt desde el código y permite una sobrescritura opcional
    * desde la tabla de administración. La fila de DB nunca es obligatoria:
@@ -173,63 +161,6 @@ export class AIService {
    */
   private static async resolvePrompt(key: BuiltInPromptKey, promptId?: string) {
     return resolveAiPrompt(key, promptId);
-  }
-
-  static async optimizeCV({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId, candidateName, careerProfileContext }: OptimizeRequest): Promise<string> {
-    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-
-    const resolvedPrompt = await this.resolvePrompt('optimize_cv', modeId || promptId);
-    const systemPrompt = resolvedPrompt.systemPrompt;
-    const userPromptTemplate = resolvedPrompt.userPrompt;
-
-    const resolvedName = this.extractCandidateName(baseCvMarkdown) || candidateName || "Candidato";
-    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
-    const profileDirective = careerProfileContext?.trim()
-      ? `\n\nPERFIL MAESTRO DEL CANDIDATO (fuente de la verdad de trayectoria y objetivo; no inventes fuera de esto ni del CV):\n${careerProfileContext.trim().slice(0, 3200)}`
-      : '';
-
-    if (!isPro) {
-      // [FREE] Enrutamiento Plan FREE
-      const { provider, model } = await this.routeModel(false, 'optimize_cv');
-
-      const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
-      const finalUserPrompt = (userPromptTemplate
-        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`) + profileDirective;
-
-      if (provider === 'gemini') {
-        return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'deepseek') {
-        return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openai') {
-        return await this.callOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else {
-        return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      }
-    } else {
-      // [PRO] Enrutamiento Plan PRO
-      const { provider, model } = await this.routeModel(true, 'optimize_cv');
-
-      const defaultSystem = provider === 'gemini'
-        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
-        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base o en el perfil del usuario. No inventes experiencias que no estén en el CV base ni en el perfil del usuario, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
-
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
-      const finalUserPrompt = (userPromptTemplate
-        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`) + profileDirective;
-
-      if (provider === 'gemini') {
-        return await this.callGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openrouter') {
-        return await this.callOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openai') {
-        return await this.callOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else {
-        return await this.callDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      }
-    }
   }
 
   static async importCV({ rawText, userSubscriptionStatus }: { rawText: string; userSubscriptionStatus: string }): Promise<string> {
@@ -251,61 +182,6 @@ export class AIService {
       return await this.callOpenAIOficial(rawText, '', model, finalSystemPrompt, finalUserPrompt);
     } else {
       return await this.callOpenRouter(rawText, '', model, finalSystemPrompt, finalUserPrompt);
-    }
-  }
-
-  static async optimizeCVStream({ baseCvMarkdown, jobDescription, userSubscriptionStatus, promptId, modeId, candidateName, careerProfileContext }: OptimizeRequest): Promise<ReadableStream<Uint8Array>> {
-    const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-
-    const resolvedPrompt = await this.resolvePrompt('optimize_cv', modeId || promptId);
-    const systemPrompt = resolvedPrompt.systemPrompt;
-    const userPromptTemplate = resolvedPrompt.userPrompt;
-
-    const resolvedName = this.extractCandidateName(baseCvMarkdown) || candidateName || "Candidato";
-    const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
-    const profileDirective = careerProfileContext?.trim()
-      ? `\n\nPERFIL MAESTRO DEL CANDIDATO (fuente de la verdad de trayectoria y objetivo; no inventes fuera de esto ni del CV):\n${careerProfileContext.trim().slice(0, 3200)}`
-      : '';
-
-    if (!isPro) {
-      const { provider, model } = await this.routeModel(false, 'optimize_cv');
-
-      const defaultSystem = "Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.";
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
-      const finalUserPrompt = (userPromptTemplate
-        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Empleo:\n${jobDescription}`) + profileDirective;
-
-      if (provider === 'gemini') {
-        return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'deepseek') {
-        return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openai') {
-        return await this.streamOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else {
-        return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      }
-    } else {
-      const { provider, model } = await this.routeModel(true, 'optimize_cv');
-
-      const defaultSystem = provider === 'gemini'
-        ? "Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick."
-        : "Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.";
-
-      const finalSystemPrompt = (systemPrompt || defaultSystem) + "\n\n" + MARKDOWN_STRUCTURE_INSTRUCTIONS + "\n\n" + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
-      const finalUserPrompt = (userPromptTemplate
-        ? this.templatePrompt(userPromptTemplate, baseCvMarkdown, jobDescription)
-        : `CV Base:\n${baseCvMarkdown}\n\nOferta de Trabajo:\n${jobDescription}`) + profileDirective;
-
-      if (provider === 'gemini') {
-        return await this.streamGeminiOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openrouter') {
-        return await this.streamOpenRouter(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else if (provider === 'openai') {
-        return await this.streamOpenAIOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      } else {
-        return await this.streamDeepSeekOficial(baseCvMarkdown, jobDescription, model, finalSystemPrompt, finalUserPrompt);
-      }
     }
   }
 
@@ -421,6 +297,7 @@ export class AIService {
         },
         body: JSON.stringify({
           model: sanitizedModel,
+          usage: { include: true },
           messages: [
             {
               role: "system",
@@ -654,6 +531,7 @@ export class AIService {
         model: model,
         ...(isFixedTemp ? {} : { temperature: 0.2 }),
         stream: true,
+        stream_options: { include_usage: true },
         messages,
       })
     }, AI_STREAM_CONNECT_TIMEOUT_MS);
@@ -699,6 +577,7 @@ export class AIService {
       },
       body: JSON.stringify({
         model: sanitizedModel,
+        usage: { include: true },
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
@@ -737,6 +616,7 @@ export class AIService {
         model: model,
         temperature: 0.2,
         stream: true,
+        stream_options: { include_usage: true },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -1145,7 +1025,13 @@ Descripción: ${jobDescription}`;
     const started = Date.now();
     if (!offers.length) return { curated: [], errors: [] };
     const isPro = canAccessFeature(userSubscriptionStatus, 'advancedAi');
-    const { provider, model } = await this.routeModel(isPro, 'matching');
+    const routed = await this.routeModel(isPro, 'matching');
+    const provider = routed.provider;
+    const model = provider === 'openai' ? DECISION_MODEL : routed.model;
+    const scoringMethod = provider === 'openai' ? MATCH_DECISION_VERSION : undefined;
+    if (provider === 'openai' && routed.model !== DECISION_MODEL) {
+      log({ event: 'match_decisions_model', routedModel: routed.model, model: DECISION_MODEL });
+    }
     const constraints = parseMatchConstraints(userCareerProfile || {});
     const candidateEvidence = buildCandidateEvidence(userCareerProfile, baseCvMarkdown, constraints);
     const systemPrompt = buildMatchSystemPrompt({ kind: 'triage', targetThreshold });
@@ -1162,7 +1048,7 @@ Descripción: ${jobDescription}`;
     const prepared = offers.map(offer => {
       const offerCard = buildOfferCard(offer, 'triage');
       const sourceHash = matchSourceHash({ candidateEvidence, offerCard, constraints });
-      return { offer, offerCard, sourceHash, hash: matchInputHash({ candidateEvidence, offerCard, constraints, provider, model }) };
+      return { offer, offerCard, sourceHash, hash: matchInputHash({ candidateEvidence, offerCard, constraints, provider, model, scoringMethod }) };
     });
     type Prepared = (typeof prepared)[number];
     const pending: Prepared[] = [];
@@ -1204,12 +1090,17 @@ Descripción: ${jobDescription}`;
       } else pending.push(row);
     }
     const batches: Prepared[][] = [];
-    for (let i = 0; i < pending.length; i += 2) batches.push(pending.slice(i, i + 2));
+    const batchSize = provider === 'openai' ? 1 : 2;
+    for (let i = 0; i < pending.length; i += batchSize) batches.push(pending.slice(i, i + batchSize));
     await this.mapWithConcurrency(batches, 4, async batch => {
       let parsed: any;
       try {
-        const userPrompt = buildMatchUserPrompt({ candidateCard: candidateEvidence.card, offers: batch.map(row => row.offerCard) });
-        parsed = this.parseMatchJson(await this.callMatchText(provider, model, systemPrompt, userPrompt));
+        if (provider === 'openai') {
+          parsed = { curated: [await this.evaluateOfferWithDecisions(candidateEvidence, batch[0].offerCard)] };
+        } else {
+          const userPrompt = buildMatchUserPrompt({ candidateCard: candidateEvidence.card, offers: batch.map(row => row.offerCard) });
+          parsed = this.parseMatchJson(await this.callMatchText(provider, model, systemPrompt, userPrompt));
+        }
         if (!parsed || !Array.isArray(parsed.curated)) throw new MatchValidationError('La IA no devolvió un cálculo válido.');
       } catch (error) {
         for (const row of batch) await reportError(row.offer.id, error);
@@ -1221,7 +1112,7 @@ Descripción: ${jobDescription}`;
           const matches = parsed.curated.filter((value: any) => value && value.id === row.offer.id);
           if (matches.length !== 1) throw new MatchValidationError('La respuesta no contiene un único resultado para esta oferta.');
           item = normalizeMatchItem({ offer: row.offer, offerCard: row.offerCard, candidateCard: candidateEvidence.card,
-            candidateEvidence, llm: matches[0], constraints, targetThreshold, kind: 'triage', model, provider });
+            candidateEvidence, llm: matches[0], constraints, targetThreshold, kind: 'triage', model, provider, scoringMethod });
           item = await finish(row, item);
         } catch (error) { await reportError(row.offer.id, error); continue; }
         await onBatchComplete?.([item]);
@@ -1233,6 +1124,35 @@ Descripción: ${jobDescription}`;
     log({ event: 'match_batch_finished', version: MATCH_PROMPT_VERSION, provider, model,
       durationMs: Date.now() - started, succeeded: results.size, failed: errors.length });
     return { curated: offers.flatMap(offer => results.has(offer.id) ? [results.get(offer.id)!] : []), errors };
+  }
+
+  private static async evaluateOfferWithDecisions(candidate: CandidateEvidence, offer: MatchOfferCard) {
+    const decision = buildMatchDecision({ candidate, offer });
+    const answers: DecisionAnswer[] = [];
+    for (let index = 0; index < decision.questions.length; index += DECISION_QUESTION_CHUNK) {
+      answers.push(...await this.callOpenAIDecisions(decision.input, decision.questions.slice(index, index + DECISION_QUESTION_CHUNK)));
+    }
+    return llmItemFromDecision({ offerId: offer.id, shells: decision.shells, candidate, answers });
+  }
+
+  private static async callOpenAIDecisions(input: string, questions: DecisionQuestion[]): Promise<DecisionAnswer[]> {
+    const key = this.resolveProviderApiKey('OPENAI_API_KEY', 'OpenAI');
+    if (!key) throw new Error('AI_PROVIDER_NOT_CONFIGURED');
+    const started = Date.now();
+    const response = await fetchWithTimeout('https://api.openai.com/v1/decisions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: DECISION_MODEL, input, questions }),
+    }, AI_FETCH_TIMEOUT_MS);
+    const body = await response.text();
+    if (!response.ok) throw new Error(`Error de API de OpenAI Decisions (${response.status}): ${body.slice(0, 500)}`);
+    let data: { answers?: DecisionAnswer[]; usage?: { input_tokens?: number; output_tokens?: number } };
+    try { data = JSON.parse(body); } catch { throw new MatchValidationError('La API Decisions devolvió una respuesta ilegible.'); }
+    if (!Array.isArray(data.answers)) throw new MatchValidationError('La API Decisions no devolvió respuestas.');
+    log({ event: 'ai_usage', provider: 'openai', model: DECISION_MODEL, endpoint: 'decisions',
+      inputTokens: data.usage?.input_tokens, outputTokens: data.usage?.output_tokens ?? 0,
+      questions: questions.length, durationMs: Date.now() - started });
+    return data.answers;
   }
 
   private static parseMatchJson(raw: string): any {
@@ -1703,31 +1623,11 @@ DIRECTRICES:
     const { provider, model } = await this.routeModel(isPro, debugFn);
 
     if (action === 'optimize_cv') {
-      const resolvedPrompt = await this.resolvePrompt('optimize_cv', payload.promptId);
-      const systemPrompt = resolvedPrompt.systemPrompt;
-      const userPromptTemplate = resolvedPrompt.userPrompt;
-      const resolvedName = this.extractCandidateName(payload.baseCvMarkdown || '') || payload.candidateName || 'Candidato';
-      const nameDirective = `\n\n¡REGLA SUPREMA DE NOMBRE!: El currículum DEBE comenzar obligatoriamente con el nombre del candidato en un título de primer nivel: '# ${resolvedName}' seguido de una línea en blanco. Bajo NINGUNA circunstancia uses "CURRICULUM VITAE" o "CV" como título principal.`;
-      const profileDirective = payload.careerProfileContext?.trim()
-        ? `\n\nPERFIL MAESTRO DEL CANDIDATO (fuente de la verdad de trayectoria y objetivo; no inventes fuera de esto ni del CV):\n${payload.careerProfileContext.trim().slice(0, 3200)}`
-        : '';
-      const defaultSystem = isPro
-        ? (provider === 'gemini'
-            ? 'Eres un redactor experto de CVs estilo Harvard. Toma el siguiente CV Base y optimízalo detalladamente para encajar con los requisitos de la Oferta de Trabajo. Incrementa el match semántico, prioriza secciones relevantes y utiliza la fórmula XYZ para describir logros. Devuelve la salida en Markdown limpio sin bloques de código tipo triple backtick.'
-            : 'Eres un redactor experto en CVs estilo Harvard. Analiza la oferta e integra sutilmente las palabras clave, destacando los logros medibles (fórmula XYZ) basados en la experiencia real provista en el CV Base. No inventes experiencias que no estén en el CV base, solo optimiza la redacción y priorización de las mismas. Devuelve el resultado exclusivamente en formato Markdown estructurado válido, sin bloques de código ni explicaciones.')
-        : 'Eres un asesor de empleo profesional. Optimiza el CV del usuario de acuerdo a la oferta. Devuelve SOLO el markdown resultante sin explicaciones y sin bloques de código.';
-
-      const finalSystem = (systemPrompt || defaultSystem) + '\n\n' + MARKDOWN_STRUCTURE_INSTRUCTIONS + '\n\n' + CV_HONESTY_INSTRUCTIONS + nameDirective + profileDirective;
-      const finalUser = (userPromptTemplate
-        ? this.templatePrompt(userPromptTemplate, payload.baseCvMarkdown || '', payload.jobDescription || '')
-        : `CV Base:\n${payload.baseCvMarkdown || ''}\n\nOferta de Empleo:\n${payload.jobDescription || ''}`) + profileDirective;
-
+      const mode: OptimizeModeId = isOptimizeModeId(payload.mode) ? payload.mode : 'optimize_adapted';
       return {
-        actionTitle: 'Optimización de CV con IA',
-        provider,
-        model,
-        systemPrompt: finalSystem,
-        userPrompt: finalUser,
+        actionTitle: 'Optimización de CV: análisis y modo solicitado', provider, model,
+        systemPrompt: [ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS[mode]].join('\n\n'),
+        userPrompt: analysisUserPrompt(payload.baseCvMarkdown || '', factualProfile(userContext.careerProfile), payload.jobDescription || ''),
       };
     }
 
@@ -1748,13 +1648,27 @@ DIRECTRICES:
         sourceMetadata: offer.sourceMetadata,
       }, kind));
 
-      return {
+      const jsonPrompt = {
         actionTitle: `Curar y calcular Match con IA (${offerCards.length} ofertas)`,
         provider,
         model,
         systemPrompt: buildMatchSystemPrompt({ kind, targetThreshold }),
         userPrompt: buildMatchUserPrompt({ candidateCard, offers: offerCards }),
       };
+      if (provider !== 'openai') return jsonPrompt;
+      try {
+        const evidence = buildCandidateEvidence(userProfile, payload.baseCvMarkdown || '', constraints);
+        const preview = offerCards.map((card: MatchOfferCard) => formatMatchDecisionPreview(buildMatchDecision({ candidate: evidence, offer: card }))).join('\n\n');
+        return {
+          ...jsonPrompt,
+          model: DECISION_MODEL,
+          systemPrompt: MATCH_DECISION_SYSTEM_PROMPT,
+          userPrompt: preview,
+        };
+      } catch (error) {
+        log({ event: 'match_decisions_preview_failed', level: 'warn', error });
+        return jsonPrompt;
+      }
     }
 
     if (action === 'outreach') {
@@ -1926,5 +1840,3 @@ DIRECTRICES:
     };
   }
 }
-
-

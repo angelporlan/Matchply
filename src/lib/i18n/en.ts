@@ -1,4 +1,23 @@
+import { planTranslations } from './plans';
+
 const en = {
+    accountPhoto: {
+      title: 'Profile photo',
+      upload: 'Upload profile photo',
+      change: 'Change profile photo',
+      select: 'Select profile photo',
+      help: 'JPG, PNG or WebP, up to 10 MB. Automatic square crop.',
+      kept: 'Your photo is kept when you sign in with Google again.',
+      saving: 'Optimizing and saving photo…',
+      saved: 'Photo saved.',
+      formatError: 'Select a JPG, PNG or WebP image.',
+      sizeError: 'The image must be no larger than 10 MB.',
+      dimensionsError: 'The image is too large. Use one with up to 16 megapixels.',
+      invalidError: 'Could not read the image. Try another photo.',
+      rateLimitError: 'You have changed your photo several times. Wait a minute and try again.',
+      saveError: 'Could not save your photo. Please try again.',
+    },
+    plans: planTranslations.en,
     offerImport: {
       label: "Job offer link",
       import: "Import job offer",
@@ -46,6 +65,22 @@ const en = {
         working: 'Tailoring your resume...',
         baseTitle: 'Base resume',
         untitledSection: 'Resume',
+        cvStep: '1. Your resume',
+        offerStep: '2. The job',
+        optional: '(Optional)',
+        chooseCv: 'Step 1: Choose your current resume',
+        chooseHelp: 'Upload your PDF to extract your details or paste them as text.',
+        upload: 'Click or drag your resume PDF here',
+        uploadHelp: 'Standard PDF format up to 10 MB',
+        selectedPdf: 'PDF selected ({size} KB)',
+        change: 'Change',
+        next: 'Continue to step 2 (add a job)',
+        skip: 'Skip the job and create my resume',
+        hideText: 'Hide text editor',
+        showText: 'No PDF? Paste the text',
+        ready: 'Resume ready:',
+        pasted: 'Pasted text ({words} words)',
+        back: 'Back',
         errors: {
           cv: 'Paste your resume or upload a PDF.',
           job: 'Paste the job description.',
@@ -89,6 +124,50 @@ const en = {
         errorUnexpected: 'An unexpected error occurred while registering the user',
       },
     },
+    variants: {
+      "label": "Optimized versions",
+      "generationHelp": "We will create Balanced. You can then generate Faithful or Maximum match in the editor. The set uses one optimization.",
+      "confirmTitle": "Optimize in {mode} mode?",
+      "confirmBody": "We will create this version using the original resume and the same job offer. Your other versions will be kept. No additional optimization is used.",
+      "confirm": "Yes, optimize",
+      "cancel": "Cancel",
+      "words": "words",
+      "retry": "Retry",
+      "retryError": "Could not retry this version.",
+      "saveError": "Could not save. Keep your draft and retry.",
+      "gapsTitle": "Requirements and suggestions",
+      "gapsHelp": "These requirements do not have enough evidence in your sources. Add them to your base CV only if true, then optimize again.",
+      "noGaps": "No essential requirements lacking sufficient evidence were identified.",
+      "metricsTitle": "Metrics you could add if accurate",
+      "names": {
+        "optimize_honest": "Faithful",
+        "optimize_adapted": "Balanced",
+        "optimize_aggressive": "Maximum match"
+      },
+      "descriptions": {
+        "optimize_honest": "Preserves structure and achievements; adapts up to six bullets.",
+        "optimize_adapted": "Prioritizes the offer while preserving facts and chronology.",
+        "optimize_aggressive": "Restructures your CV to emphasize the strongest supported match."
+      },
+      "status": {
+        "idle": "Not generated",
+        "pending": "Pending",
+        "generating": "Generating",
+        "ready": "Ready",
+        "error": "Error"
+      },
+      "stages": {
+        "queued": "Waiting for the AI worker…",
+        "analysis": "Analyzing requirements and evidence…",
+        "generating": "Writing and checking your resume…",
+        "completed": "Versions ready"
+      },
+      "severity": {
+        "critico": "Critical",
+        "moderado": "Moderate",
+        "menor": "Minor"
+      }
+    },
     landing: {
       nav: {
         features: 'Features',
@@ -110,7 +189,7 @@ const en = {
       features: {
         title: 'A powerful suite for professional optimization',
         subtitle: 'From an autosaving interactive editor to semantic intelligence and an application pipeline.',
-        editor: {
+  editor: {
           title: 'Your CV, ready to print in seconds',
           desc: 'Real-time editor with instant PDF preview. What you write is what you send.',
         },
@@ -271,8 +350,8 @@ const en = {
         planFree: 'Free Plan',
         planPro: 'PRO',
         planActive: 'Active',
-        planFreeDesc: 'Basic AI optimization with the Harvard template. Upgrade to PRO to unlock integrations and unlimited resumes.',
-        planProDesc: "Full access to advanced AI optimization, integrations, jobs, and unlimited downloads.",
+        planFreeDesc: 'Check your AI allowance and CV limits. The editor, CRM, extension and PDF are included.',
+        planProDesc: "Your plan increases AI, matching and research allowances. Check current usage and limits here.",
         manageBilling: 'Manage billing',
         upgrade: 'Upgrade to PRO',
         memberSince: 'Member since {date}',
@@ -405,16 +484,6 @@ const en = {
         emptyCvError: 'The resume content is empty or no text could be extracted from the PDF.',
         genericAiError: 'Error processing the resume with Artificial Intelligence.',
         dbSaveError: 'Error saving your base resume to the database.',
-      },
-      overwrite: {
-        title: 'Your free plan keeps 1 resume',
-        body: 'Your free plan keeps 1 resume. Tailoring it to this job will replace the current one.',
-        bodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Tailoring it to this job will replace it.',
-        importBody: 'Your free plan keeps 1 resume. Importing another one will replace the current one.',
-        importBodyBase: 'Your free plan keeps 1 resume. This resume is your base CV. Importing another one will replace it.',
-        replace: 'Replace',
-        upgrade: 'Upgrade to PRO',
-        cancel: 'Cancel',
       },
       modes: {
         fidelity: {
@@ -590,6 +659,11 @@ const en = {
           allSelected: "All {count} jobs selected",
           selectAllCount: "Select all {count} jobs",
           matchWithAi: 'Match with AI',
+          markFavorites: 'Mark favorites',
+          removeFavorites: 'Remove favorites',
+          favorite: 'Favorite',
+          unfavorite: 'Unfavorite',
+          export: 'Export',
           exportData: 'Export data',
           changeStatus: 'Change status',
           clear: 'Clear selection',

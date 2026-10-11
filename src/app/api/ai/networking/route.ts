@@ -7,6 +7,7 @@ import { enqueueNetworking } from '@/lib/people/ai';
 import { id, choice } from '@/lib/people/validation';
 import { NETWORKING_ACTIONS, PeopleError, type NetworkingPayload } from '@/lib/people/types';
 import { log } from '@/lib/logger';
+import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError, SupportActionBlockedError } from '@/lib/request-errors';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     void createAuditLog('networking_enqueued', userId, null, { personId: payload.personId, jobId: job.id, action: payload.action }, auditActorFields(ctx));
     return NextResponse.json({ jobId: job.id }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
+    const usageError = aiUsageErrorResponse(error); if (usageError) return usageError;
     if (error instanceof AccountSuspendedError || error instanceof ActorEpochMismatchError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) return NextResponse.json({ error: error.code }, { status: error.status });
     if (error instanceof PeopleError || error instanceof RateLimitError || error instanceof SubscriptionAccessError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof SyntaxError) return NextResponse.json({ error: 'PEOPLE_INVALID_REQUEST' }, { status: 400 });

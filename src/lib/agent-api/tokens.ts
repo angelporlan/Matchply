@@ -3,15 +3,14 @@ import { db } from '@/db';
 import { userApiTokens } from '@/db/schema';
 import { AgentApiError } from '@/lib/agent-api/errors';
 import {
-  MAX_ACTIVE_API_TOKENS,
   type AgentScope,
   type ApiTokenView,
   isAgentScope,
 } from '@/lib/agent-api/scopes';
 import { isUuid } from '@/lib/agent-api/validate';
 import { generateApiToken } from '@/lib/api-key-auth';
-import { sha256Hex } from '@/lib/crypto-hash';
-import { decryptSecret, encryptSecret } from '@/lib/secret-box';
+import { lockCvUser } from '@/lib/cv-access';
+import { getUserPlan } from '@/lib/plan-store';
 
 function viewScopes(value: unknown): AgentScope[] {
   if (!Array.isArray(value)) return [];
@@ -54,66 +53,28 @@ const tokenColumns = {
 
 export async function listUserApiTokens(userId: string): Promise<ApiTokenView[]> {
   const rows = await db
-    .select({
-      ...tokenColumns,
-      recoverable: sql<boolean>`${userApiTokens.tokenCipher} is not null`,
-    })
+    .select(tokenColumns)
     .from(userApiTokens)
     .where(eq(userApiTokens.userId, userId))
     .orderBy(desc(userApiTokens.createdAt));
-  return rows.map((row) => toView(row, Boolean(row.recoverable)));
+  return rows.map((row) => toView(row, false));
 }
 
 export async function createUserApiToken(userId: string, name: string, scopes: AgentScope[]) {
-  const [countRow] = await db
-    .select({ count: sql<number>`cast(count(*) as int)` })
-    .from(userApiTokens)
-    .where(and(eq(userApiTokens.userId, userId), isNull(userApiTokens.revokedAt)));
-  if ((Number(countRow?.count) || 0) >= MAX_ACTIVE_API_TOKENS) {
-    throw new AgentApiError(400, 'too_many_keys', 'Ya tienes 10 claves activas. Revoca una para crear otra.');
-  }
-
-  const generated = generateApiToken();
-  const [created] = await db
-    .insert(userApiTokens)
-    .values({
-      userId,
-      name,
-      tokenHash: generated.tokenHash,
-      tokenCipher: encryptSecret(generated.token),
-      lastChars: generated.lastChars,
-      scopes,
-    })
-    .returning(tokenColumns);
-
-  return { token: generated.token, apiToken: toView(created, true) };
+  return db.transaction(async tx => {
+    await lockCvUser(tx, userId);
+    const { limits } = await getUserPlan(userId, tx);
+    if (!limits.apiKeys) throw new AgentApiError(403, 'subscription_required', 'Tu plan no permite claves de agente.');
+    const [countRow] = await tx.select({ count: sql<number>`cast(count(*) as int)` }).from(userApiTokens).where(and(eq(userApiTokens.userId, userId), isNull(userApiTokens.revokedAt), sql`(${userApiTokens.expiresAt} is null or ${userApiTokens.expiresAt} > now())`));
+    if (countRow.count >= limits.apiKeys) throw new AgentApiError(400, 'too_many_keys', `Has alcanzado el límite de ${limits.apiKeys} claves activas. Revoca una para crear otra.`);
+    const generated = generateApiToken();
+    const [created] = await tx.insert(userApiTokens).values({ userId, name, tokenHash: generated.tokenHash, lastChars: generated.lastChars, scopes }).returning(tokenColumns);
+    return { token: generated.token, apiToken: toView(created, false) };
+  });
 }
 
-export async function revealUserApiToken(userId: string, tokenId: string) {
-  if (!isUuid(tokenId)) {
-    throw new AgentApiError(404, 'not_found', 'No se ha encontrado la clave.');
-  }
-  const [row] = await db
-    .select({
-      tokenCipher: userApiTokens.tokenCipher,
-      tokenHash: userApiTokens.tokenHash,
-    })
-    .from(userApiTokens)
-    .where(and(eq(userApiTokens.id, tokenId), eq(userApiTokens.userId, userId)))
-    .limit(1);
-  if (!row?.tokenCipher) {
-    throw new AgentApiError(409, 'token_unavailable', 'Esta clave se creó sin guardar el token completo.');
-  }
-  let token: string;
-  try {
-    token = decryptSecret(row.tokenCipher);
-  } catch {
-    throw new AgentApiError(409, 'token_unavailable', 'No se pudo recuperar el token.');
-  }
-  if (sha256Hex(token) !== row.tokenHash) {
-    throw new AgentApiError(409, 'token_unavailable', 'No se pudo recuperar el token.');
-  }
-  return token;
+export async function revealUserApiToken(_userId: string, _tokenId: string): Promise<string> {
+  throw new AgentApiError(409, 'token_unavailable', 'Las claves solo se muestran al crearlas. Revoca esta clave y crea otra si necesitas un nuevo token.');
 }
 
 export async function revokeUserApiToken(userId: string, tokenId: string) {

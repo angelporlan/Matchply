@@ -59,6 +59,7 @@ export interface CrmColumnHeaderMenuProps {
   sortable: boolean;
   groupable?: boolean;
   filterable?: boolean;
+  layoutControls?: boolean;
   sort: CrmConfig['sort'];
   grouping: CrmConfig['grouping'] | null;
   columnFilter?: CrmFilter;
@@ -141,6 +142,7 @@ export default function CrmColumnHeaderMenu({
   sortable,
   groupable = true,
   filterable = true,
+  layoutControls = true,
   sort,
   grouping,
   columnFilter,
@@ -891,6 +893,7 @@ export default function CrmColumnHeaderMenu({
             onClick={openFilterPanel}
           />
         )}
+        {layoutControls && <>
         {(sortable || groupable || filterable) && <div className="my-1 h-px bg-subtle" />}
         <MenuItem
           icon={<MoveHorizontal className="w-4 h-4 stroke-[1.75]" />}
@@ -916,6 +919,7 @@ export default function CrmColumnHeaderMenu({
             close(true);
           }}
         />
+        </>}
       </div>
     );
   };

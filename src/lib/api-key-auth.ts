@@ -13,6 +13,8 @@ import {
 import { sha256Hex } from '@/lib/crypto-hash';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
 import { canAccessFeature } from '@/lib/subscription';
+import { consumeApiPlanRate } from '@/lib/api-plan-rate';
+import { userPlanFeature } from '@/lib/plan-store';
 
 const TOKEN_RE = /^mp_live_[a-f0-9]{64}$/;
 const MAX_AUTH_HEADER = 100;
@@ -160,14 +162,12 @@ export async function authenticateAgentRequest(req: NextRequest): Promise<AgentP
     throw new AgentApiError(403, 'forbidden', 'Esta cuenta no puede usar la API de agente.');
   }
 
-  if (!canAccessFeature(row.subscriptionStatus, 'agentApi', {
-    isGuest: row.isGuest,
-    proGrantedUntil: row.proGrantedUntil,
-  })) {
+  if (!await userPlanFeature(row.userId, 'agentApi')) {
     throw new AgentApiError(403, 'subscription_required', 'Las claves de agente requieren un plan PRO.');
   }
 
   enforceLimit(`agent:token:${row.id}`, 120, 60_000, 60);
+  await consumeApiPlanRate(row.userId);
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     enforceLimit(`agent:write:${row.userId}`, 40, 60_000, 60);
   }

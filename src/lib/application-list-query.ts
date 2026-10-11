@@ -267,6 +267,16 @@ export async function listApplicationIds(query: Omit<ApplicationListQuery, 'page
   return rows.map((row) => row.id);
 }
 
+/** Bulk matching must include selections outside the currently loaded page. */
+export async function listSelectedApplications(userId: string, ids: string[]) {
+  if (!ids.length) return [];
+  const rows = await db.select(applicationSummaryColumns).from(jobOffers)
+    .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, ids)));
+  const byId = new Map(rows.map(row => [row.id, normalizeOffer(row)]));
+  if (byId.size !== ids.length) throw new Error('Una o más ofertas seleccionadas ya no están disponibles.');
+  return ids.map(id => byId.get(id)!);
+}
+
 export async function loadApplicationsWorkspace(query: ApplicationListQuery) {
   return listApplicationsPage(query);
 }

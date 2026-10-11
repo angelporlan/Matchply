@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test scripts/*.test.ts",
+    "test": "node --import tsx --test --test-concurrency=1 scripts/*.test.ts",
     "research:worker": "tsx scripts/research-worker.ts",
     "ai:worker": "tsx scripts/ai-worker.ts",
     "activation:emails": "tsx scripts/activation-emails.ts",
@@ -40,7 +40,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-intersection-observer": "^10.0.3",
-    "stripe": "^15.7.0",
+    "stripe": "23.0.0",
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {

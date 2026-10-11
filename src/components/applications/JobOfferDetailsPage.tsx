@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { JobOffer } from '@/db/schema';
 import { CompanyLookupItem, CvListItem } from '@/lib/job-offer-queries';
@@ -13,8 +15,9 @@ import {
   evaluateSingleOfferMatchAction,
   markApplicationSent,
 } from '@/app/dashboard/applications/actions';
-import { createCvPlaceholder } from '@/app/dashboard/actions';
-import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
+import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { sentPromptKey, shouldOpenSentPrompt } from '@/lib/application-sent';
 import { 
@@ -114,6 +117,11 @@ export default function JobOfferDetailsPage({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const { data: planUsage } = usePlanUsage();
+  const pendingAiRequest = useRef<{ signature: string; id: string } | null>(null);
+  const outreachRequest = useRef<string | null>(null);
+  const matchRequest = useRef<string | null>(null);
+  const [replacement, setReplacement] = useState<Array<{ id: string; title: string }> | null>(null);
   const [optimizingCv, setOptimizingCv] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
@@ -233,50 +241,42 @@ export default function JobOfferDetailsPage({
   const statusConfig = getStatusConfig(offer.status);
 
   // Handle Create & Optimize CV for this offer with AI
-  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
 
-  const handleOptimizeCvForOffer = async (confirmed = false) => {
-    setOptimizingCv(true);
+
+  const handleOptimizeCvForOffer = async (confirmed = false, replacementCvId?: string) => {
+    if (optimizingCv) return;
     setError(null);
+    const baseCv = userCvs.find(c => c.id === planUsage?.cv.baseCvId) || userCvs.find(c => c.isBase && !planUsage?.cv.readOnlyIds.includes(c.id));
+    if (!baseCv) { setError(t('dashboard.errors.noPrimary')); return; }
+    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return; }
+    const adaptedCount = userCvs.filter(item => !item.isBase).length;
+    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
+      const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+      if (choices.length) setReplacement(choices); else reportPlanRestriction({ code: 'CV_LIMIT' }, 'offer-cv-adapt');
+      return;
+    }
+    setOptimizingCv(true);
     try {
-      const baseCv = userCvs.find(c => c.isBase) || userCvs.find(c => c.isPrincipal) || userCvs[0];
-      if (!baseCv) {
-        throw new Error('Primero crea o importa tu Currículum Base en Matchply para poder optimizarlo.');
-      }
+      const targetCvId = replacementCvId || (userCvs.find(item => item.id === offer.cvId)?.isBase ? undefined : offer.cvId);
 
-      const placeholderRes = await createCvPlaceholder({
-        title: `CV - ${offer.title} (${offer.company})`,
-        isBase: false,
-        isPrincipal: false,
-        confirmOverwrite: confirmed,
-      });
-
-      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
-        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
-        setOptimizingCv(false);
-        return;
-      }
-
-      if (!placeholderRes.success || !placeholderRes.cvId) {
-        throw new Error(placeholderRes.error || 'Error al crear el nuevo currículum.');
-      }
-
-      const targetCvId = placeholderRes.cvId;
-      await updateJobOfferCv(offer.id, targetCvId);
-
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+      const params = {
         baseCvId: baseCv.id,
+        ...(targetCvId ? { targetCvId } : {}),
+        jobOfferId: offer.id,
         jobTitle: offer.title,
         company: offer.company,
         url: offer.url || undefined,
         platform: offer.platform || 'linkedin',
         jobDescription: offer.description || '',
-        targetCvId: targetCvId,
-      }));
+        addToApplications: false,
+        confirmOverwrite: confirmed || Boolean(replacementCvId) || Boolean(offer.cvId),
+        requestId: crypto.randomUUID(),
+      };
 
-      router.push(`/editor/${targetCvId}?optimize=true`);
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      router.push(`/editor/${targetCvId || baseCv.id}?optimize=true`);
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar la optimización.');
+      setError(err.message || t('dashboard.errors.unexpected'));
       setOptimizingCv(false);
     }
   };
@@ -370,14 +370,17 @@ export default function JobOfferDetailsPage({
       const response = await fetch('/api/ai/outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ offerId: offer.id })
+        body: JSON.stringify({ offerId: offer.id, requestId: outreachRequest.current ||= crypto.randomUUID() })
       });
 
       const resData = await response.json();
       if (!response.ok || !resData.success) {
+        if (shouldResetAiOperation(resData)) outreachRequest.current = null;
+        reportPlanRestriction(resData, 'offer-outreach');
         throw new Error(resData.error || 'Error al generar la información con IA.');
       }
 
+      outreachRequest.current = null; refreshPlanUsage();
       setOffer(prev => ({
         ...prev,
         outreachMessage: resData.outreachMessage,
@@ -436,16 +439,8 @@ export default function JobOfferDetailsPage({
           setSentPromptOpen(false);
         }}
       />
-      <OverwriteGuardDialog
-        open={Boolean(overwriteGuard)}
-        replacesBase={Boolean(overwriteGuard?.replacesBase)}
-        intent="adapt"
-        onReplace={() => {
-          setOverwriteGuard(null);
-          void handleOptimizeCvForOffer(true);
-        }}
-        onClose={() => setOverwriteGuard(null)}
-      />
+      {replacement && <CvReplacementDialog choices={replacement} onClose={() => setReplacement(null)} onReplace={cvId => { setReplacement(null); void handleOptimizeCvForOffer(true, cvId); }} />}
+
       {/* Botón Volver y cabecera móvil */}
       <div className="flex items-center justify-between gap-4 border-b border-subtle pb-4">
         <button
@@ -475,6 +470,7 @@ export default function JobOfferDetailsPage({
             </select>
           </div>
 
+          <div className="flex flex-col items-end gap-1 max-w-sm">
           <Button
             type="button"
             variant="ai"
@@ -486,6 +482,8 @@ export default function JobOfferDetailsPage({
             {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
             <span>{offer.cvId ? 'Re-optimizar CV con IA' : 'Optimizar CV con IA'}</span>
           </Button>
+          <p className="text-[11px] text-text-muted text-right">{t('variants.generationHelp')}</p>
+          </div>
 
           <Button
             type="button"
@@ -597,8 +595,9 @@ export default function JobOfferDetailsPage({
                   setEvaluatingMatch(true);
                   setError(null);
                   try {
-                    const res = await evaluateSingleOfferMatchAction(offer.id);
+                    const res = await evaluateSingleOfferMatchAction(offer.id, matchRequest.current ||= crypto.randomUUID());
                     if (res.success && typeof res.score === 'number') {
+                      matchRequest.current = null;
                       setOffer(prev => ({
                         ...prev,
                         scoreOverall: res.score,
@@ -607,9 +606,10 @@ export default function JobOfferDetailsPage({
                         matchEvidence: res.matchEvidence,
                         matchDetails: res.matchDetails ?? null,
                       }));
+                      refreshPlanUsage();
                       setActiveTab('ai_eval');
                       router.refresh();
-                    } else setError(res.error || 'No se pudo actualizar el match.');
+                    } else { if (shouldResetAiOperation(res)) matchRequest.current = null; reportPlanRestriction(res, 'match-single'); setError(res.error || 'No se pudo actualizar el match.'); }
                   } catch {
                     setError('No se pudo actualizar el match. Vuelve a intentarlo.');
                   } finally {

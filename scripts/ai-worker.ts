@@ -1,10 +1,10 @@
 import { processAiJob } from '@/lib/ai-jobs/process';
 import { claimNextAiJob, failAiJob, getAiJob } from '@/lib/ai-jobs/queue';
+import { reconcileUsage } from '@/lib/usage';
 import { log } from '@/lib/logger';
 import { createIdleBackoff, createWorkerShutdown } from '@/lib/worker-idle';
 
 const GLOBAL_CONCURRENCY = Math.max(1, Number(process.env.AI_GLOBAL_CONCURRENCY || 2));
-const JOB_TIMEOUT_MS = Math.max(30_000, Number(process.env.AI_JOB_TIMEOUT_MS || 120_000));
 const ENABLED = process.env.AI_WORKER_ENABLED !== 'false';
 
 async function processRun() {
@@ -13,16 +13,7 @@ async function processRun() {
 
   log({ event: 'ai_job_claimed', jobId: job.id, kind: job.kind, attempt: job.attempt });
   try {
-    // Batches renew their lease and bound individual LLM requests. A timer must
-    // not requeue a still-running batch after it has saved partial results.
-    if (job.kind === 'match_batch' || job.kind === 'import_offer' || job.kind === 'networking') {
-      await processAiJob(job);
-      return true;
-    }
-    await Promise.race([
-      processAiJob(job),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('AI_JOB_TIMEOUT')), JOB_TIMEOUT_MS)),
-    ]);
+    await processAiJob(job);
   } catch (error) {
     const latest = await getAiJob(job.id);
     if (latest && latest.status === 'running') {
@@ -35,10 +26,12 @@ async function processRun() {
 
 const shutdown = createWorkerShutdown();
 
+let nextReconcileAt = 0;
 async function workerLoop(slot: number) {
   const idle = createIdleBackoff();
   while (!shutdown.stopping) {
     try {
+      if (Date.now() >= nextReconcileAt) { nextReconcileAt = Date.now() + 60_000; await reconcileUsage(); }
       const worked = await processRun();
       if (worked) {
         idle.reset();

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { stripe, STRIPE_SECRET_KEY, getAppUrl } from '@/lib/stripe';
+import { log } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,34 +28,18 @@ export async function GET(req: NextRequest) {
       return new NextResponse('User not found', { status: 404 });
     }
 
-    let customerId = user.stripeCustomerId;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
-        metadata: {
-          userId: user.id,
-        },
-      });
-
-      customerId = customer.id;
-
-      await db
-        .update(users)
-        .set({ stripeCustomerId: customerId })
-        .where(eq(users.id, user.id));
-    }
+    const customerId = user.stripeCustomerId;
+    if (!customerId) return NextResponse.redirect(`${getAppUrl()}/dashboard/subscription`);
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${getAppUrl()}/dashboard`,
+      return_url: `${getAppUrl()}/dashboard/subscription`,
     });
 
     return NextResponse.redirect(portalSession.url);
   } catch (error: any) {
-    console.error('Error in Stripe billing portal:', error);
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+    log({ event: 'stripe_portal_failed', level: 'warn', route: '/api/stripe/portal', error });
+    return NextResponse.json({ error: 'portal_unavailable' }, { status: error.message === 'Unauthorized' ? 401 : 'status' in error ? Number(error.status) : 500 });
   }
 }
 

@@ -1,17 +1,24 @@
 "use client";
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
 import MarkdownEditor from './MarkdownEditor';
-import { PdfDownloadLink, type PdfZoom } from './PdfViewer';
+import PdfViewer, { PdfDownloadLink, type PdfZoom } from './PdfViewer';
 import ResumeSheet from './ResumeSheet';
 import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
-import { updateCvStyling, createCvPlaceholder, saveCvContent } from '@/app/dashboard/actions';
+import { updateCvStyling, saveCvContent, selectCvVariant } from '@/app/dashboard/actions';
+import { consumeCvOptimization } from '@/lib/cv-optimization/client';
+import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
+import type { CvOptimizationView, OptimizeProgress } from '@/lib/cv-optimization/types';
+import { EditorPersistenceContext, useEditorPersistence } from './EditorPersistence';
+import { CvVariantConfirm } from './CvVariantConfirm';
+import { useCvGenerationAnimation } from './useCvGenerationAnimation';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
-import { OverwriteGuardDialog } from '@/components/cv/OverwriteGuardDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
 import {
@@ -34,6 +41,12 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { parsePdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
+import { PlanUsageProvider, usePlanUsage } from '@/components/subscription/PlanUsageProvider';
+import { PlanFeedback, UpgradePaywall } from '@/components/subscription/UpgradePaywall';
+import { UsagePanel } from '@/components/subscription/UsagePanel';
+import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 
 interface EditorClientProps {
   cv: CV;
@@ -57,25 +70,46 @@ interface EditorClientProps {
   guestCanDownloadPdf?: boolean;
   cvChoices?: EditorCvChoice[];
   linkedOffer?: LinkedOffer | null;
+  optimization?: CvOptimizationView | null;
+  pendingOptimizationJobId?: string;
+  pendingOptimizationIsRetry?: boolean;
+  pendingOptimizationMode?: OptimizeModeId;
 }
 
-export default function EditorClient({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null }: EditorClientProps) {
+const loadingTips = [
+  "Extrayendo palabras clave y requisitos de la oferta...",
+  "Analizando tu experiencia y habilidades del CV Base...",
+  "Alineando tu perfil con los requisitos clave...",
+  "Tip: El formato Harvard destaca tus logros usando verbos de acción.",
+  "Tip: Puedes editar cualquier texto directamente después de la optimización.",
+  "Tip: Recuerda que puedes descargar el PDF en cualquier momento.",
+  "Tip: El motor de IA PRO ofrece una mayor precisión semántica."
+];
+
+const loadingTipsEn = [
+  "Extracting keywords and job description requirements...",
+  "Analyzing your experience and skills from the Base CV...",
+  "Aligning your profile with key job requirements...",
+  "Tip: The Harvard format highlights achievements using action verbs.",
+  "Tip: You can edit any text directly after optimization is complete.",
+  "Tip: Remember you can download the PDF at any time.",
+  "Tip: The PRO AI engine offers greater semantic precision."
+];
+
+export default function EditorClient(props: EditorClientProps) {
+  return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
+}
+
+function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { data: planUsage } = usePlanUsage();
+  const readOnly = !planUsage || planUsage.cv.readOnlyIds.includes(cv.id);
+  const [replacement, setReplacement] = useState<{ choices: Array<{ id: string; title: string }>; retry: (cvId: string) => void } | null>(null);
 
   // Shared Save Status State
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [guestCanDownload, setGuestCanDownload] = useState(guestCanDownloadPdf);
-
-  // Dynamic Prompt Configs Mapper
-  const getPromptConfig = (prompt: typeof availablePrompts[0]) => {
-    const isEn = language === 'en';
-    return {
-      color: prompt.color || '#8b5cf6',
-      desc: (isEn && prompt.descriptionEn) ? prompt.descriptionEn : (prompt.description || ''),
-      displayName: (isEn && prompt.nameEn) ? prompt.nameEn : prompt.name,
-    };
-  };
 
   const [fullscreenPanel, setFullscreenPanel] = useState<'none' | 'editor'>('none');
 
@@ -88,10 +122,18 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [cvTitle, setCvTitle] = useState(cv.title);
   const [surface, setSurface] = useState<'document' | 'source' | 'diff'>('document');
   const [contentVersion, setContentVersion] = useState(0);
-  const [overwriteGuard, setOverwriteGuard] = useState<{ replacesBase: boolean } | null>(null);
+
   const [sessionBase, setSessionBase] = useState<string | null>(null);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
-  const diffBase = baseCvContent || sessionBase;
+  const [optimization, setOptimization] = useState(initialOptimization);
+  const [activeMode, setActiveMode] = useState<OptimizeModeId>(isOptimizeModeId(cv.activeOptimizeMode || '') ? cv.activeOptimizeMode as OptimizeModeId : 'optimize_adapted');
+  const [variantBusy, setVariantBusy] = useState(false);
+  const variantSwitchLock = useRef(false);
+  const [optimizeProgress, setOptimizeProgress] = useState<OptimizeProgress | null>(null);
+  const [confirmVariant, setConfirmVariant] = useState<OptimizeModeId | null>(null);
+  const {preview:liveGeneration,update:setLiveGeneration,finish:finishPreview}=useCvGenerationAnimation();
+  const retryRequest = useRef<{ mode: OptimizeModeId; id: string } | null>(null);
+  const diffBase = optimization?.sourceMarkdown || baseCvContent || sessionBase;
   const [mobilePane, setMobilePane] = useState<'document' | 'review'>('document');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,15 +159,93 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   const [aiStep, setAiStep] = useState<string>('');
   const [aiStreamContent, setAiStreamContent] = useState('');
   const [cvContent, setCvContent] = useState(cv.content);
+  const pendingCvRequest = useRef<{ signature: string; id: string } | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
+  const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
+  const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
+  const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
+  const displayContent = liveGeneration?.content ?? reviewContent;
+  const receiveProgress = (progress: OptimizeProgress) => {
+    setOptimizeProgress(progress); setStreamingStep(t(`variants.stages.${progress.stage}`));
+    if (progress.preview) setLiveGeneration({modeId:progress.preview.modeId,content:progress.preview.content});
+    else if (progress.stage !== 'completed') setLiveGeneration(current => current && progress.variants.find(v=>v.modeId===current.modeId)?.status !== 'ready' ? {...current,content:''} : current);
+  };
+  const switchVariant = async (mode: OptimizeModeId) => {
+    if (!optimization || mode === activeMode || variantSwitchLock.current) return;
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    try {
+      if (!await persistence.flush()) return;
+      const selected = await selectCvVariant(cv.id, optimization.id, mode);
+      if (!selected.success || selected.content === undefined || selected.revision === undefined) throw new Error(selected.error || t('variants.saveError'));
+      setActiveMode(mode); setReviewContent(selected.content); setCvContent(selected.content);
+      persistence.reset(selected.content, { optimizationId: optimization.id, modeId: mode, revision: selected.revision });
+      setPageCount(null); setPageBreaks(null); setContentVersion(v => v+1);
+      setSaveStatus('saved');
+    } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.saveError')); }
+    finally { variantSwitchLock.current = false; setVariantBusy(false); }
+  };
+  const generateVariant = async (mode: OptimizeModeId, retry = false) => {
+    if (!optimization || variantSwitchLock.current) return;
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    try {
+      if (!await persistence.flush()) return;
+      setIsStreaming(true); setLiveGeneration({modeId:mode,content:''});
+      setStreamingStep(t('variants.stages.queued'));
+      if (retryRequest.current?.mode !== mode) retryRequest.current = { mode, id: crypto.randomUUID() };
+      const response = await fetch(`/api/ai/optimize/${optimization.id}/${retry ? 'retry' : 'generate'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(retry ? {modes:[mode]} : {mode}), requestId: retryRequest.current.id }) });
+      if (!response.ok) { const problem = await response.json(); if (shouldResetAiOperation(problem)) retryRequest.current = null; throw new Error(problem.error || t('variants.retryError')); }
+      await consumeCvOptimization(response, receiveProgress);
+      const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
+      const result = await refreshed.json();
+      if (!refreshed.ok || !result.optimization) throw new Error(t('variants.retryError'));
+      const view = result.optimization as CvOptimizationView; setOptimization(view);
+      const variant = view.variants.find(v=>v.modeId===mode);
+      if (variant?.status !== 'ready') throw new Error(t('variants.retryError'));
+      await finishPreview({modeId:mode,content:variant.content});
+      const selected = await selectCvVariant(cv.id,view.id,mode);
+      if (!selected.success || selected.content === undefined || selected.revision === undefined) throw new Error(selected.error || t('variants.saveError'));
+      setActiveMode(mode); setCvContent(selected.content); setReviewContent(selected.content);
+      persistence.reset(selected.content,{optimizationId:view.id,modeId:mode,revision:selected.revision});
+      setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1); setSaveStatus('saved');
+      retryRequest.current = null; setOptimizeProgress(null);
+    } catch (error) {
+      // A failed job can still have changed the variant status. Keep the saved
+      // document visible and expose its retry action without requiring a reload.
+      const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' }).then(async response => response.ok ? response.json() : null).catch(() => null);
+      if (refreshed?.optimization?.id === optimization.id) {
+        const view = refreshed.optimization as CvOptimizationView;
+        setOptimization(view);
+        if (view.variants.find(v=>v.modeId===mode)?.status === 'error') retryRequest.current = null;
+      }
+      setStreamingError(error instanceof Error ? error.message : t('variants.retryError'));
+    }
+    finally { variantSwitchLock.current = false; setVariantBusy(false); setIsStreaming(false); setLiveGeneration(null); setOptimizeProgress(null); }
+  };
   
   useEffect(() => {
+    if (saveStatus !== 'saved') return;
     setCvContent(cv.content);
     setReviewContent(cv.content);
-  }, [cv.content]);
+    if (initialOptimization) { setOptimization(initialOptimization); setActiveMode(cv.activeOptimizeMode as OptimizeModeId); }
+    persistence.reset(cv.content, initialOptimization && isOptimizeModeId(cv.activeOptimizeMode || '') ? { optimizationId: initialOptimization.id, modeId: cv.activeOptimizeMode as OptimizeModeId, revision: initialOptimization.variants.find(v => v.modeId === cv.activeOptimizeMode)?.revision || 0 } : undefined);
+  }, [cv.content, initialOptimization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const isContentEmpty = !reviewContent || reviewContent.trim().length === 0;
+    if (isStreaming && isContentEmpty) {
+      interval = setInterval(() => {
+        setTipIndex((prev) => (prev + 1) % (language === 'es' ? loadingTips.length : loadingTipsEn.length));
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isStreaming, reviewContent, language]);
   const [aiFormData, setAiFormData] = useState({
     jobTitle: '',
     company: '',
@@ -168,11 +288,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       }
     }
 
-    if (shouldOptimize) {
+    if (pendingOptimizationJobId) {
+      void runOptimizeStream({ jobId: pendingOptimizationJobId, resultCvId: cv.id, baseCvId: cv.id, resumeMode:pendingOptimizationMode || (pendingOptimizationIsRetry ? cv.activeOptimizeMode : undefined) });
+    } else if (shouldOptimize || (!shouldImport && (() => { try { const saved = JSON.parse(sessionStorage.getItem('matchply_optimize_params') || '{}'); return saved.baseCvId === cv.id || saved.resultCvId === cv.id; } catch { return false; } })())) {
       window.history.replaceState(null, '', window.location.pathname);
       const paramsStr = sessionStorage.getItem('matchply_optimize_params');
       if (paramsStr) {
-        sessionStorage.removeItem('matchply_optimize_params');
+
         try {
           const params = JSON.parse(paramsStr);
           if (typeof params.activationBase === 'string' && params.activationBase.trim()) {
@@ -187,14 +309,16 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       window.history.replaceState(null, '', window.location.pathname);
       const rawText = sessionStorage.getItem('matchply_import_raw_text');
       if (rawText) {
-        sessionStorage.removeItem('matchply_import_raw_text');
+
         runImportStream(rawText);
       }
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- Recover once per CV mount; changes must not re-admit a job.
 
   const runOptimizeStream = async (params: any) => {
-    const proceed = await inspectOrExecutePrompt({
+    params = { ...params, requestId: typeof params.requestId === 'string' ? params.requestId : crypto.randomUUID() };
+    sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+    const proceed = params.jobId ? true : await inspectOrExecutePrompt({
       action: 'optimize_cv',
       title: 'Optimización de CV con IA',
       data: {
@@ -211,12 +335,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     }
 
     setIsStreaming(true);
+    setLiveGeneration({modeId:isOptimizeModeId(params.resumeMode || '') ? params.resumeMode : 'optimize_adapted',content:''});
     setStreamingError(null);
     setSaveStatus('saving');
     setStreamingStep(t('editor.aiModal.steps.keywords'));
 
     try {
-      const response = await fetch('/api/ai/optimize', {
+      const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id }), { status: 202 }) : await fetch('/api/ai/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
@@ -224,43 +349,41 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       if (!response.ok) {
         const text = await response.text();
+        let problem: unknown = text;
+        try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
+        if (shouldResetAiOperation(problem)) {
+          pendingCvRequest.current = null;
+          delete params.requestId;
+          sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+        }
+        reportPlanRestriction(problem, 'editor-ai');
         throw new Error(text || 'Error en la optimización.');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
-
-      const decoder = new TextDecoder();
-      let done = false;
-      let accumulatedText = '';
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        const chunk = decoder.decode(value, { stream: !done });
-
-        if (chunk.includes('[METADATA:')) {
-          const parts = chunk.split('[METADATA:');
-          accumulatedText += parts[0];
-        } else if (chunk.includes('[ERROR:')) {
-          const parts = chunk.split('[ERROR:');
-          accumulatedText += parts[0];
-          const errorMsg = parts[1].replace(']', '').trim();
-          throw new Error(errorMsg);
-        } else {
-          accumulatedText += chunk;
-        }
-
-        setCvContent(accumulatedText);
-        setReviewContent(accumulatedText);
-        if (accumulatedText.length > 50) {
-          setStreamingStep(t('editor.aiModal.steps.generate'));
-        }
+      const admission = await response.clone().json();
+      params.jobId = admission.jobId; params.resultCvId = admission.cvId;
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      const result = await consumeCvOptimization(response, receiveProgress);
+      const refreshed = await fetch(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
+      const view = (await refreshed.json()).optimization as CvOptimizationView;
+      if (!refreshed.ok || !view) throw new Error(t('variants.retryError'));
+      const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
+      await finishPreview({modeId:selected.modeId,content:selected.content});
+      if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
+      else {
+        setOptimization(view); setActiveMode(selected.modeId); setCvContent(selected.content); setReviewContent(selected.content);
+        persistence.reset(selected.content, { optimizationId: view.id, modeId: selected.modeId, revision: selected.revision });
+        setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1);
       }
-
+      setLiveGeneration(null);
+      setOptimizeProgress(null);
       setStreamingStep(t('editor.aiModal.steps.success'));
       setSaveStatus('saved');
       trackUmamiConversion('cv_optimized');
+      sessionStorage.removeItem('matchply_optimize_params');
+      pendingCvRequest.current = null;
       // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
+      refreshPlanUsage();
       router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
@@ -269,8 +392,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
+      if (params.jobId) { const status = await fetch(`/api/ai/jobs/${params.jobId}`).then(r => r.json()).catch(() => null); if (status?.status === 'failed') { delete params.jobId; delete params.resultCvId; delete params.requestId; sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params)); } }
       setSaveStatus('error');
       setIsStreaming(false);
+      setLiveGeneration(null);
     }
   };
 
@@ -296,6 +421,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       const formData = new FormData();
       formData.append('text', rawText);
       formData.append('targetCvId', cv.id);
+      const importRequest = JSON.parse(sessionStorage.getItem('matchply_import_request') || '{}');
+      if (!importRequest.requestId) { importRequest.requestId = crypto.randomUUID(); sessionStorage.setItem('matchply_import_request', JSON.stringify(importRequest)); }
+      formData.append('requestId', importRequest.requestId);
+      if (importRequest.confirmOverwrite) formData.append('confirmOverwrite', 'true');
 
       const response = await fetch(`/api/cv/import?lang=${language}`, {
         method: 'POST',
@@ -304,41 +433,27 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
       if (!response.ok) {
         const text = await response.text();
+        let problem: unknown = text;
+        try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
+        if (shouldResetAiOperation(problem)) {
+          delete importRequest.requestId;
+          sessionStorage.setItem('matchply_import_request', JSON.stringify(importRequest));
+        }
+        reportPlanRestriction(problem, 'editor-ai');
         throw new Error(text || 'Error al importar.');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo abrir el stream de respuesta.');
-
-      const decoder = new TextDecoder();
-      let done = false;
-      let accumulatedText = '';
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        const chunk = decoder.decode(value, { stream: !done });
-
-        if (chunk.includes('[METADATA:')) {
-          const parts = chunk.split('[METADATA:');
-          accumulatedText += parts[0];
-        } else if (chunk.includes('[ERROR:')) {
-          const parts = chunk.split('[ERROR:');
-          accumulatedText += parts[0];
-          const errorMsg = parts[1].replace(']', '').trim();
-          throw new Error(errorMsg);
-        } else {
-          accumulatedText += chunk;
-        }
-
-        setCvContent(accumulatedText);
-        setReviewContent(accumulatedText);
+      const result = await consumeCvAiStream(response, content => {
+        setCvContent(content); setReviewContent(content);
         setStreamingStep(language === 'es' ? 'Transcribiendo contenido a Markdown Harvard...' : 'Transcribing content to Harvard Markdown...');
-      }
-
+      });
+      setCvContent(result.content); setReviewContent(result.content);
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
       trackUmamiConversion('cv_imported');
+      sessionStorage.removeItem('matchply_import_raw_text');
+      sessionStorage.removeItem('matchply_import_request');
+      refreshPlanUsage();
       router.refresh();
       setTimeout(() => {
         setIsStreaming(false);
@@ -347,6 +462,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     } catch (err: any) {
       console.error(err);
       setStreamingError(err.message || 'Ocurrió un error al importar el currículum.');
+      setCvContent(cv.content); setReviewContent(cv.content);
       setSaveStatus('error');
       setIsStreaming(false);
     }
@@ -393,12 +509,10 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
 
   const revertToBase = async () => {
     if (!diffBase) return;
-    setCvContent(diffBase);
-    setReviewContent(diffBase);
+    onEditorContent(diffBase);
     setContentVersion((version) => version + 1);
     setSaveStatus('saving');
-    const result = await saveCvContent(cv.id, diffBase);
-    setSaveStatus(result.success ? 'saved' : 'error');
+    await persistence.flush();
   };
 
   const scheduleStyleSave = () => {
@@ -416,6 +530,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
   };
 
   const applyStyle = (partial: Partial<{ accentColor: string; fontFamily: string; pageMargin: number; scale: number }>) => {
+    if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-style'); return; }
     const next = { ...styleRef.current, ...partial };
     styleRef.current = next;
     if (partial.fontFamily !== undefined) setFontFamily(partial.fontFamily);
@@ -450,8 +565,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
     setFocusAdapt(false);
   }, [focusAdapt, mobilePane, surface]);
 
-  // Optimización IA (Crea el placeholder y redirige al editor para streaming en tiempo real)
-  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false) => {
+  // La API reserva y crea el destino antes de generar la nueva versión.
+  const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
     setAiError(null);
     if (!aiFormData.jobDescription.trim()) {
@@ -464,31 +579,22 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       jobDescription: aiFormData.jobDescription,
     });
 
+    if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
+    if (!await persistence.flush()) return;
+    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
+    const allCvs = planUsage?.cv.cvs || cvChoices;
+    const adaptedCount = allCvs.filter(item => !item.isBase).length;
+    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
+      const choices = allCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+      if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'editor-adapt');
+      return;
+    }
     setAiLoading(true);
     setAiStep(t('editor.aiModal.steps.keywords'));
 
     try {
-      // 1. Crear el currículum placeholder para la optimización
-      const placeholderRes = await createCvPlaceholder({
-        title: `Optimizado - ${identity.jobTitle} (${identity.company})`,
-        isBase: false,
-        isPrincipal: false,
-        confirmOverwrite: confirmed,
-      });
-
-      if ('needsConfirm' in placeholderRes && placeholderRes.needsConfirm) {
-        setOverwriteGuard({ replacesBase: Boolean(placeholderRes.replacesBase) });
-        setAiLoading(false);
-        return;
-      }
-
-      if (!placeholderRes.success || !placeholderRes.cvId) {
-        throw new Error(placeholderRes.error || 'Error al inicializar el currículum.');
-      }
-
-      // 2. Guardar los parámetros de optimización en sessionStorage
-      trackUmamiConversion('offer_pasted');
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+      const input = {
         baseCvId: cv.id,
         jobTitle: identity.jobTitle,
         company: identity.company,
@@ -497,14 +603,17 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         jobDescription: aiFormData.jobDescription,
         promptId: aiFormData.promptId,
         addToApplications: aiFormData.addToApplications === 'true',
-        targetCvId: placeholderRes.cvId
-      }));
-
-      // 3. Redirigir al editor con el parámetro de streaming
+        ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
+        confirmOverwrite: confirmed,
+      };
+      const signature = JSON.stringify(input);
+      if (pendingCvRequest.current?.signature !== signature) pendingCvRequest.current = { signature, id: crypto.randomUUID() };
+      const params = { ...input, requestId: pendingCvRequest.current.id };
+      trackUmamiConversion('offer_pasted');
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
       setIsAiOpen(false);
+      await runOptimizeStream(params);
       setAiLoading(false);
-      router.refresh();
-      router.push(`/editor/${placeholderRes.cvId}?optimize=true`);
 
     } catch (err: any) {
       setAiError(err.message || t('dashboard.errors.unexpected'));
@@ -586,13 +695,13 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
             </LinkNext>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <EditorCvMenu
+                {!readOnly ? <EditorCvMenu
                   cvId={cv.id}
                   title={cvTitle}
                   choices={cvChoices.length > 0 ? cvChoices : [{ id: cv.id, title: cvTitle, isBase: cv.isBase, isPrincipal: cv.isPrincipal }]}
                   onTitleChange={setCvTitle}
                   onOpenChange={setMenuOpen}
-                />
+                /> : <span className="font-semibold text-sm">{cvTitle}</span>}
                 <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${cv.isBase ? 'bg-surface-muted text-text-muted border-subtle' : 'bg-warning-surface text-warning-text border-warning-text/20'}`}>
                   {cv.isBase ? t('editor.header.titleBase') : t('editor.header.titleOptimized')}
                 </span>
@@ -607,12 +716,15 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
+              disabled={isStreaming || variantBusy}
+              beforeDownload={persistence.flush}
+              variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
           </div>
         </div>
       </header>
 
-      <EditorFormatBar
+      {!readOnly && <EditorFormatBar
         fontFamily={fontFamily}
         pageMargin={pageMargin}
         scale={scale}
@@ -641,18 +753,27 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               ? t('editor.footer.error')
               : (isGuest ? t('editor.footer.savedGuest') : t('editor.footer.saved'))
         }
-      />
+        variants={optimizeProgress?.variants || optimization?.variants}
+        activeMode={activeMode}
+        onSelectVariant={mode => { if (optimization?.variants.find(v=>v.modeId===mode)?.status === 'idle') setConfirmVariant(mode); else void switchVariant(mode); }}
+        onRetryVariant={mode => { void generateVariant(mode,true); }}
+        variantBusy={variantBusy || isStreaming}
+      />}
+
+      {!isStreaming && planUsage?.firstValueAt && planUsage.plan !== 'pro' && <div className="m-4"><UpgradePaywall source="first-value" dismissible accountId={cv.userId} /></div>}
+      {readOnly && <p role="status" className="m-4 rounded-[8px] bg-warning-surface p-3 text-sm text-warning-text">{t('plans.readOnlyBody')} <LinkNext href="/dashboard" className="underline">{t('plans.chooseActive')}</LinkNext></p>}
 
       {isStreaming && (
-        <div className="mx-6 mt-4 p-3 bg-purple-500/10 border border-purple-500/20 text-ai text-xs rounded-xl flex items-center justify-between shadow-sm animate-pulse z-15">
+        <div role="status" className="relative mx-4 sm:mx-6 mt-4 overflow-hidden p-3 bg-ai-surface border border-ai-action/20 text-ai-action text-xs rounded-[8px] flex flex-wrap gap-2 items-center justify-between z-15">
+          <span aria-hidden className="cv-generation-sweep absolute bottom-0 left-0 h-0.5 w-1/3 bg-ai-action" />
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-ai animate-spin" />
+            <Sparkles className="w-4 h-4 text-ai-action" aria-hidden />
             <span className="font-bold uppercase tracking-wider font-display text-[10px]">Asistente de IA Matchply</span>
             <span className="text-slate-400">|</span>
-            <span className="font-medium text-slate-700 dark:text-slate-350">{streamingStep}</span>
+            <span className="font-medium text-text">{liveGeneration ? `${t(`variants.names.${liveGeneration.modeId}`)} · ` : ''}{streamingStep}</span>
           </div>
           <span className="font-mono text-[10px] px-2 py-0.5 bg-ai/10 rounded border border-ai/20 font-bold">
-            {cvContent.split(/\s+/).filter(Boolean).length} palabras
+            {displayContent.split(/\s+/).filter(Boolean).length} {t('variants.words')}
           </span>
         </div>
       )}
@@ -674,7 +795,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
         </div>
       )}
 
-      {!isLg && (
+      {!readOnly && !isLg && (
         <div role="tablist" aria-label={cvTitle} className="flex shrink-0 border-b border-subtle bg-surface">
           {(['document', 'review'] as const).map((pane) => (
             <button
@@ -692,30 +813,33 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
       )}
 
       <div className={`flex-1 min-h-0 flex overflow-hidden ${isLg ? 'flex-row' : 'flex-col'}`}>
-        {(showDocument || showSource) && (
-          <div className={`h-full min-h-0 min-w-0 flex flex-col flex-1 ${showSource ? 'p-4 sm:p-6' : ''}`}>
+        {readOnly && <PdfViewer cvId={cv.id} version={String(cv.updatedAt)} zoom={zoom} variant="sheet" />}
+        {!readOnly && (showDocument || showSource) && (
+          <div data-cv-generating={liveGeneration ? 'true' : undefined} aria-busy={isStreaming} className={`h-full min-h-0 min-w-0 flex flex-col flex-1 relative ${showSource ? 'p-4 sm:p-6' : ''}`}>
             {showDocument && (
+              <div className="contents" ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }}>
               <ResumeSheet
                 cvId={cv.id}
-                content={reviewContent}
+                content={displayContent}
                 fontFamily={fontFamily}
                 pageMargin={pageMargin}
                 scale={scale}
                 accentColor={accentColor}
                 zoom={zoom}
-                pageBreaks={pageBreaks}
-                onContentChange={setReviewContent}
+                pageBreaks={liveGeneration ? null : pageBreaks}
+                onContentChange={liveGeneration ? () => {} : onEditorContent}
                 setSaveStatus={setSaveStatus}
               />
+              </div>
             )}
             {showSource && (
               <MarkdownEditor
                 key={`${surface}-${contentVersion}`}
                 cvId={cv.id}
-                initialContent={reviewContent}
+                initialContent={displayContent}
                 originalContent={diffBase || undefined}
                 forcedMode={surface === 'diff' ? 'diff' : 'markdown'}
-                onContentChange={setReviewContent}
+                onContentChange={liveGeneration ? () => {} : onEditorContent}
                 saveStatus={saveStatus}
                 setSaveStatus={setSaveStatus}
                 isFullScreen={fullscreenPanel === 'editor'}
@@ -725,15 +849,37 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                 onRevert={diffBase ? () => { void revertToBase(); } : undefined}
               />
             )}
+            {isStreaming && !displayContent.trim() && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/90 dark:bg-canvas/95 backdrop-blur-md select-none z-50 transition-all duration-300">
+                <div className="relative mb-6">
+                  <div className="w-16 h-16 rounded-full border border-purple-500/20 flex items-center justify-center bg-purple-500/5 shadow-inner">
+                    <RefreshCw className="w-6 h-6 text-ai animate-spin stroke-[1.75]" />
+                  </div>
+                  <div className="absolute inset-0 w-16 h-16 rounded-full border-t-2 border-ai animate-pulse" />
+                </div>
+                
+                <h4 className="text-sm font-bold text-text mb-2 font-display uppercase tracking-wider">
+                  {language === 'es' ? 'Optimizando con IA Matchply' : 'Optimizing with Matchply AI'}
+                </h4>
+                
+                <p className="text-xs text-ai dark:text-purple-300 font-semibold tracking-wide h-6 flex items-center justify-center animate-pulse mb-3 font-display">
+                  {streamingStep || (language === 'es' ? 'Preparando el motor de Inteligencia Artificial...' : 'Preparing AI engine...')}
+                </p>
+                
+                <p className="text-[11px] text-slate-500 dark:text-text-muted font-light max-w-sm h-10 flex items-center justify-center leading-relaxed font-sans px-4 py-2 bg-control/5 dark:bg-white/5 rounded-xl border border-slate-500/10 dark:border-white/5 shadow-sm">
+                  {language === 'es' ? loadingTips[tipIndex] : loadingTipsEn[tipIndex]}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {showReview && (
-          <div className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
+        {!readOnly && showReview && (
+          <div ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }} className={`h-full min-h-0 overflow-hidden ${isLg ? 'w-[320px] xl:w-[360px] shrink-0' : 'flex-1'}`}>
             <EditorReviewRail
               cvId={cv.id}
               content={reviewContent}
-              onContentChange={setReviewContent}
+              onContentChange={onEditorContent}
               setSaveStatus={setSaveStatus}
               isBase={cv.isBase}
               linkedOffer={linkedOffer}
@@ -748,28 +894,23 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
               aiLoading={aiLoading}
               onSubmit={() => { void handleAiOptimize(); }}
               titleInputRef={adaptTitleRef}
+              analysis={optimization?.analysis || null}
+              activeMode={activeMode}
             />
           </div>
         )}
       </div>
 
       {/* Cajón Lateral / Modal de Optimización por IA */}
+      <CvVariantConfirm mode={confirmVariant} onClose={()=>setConfirmVariant(null)} onConfirm={()=>{ const mode=confirmVariant; setConfirmVariant(null); if (mode) void generateVariant(mode); }} />
       <ApplicationSentPrompt
         open={sentPromptOpen}
         onYes={() => closeSentPrompt('yes')}
         onNo={() => closeSentPrompt('no')}
         onDismiss={() => closeSentPrompt('later')}
       />
-      <OverwriteGuardDialog
-        open={Boolean(overwriteGuard)}
-        replacesBase={Boolean(overwriteGuard?.replacesBase)}
-        intent="adapt"
-        onReplace={() => {
-          setOverwriteGuard(null);
-          void handleAiOptimize(undefined, true);
-        }}
-        onClose={() => setOverwriteGuard(null)}
-      />
+      {replacement && <CvReplacementDialog choices={replacement.choices} onClose={() => setReplacement(null)} onReplace={cvId => { const retry = replacement.retry; setReplacement(null); retry(cvId); }} />}
+
       {isAiOpen && (
         <ModalScrim>
           <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
@@ -819,15 +960,8 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                   </div>
                 )}
 
-                {!isPremium && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500/90 text-xs rounded-[8px] flex items-start gap-3 font-sans">
-                    <Crown className="w-5 h-5 shrink-0 mt-0.5 stroke-[1.75]" />
-                    <div>
-                      <span className="font-bold block mb-0.5 font-display">{t('editor.aiModal.freeWarning')}</span>
-                      {t('editor.aiModal.freeDesc')}
-                    </div>
-                  </div>
-                )}
+                <UsagePanel compact />
+                {!isPremium && <UpgradePaywall source="editor-adapt-dialog" compact />}
 
                 <form onSubmit={handleAiOptimize} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -909,70 +1043,7 @@ export default function EditorClient({ cv, isPremium, availablePrompts, baseCvCo
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-ai animate-pulse stroke-[1.75]" />
-                      {t('editor.aiModal.mode')}
-                    </label>
-                    {availablePrompts.length === 0 ? (
-                      <div className="w-full bg-canvas/40 border border-subtle rounded-[8px] px-4 py-3 text-xs text-text-muted font-sans">
-                        {t('editor.aiModal.defaultMode')}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {availablePrompts.map((prompt) => {
-                          const config = getPromptConfig(prompt);
-                          const isSelected = aiFormData.promptId === prompt.id;
-                          
-                          return (
-                            <div
-                              key={prompt.id}
-                              onClick={() => setAiFormData(prev => ({ ...prev, promptId: prompt.id }))}
-                              className={`relative p-3.5 rounded-[8px] border bg-canvas/35 cursor-pointer transition-all duration-200 group flex flex-col justify-between select-none hover:-translate-y-0.5 ${
-                                isSelected 
-                                  ? 'shadow-lg border-transparent' 
-                                  : 'border-subtle hover:border-control dark:hover:border-white/20'
-                              }`}
-                              style={isSelected ? {
-                                borderColor: config.color,
-                                boxShadow: `0 10px 15px -3px ${config.color}15, 0 4px 6px -4px ${config.color}15`,
-                                outline: `2px solid ${config.color}25`,
-                                outlineOffset: '-1px'
-                              } : undefined}
-                              title={config.desc}
-                            >
-                              <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span 
-                                    className="text-[8.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded transition-colors"
-                                    style={{
-                                      backgroundColor: `${config.color}1a`,
-                                      color: config.color
-                                    }}
-                                  >
-                                    {config.displayName.replace('Modo ', '').replace(' Mode', '')}
-                                  </span>
-                                  <div 
-                                    className="w-2 h-2 rounded-full transition-transform group-hover:scale-125 shrink-0"
-                                    style={{ backgroundColor: config.color }}
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-[9.5px] text-text-muted leading-normal font-light font-sans">
-                                {config.desc}
-                              </p>
-                              {isSelected && (
-                                <div 
-                                  className="absolute top-[-1px] right-[-1px] w-2.5 h-2.5 rounded-full blur-[2.5px] opacity-70"
-                                  style={{ backgroundColor: config.color }}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-text-muted">{t('variants.generationHelp')}</p>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">

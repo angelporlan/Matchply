@@ -1,5 +1,8 @@
 "use client";
 
+import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
+
 import React, { useState, useRef } from 'react';
 import {
   FileText,
@@ -13,6 +16,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
+import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import { getOwnedCvContentAction } from '@/app/dashboard/settings-actions';
 
@@ -45,6 +49,7 @@ export default function CvImportProfileModal({
   const [error, setError] = useState<string | null>(null);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
 
+  const pendingRequest = useRef<{ signature: string; id: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -88,6 +93,9 @@ export default function CvImportProfileModal({
 
     try {
       let res: Response;
+      const signature = JSON.stringify({ tab, rawText, pastedText, file: selectedFile ? [selectedFile.name, selectedFile.size, selectedFile.lastModified] : null });
+      if (pendingRequest.current?.signature !== signature) pendingRequest.current = { signature, id: crypto.randomUUID() };
+      const requestId = pendingRequest.current.id;
 
       if (tab === 'upload') {
         if (!selectedFile) {
@@ -95,6 +103,7 @@ export default function CvImportProfileModal({
         }
         const formData = new FormData();
         formData.append('file', selectedFile);
+        formData.append('requestId', requestId);
         res = await fetch('/api/ai/profile/extract', {
           method: 'POST',
           body: formData,
@@ -106,7 +115,7 @@ export default function CvImportProfileModal({
         res = await fetch('/api/ai/profile/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: rawText }),
+          body: JSON.stringify({ text: rawText, requestId }),
         });
       } else {
         if (!pastedText.trim()) {
@@ -115,15 +124,18 @@ export default function CvImportProfileModal({
         res = await fetch('/api/ai/profile/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: pastedText }),
+          body: JSON.stringify({ text: pastedText, requestId }),
         });
       }
 
       const data = await res.json();
       if (data.success && data.profile) {
+        refreshPlanUsage(); pendingRequest.current = null;
         onApplyProfile(data.profile);
         onClose();
       } else {
+        if (shouldResetAiOperation(data)) pendingRequest.current = null;
+        reportPlanRestriction(data, 'profile-import');
         throw new Error(data.error || 'No se pudo extraer la información del CV.');
       }
     } catch (err: any) {
@@ -137,6 +149,7 @@ export default function CvImportProfileModal({
   return (
     <ModalScrim>
       <div className="bg-white dark:bg-surface border border-subtle rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-5 pt-4"><InlineAllowance /></div>
         {/* Header */}
         <div className="p-5 border-b border-subtle flex items-center justify-between bg-surface-muted/50 dark:bg-surface/50">
           <div className="flex items-center gap-3">

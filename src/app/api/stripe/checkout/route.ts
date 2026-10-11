@@ -1,118 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 import { requireBillingContext } from '@/lib/request-context';
-import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { stripe, STRIPE_SECRET_KEY, STRIPE_PRICE_ID_PRO, getAppUrl } from '@/lib/stripe';
-import { ALL_CV_TEMPLATES, isProSubscription } from '@/lib/subscription';
+import { createUserCheckout, BillingError } from '@/lib/billing-service';
+import { readBillingInterval, isTrustedBillingOrigin } from '@/lib/billing-policy';
+import { log } from '@/lib/logger';
 
-export async function GET(req: NextRequest) {
+/** Preserve bookmarked/auth-intent URLs without creating billing resources on GET. */
+export function GET(req: NextRequest) {
+  const target = new URL('/dashboard/subscription', req.url);
+  for (const key of ['source', 'interval', 'template']) {
+    const value = req.nextUrl.searchParams.get(key);
+    if (value && /^[a-zA-Z0-9_-]{1,64}$/.test(value)) target.searchParams.set(key, value);
+  }
+  return NextResponse.redirect(target);
+}
+
+export async function POST(req: NextRequest) {
+  if (!isTrustedBillingOrigin(req.headers.get('origin'))) return NextResponse.json({ error: 'invalid_origin' }, { status: 403 });
   try {
-    if (!STRIPE_SECRET_KEY) {
-      return new NextResponse('Stripe secret key not configured', { status: 500 });
-    }
-
     const ctx = await requireBillingContext();
-    const userId = ctx.realUser.id;
-
-    // 1. Obtener datos del usuario
-    const [user] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        stripeCustomerId: users.stripeCustomerId,
-        stripeSubscriptionId: users.stripeSubscriptionId,
-        subscriptionStatus: users.subscriptionStatus,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 });
-    }
-
-    const origin = getAppUrl();
-    const requestedTemplate = req.nextUrl.searchParams.get('template');
-    const template = requestedTemplate && ALL_CV_TEMPLATES.includes(requestedTemplate as typeof ALL_CV_TEMPLATES[number])
-      ? requestedTemplate
-      : null;
-    const sourceParam = req.nextUrl.searchParams.get('source');
-    const source = sourceParam && /^[a-zA-Z0-9_-]{1,64}$/.test(sourceParam) ? sourceParam : null;
-    let customerId = user.stripeCustomerId;
-
-    // 2. Crear cliente de Stripe si no existe
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
-        metadata: {
-          userId: user.id
-        }
-      });
-      customerId = customer.id;
-
-      await db
-        .update(users)
-        .set({ stripeCustomerId: customerId })
-        .where(eq(users.id, userId));
-    }
-
-    if (isProSubscription(user.subscriptionStatus) && user.stripeSubscriptionId) {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-      return_url: `${origin}/dashboard`,
-      });
-
-      return NextResponse.redirect(portalSession.url);
-    }
-
-    // 3. Obtener Stripe Price ID desde variables de entorno
-    const priceId = STRIPE_PRICE_ID_PRO;
-    if (!priceId || priceId.includes("price_...")) {
-      return new NextResponse('Stripe Price ID PRO not configured', { status: 500 });
-    }
-
-    // 4. Crear sesión de checkout de Stripe
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
-      success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}${template ? `&template=${encodeURIComponent(template)}` : ''}${source ? `&source=${encodeURIComponent(source)}` : ''}`,
-      cancel_url: `${origin}/dashboard?checkout=cancel${template ? `&template=${encodeURIComponent(template)}` : ''}${source ? `&source=${encodeURIComponent(source)}` : ''}`,
-      allow_promotion_codes: true,
-      customer_update: {
-        name: 'auto',
-        address: 'auto',
-      },
-      subscription_data: {
-        metadata: {
-          userId: user.id,
-          ...(template ? { template } : {}),
-          ...(source ? { source } : {}),
-        },
-      },
-      metadata: {
-        userId: user.id,
-        ...(template ? { template } : {}),
-        ...(source ? { source } : {}),
-      }
-    });
-
-    if (!checkoutSession.url) {
-      throw new Error('Failed to create stripe checkout session URL');
-    }
-
-    return NextResponse.redirect(checkoutSession.url);
-  } catch (error: any) {
-    console.error('Error in Stripe checkout:', error);
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+    const body = await req.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'invalid_checkout' }, { status: 400 });
+    const interval = readBillingInterval(body.interval);
+    if (!interval || (body.source !== undefined && (typeof body.source !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(body.source)))
+      || (body.requestId !== undefined && (typeof body.requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId)))
+      || (body.returnTo !== undefined && typeof body.returnTo !== 'string')) return NextResponse.json({ error: 'invalid_checkout' }, { status: 400 });
+    return NextResponse.json(await createUserCheckout({ userId: ctx.realUser.id, interval, source: body.source, returnTo: body.returnTo, requestId: body.requestId || randomUUID() }));
+  } catch (error) {
+    log({ event: 'stripe_checkout_failed', level: 'warn', route: '/api/stripe/checkout', error });
+    if (error instanceof BillingError) return NextResponse.json({ error: error.code, message: error.message }, { status: error.status });
+    const status = error instanceof Error && 'status' in error ? Number(error.status) : error instanceof Error && error.message === 'Unauthorized' ? 401 : 500;
+    return NextResponse.json({ error: status === 401 ? 'unauthorized' : 'checkout_unavailable', message: 'No se pudo abrir la compra.' }, { status });
   }
 }
+
 export const dynamic = 'force-dynamic';

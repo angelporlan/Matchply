@@ -15,6 +15,11 @@ test('stripe subscription patch prefers metadata.userId and string customer ids'
     stripeCustomerId: 'cus_abc',
     stripeSubscriptionId: 'sub_123',
     subscriptionStatus: 'active',
+    stripePriceId: null,
+    billingInterval: null,
+    stripeTrialEnd: null,
+    stripeCurrentPeriodEnd: null,
+    stripeCancelAtPeriodEnd: false,
   });
 });
 

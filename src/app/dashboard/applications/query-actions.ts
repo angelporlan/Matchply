@@ -4,10 +4,14 @@ import { timed } from '@/lib/logger';
 import {
   loadApplicationsWorkspace,
   listApplicationIds,
+  listSelectedApplications,
   type ApplicationWorkspace,
 } from '@/lib/application-list-query';
 import type { ApplicationSortState, ApplicationViewFilters } from '@/lib/application-views';
 import { requireProductContext } from '@/lib/request-context';
+import { crmIds } from '@/lib/crm-service';
+import { getUserPlan } from '@/lib/plan-store';
+import type { ApplicationSummary } from '@/lib/job-offer-queries';
 
 export type ApplicationsQueryInput = {
   filters: ApplicationViewFilters;
@@ -49,5 +53,24 @@ export async function queryApplicationIdsAction(
     return { success: true, ids, truncated: ids.length >= 10_000 };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'FAILED_TO_QUERY_APPLICATION_IDS' };
+  }
+}
+
+export async function querySelectedApplicationsAction(
+  input: string[],
+): Promise<{ offers: ApplicationSummary[] } | { error: string; code?: string; limit?: number }> {
+  try {
+    const ctx = await requireProductContext({ allowGuest: true, feature: 'applications' });
+    const ids = crmIds(input);
+    const { plan, limits } = await getUserPlan(ctx.effectiveUser!.id);
+    if (ids.length > 1 && plan !== 'pro') {
+      return { error: 'El matching en lote requiere el plan Pro.', code: 'PRO_REQUIRED' };
+    }
+    if (ids.length > Math.max(1, limits.matchBatchSize)) {
+      return { error: `Selecciona como máximo ${Math.max(1, limits.matchBatchSize)} ofertas por lote.`, code: 'MATCH_BATCH_TOO_LARGE', limit: Math.max(1, limits.matchBatchSize) };
+    }
+    return { offers: await listSelectedApplications(ctx.effectiveUser!.id, ids) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudieron cargar las ofertas seleccionadas.' };
   }
 }

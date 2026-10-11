@@ -11,6 +11,7 @@ import Logo from '@/components/ui/Logo';
 import UserMenu from '@/components/account/UserMenu';
 import NavigationLink from '@/components/navigation/NavigationLink';
 import { useNavigationPending } from '@/components/navigation/NavigationPendingProvider';
+import SidebarLimits from '@/components/subscription/SidebarLimits';
 
 interface SidebarProps {
   user: {
@@ -252,15 +253,10 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
           </nav>
         </div>
 
-        {/* User profile & language settings */}
-        <div className="pt-4 border-t border-subtle space-y-4">
-          {/* Sleek Language Panel */}
-          <div className="flex items-center justify-between bg-surface-muted/30 border border-subtle px-3 py-2 rounded-[10px] shadow-xs">
-            <span className="text-[11px] font-bold text-text-muted font-display">
-              {language === 'es' ? 'Idioma' : 'Language'}
-            </span>
-            <LanguageToggle />
-          </div>
+        {/* User profile & limits */}
+        <div className="pt-4 border-t border-subtle space-y-3 mt-auto shrink-0">
+          {/* Sleek Limits Accordion */}
+          <SidebarLimits />
 
           {isGuest ? (
             <>
@@ -274,6 +270,7 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
                     {language === 'es' ? 'Prueba sin registro' : 'Trial without signup'}
                   </span>
                 </div>
+                <LanguageToggle compact />
               </div>
 
               <div className="space-y-2 font-display">

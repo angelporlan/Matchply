@@ -94,15 +94,17 @@ export function missingCompanyFields(row: {
   return missing;
 }
 
-async function ensureUserCompany(userId: string, companyId: string) {
-  await db
+type CompanyWriter = Pick<typeof db, 'select' | 'insert'>;
+
+async function ensureUserCompany(userId: string, companyId: string, executor: CompanyWriter = db) {
+  await executor
     .insert(userCompanies)
     .values({ userId, companyId })
     .onConflictDoNothing();
 }
 
-async function findCompanyByNormalizedName(nameNormalized: string) {
-  const [existing] = await db
+async function findCompanyByNormalizedName(nameNormalized: string, executor: CompanyWriter = db) {
+  const [existing] = await executor
     .select()
     .from(companies)
     .where(eq(companies.nameNormalized, nameNormalized))
@@ -110,33 +112,26 @@ async function findCompanyByNormalizedName(nameNormalized: string) {
   return existing ?? null;
 }
 
-export async function findOrCreateCompany(userId: string, rawName: string) {
+export async function findOrCreateCompany(userId: string, rawName: string, executor: CompanyWriter = db) {
   const name = normalizeCompanyName(rawName);
   if (!name) return null;
   const nameNormalized = companyNameKey(name);
 
-  const existing = await findCompanyByNormalizedName(nameNormalized);
+  const existing = await findCompanyByNormalizedName(nameNormalized, executor);
   if (existing) {
-    await ensureUserCompany(userId, existing.id);
+    await ensureUserCompany(userId, existing.id, executor);
     return existing;
   }
 
-  try {
-    const [created] = await db
-      .insert(companies)
-      .values({ name, nameNormalized })
-      .returning();
-    await ensureUserCompany(userId, created.id);
-    return created;
-  } catch (error) {
-    if (!isUniqueViolation(error)) throw error;
-    const again = await findCompanyByNormalizedName(nameNormalized);
-    if (again) {
-      await ensureUserCompany(userId, again.id);
-      return again;
-    }
-    throw error;
-  }
+  const [created] = await executor
+    .insert(companies)
+    .values({ name, nameNormalized })
+    .onConflictDoNothing({ target: companies.nameNormalized })
+    .returning();
+  const company = created || await findCompanyByNormalizedName(nameNormalized, executor);
+  if (!company) throw new Error('COMPANY_CREATION_FAILED');
+  await ensureUserCompany(userId, company.id, executor);
+  return company;
 }
 
 export async function listCompanyLookups(userId: string): Promise<CompanyLookupItem[]> {

@@ -7,3 +7,5 @@ export { buildMatchSystemPrompt, buildMatchUserPrompt, buildMatchExplanationProm
 export { canReuseCachedMatch, matchInputHash, matchSourceHash } from './fingerprint';
 export { cachedMatchItem, normalizeMatchItem } from './normalize';
 export { readMatchBreakdown, validateRequirements, applyEvidenceAdjustments, isMatchEvidenceSnapshot, normalizeMatchDetails, isMatchDetails } from './evidence';
+export { DECISION_MODEL, DECISION_QUESTION_CHUNK, MATCH_DECISION_SYSTEM_PROMPT, MATCH_DECISION_VERSION, MATCH_SCORE_LEVELS, buildMatchDecision, decisionScoreToPercent, formatMatchDecisionPreview, llmItemFromDecision } from './decisions';
+export type { DecisionAnswer, DecisionQuestion, MatchDecisionRequest } from './decisions';

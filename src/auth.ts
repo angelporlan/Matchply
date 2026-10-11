@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs";
 import { createAuditLog } from "@/lib/audit";
 import { cookies } from "next/headers";
 import { consumeRateLimit, RateLimitError } from "@/lib/rate-limit";
+import { seedGoogleProfilePhoto } from '@/lib/avatar/profile';
+import { log } from '@/lib/logger';
 
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
@@ -59,7 +61,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     })
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === "google") {
         if (!user.email) return false;
         try {
@@ -99,11 +101,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
               // Signup already succeeded. Losing the one-shot beacon must not fail OAuth.
             }
           } else {
+            const storedProfile = await seedGoogleProfilePhoto(existingUser.id, user.image);
             user.id = existingUser.id;
+            user.image = storedProfile?.image || null;
+            user.name = storedProfile?.name || user.name;
             (user as any).role = existingUser.role;
           }
         } catch (error) {
-          console.error("Error linking Google OAuth user:", error);
+          log({ event: 'google_oauth_link_failed', level: 'error' });
           return false;
         }
       }
@@ -118,10 +123,19 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || 'user';
+        token.picture = user.image || null;
+        token.name = user.name;
+      } else if (trigger === 'update' && token.id) {
+        // Session updates must use persisted values, never client-supplied profile fields.
+        const [stored] = await db.select({ image: users.image, name: users.name }).from(users).where(eq(users.id, token.id as string)).limit(1);
+        if (stored) {
+          token.picture = stored.image;
+          token.name = stored.name;
+        }
       }
       return token;
     },

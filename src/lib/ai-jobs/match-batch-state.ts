@@ -1,6 +1,6 @@
 /** Small, non-narrative results persisted after each offer has been saved. */
 export type MatchBatchScore = { id: string; score: number };
-export type MatchBatchError = { id: string; message: string; code?: 'outdated' };
+export type MatchBatchError = { id: string; message: string; code?: 'outdated' | 'lookup' };
 export type MatchBatchResult = {
   total: number;
   items: MatchBatchScore[];
@@ -19,7 +19,7 @@ export function readMatchBatchResult(value: unknown, total = 0): MatchBatchResul
   const errors = new Map<string, MatchBatchError>();
   for (const error of Array.isArray(input.errors) ? input.errors : []) {
     if (error && typeof error.id === 'string' && typeof error.message === 'string' && !scores.has(error.id)) {
-      errors.set(error.id, { id: error.id, message: error.message, ...(error.code === 'outdated' ? { code: 'outdated' as const } : {}) });
+      errors.set(error.id, { id: error.id, message: error.message, ...(error.code === 'outdated' || error.code === 'lookup' ? { code: error.code } : {}) });
     }
   }
   return {
@@ -32,6 +32,15 @@ export function readMatchBatchResult(value: unknown, total = 0): MatchBatchResul
 export function pendingMatchOfferIds(offerIds: string[], result: MatchBatchResult): string[] {
   const saved = new Set(result.items.map(item => item.id));
   return Array.from(new Set(offerIds)).filter(id => !saved.has(id));
+}
+
+/** Scored offers and confirmed description misses are finished. Other failures stay pending so the job can retry. */
+export function unfinishedMatchOfferIds(offerIds: string[], result: MatchBatchResult): string[] {
+  const finished = new Set([
+    ...result.items.map(item => item.id),
+    ...result.errors.filter(error => error.code === 'lookup').map(error => error.id),
+  ]);
+  return Array.from(new Set(offerIds)).filter(id => !finished.has(id));
 }
 
 export function addMatchBatchScore(result: MatchBatchResult, item: MatchBatchScore): MatchBatchResult {
@@ -47,7 +56,7 @@ export function addMatchBatchError(result: MatchBatchResult, error: MatchBatchEr
   if (result.items.some(item => item.id === error.id)) return result;
   return {
     ...result,
-    errors: [...result.errors.filter(existing => existing.id !== error.id), { id: error.id, message: error.message, ...(error.code === 'outdated' ? { code: 'outdated' as const } : {}) }],
+    errors: [...result.errors.filter(existing => existing.id !== error.id), { id: error.id, message: error.message, ...(error.code === 'outdated' || error.code === 'lookup' ? { code: error.code } : {}) }],
   };
 }
 

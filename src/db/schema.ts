@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, doublePrecision, index, uniqueIndex, jsonb, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, doublePrecision, numeric, index, uniqueIndex, jsonb, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
 import type { NetworkingAdvice, ProposedMessage } from '@/lib/people/types';
 import { relations } from 'drizzle-orm';
 
@@ -13,6 +13,14 @@ export const users = pgTable('user', {
   stripeCustomerId: text('stripeCustomerId').unique(),
   stripeSubscriptionId: text('stripeSubscriptionId'),
   subscriptionStatus: text('subscriptionStatus').default('none').notNull(), // Stripe status, or 'none' before subscribing.
+  stripePriceId: text('stripePriceId'),
+  billingInterval: text('billingInterval'),
+  stripeTrialEnd: timestamp('stripeTrialEnd', { mode: 'date' }),
+  stripeCurrentPeriodEnd: timestamp('stripeCurrentPeriodEnd', { mode: 'date' }),
+  stripeCancelAtPeriodEnd: boolean('stripeCancelAtPeriodEnd').default(false).notNull(),
+  stripeTrialUsedAt: timestamp('stripeTrialUsedAt', { mode: 'date' }),
+  stripePaidAt: timestamp('stripePaidAt', { mode: 'date' }),
+  firstValueAt: timestamp('firstValueAt', { mode: 'date' }),
   role: text('role').default('user').notNull(), // 'user' o 'admin'
   accountStatus: text('accountStatus').default('active').notNull(), // 'active' | 'suspended'
   suspensionReason: text('suspensionReason'),
@@ -38,6 +46,16 @@ export const users = pgTable('user', {
   proGrantedIdx: index('user_pro_granted_idx').on(table.proGrantedUntil),
 }));
 
+// Uploaded profile photos stay out of session/dashboard queries. One photo per account.
+export const userAvatars = pgTable('user_avatar', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytes: text('bytes').notNull(), // Base64-encoded, optimized JPEG; never sent in list payloads.
+  byteSize: integer('byteSize').notNull(),
+  hash: text('hash').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
 // Tabla de Currículums
 export const cvs = pgTable('cv', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -46,6 +64,9 @@ export const cvs = pgTable('cv', {
   content: text('content').notNull(), // Contenido en Markdown
   isBase: boolean('isBase').default(false).notNull(), // true = CV Base real del usuario
   isPrincipal: boolean('isPrincipal').default(false).notNull(), // true = CV Principal predeterminado para generación rápida
+  pendingUsageOperationId: uuid('pendingUsageOperationId'),
+  optimizationId: uuid('optimizationId'),
+  activeOptimizeMode: text('activeOptimizeMode'),
   templateName: text('templateName').default('harvard').notNull(), // 'harvard'
   accentColor: text('accentColor').default('#000000'),
   fontFamily: text('fontFamily').default('helvetica'),
@@ -60,6 +81,36 @@ export const cvs = pgTable('cv', {
   // Base CV lookup for AI: ORDER BY isBase DESC, isPrincipal DESC LIMIT 1 per user.
   userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
+
+// Sources and variants are detail-only data. cv.content mirrors the active variant.
+export const cvOptimizations = pgTable('cv_optimization', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  cvId: uuid('cvId').references(() => cvs.id, { onDelete: 'cascade' }).notNull(),
+  sourceCvId: uuid('sourceCvId'),
+  sourceMarkdown: text('sourceMarkdown').notNull(),
+  sourceProfile: text('sourceProfile').notNull(),
+  offer: jsonb('offer').notNull(),
+  analysis: jsonb('analysis'),
+  promptVersion: text('promptVersion').notNull(),
+  resolvedAiConfig: jsonb('resolvedAiConfig').notNull(),
+  subscriptionStatus: text('subscriptionStatus').notNull(),
+  operationId: uuid('operationId').notNull().unique(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  userCreatedIdx: index('cv_optimization_user_created_idx').on(table.userId, table.createdAt),
+  cvIdx: index('cv_optimization_cv_idx').on(table.cvId),
+}));
+
+export const cvVariants = pgTable('cv_variant', {
+  optimizationId: uuid('optimizationId').references(() => cvOptimizations.id, { onDelete: 'cascade' }).notNull(),
+  modeId: text('modeId').notNull(),
+  content: text('content').default('').notNull(),
+  status: text('status').default('pending').notNull(),
+  error: text('error'),
+  revision: integer('revision').default(0).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({ pk: primaryKey({ columns: [table.optimizationId, table.modeId] }) }));
 
 // Catálogo compartido de empresas. Nombre, web, ubicación, sector e icono son comunes a todos los usuarios.
 // El nombre visible también se denormaliza en job_offer.company. Notas y postulaciones siguen siendo por usuario.
@@ -332,6 +383,7 @@ export const applicationViews = pgTable('application_view', {
 
 // Fuente de verdad de la cola de investigación PostgreSQL.
 export const jobResearchRuns = pgTable('job_research_run', {
+  usageOperationId: uuid('usageOperationId'),
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   jobOfferId: uuid('jobOfferId').references(() => jobOffers.id, { onDelete: 'cascade' }).notNull(),
@@ -511,7 +563,38 @@ export const aiRunStats = pgTable('ai_run_stat', {
   providerCreatedIdx: index('ai_run_stat_provider_created_idx').on(table.provider, table.createdAt),
 }));
 
+// One row per provider request, independent of logical jobs and product quotas.
+// Deliberately excludes prompts, completions, CVs, URLs and API credentials.
+export const aiRequestUsage = pgTable('ai_request_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').references(() => users.id, { onDelete: 'set null' }),
+  jobId: uuid('jobId'),
+  functionKey: text('functionKey').notNull(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  endpoint: text('endpoint').notNull(),
+  providerRequestId: text('providerRequestId'),
+  success: boolean('success').notNull(),
+  latencyMs: integer('latencyMs').notNull(),
+  inputTokens: integer('inputTokens'),
+  outputTokens: integer('outputTokens'),
+  cachedInputTokens: integer('cachedInputTokens'),
+  cacheWriteTokens: integer('cacheWriteTokens'),
+  reasoningTokens: integer('reasoningTokens'),
+  webSearchCalls: integer('webSearchCalls').notNull().default(0),
+  costUsd: numeric('costUsd', { precision: 20, scale: 10 }),
+  costSource: text('costSource').notNull(),
+  pricing: jsonb('pricing'),
+  errorCode: text('errorCode'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  createdIdx: index('ai_request_usage_created_idx').on(table.createdAt),
+  userCreatedIdx: index('ai_request_usage_user_created_idx').on(table.userId, table.createdAt),
+  functionCreatedIdx: index('ai_request_usage_function_created_idx').on(table.functionKey, table.createdAt),
+}));
+
 export const aiJobs = pgTable('ai_job', {
+  usageOperationId: uuid('usageOperationId'),
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('userId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   initiatedByUserId: uuid('initiatedByUserId').references(() => users.id, { onDelete: 'set null' }),
@@ -636,6 +719,62 @@ export const aiJobsRelations = relations(aiJobs, ({ one }) => ({
   user: one(users, { fields: [aiJobs.userId], references: [users.id] }),
   initiatedBy: one(users, { fields: [aiJobs.initiatedByUserId], references: [users.id], relationName: 'aiJobInitiator' }),
 }));
+
+export const planConfigs = pgTable('plan_config', {
+  id: integer('id').primaryKey(), version: integer('version').notNull(), config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const planConfigHistory = pgTable('plan_config_history', {
+  id: uuid('id').defaultRandom().primaryKey(), version: integer('version').notNull().unique(), config: jsonb('config').notNull(),
+  updatedByUserId: uuid('updatedByUserId').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const usagePeriods = pgTable('usage_period', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bucket: text('bucket').notNull(), periodStart: timestamp('periodStart', { mode: 'date' }).notNull(),
+  used: integer('used').default(0).notNull(), reserved: integer('reserved').default(0).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('usage_period_identity_idx').on(t.userId, t.bucket, t.periodStart) }));
+export const usageOperations = pgTable('usage_operation', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  periodId: uuid('periodId').notNull().references(() => usagePeriods.id, { onDelete: 'cascade' }),
+  bucket: text('bucket').notNull(), requestId: text('requestId').notNull(), action: text('action').notNull(), inputHash: text('inputHash').notNull(),
+  units: integer('units').notNull(), consumedUnits: integer('consumedUnits').default(0).notNull(),
+  status: text('status').default('reserved').notNull(), result: jsonb('result'),
+  configVersion: integer('configVersion').notNull(), plan: text('plan').notNull(), jobId: uuid('jobId'),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('usage_operation_identity_idx').on(t.userId, t.action, t.requestId), expiry: index('usage_operation_expiry_idx').on(t.status, t.expiresAt), job: index('usage_operation_job_idx').on(t.jobId) }));
+export const usageItems = pgTable('usage_item', {
+  operationId: uuid('operationId').notNull().references(() => usageOperations.id, { onDelete: 'cascade' }), itemKey: text('itemKey').notNull(),
+}, t => ({ pk: primaryKey({ columns: [t.operationId, t.itemKey] }) }));
+export const cvPlanSelections = pgTable('cv_plan_selection', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  baseCvId: uuid('baseCvId'), adaptedCvIds: jsonb('adaptedCvIds').$type<string[]>().default([]).notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const apiUsageWindows = pgTable('api_usage_window', {
+  userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }), windowStart: timestamp('windowStart', { mode: 'date' }).notNull(), count: integer('count').default(0).notNull(),
+}, t => ({ pk: primaryKey({ columns: [t.userId, t.windowStart] }) }));
+export const monetizationAssignments = pgTable('monetization_assignment', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  experimentVersion: integer('experimentVersion').notNull(), variant: text('variant').notNull(), firstExposedAt: timestamp('firstExposedAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ identity: uniqueIndex('monetization_assignment_identity_idx').on(t.userId, t.experimentVersion) }));
+export const monetizationEvents = pgTable('monetization_event', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  experimentVersion: integer('experimentVersion').notNull(), variant: text('variant').notNull(), event: text('event').notNull(), source: text('source').notNull(),
+  externalId: text('externalId').unique(), metadata: jsonb('metadata'), createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ user: index('monetization_event_user_idx').on(t.userId, t.createdAt), experiment: index('monetization_event_experiment_idx').on(t.experimentVersion, t.event, t.createdAt) }));
+export const stripeWebhookEvents = pgTable('stripe_webhook_event', {
+  id: text('id').primaryKey(), eventType: text('eventType').notNull(), processedAt: timestamp('processedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+export const billingCheckoutAttempts = pgTable('billing_checkout_attempt', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }), requestId: uuid('requestId').notNull(), interval: text('interval').notNull(),
+  sessionId: text('sessionId'), url: text('url'), expiresAt: timestamp('expiresAt', { mode: 'date' }),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(), updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 export type User = typeof users.$inferSelect;
 export type CV = typeof cvs.$inferSelect;

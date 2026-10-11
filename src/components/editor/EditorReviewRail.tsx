@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { cvSectionChips, reviewCvMarkdown, type CvReviewIssue, type CvSectionChip } from '@/lib/cv-review';
 import SectionForm from './SectionForm';
+import type { CvAnalysis } from '@/lib/cv-optimization/types';
+import type { OptimizeModeId } from '@/lib/optimize-modes';
 
 export type AdaptDraft = {
   jobTitle: string;
@@ -112,6 +114,8 @@ export default function EditorReviewRail({
   aiLoading,
   onSubmit,
   titleInputRef,
+  analysis = null,
+  activeMode,
 }: {
   cvId: string;
   content: string;
@@ -127,6 +131,8 @@ export default function EditorReviewRail({
   aiLoading: boolean;
   onSubmit: () => void;
   titleInputRef?: Ref<HTMLInputElement>;
+  analysis?: CvAnalysis | null;
+  activeMode?: OptimizeModeId;
 }) {
   const { t } = useLanguage();
   const [openSection, setOpenSection] = useState<'contact' | number | null>(null);
@@ -257,9 +263,16 @@ export default function EditorReviewRail({
             onSubmit();
           }}
         >
+          {analysis && <details open={activeMode === 'optimize_aggressive'} className="rounded-[8px] border border-subtle p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-text">{t('variants.gapsTitle')}</summary>
+            <p className="mt-2 text-xs text-text-muted">{t('variants.gapsHelp')}</p>
+            {analysis.gaps.length ? <ul className="mt-2 space-y-2 text-xs text-text">{analysis.gaps.map((gap, i) => <li key={i}><strong>{gap.requisito}</strong> · {t(`variants.severity.${gap.gravedad}`)}<p className="mt-1 text-text-muted">{gap.sugerencia}</p></li>)}</ul> : <p className="mt-2 text-xs text-text-muted">{t('variants.noGaps')}</p>}
+            {analysis.sugerencias_metricas.length > 0 && <><h3 className="mt-3 text-xs font-semibold">{t('variants.metricsTitle')}</h3><ul className="mt-2 list-disc pl-4 space-y-2 text-xs text-text-muted">{analysis.sugerencias_metricas.map((s, i) => <li key={i}>{s}</li>)}</ul></>}
+          </details>}
           <div>
             <h3 className="font-display text-sm font-bold text-text">{t('editor.review.adaptTitle')}</h3>
             <p className="mt-1 text-xs leading-5 text-text-muted">{t('editor.review.adaptHelp')}</p>
+            <p className="mt-1 text-xs leading-5 text-text-muted">{t('variants.generationHelp')}</p>
           </div>
           {aiError && (
             <p className="text-sm text-danger-text" role="alert">{aiError}</p>
@@ -332,20 +345,7 @@ export default function EditorReviewRail({
                   <option value="other">{t('editor.aiModal.platformOther')}</option>
                 </select>
               </label>
-              {promptOptions.length > 1 && (
-                <label className="block space-y-1">
-                  <span className="text-xs font-semibold text-text">{t('editor.aiModal.mode')}</span>
-                  <select
-                    value={form.promptId}
-                    onChange={(event) => onFormChange({ ...form, promptId: event.target.value })}
-                    className="w-full min-h-11 bg-canvas border border-control rounded-[8px] px-3 text-sm text-text"
-                  >
-                    {promptOptions.map((option) => (
-                      <option key={option.id} value={option.id}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
+
             </div>
           </details>
           <Button type="submit" variant="ai" disabled={aiLoading} loading={aiLoading}>

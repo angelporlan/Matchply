@@ -5,8 +5,10 @@ import { getResearchQuota, getResearchRunForUser, enqueueResearchForOffer } from
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { ApplicationNotFoundError } from '@/lib/application-service';
 import { AccountSuspendedError, ImpersonationEndedError, SupportActionBlockedError } from '@/lib/request-errors';
+import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 
 function errorResponse(error: unknown) {
+  const response = aiUsageErrorResponse(error); if (response) return response;
   if (error instanceof SubscriptionAccessError) return NextResponse.json({ error: error.message }, { status: error.status });
   if (error instanceof ApplicationNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
   if (error instanceof AccountSuspendedError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) {
@@ -47,6 +49,10 @@ export async function POST(req: Request, { params }: { params: { offerId: string
       trigger: 'dashboard',
       retryFailed: body?.retry === true,
     });
+    if (!research.accepted) return NextResponse.json({
+      error: 'Has alcanzado el límite de investigaciones de este mes.', code: 'QUOTA_EXCEEDED', bucket: 'research',
+      usage: await getResearchQuota(user.id), research,
+    }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
     await createAuditLog('research_requested', user.id, user.email, {
       offerId: params.offerId,
       runId: research.run?.id || null,

@@ -1,4 +1,5 @@
 "use client";
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 
 import React, { useMemo, useState } from 'react';
 import {
@@ -383,6 +384,7 @@ export default function CareerProfileForm({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
+      <InlineAllowance />
       <ProfileCompletenessBar
         dumpText={bio}
         masterDocument={masterDocument}

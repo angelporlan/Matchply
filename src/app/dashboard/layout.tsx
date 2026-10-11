@@ -4,6 +4,8 @@ import { getDashboardViewer } from '@/lib/session';
 import { timed } from '@/lib/logger';
 import Sidebar from './Sidebar';
 import { NavigationPendingProvider } from '@/components/navigation/NavigationPendingProvider';
+import { PlanUsageProvider } from '@/components/subscription/PlanUsageProvider';
+import { PlanFeedback } from '@/components/subscription/UpgradePaywall';
 
 export default async function DashboardLayout({
   children,
@@ -23,6 +25,8 @@ export default async function DashboardLayout({
 
   return (
     <NavigationPendingProvider>
+      <PlanUsageProvider>
+      <PlanFeedback />
       <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
         <Sidebar
           user={{
@@ -39,6 +43,7 @@ export default async function DashboardLayout({
           {children}
         </div>
       </div>
+      </PlanUsageProvider>
     </NavigationPendingProvider>
   );
 }

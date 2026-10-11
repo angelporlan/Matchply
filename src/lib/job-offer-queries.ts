@@ -73,6 +73,10 @@ export const sessionUserColumns = {
   subscriptionStatus: users.subscriptionStatus,
   accountStatus: users.accountStatus,
   proGrantedUntil: users.proGrantedUntil,
+  stripePriceId: users.stripePriceId,
+  stripePaidAt: users.stripePaidAt,
+  stripeCurrentPeriodEnd: users.stripeCurrentPeriodEnd,
+  stripeTrialEnd: users.stripeTrialEnd,
 };
 
 export const sessionUserWithGuestColumns = {
@@ -111,6 +115,7 @@ export const curateOfferColumns = {
   title: jobOffers.title,
   company: jobOffers.company,
   description: jobOffers.description,
+  url: jobOffers.url,
   platform: jobOffers.platform,
   scoreOverall: jobOffers.scoreOverall,
   scoreBreakdown: jobOffers.scoreBreakdown,

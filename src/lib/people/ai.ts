@@ -4,6 +4,8 @@ import { aiJobs, jobOffers, people, personAiResults, personImports, personThread
 import { getResolvedAiRuntime } from '@/lib/ai-runtime-store';
 import { resolveModelForFunction } from '@/lib/ai-runtime-config';
 import { getAccessTier } from '@/lib/subscription';
+import { reserveUsage, consumeUsage } from '@/lib/usage';
+import { randomUUID } from 'node:crypto';
 import { fetchWithTimeout } from '@/lib/http';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
 import { getImport, getPerson, getThread } from './service';
@@ -87,6 +89,7 @@ export async function enqueueNetworking(userId: string, payload: NetworkingPaylo
   return db.transaction(async tx => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`networking-request:${userId}:${payload.requestId}`}))`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`networking:${userId}:${payload.personId}`}))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`usage:${userId}`}))`);
     const [existing] = await tx.select().from(aiJobs).where(and(eq(aiJobs.userId, userId), eq(aiJobs.kind, 'networking'), sql`${aiJobs.payload}->>'requestId' = ${payload.requestId}`)).limit(1);
     if (existing) {
       if (contentHash(existing.payload) !== contentHash(payload)) throw new PeopleError('NETWORKING_REQUEST_CONFLICT', 409);
@@ -96,7 +99,9 @@ export async function enqueueNetworking(userId: string, payload: NetworkingPaylo
     if (!contact) throw new PeopleError('PEOPLE_NOT_FOUND', 404);
     const [active] = await tx.select({ id: aiJobs.id }).from(aiJobs).where(and(eq(aiJobs.userId, userId), eq(aiJobs.kind, 'networking'), sql`${aiJobs.payload}->>'personId' = ${payload.personId}`, sql`${aiJobs.status} in ('queued', 'running')`)).limit(1);
     if (active) throw new PeopleError('NETWORKING_BUSY', 409);
-    const [job] = await tx.insert(aiJobs).values({ userId, initiatedByUserId, kind: 'networking', payload, resolvedAiConfig: config, status: 'queued', nextAttemptAt: new Date() }).returning();
+    const jobId = randomUUID();
+    const operation = await reserveUsage(tx, userId, { bucket: 'general', requestId: payload.requestId, action: `networking:${payload.action}`, input: payload, jobId });
+    const [job] = await tx.insert(aiJobs).values({ id: jobId, usageOperationId: operation.id, userId, initiatedByUserId, kind: 'networking', payload, resolvedAiConfig: config, status: 'queued', nextAttemptAt: new Date() }).returning();
     return job;
   });
 }
@@ -129,6 +134,7 @@ export async function processNetworking(job: AiJob, signal: AbortSignal) {
   }
   return db.transaction(async tx => {
     // Lock the lease and person before writing: stale workers and deleted contacts cannot publish results.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`usage:${job.userId}`}))`);
     const leases = await tx.select({ id: aiJobs.id }).from(aiJobs).where(and(eq(aiJobs.id, job.id), eq(aiJobs.attempt, job.attempt), eq(aiJobs.status, 'running'), gt(aiJobs.leaseUntil, new Date()))).for('update');
     if (!leases.length) throw new NetworkingError('NETWORKING_LEASE_LOST');
     const owned = await tx.select({ id: people.id }).from(people).where(and(eq(people.id, payload.personId), eq(people.userId, job.userId))).for('key share');
@@ -144,11 +150,13 @@ export async function processNetworking(job: AiJob, signal: AbortSignal) {
     if (proposed) {
       const rows = await tx.update(personImports).set({ proposed, status: 'review' }).where(and(eq(personImports.id, payload.importId!), eq(personImports.userId, job.userId), eq(personImports.status, 'pending'))).returning({ id: personImports.id });
       if (!rows.length) throw new NetworkingError('PEOPLE_IMPORT_NOT_FOUND');
+      if (job.usageOperationId) await consumeUsage(tx, job.usageOperationId, { importId: rows[0].id });
       return { importId: rows[0].id };
     }
     const [row] = await tx.insert(personAiResults).values({ jobId: job.id, personId: payload.personId, userId: job.userId, action: payload.action, inputHash,
       context: { threadId: payload.threadId, offerId: payload.offerId, includeCandidate: payload.includeCandidate }, advice: advice! }).onConflictDoNothing().returning({ id: personAiResults.id });
     const [existing] = row ? [row] : await tx.select({ id: personAiResults.id }).from(personAiResults).where(eq(personAiResults.jobId, job.id)).limit(1);
+    if (job.usageOperationId) await consumeUsage(tx, job.usageOperationId, { resultId: existing.id });
     return { resultId: existing.id };
   });
 }

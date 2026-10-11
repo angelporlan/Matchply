@@ -14,7 +14,7 @@ import {
 } from '@/lib/request-errors';
 import { requireAccountContext } from '@/lib/request-context';
 import { SubscriptionAccessError } from '@/lib/permissions';
-import { canAccessFeature } from '@/lib/subscription';
+import { userPlanFeature } from '@/lib/plan-store';
 
 function actionError(error: unknown): { error: string } {
   if (error instanceof AgentApiError) return { error: error.code };
@@ -28,10 +28,7 @@ function actionError(error: unknown): { error: string } {
 async function requireApiKeyOwner() {
   const ctx = await requireAccountContext();
   const user = ctx.realUser;
-  if (user.isGuest || !canAccessFeature(user.subscriptionStatus, 'agentApi', {
-    isGuest: user.isGuest,
-    proGrantedUntil: user.proGrantedUntil,
-  })) {
+  if (user.isGuest || !await userPlanFeature(user.id, 'agentApi')) {
     throw new SubscriptionAccessError('agentApi');
   }
   return user;

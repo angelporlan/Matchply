@@ -10,6 +10,7 @@ import {
   ChevronUp,
   CreditCard,
   Crown,
+  Globe,
   LogOut,
   Shield,
   SlidersHorizontal,
@@ -17,6 +18,8 @@ import {
   UserCircle,
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import LanguageToggle from '@/components/ui/LanguageToggle';
+import Avatar from './UserAvatar';
 
 interface UserMenuProps {
   user: {
@@ -29,49 +32,8 @@ interface UserMenuProps {
   supportMode?: boolean;
 }
 
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name || email || '').trim();
-  if (!source) return '?';
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
-
-function Avatar({
-  image,
-  name,
-  email,
-  className,
-}: {
-  image?: string | null;
-  name?: string | null;
-  email?: string | null;
-  className: string;
-}) {
-  if (image) {
-    return (
-      <img
-        src={image}
-        alt={name || email || ''}
-        referrerPolicy="no-referrer"
-        className={`${className} rounded-full object-cover border border-subtle shrink-0`}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={`${className} rounded-full bg-gradient-to-tr from-ai to-ai-action text-white font-bold flex items-center justify-center shrink-0 select-none`}
-    >
-      {getInitials(name, email)}
-    </span>
-  );
-}
-
 export default function UserMenu({ user, isPremium, supportMode = false }: UserMenuProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const pathname = usePathname();
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -246,6 +208,15 @@ export default function UserMenu({ user, isPremium, supportMode = false }: UserM
               </>
               )}
             </nav>
+
+            {/* Idioma */}
+            <div className="border-t border-subtle px-3 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-text font-display">
+                <Globe className="w-4 h-4 stroke-[1.75] text-text-muted" />
+                <span>{language === 'es' ? 'Idioma' : 'Language'}</span>
+              </div>
+              <LanguageToggle />
+            </div>
 
             {/* Cerrar sesión */}
             <div className="border-t border-subtle p-2">

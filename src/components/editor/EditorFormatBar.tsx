@@ -9,10 +9,13 @@ import {
   ChevronDown,
   Maximize2,
   FileCode2,
-  GitCompare
+  GitCompare,
+  Sparkles
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { PdfZoom } from './PdfViewer';
+import { OPTIMIZE_MODE_IDS, type OptimizeModeId } from '@/lib/optimize-modes';
+import type { CvVariant } from '@/lib/cv-optimization/types';
 
 const COLOR_PRESETS = [
   { name: 'Classic Blue', hex: '#1e3a8a' },
@@ -44,6 +47,11 @@ export default function EditorFormatBar({
   onToggleMarkdown,
   hasDiff = false,
   onToggleDiff,
+  variants,
+  activeMode,
+  onSelectVariant,
+  onRetryVariant,
+  variantBusy = false,
 }: {
   fontFamily: string;
   pageMargin: number;
@@ -60,6 +68,11 @@ export default function EditorFormatBar({
   onToggleMarkdown?: () => void;
   hasDiff?: boolean;
   onToggleDiff?: () => void;
+  variants?: Array<Pick<CvVariant, 'modeId' | 'status' | 'error'>>;
+  activeMode?: OptimizeModeId;
+  onSelectVariant?: (mode: OptimizeModeId) => void;
+  onRetryVariant?: (mode: OptimizeModeId) => void;
+  variantBusy?: boolean;
 }) {
   const { t } = useLanguage();
 
@@ -96,9 +109,9 @@ export default function EditorFormatBar({
   return (
     <div 
       ref={containerRef}
-      className="w-full bg-surface border-b border-subtle shrink-0 px-4 py-1.5 flex items-center justify-between gap-2 min-h-[38px] select-none"
+      className="w-full bg-surface border-b border-subtle shrink-0 px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 min-h-[38px] select-none"
     >
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 min-w-0">
         {/* Píldora 1: Tipografía y Tamaño */}
         <div className="relative">
           <button
@@ -346,6 +359,22 @@ export default function EditorFormatBar({
               )}
             </div>
           </>
+        )}
+        {variants && (
+          <div role="group" aria-label={t('variants.label')} className="flex flex-wrap items-center gap-1 border-l border-subtle pl-2">
+            {OPTIMIZE_MODE_IDS.map(mode => {
+              const variant = variants.find(v => v.modeId === mode);
+              return <div key={mode} className="flex items-center gap-1">
+                <button type="button" aria-pressed={activeMode === mode && variant?.status === 'ready'} disabled={variantBusy || !variant || ['pending', 'generating', 'error'].includes(variant.status)}
+                  title={t(`variants.descriptions.${mode}`)}
+                  onClick={() => onSelectVariant?.(mode)}
+                  className={`min-h-11 px-2.5 rounded-[8px] text-xs font-semibold border transition-colors disabled:opacity-50 ${activeMode === mode ? 'bg-surface-muted border-control text-text' : 'bg-canvas border-subtle text-text-muted hover:text-text'}`}>
+                  {variant?.status === 'idle' && <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{t(`variants.names.${mode}`)}{variant && !['ready','idle'].includes(variant.status) && <span className="ml-1 font-normal">· {t(`variants.status.${variant.status}`)}</span>}
+                </button>
+                {variant?.status === 'error' && <button type="button" disabled={variantBusy} onClick={() => onRetryVariant?.(mode)} aria-label={`${t('variants.retry')}: ${t(`variants.names.${mode}`)}`} className="min-h-11 px-2 text-xs font-semibold text-text underline disabled:opacity-50">{t('variants.retry')}</button>}
+              </div>;
+            })}
+          </div>
         )}
       </div>
 

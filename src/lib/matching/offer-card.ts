@@ -114,7 +114,9 @@ export function buildOfferCard(
   kind: MatchKind,
 ): MatchOfferCard {
   // Scoring sees identical facts in batch and detail; only explanations differ.
-  const maxChars = 14000;
+  // Imported descriptions can be up to 120k characters. Do not reject a real
+  // offer merely because its complete requirements exceed the old 14k budget.
+  const maxChars = 120000;
   const description = offer.description || '';
   const language: OfferLanguage = detectOfferLanguage({
     title: offer.title,
