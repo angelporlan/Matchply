@@ -47,6 +47,7 @@ import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { OfferDetailsModalSkeleton } from '@/components/skeletons';
 
 const CurateWithAiModal = dynamic(() => import('./CurateWithAiModal'), { ssr: false });
+const DiscoverOffersModal = dynamic(() => import('./DiscoverOffersModal'), { ssr: false });
 const JobOfferDetailsModal = dynamic(() => import('./JobOfferDetailsModal'), { ssr: false });
 const ExportApplicationsModal = dynamic(() => import('./ExportApplicationsModal'), { ssr: false });
 
@@ -153,6 +154,8 @@ export default function ApplicationsClient({
   const [curateTargetOffers, setCurateTargetOffers] = useState<ApplicationSummary[] | null>(null);
   const [curationToast, setCurationToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isDiscoveryModalOpen, setIsDiscoveryModalOpen] = useState(false);
+  const [discoveryMounted, setDiscoveryMounted] = useState(false);
 
 
   // Vistas guardadas, columnas y orden de la tabla
@@ -700,6 +703,10 @@ export default function ApplicationsClient({
             <Plus className="w-4 h-4 stroke-[1.75]" />
             {t('applications.board.newApplicationBtn')}
           </Button>
+          <Button type="button" variant="secondary" onClick={() => { setDiscoveryMounted(true); setIsDiscoveryModalOpen(true); }} className="w-full sm:w-auto">
+            <Search className="w-4 h-4 text-ai-text stroke-[1.75]" aria-hidden="true" />
+            {t('offerDiscovery.button')}
+          </Button>
         </div>
       </div>
 
@@ -1039,6 +1046,16 @@ export default function ApplicationsClient({
         onConfirm={handleConfirmDeleteOffer}
         isPending={isDeletingOffer}
       />
+
+      {discoveryMounted && <DiscoverOffersModal
+        isOpen={isDiscoveryModalOpen}
+        onClose={() => setIsDiscoveryModalOpen(false)}
+        onCompleted={(result) => {
+          setFavoriteReload(count => count + 1);
+          router.refresh();
+          showToast(result.added.length ? t(result.added.length === 1 ? 'offerDiscovery.completedOne' : 'offerDiscovery.completed', { count: result.added.length }) : t('offerDiscovery.empty'), result.added.length ? 'success' : 'info');
+        }}
+      />}
 
       {/* Modal de Curación Inteligente de Candidaturas con IA (Efecto Mazo de Cartas) */}
       <CurateWithAiModal

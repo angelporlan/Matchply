@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    if (job.kind === 'match_batch' || job.kind === 'networking') {
+    if (job.kind === 'match_batch' || job.kind === 'networking' || job.kind === 'discover_offers') {
       try { await requireUserFeature(actor.userId, job.kind === 'networking' ? 'networking' : 'applications'); }
       catch { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }); }
     }

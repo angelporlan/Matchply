@@ -1,6 +1,6 @@
 # Funcionalidades de Matchply: estado actual y lo que quiero cambiar
 
-Aquí tienes el inventario funcional de la aplicación y **25 fichas en español para definir cómo quieres que funcione**. Incluye experiencia de usuario, administración, extensión y procesos de fondo.
+Aquí tienes el inventario funcional de la aplicación y **26 fichas en español para definir cómo quieres que funcione**. Incluye experiencia de usuario, administración, extensión y procesos de fondo.
 
 Las antiguas fichas **F19** (claves personales e integraciones API), **F20** (API externa) y **F21** (servidor MCP) se retiraron junto con su código. El plan para reintroducir esas capacidades de forma ordenada está en [future-tips.md](../future-tips.md).
 
@@ -45,6 +45,7 @@ Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.
 | F26 | Auditoría, salud, límites técnicos y operación | [Leer estado actual](auditoria-y-operacion/estado-actual.md) | [Escribir lo que quiero](auditoria-y-operacion/spec.md) |
 | F27 | Idioma, tema, navegación y componentes comunes | [Leer estado actual](idioma-tema-y-navegacion/estado-actual.md) | [Escribir lo que quiero](idioma-tema-y-navegacion/spec.md) |
 | F28 | Páginas informativas, privacidad y soporte | [Leer estado actual](privacidad-legales-y-soporte/estado-actual.md) | [Escribir lo que quiero](privacidad-legales-y-soporte/spec.md) |
+| F29 | Descubrir candidaturas según el CV con búsqueda web | [Leer estado actual](candidaturas-para-ti/estado-actual.md) | [Contrato y alcance](candidaturas-para-ti/spec.md) |
 
 ## Diferencias actuales que conviene decidir
 
