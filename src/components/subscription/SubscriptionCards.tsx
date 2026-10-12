@@ -170,6 +170,10 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Check className="w-4 h-4 text-text-muted shrink-0 mt-0.5" />
+                  <span><strong>{config.free.discoveryMonthly} {t('plans.discovery')}</strong> {t('plans.monthly')}</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-text-muted shrink-0 mt-0.5" />
                   <span>Tablero CRM de postulaciones y notas</span>
                 </li>
                 <li className="flex items-start gap-2.5">
@@ -270,7 +274,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Check className="w-4 h-4 text-success-text shrink-0 mt-0.5" />
-                  <span><strong>{config.pro.researchMonthly} investigaciones de empresa</strong> a fondo</span>
+                  <span><strong>{config.pro.discoveryMonthly} {t('plans.discovery')}</strong> {t('plans.monthly')}</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Check className="w-4 h-4 text-success-text shrink-0 mt-0.5" />
@@ -396,12 +400,12 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
               </p>
             </div>
 
-            {/* Research */}
+            {/* Discovered applications */}
             <div className="rounded-[12px] border border-subtle bg-canvas/60 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-text">{t('plans.research')}</span>
+                <span className="text-sm font-semibold text-text">{t('plans.discovery')}</span>
                 <span className="text-xs font-medium text-text-muted">
-                  {usageData.usage.research.limit === 0 ? 'Solo Pro' : `${usageData.usage.research.used} / ${usageData.usage.research.limit}`}
+                  {usageData.usage.discovery.limit === 0 ? t('plans.unavailable') : `${usageData.usage.discovery.used} / ${usageData.usage.discovery.limit}`}
                 </span>
               </div>
               <div className="w-full bg-surface-muted rounded-full h-2.5 overflow-hidden">
@@ -409,12 +413,12 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                   className="h-full rounded-full transition-all duration-300 bg-info-text"
                   style={{
                     width: `${
-                      usageData.usage.research.limit === 0
+                      usageData.usage.discovery.limit === 0
                         ? 0
                         : Math.min(
                             100,
                             Math.round(
-                              (usageData.usage.research.used / Math.max(1, usageData.usage.research.limit)) * 100
+                              (usageData.usage.discovery.used / Math.max(1, usageData.usage.discovery.limit)) * 100
                             )
                           )
                     }%`,
@@ -422,8 +426,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 />
               </div>
               <p className="text-xs text-text-muted flex items-center justify-between">
-                <span>{usageData.usage.research.remaining} disponibles</span>
-                {usageData.usage.research.limit === 0 && <span className="text-xs text-[var(--ai-text)]">Desbloquea con Pro</span>}
+                <span>{t('plans.remaining', { remaining: usageData.usage.discovery.remaining })}</span>
               </p>
             </div>
           </div>

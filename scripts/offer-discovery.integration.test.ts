@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import type { AIService } from '@/lib/ai-service';
 
 const testUrl = process.env.DISCOVERY_TEST_DATABASE_URL;
 test('discovery queue publishes scored offers atomically, deduplicates and protects ownership', { skip: !testUrl }, async t => {
@@ -9,7 +10,7 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
   process.env.DATABASE_URL = testUrl;
   process.env.OPENAI_API_KEY = 'discovery-test-key';
   const { db, pool } = await import('@/db');
-  const { aiJobs, users, cvs, jobOffers, companies, usageOperations, planConfigs } = await import('@/db/schema');
+  const { aiJobs, users, cvs, jobOffers, companies, usageOperations, usagePeriods, planConfigs } = await import('@/db/schema');
   const { defaultPlanConfig } = await import('@/lib/plan-config');
   await db.insert(planConfigs).values({ id: 1, version: 1, config: defaultPlanConfig() }).onConflictDoNothing();
   const { eq, inArray } = await import('drizzle-orm');
@@ -20,6 +21,7 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
   const { buildCandidateEvidence, buildOfferCard, normalizeMatchItem, MATCH_DIMENSION_KEYS } = await import('@/lib/matching');
   const { parseMatchConstraints } = await import('@/lib/curation-constraints');
   const { applicationSummaryColumns } = await import('@/lib/job-offer-queries');
+  const { getUsageSnapshot, utcUsageMonth, reserveUsage } = await import('@/lib/usage');
   const owner = randomUUID(), other = randomUUID(), free = randomUUID(), empty = randomUUID();
   const userIds = [owner, other, free, empty];
   const company = `Discovery ${owner}`;
@@ -47,6 +49,12 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
     return match;
   };
   const enqueue = (userId = owner, requestId = randomUUID()) => enqueueDiscovery(userId, { requestId }, userId);
+  const fixtureUser = async (pro = false) => {
+    const id = randomUUID(); userIds.push(id);
+    await db.insert(users).values({ id, email: `discovery-${id}@example.test`, subscriptionStatus: pro ? 'active' : 'none', careerProfile: profile });
+    await db.insert(cvs).values({ userId: id, title: 'Base', content: cv, isBase: true });
+    return id;
+  };
   const claimed = async (userId = owner) => {
     const job = await enqueue(userId);
     const run = await queue.claimAiJobById(job.id);
@@ -105,13 +113,85 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
       await processAiJob((await queue.getAiJob(run.id))!);
       assert.equal((await queue.getAiJob(run.id))?.status, 'completed');
       const [operation] = await db.select().from(usageOperations).where(eq(usageOperations.id, run.usageOperationId!));
-      assert.equal(operation.status, 'consumed'); assert.equal(operation.consumedUnits, 1);
+      assert.equal(operation.status, 'released'); assert.equal(operation.consumedUnits, 1); assert.equal(operation.bucket, 'discovery');
     });
-    await t.test('free users can discover jobs within their general AI allowance', async () => {
+    await t.test('free users can discover jobs without using their general AI allowance', async () => {
       const run = await claimed(free);
       const result = await processDiscovery(run, new AbortController().signal, { search: async () => [] });
       assert.equal(result.published, true);
       await queue.completeAiJob(run.id, result, run);
+      const snapshot = await getUsageSnapshot(free);
+      assert.equal(snapshot.usage.general.used, 0); assert.equal(snapshot.usage.discovery.used, 0);
+      assert.equal(snapshot.usage.discovery.reserved, 0); assert.equal(snapshot.usage.discovery.limit, 10);
+    });
+    const scoreAll = async (input: Parameters<typeof AIService.curateOffersBatch>[0]) => ({
+      curated: input.offers.map(item => calculate(item as unknown as ReturnType<typeof foundOffer>, 90, input.evaluationStartedAt)), errors: [],
+    });
+    await t.test('five delivered jobs cost five discovery units; Free stops at ten', async () => {
+      for (let batch = 0; batch < 2; batch++) {
+        const run = await claimed(free);
+        assert.equal((await getUsageSnapshot(free)).usage.discovery.reserved, 5);
+        const result = await processDiscovery(run, new AbortController().signal, {
+          search: async () => Array.from({ length: 5 }, (_, index) => foundOffer(`free-${batch}-${index}`)), score: scoreAll,
+        });
+        assert.equal(result.added.length, 5);
+        await queue.completeAiJob(run.id, result, run);
+        const snapshot = await getUsageSnapshot(free);
+        assert.equal(snapshot.usage.discovery.used, (batch + 1) * 5); assert.equal(snapshot.usage.discovery.reserved, 0);
+        assert.equal(snapshot.usage.general.used, 0); assert.equal(snapshot.usage.matching.used, 0);
+      }
+      await assert.rejects(enqueue(free), error => (error as { code?: string }).code === 'QUOTA_EXCEEDED');
+    });
+    await t.test('a partly used quota reserves only two slots and ignores exhausted general AI', async () => {
+      const id = await fixtureUser();
+      await db.insert(usagePeriods).values([
+        { userId: id, bucket: 'discovery', periodStart: utcUsageMonth(), used: 8 },
+        { userId: id, bucket: 'general', periodStart: utcUsageMonth(), used: 10 },
+      ]);
+      const run = await claimed(id);
+      assert.equal((await getUsageSnapshot(id)).usage.discovery.reserved, 2);
+      const result = await processDiscovery(run, new AbortController().signal, {
+        search: async () => Array.from({ length: 5 }, (_, index) => foundOffer(`last-two-${index}`)), score: scoreAll,
+      });
+      assert.equal(result.added.length, 2); await queue.completeAiJob(run.id, result, run);
+      const snapshot = await getUsageSnapshot(id);
+      assert.equal(snapshot.usage.discovery.used, 10); assert.equal(snapshot.usage.discovery.reserved, 0);
+      assert.equal(snapshot.usage.general.used, 10);
+    });
+    await t.test('Pro has one hundred delivery slots and can use its last single slot', async () => {
+      const id = await fixtureUser(true);
+      await db.insert(usagePeriods).values({ userId: id, bucket: 'discovery', periodStart: utcUsageMonth(), used: 99 });
+      const run = await claimed(id);
+      const result = await processDiscovery(run, new AbortController().signal, { search: async () => [foundOffer('pro-last')], score: scoreAll });
+      assert.equal(result.added.length, 1); await queue.completeAiJob(run.id, result, run);
+      const snapshot = await getUsageSnapshot(id);
+      assert.equal(snapshot.usage.discovery.limit, 100); assert.equal(snapshot.usage.discovery.used, 100);
+      assert.equal(snapshot.usage.general.used, 0);
+      await assert.rejects(enqueue(id), error => (error as { code?: string }).code === 'QUOTA_EXCEEDED');
+    });
+    await t.test('discovery usage from a previous UTC month does not spend this month’s allowance', async () => {
+      const id = await fixtureUser();
+      const previousMonth = utcUsageMonth(); previousMonth.setUTCMonth(previousMonth.getUTCMonth() - 1);
+      await db.insert(usagePeriods).values({ userId: id, bucket: 'discovery', periodStart: previousMonth, used: 10 });
+      const run = await claimed(id);
+      const result = await processDiscovery(run, new AbortController().signal, { search: async () => [] });
+      await queue.completeAiJob(run.id, result, run);
+      const snapshot = await getUsageSnapshot(id);
+      assert.equal(snapshot.usage.discovery.used, 0); assert.equal(snapshot.usage.discovery.remaining, 10);
+    });
+    await t.test('searches already admitted on general AI retain their original one-action accounting', async () => {
+      const id = await fixtureUser(); const jobId = randomUUID(); const payload = { requestId: randomUUID() };
+      await db.transaction(async tx => {
+        const operation = await reserveUsage(tx, id, { bucket: 'general', action: 'discover_offers', requestId: payload.requestId, input: payload, jobId });
+        await tx.insert(aiJobs).values({ id: jobId, userId: id, kind: 'discover_offers', payload, usageOperationId: operation.id, status: 'queued' });
+      });
+      const run = await queue.claimAiJobById(jobId); assert.ok(run);
+      const result = await processDiscovery(run, new AbortController().signal, {
+        search: async () => [foundOffer('legacy-one'), foundOffer('legacy-two')], score: scoreAll,
+      });
+      assert.equal(result.added.length, 2); await queue.completeAiJob(run.id, result, run);
+      const snapshot = await getUsageSnapshot(id);
+      assert.equal(snapshot.usage.general.used, 1); assert.equal(snapshot.usage.discovery.used, 0);
     });
     await t.test('LinkedIn slug/tracking duplicates are skipped even without external IDs', async () => {
       await db.insert(jobOffers).values({ userId: owner, title: 'Existing LinkedIn role', company,
@@ -164,7 +244,7 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
       const recovered = await queue.getAiJob(run.id);
       assert.equal(recovered?.status, 'completed'); assert.equal(recovered?.lastError, null);
       const [operation] = await db.select().from(usageOperations).where(eq(usageOperations.id, run.usageOperationId!));
-      assert.equal(operation.status, 'consumed'); assert.equal(operation.consumedUnits, 1);
+      assert.equal(operation.status, 'released'); assert.equal(operation.consumedUnits, 0); assert.equal(operation.bucket, 'discovery');
     });
   } finally {
     await db.delete(users).where(inArray(users.id, userIds));

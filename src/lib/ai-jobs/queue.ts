@@ -216,7 +216,7 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
     updatedAt: now,
   }).where(owner && ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(owner.kind) ? ownedAttempt(owner) : and(eq(aiJobs.id, jobId), sql`${aiJobs.kind} NOT IN ('match_batch', 'import_offer', 'networking', 'optimize_cv_variants', 'discover_offers')`)).returning();
   if (updated?.usageOperationId) {
-    if (updated.kind !== 'match_batch') await consumeUsage(tx, updated.usageOperationId, result);
+    if (updated.kind !== 'match_batch' && updated.kind !== 'discover_offers') await consumeUsage(tx, updated.usageOperationId, result);
     await releaseUsage(tx, updated.usageOperationId);
   }
   return updated;

@@ -15,7 +15,7 @@ export function PlanComparison({ config, authenticated = true, showCheckout = tr
     { label: 'cvs', value: limits => count(limits.maxCvs) }, { label: 'baseCvs', value: limits => count(limits.maxBaseCvs) },
     { label: 'adaptedCvs', value: limits => count(limits.maxAdaptedCvs) }, { label: 'general', value: limits => monthly(limits.generalAiMonthly) },
     { label: 'matching', value: limits => monthly(limits.matchingMonthly) }, { label: 'batch', value: limits => limits.matchBatchSize > 1 ? String(limits.matchBatchSize) : limits.matchBatchSize === 1 ? t('plans.individual') : t('plans.unavailable') },
-    { label: 'research', value: limits => monthly(limits.researchMonthly) }, { label: 'keys', value: limits => limits.apiKeys > 0 ? String(limits.apiKeys) : t('plans.unavailable') },
+    { label: 'discovery', value: limits => monthly(limits.discoveryMonthly) }, { label: 'keys', value: limits => limits.apiKeys > 0 ? String(limits.apiKeys) : t('plans.unavailable') },
     { label: 'requests', value: limits => limits.apiRequestsPerMinute > 0 ? String(limits.apiRequestsPerMinute) : t('plans.unavailable') },
     { label: 'manual', value: () => t('plans.included') }, { label: 'template', value: () => t('plans.included') },
   ];

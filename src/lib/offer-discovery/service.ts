@@ -1,14 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { aiJobs, cvs, jobOffers, users, type AiJob } from '@/db/schema';
+import { aiJobs, cvs, jobOffers, users, usageOperations, type AiJob } from '@/db/schema';
 import { getCvAccess } from '@/lib/cv-access';
 import { baseCvForAiColumns } from '@/lib/job-offer-queries';
 import { parseMatchConstraints } from '@/lib/curation-constraints';
 import { buildCandidateEvidence, buildOfferCard, matchSourceHash, isMatchEvidenceSnapshot, type CuratedMatchItem } from '@/lib/matching';
 import { getResolvedAiRuntime, bindAiRuntime } from '@/lib/ai-runtime-store';
 import { requireUserFeature } from '@/lib/permissions';
-import { reserveUsage, consumeUsage } from '@/lib/usage';
+import { reserveUsage, consumeUsage, consumeUsageItem, releaseUsage, getUsageAllowance } from '@/lib/usage';
 import { AiUsageHttpError } from '@/lib/ai-usage-http';
 import { AIService } from '@/lib/ai-service';
 import { effectiveSubscriptionStatus } from '@/lib/subscription';
@@ -52,8 +52,10 @@ export async function enqueueDiscovery(userId: string, payload: DiscoverOffersPa
     discoveryApiKey();
     await loadCandidate(userId, tx);
     const id = randomUUID();
-    // One general AI operation includes discovery and its bounded initial scoring.
-    const operation = await reserveUsage(tx, userId, { bucket: 'general', requestId: payload.requestId, action: 'discover_offers', input: payload, jobId: id });
+    // Reserve only the remaining delivery slots. Each published offer consumes one slot.
+    const allowance = await getUsageAllowance(userId, 'discovery', tx);
+    const units = Math.max(1, Math.min(DISCOVERY_MAX_OFFERS, allowance.remaining));
+    const operation = await reserveUsage(tx, userId, { bucket: 'discovery', requestId: payload.requestId, action: 'discover_offers', input: payload, jobId: id, units });
     const ref = { provider: 'openai' as const, model: DISCOVERY_MODEL };
     const [job] = await tx.insert(aiJobs).values({ id, userId, initiatedByUserId, kind: 'discover_offers', payload,
       usageOperationId: operation.id, resolvedAiConfig: { ...runtime, overrides: { ...runtime.overrides, matching: { free: ref, pro: ref } } },
@@ -120,10 +122,16 @@ export async function publishDiscovery(job: AiJob, candidateHash: string, offers
     if (previous?.published) return previous;
     const current = await loadCandidate(job.userId, tx, true);
     if (current.evidence.sourceHash !== candidateHash) throw new DiscoveryError('DISCOVERY_PROFILE_CHANGED');
+    const [operation] = job.usageOperationId ? await tx.select().from(usageOperations)
+      .where(and(eq(usageOperations.id, job.usageOperationId), eq(usageOperations.userId, job.userId))).for('update').limit(1) : [];
+    if (!operation || operation.status !== 'reserved') throw new DiscoveryError('DISCOVERY_RESERVATION_LOST');
+    // Already admitted jobs from the previous release retain their original general-AI reservation.
+    const deliverySlots = operation.bucket === 'discovery' ? operation.units - operation.consumedUnits : DISCOVERY_MAX_OFFERS;
     const existing = await existingOfferKeys(job.userId, offers, tx);
     const result: DiscoveryProgress = { ...progress, added: [], stage: 'completed', published: true };
     // Offer data, validated score, result and usage commit together.
     for (const match of selectDiscoveryMatches(matches)) {
+      if (result.added.length >= deliverySlots) break;
       const offer = offers.find(item => item.id === match.id);
       if (!offer) throw new DiscoveryError('DISCOVERY_INVALID_RESPONSE');
       const sourceHash = matchSourceHash({ candidateEvidence: current.evidence,
@@ -144,10 +152,14 @@ export async function publishDiscovery(job: AiJob, candidateHash: string, offers
         matchEvidence: match.evidence, matchKind: 'triage', matchEvaluatedAt: new Date(match.evaluationStartedAt || job.createdAt),
         tldr: match.fitReason || null,
       }).onConflictDoNothing().returning({ id: jobOffers.id });
-      if (created) result.added.push({ id: created.id, title: offer.title, company: offer.company, url: offer.url, score: match.score });
+      if (created) {
+        result.added.push({ id: created.id, title: offer.title, company: offer.company, url: offer.url, score: match.score });
+        if (operation.bucket === 'discovery') await consumeUsageItem(tx, operation.id, created.id, result);
+      }
       else result.duplicates++;
     }
-    if (job.usageOperationId) await consumeUsage(tx, job.usageOperationId, result);
+    if (operation.bucket !== 'discovery') await consumeUsage(tx, operation.id, result);
+    await releaseUsage(tx, operation.id);
     await tx.update(aiJobs).set({ result, updatedAt: new Date() }).where(eq(aiJobs.id, job.id));
     return result;
   });

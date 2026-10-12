@@ -1,6 +1,6 @@
 # Planes, cuotas y paywall
 
-Estado: implementación local autorizada en esta conversación. Revisión: 4 de octubre de 2026. No implica un despliegue ni una comprobación de producción.
+Estado: implementación local autorizada en esta conversación. Revisión: 12 de octubre de 2026. No implica un despliegue ni una comprobación de producción.
 
 ## Resultado esperado
 
@@ -14,17 +14,18 @@ Una sola configuración persistida gobierna Free, Pro, workers, APIs y textos de
 | Acciones generales de IA | 10/mes | 200/mes |
 | Matching | 10 ofertas/mes | 300 ofertas/mes |
 | Ofertas por lote | 1 | 50 |
-| Investigación profunda | 0 | 10/mes |
+| Candidaturas encontradas por IA | 10/mes | 100/mes |
+| Investigación profunda | Una acción general por informe | Una acción general por informe |
 | Claves API activas | 0 | 3 |
 | Peticiones API por minuto y cuenta | 0 | 60 |
 
-Estos números son predeterminados; la configuración publicada es la fuente de verdad. El administrador puede cambiar todos los límites de Free y Pro. Solo los tres límites de CV aceptan `null` (sin límite); los demás son enteros no negativos. Las capacidades de CV base y adaptado deben encajar en el máximo total. El invitado tiene cuota durante la vida de la sesión: 3 CV, 1 PDF, 10 acciones generales y 10 matching, sin renovación mensual ni API. Sus límites se conservan al publicar planes.
+Estos números son predeterminados; la configuración publicada es la fuente de verdad. El administrador puede cambiar todos los límites de Free y Pro. Solo los tres límites de CV aceptan `null` (sin límite); los demás son enteros no negativos. Las capacidades de CV base y adaptado deben encajar en el máximo total. El invitado tiene cuota durante la vida de la sesión: 3 CV, 1 PDF, 10 acciones generales, 10 matching y 10 candidaturas por IA, sin renovación mensual ni API. Sus límites se conservan al publicar planes.
 
 CRM de trabajos, empresas y personas; vistas, filtros, favoritos, columnas y exportaciones; extensión LinkedIn; PDF y Harvard permanecen disponibles en Free y Pro. Asistente de Personas usa la bolsa de IA. El modelo de IA continúa dependiendo de la configuración de proveedor/modelo, sin prometer que Pro utilice otro modelo.
 
 ## Cuotas y conservación
 
-La bolsa general incluye adaptación e importación de CV, perfil, cartas, entrevistas y asistente de Personas. Cada acción completada consume una unidad; matching consume una unidad por oferta. Investigación tiene una bolsa separada. Una reserva reduce saldo mientras trabaja. Errores liberan reservas; un `requestId` repetido recupera la misma operación, sin otra unidad. Los límites se verifican en servidor antes de invocar IA y de encolar trabajo. Cambios de configuración no reinician consumo ni invalidan trabajo ya admitido.
+La bolsa general incluye adaptación e importación de CV, perfil, cartas, entrevistas asistente de Personas e investigaciones profundas. Cada acción completada consume una unidad; matching consume una unidad por oferta. La bolsa de candidaturas encontradas por IA consume una unidad por oferta nueva publicada, con scoring inicial incluido. Búsquedas vacías, duplicados y descartes no consumen; el saldo restante limita las plazas reservadas y las candidaturas que se publican. Una reserva reduce saldo mientras trabaja. Errores liberan reservas; un `requestId` repetido recupera la misma operación, sin otra unidad. Los límites se verifican en servidor antes de invocar IA y de encolar trabajo. Cambios de configuración no reinician consumo ni invalidan trabajo ya admitido.
 
 Al agotar almacenamiento, la interfaz ofrece sustituir un documento editable concreto tras confirmación. Adaptar una oferta conserva el CV base. La API reserva cuota y destino juntas; publica el contenido cuando la generación termina. Un fallo conserva el contenido anterior y elimina solamente el destino pendiente creado por esa operación.
 

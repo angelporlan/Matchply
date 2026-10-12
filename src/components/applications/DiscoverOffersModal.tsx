@@ -9,6 +9,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { refreshPlanUsage, reportPlanRestriction } from '@/lib/plan-presentation';
 import { initialDiscoveryProgress, type DiscoveryProgress } from '@/lib/offer-discovery/types';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 
 type DiscoveryJob = { id: string; status: string; result: DiscoveryProgress | null; lastError: string | null };
 
@@ -134,6 +135,7 @@ export default function DiscoverOffersModal({ isOpen, onClose, onCompleted }: {
         </div>
         <p id="offer-discovery-help" className="text-sm text-text-muted mt-3 leading-relaxed">{t('offerDiscovery.help')}</p>
         <p className="text-xs text-text-muted mt-2">{t('offerDiscovery.usage')}</p>
+        <div className="mt-2"><InlineAllowance bucket="discovery" /></div>
 
         <div role="status" aria-live="polite" className="mt-5">
           {(busy || starting || loading) && <div className="rounded-lg bg-ai-surface border border-border-subtle p-4 text-sm text-ai-text">

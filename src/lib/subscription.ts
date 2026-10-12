@@ -42,7 +42,7 @@ export const PLAN_ENTITLEMENTS: Record<AccessTier, PlanEntitlements> = {
       networking: true,
       applications: true,
       linkedinExtension: true,
-      deepResearch: false,
+      deepResearch: true,
       agentApi: false,
     },
   },

@@ -152,10 +152,10 @@ export default function LinkedInExtensionConsole({ initialInstallations, initial
           </div>
 
           {quota.limit > 0 && <div className="rounded-xl border border-subtle p-5 space-y-3">
-            <div className="flex items-center justify-between"><span className="text-sm font-bold text-text">Cuota de investigación</span><button type="button" onClick={() => void refresh()} className="text-ai" title="Actualizar"><RefreshCw className="w-4 h-4" /></button></div>
+            <div className="flex items-center justify-between"><span className="text-sm font-bold text-text">Acciones de IA compartidas</span><button type="button" onClick={() => void refresh()} className="text-ai" title="Actualizar"><RefreshCw className="w-4 h-4" /></button></div>
             <div className="text-3xl font-bold text-text">{quota.used}<span className="text-base text-slate-400"> / {quota.limit}</span></div>
             <div className="h-2 bg-subtle dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-ai-action rounded-full" style={{ width: `${Math.min(100, (quota.used / Math.max(1, quota.limit)) * 100)}%` }} /></div>
-            <p className="text-[11px] text-slate-500 dark:text-text-muted">Se cuentan ofertas distintas por mes UTC. Los reintentos técnicos no consumen cuota.</p>
+            <p className="text-[11px] text-slate-500 dark:text-text-muted">Cada investigación completada consume una acción de IA de la bolsa compartida. Los reintentos técnicos no consumen otra.</p>
           </div>}
         </div>
 

@@ -8,6 +8,9 @@ import { AlertCircle, CheckCircle2, Clock3, ExternalLink, Loader2, RefreshCw, Sh
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
+import { InlineAllowance } from '@/components/subscription/InlineAllowance';
+import { ButtonLink } from '@/components/ui/Button';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 type ResearchData = {
   id: string;
@@ -38,6 +41,7 @@ function dateLabel(value: string | Date | null) {
 }
 
 export default function ResearchPanel({ offerId, initialResearch }: { offerId: string; initialResearch: ResearchData | null }) {
+  const { t } = useLanguage();
   const { data: planUsage } = usePlanUsage();
   const requestId = useRef<string | null>(null);
   const [research, setResearch] = useState<ResearchData | null>(initialResearch);
@@ -83,17 +87,19 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
         <div>
           <h3 className="text-sm font-bold text-text uppercase tracking-wider flex items-center gap-2"><Sparkles className="w-4 h-4 text-ai" /> Investigación profunda</h3>
           <p className="text-xs text-slate-500 dark:text-text-muted mt-1">Oferta, empresa, personas y señales públicas. Las fuentes se conservan como extractos limitados.</p>
+          <p className="text-xs text-text-muted mt-2">{t('plans.researchAiHelp')}</p>
+          <div className="mt-2"><InlineAllowance bucket="general" /></div>
         </div>
         {research && <span className={`self-start text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${research.status === 'completed' ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' : research.status === 'failed' ? 'text-rose-500 bg-rose-500/10 border-rose-500/20' : 'text-ai bg-ai/10 border-ai/20'}`}>{statusLabel(research.status)}</span>}
       </div>
 
       {error && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs">{error}</div>}
 
-      {planUsage && planUsage.limits.researchMonthly === 0 ? <UpgradePaywall source="research" /> : !research ? (
+      {planUsage?.plan === 'guest' ? <div className="rounded-xl border border-subtle p-5 space-y-3"><p className="text-sm text-text-muted">{t('plans.researchRegister')}</p><ButtonLink href="/register" variant="secondary">{t('plans.registerFree')}</ButtonLink></div> : planUsage && planUsage.limits.generalAiMonthly === 0 ? <UpgradePaywall source="research" /> : !research ? (
         <div className="rounded-xl border border-dashed border-ai/30 bg-ai/5 p-8 text-center space-y-3">
           <Sparkles className="w-8 h-8 mx-auto text-ai" />
           <p className="text-sm font-semibold text-text">Aún no hay una investigación para esta oferta.</p>
-          <p className="text-xs text-slate-500">Iníciala para analizarla en segundo plano con tu cuota PRO.</p>
+          <p className="text-xs text-slate-500">{t('plans.researchStartHelp')}</p>
           <button type="button" onClick={() => void retry()} disabled={loading} className="inline-flex items-center gap-2 bg-ai-action text-on-ai-action font-bold text-xs px-4 py-2.5 rounded-lg disabled:opacity-50"><Sparkles className="w-4 h-4" /> Iniciar investigación</button>
         </div>
       ) : (

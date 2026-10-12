@@ -5,7 +5,7 @@ import { usePlanUsage } from './PlanUsageProvider';
 import { quotaState } from '@/lib/plan-presentation';
 
 /** The shared allowance is visible before starting a paid AI operation. */
-export function InlineAllowance({ bucket = 'general' }: { bucket?: 'general' | 'matching' | 'research' }) {
+export function InlineAllowance({ bucket = 'general' }: { bucket?: 'general' | 'matching' | 'discovery' }) {
   const { data, error } = usePlanUsage();
   const { t, language } = useLanguage();
   if (!data) return <p role="status" className="text-xs text-text-muted">{t(error ? 'plans.loadError' : 'plans.loading')}</p>;

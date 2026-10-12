@@ -10,4 +10,4 @@ El botón secundario junto a Nueva candidatura abre un diálogo que busca con Op
 - `src/lib/offer-discovery/service.ts`: contexto, cola, matching, deduplicación y publicación.
 - `src/lib/ai-jobs/process.ts` / `queue.ts`: ejecución y protección de intentos.
 
-Requiere configurar OpenAI y desplegar web/worker juntos. No desplegado en producción.
+La bolsa «Candidaturas por IA» incluye 10 candidaturas nuevas al mes en Gratis y 100 en Pro. Solo descuentan las ofertas añadidas; la investigación profunda usa una acción general. Requiere configurar OpenAI, aplicar la migración 0040 y desplegar web/ambos workers juntos. No desplegado en producción.

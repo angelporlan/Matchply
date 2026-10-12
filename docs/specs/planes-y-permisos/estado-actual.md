@@ -1,6 +1,10 @@
 # Planes y permisos — implementación local
 
-Revisión: 4 de octubre de 2026. Sustituye el inventario estático del 12 de septiembre. Producción no inspeccionada ni modificada.
+Revisión inicial: 4 de octubre de 2026. Cuotas actualizadas el 12 de octubre de 2026. Sustituye el inventario estático del 12 de septiembre. Producción no inspeccionada ni modificada.
+
+## Cuotas actuales
+
+«Candidaturas por IA» sustituye la bolsa de investigaciones: 10 candidaturas nuevas al mes en Gratis y 100 en Pro. Solo se cuentan las que se añaden, con scoring inicial incluido; duplicados, descartes y búsquedas vacías no descuentan. Cada investigación profunda útil consume una acción de IA general y está disponible en cuentas Gratis y Pro. La migración 0040 conserva el historial, el consumo anterior y las reservas ya admitidas.
 
 ## Implementación
 

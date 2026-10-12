@@ -1,6 +1,6 @@
 # Candidaturas para ti
 
-Implementación solicitada el 12 de octubre de 2026.
+Implementación solicitada el 12 de octubre de 2026. Cuotas revisadas ese mismo día a petición del usuario.
 
 ## Comportamiento
 
@@ -14,7 +14,7 @@ Implementación solicitada el 12 de octubre de 2026.
 ## Decisiones y supuestos
 
 - DEC-001: Hasta ocho candidatos buscados/evaluados y cinco nuevas ofertas guardadas por búsqueda; umbral de 65 %, usando también la decisión `keep` de la rúbrica. Son valores iniciales de producto, expuestos en el diálogo.
-- DEC-002: Disponible para los actores con acceso a candidaturas y cuota general de IA. Una búsqueda con sus evaluaciones iniciales consume una operación general; no modifica el matching manual ni sus cuotas.
+- DEC-002: Disponible para actores con acceso a candidaturas y cuota de descubrimiento: 10 candidaturas nuevas al mes en Gratis y 100 en Pro. Cada oferta añadida consume una unidad; búsqueda y scoring inicial no consumen acciones generales ni matching. Invitado dispone de 10 durante su sesión.
 - DEC-003: El diálogo inicia la búsqueda al pulsar «Buscar candidaturas» y explica que se añaden directamente. Cerrar continúa la ejecución. No se envían solicitudes a empleadores.
 - INV-001: Ningún resultado sin scoring válido puede publicarse. Publicación, progreso final y consumo de cuota son una transacción; una repetición tras publicación devuelve el resultado anterior.
 - INV-002: Un trabajador con lease caducado o intento obsoleto no puede escribir ni terminar el job. Las modificaciones del perfil/CV durante la búsqueda impiden publicar resultados basados en datos anteriores.
@@ -23,8 +23,8 @@ Implementación solicitada el 12 de octubre de 2026.
 
 ## Errores y operación
 
-Perfil insuficiente y falta de configuración se detectan antes de reservar cuota. La interfaz explica límites, fallos de búsqueda y cambios del perfil. Un fallo transitorio puede reintentarse tres veces. Las evaluaciones fallidas se omiten y se indican; si todas fallan, la búsqueda se reintenta. La cuota se libera si el trabajo termina fallido antes de publicar. Una búsqueda válida vacía consume una operación.
+Perfil insuficiente y falta de configuración se detectan antes de reservar cuota. La interfaz explica límites, fallos de búsqueda y cambios del perfil. Un fallo transitorio puede reintentarse tres veces. Las evaluaciones fallidas se omiten y se indican; si todas fallan, la búsqueda se reintenta. La cuota se libera si el trabajo termina fallido antes de publicar. Una búsqueda vacía, duplicados y ofertas descartadas no consumen cuota. La admisión reserva hasta cinco plazas, limitadas al saldo disponible; la publicación consume solo las ofertas nuevas añadidas y libera las demás.
 
-Requiere `OPENAI_API_KEY` y el `ai_worker` actualizado. No añade tablas, migraciones ni dependencias. En producción se despliegan web y worker juntos; un worker anterior no reconoce el nuevo kind. No se solicita ni se ejecuta un despliegue de producción en este cambio.
+Requiere `OPENAI_API_KEY` y el `ai_worker` actualizado. No añade tablas ni dependencias. La migración de datos 0040 publica los nuevos límites, conserva historial y contadores, y mantiene la contabilidad de trabajos admitidos antes del cambio. Las investigaciones profundas nuevas usan una acción de IA general por informe útil y están disponibles para Gratis y Pro. En producción se despliegan web y ambos workers juntos; un worker anterior no reconoce el nuevo kind. No se solicita ni se ejecuta un despliegue de producción en este cambio.
 
 Fuentes: [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), [búsqueda web en Responses](https://developers.openai.com/api/docs/guides/tools-web-search).

@@ -16,7 +16,7 @@ export default function SidebarLimits() {
 
   useEffect(() => {
     if (!data) return;
-    for (const key of ['general', 'matching', 'research'] as const) {
+    for (const key of ['general', 'matching', 'discovery'] as const) {
       const bucket = data.usage[key];
       if (!bucket) continue;
       const identity = `${key}:${bucket.resetAt || 'guest'}:${data.configVersion}`;
@@ -46,7 +46,7 @@ export default function SidebarLimits() {
   if (!data) return null;
 
   // Active quota buckets
-  const quotaBuckets = (['general', 'matching', 'research'] as const)
+  const quotaBuckets = (['general', 'matching', 'discovery'] as const)
     .map((key) => ({ key, bucket: data.usage[key] }))
     .filter(({ bucket }) => Boolean(bucket && bucket.limit > 0));
 
@@ -74,7 +74,7 @@ export default function SidebarLimits() {
   const resetAt =
     data.usage.general?.resetAt ||
     data.usage.matching?.resetAt ||
-    data.usage.research?.resetAt;
+    data.usage.discovery?.resetAt;
 
   const formattedRenewal = resetAt
     ? new Date(resetAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB')
@@ -136,7 +136,7 @@ export default function SidebarLimits() {
                           {t(`plans.${key}`)}
                         </span>
                         <span className="text-text-muted font-mono text-[10px] shrink-0 font-medium">
-                          {bucket.used} de {bucket.limit}
+                          {t('plans.used', { used: bucket.used, limit: bucket.limit })}
                         </span>
                       </div>
 

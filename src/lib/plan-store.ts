@@ -19,7 +19,7 @@ export async function getUserPlan(userId: string, tx: PlanDb = db) {
 export async function userPlanFeature(userId: string, feature: import('@/lib/subscription').SubscriptionFeature, tx: PlanDb = db) {
   const { limits, plan } = await getUserPlan(userId, tx);
   if (feature === 'advancedAi') return limits.matchBatchSize > 1;
-  if (feature === 'deepResearch') return limits.researchMonthly > 0;
+  if (feature === 'deepResearch') return plan !== 'guest' && limits.generalAiMonthly > 0;
   if (feature === 'agentApi') return limits.apiKeys > 0 && limits.apiRequestsPerMinute > 0 && plan !== 'guest';
   if (feature === 'linkedinExtension') return plan !== 'guest';
   return true;

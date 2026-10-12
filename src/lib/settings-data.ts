@@ -98,7 +98,7 @@ export async function loadIntegrationsSettings(user: SessionUser): Promise<Integ
   const isPremium = hasProAccess(user);
   const [installations, quota, apiTokens] = await Promise.all([
     listExtensionInstallations(user.id),
-    isPremium ? getResearchQuota(user.id) : Promise.resolve({ used: 0, limit: 0 }),
+    getResearchQuota(user.id),
     isPremium ? listUserApiTokens(user.id) : Promise.resolve([]),
   ]);
   return {

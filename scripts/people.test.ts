@@ -13,12 +13,12 @@ import { parseAiRuntimeConfig, resolveModelForFunction } from '@/lib/ai-runtime-
 const require = createRequire(import.meta.url);
 const extractor = require('../chrome-extension/people.js');
 
-test('guests can try networking; extension requires registration and research and agents remain Pro', () => {
+test('guests can try networking; extension requires registration and research shares AI actions and agents remain Pro', () => {
   for (const status of ['none', 'active', 'trialing', 'canceled']) for (const feature of ['networking', 'linkedinExtension'] as const) assert.ok(canAccessFeature(status, feature));
   assert.equal(canAccessFeature('none', 'networking', { isGuest: true }), true);
   assert.equal(canAccessFeature('none', 'linkedinExtension', { isGuest: true }), false);
   assert.equal(canAccessFeature('none', 'agentApi'), false);
-  assert.equal(canAccessFeature('none', 'deepResearch'), false);
+  assert.equal(canAccessFeature('none', 'deepResearch'), true);
   for (const plan of ['free', 'pro'] as const) assert.deepEqual(resolveModelForFunction(parseAiRuntimeConfig({}), 'networking', plan).ref, { provider: 'openai', model: 'gpt-6-luna' });
 });
 test('profile validation and canonical URLs cannot merge names or accept foreign URLs', () => {

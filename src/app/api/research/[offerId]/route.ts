@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: { offerId: string
       retryFailed: body?.retry === true,
     });
     if (!research.accepted) return NextResponse.json({
-      error: 'Has alcanzado el límite de investigaciones de este mes.', code: 'QUOTA_EXCEEDED', bucket: 'research',
+      error: 'Has agotado las acciones de IA de este mes.', code: 'QUOTA_EXCEEDED', bucket: 'general',
       usage: await getResearchQuota(user.id), research,
     }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
     await createAuditLog('research_requested', user.id, user.email, {

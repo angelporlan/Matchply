@@ -44,7 +44,7 @@ export default async function LandingPage() {
     freeBaseCvs: planConfig.free.maxBaseCvs ?? unlimited, freeAdaptedCvs: planConfig.free.maxAdaptedCvs ?? unlimited,
     freeAi: planConfig.free.generalAiMonthly, proAi: planConfig.pro.generalAiMonthly,
     freeMatching: planConfig.free.matchingMonthly, proMatching: planConfig.pro.matchingMonthly,
-    freeResearch: planConfig.free.researchMonthly, proResearch: planConfig.pro.researchMonthly,
+    freeDiscovery: planConfig.free.discoveryMonthly, proDiscovery: planConfig.pro.discoveryMonthly,
   };
   const stepIcons = [FileInput, TextSearch, FileCheck2];
   const ctaClass = 'btn-raised btn-raised--hero landing-primary-cta w-full sm:w-auto';

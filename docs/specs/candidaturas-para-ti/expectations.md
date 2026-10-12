@@ -10,6 +10,9 @@
 | AC-006: Un resultado ya publicado se recupera sin volver a buscar ni cobrar | INV-001 | Integración: repetición del servicio y dispatcher real del worker |
 | AC-007: Cambio de perfil o lease obsoleto bloquea publicación y un fallo libera cuota | INV-002 | Integración: cambio de perfil, lease caducado y tres intentos transitorios |
 | AC-008: Un usuario gratis puede buscar con su cuota; perfil vacío no reserva cuota | REQ-006 | Integración con usuarios ficticios y configuración de planes predeterminada |
+| AC-010: Gratis entrega como máximo 10 candidaturas al mes y Pro 100; saldo parcial limita el resultado | REQ-006, INV-001 | Integración: tandas de cinco, último saldo de dos/una, reservas parciales y cuota agotada |
+| AC-011: Solo las ofertas añadidas consumen la bolsa discovery; informes consumen una acción general | REQ-006, INV-001 | Integración de discovery y research Gratis; snapshot de las tres bolsas |
+| AC-012: Migración conserva historial, ajustes y contadores; repetirla no cambia de nuevo la versión | REQ-006 | `scripts/discovery-quota-migration.integration.test.ts` |
 | AC-009: Progreso y listado no contienen CV, informes o descripciones completas | INV-003 | Integración del objeto de columnas y revisión de respuestas API |
 
 Las respuestas simuladas prueban la integración y las reglas del producto; no prueban la cobertura de portales ni garantizan que cada oferta pública siga abierta después de la búsqueda.

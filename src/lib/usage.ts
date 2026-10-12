@@ -4,7 +4,18 @@ import { db } from '@/db';
 import { aiJobs, aiRequestUsage, cvs, jobResearchRuns, usageItems, usageOperations, usagePeriods, users, monetizationAssignments, monetizationEvents } from '@/db/schema';
 import { getUserPlan, type PlanDb } from '@/lib/plan-store';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
-export type UsageBucket = 'general' | 'matching' | 'research';
+export type UsageBucket = 'general' | 'matching' | 'discovery';
+function allowanceLimit(bucket: UsageBucket, limits: import('@/lib/plan-config').PlanLimits) {
+  return bucket === 'general' ? limits.generalAiMonthly : bucket === 'matching' ? limits.matchingMonthly : limits.discoveryMonthly;
+}
+export async function getUsageAllowance(userId: string, bucket: UsageBucket, tx: PlanDb = db) {
+  const { user, limits } = await getUserPlan(userId, tx);
+  const start = user.isGuest ? new Date(0) : utcUsageMonth();
+  const [period] = await tx.select({ used: usagePeriods.used, reserved: usagePeriods.reserved }).from(usagePeriods)
+    .where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.bucket, bucket), eq(usagePeriods.periodStart, start))).limit(1);
+  const limit = allowanceLimit(bucket, limits), used = period?.used ?? 0, reserved = period?.reserved ?? 0;
+  return { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString() };
+}
 export type UsageOperation = typeof usageOperations.$inferSelect;
 export class UsageError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly details: Record<string, unknown> = {}) { super(message); this.name = 'UsageError'; }
@@ -22,7 +33,7 @@ export function usageInputHash(value: unknown) { return createHash('sha256').upd
 export type UsageInput = { bucket: UsageBucket; requestId: string; action: string; input: unknown; units?: number; jobId?: string };
 export async function reserveUsage(tx: PlanDb, userId: string, input: UsageInput): Promise<UsageOperation> {
   const units = input.units ?? 1;
-  if (!Number.isSafeInteger(units) || units < 1 || !input.requestId || input.requestId.length > 200 || !input.action || input.action.length > 80) throw new UsageError(400, 'INVALID_OPERATION', 'Invalid operation');
+  if (!['general', 'matching', 'discovery'].includes(input.bucket) || !Number.isSafeInteger(units) || units < 1 || !input.requestId || input.requestId.length > 200 || !input.action || input.action.length > 80) throw new UsageError(400, 'INVALID_OPERATION', 'Invalid operation');
   // This lock also serializes first-period creation and guest claim with admissions.
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${userId}`}))`);
   const hash = usageInputHash(input.input);
@@ -34,7 +45,7 @@ export async function reserveUsage(tx: PlanDb, userId: string, input: UsageInput
   }
   const { user, plan, limits, config } = await getUserPlan(userId, tx);
   const periodStart = user.isGuest ? new Date(0) : utcUsageMonth();
-  const limit = input.bucket === 'general' ? limits.generalAiMonthly : input.bucket === 'matching' ? limits.matchingMonthly : limits.researchMonthly;
+  const limit = allowanceLimit(input.bucket, limits);
   const resetAt = user.isGuest ? null : nextUsageMonth(periodStart).toISOString();
   await tx.insert(usagePeriods).values({ userId, bucket: input.bucket, periodStart }).onConflictDoNothing();
   const [period] = await tx.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.bucket, input.bucket), eq(usagePeriods.periodStart, periodStart))).for('update').limit(1);
@@ -165,9 +176,9 @@ export async function getUsageSnapshot(userId: string) {
   const start = user.isGuest ? new Date(0) : utcUsageMonth();
   const periods = await db.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.periodStart, start)));
   const usage = {} as Record<UsageBucket, { used: number; reserved: number; limit: number; remaining: number; resetAt: string | null }>;
-  for (const bucket of ['general', 'matching', 'research'] as const) {
+  for (const bucket of ['general', 'matching', 'discovery'] as const) {
     const row = periods.find(p => p.bucket === bucket);
-    const limit = bucket === 'general' ? limits.generalAiMonthly : bucket === 'matching' ? limits.matchingMonthly : limits.researchMonthly;
+    const limit = allowanceLimit(bucket, limits);
     const used = row?.used ?? 0, reserved = row?.reserved ?? 0;
     usage[bucket] = { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString() };
   }

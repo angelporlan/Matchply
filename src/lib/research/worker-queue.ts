@@ -39,7 +39,7 @@ export async function claimNextResearchRun(): Promise<ResearchRun | null> {
     let operationId = candidate.usageOperationId;
     if (!operationId) {
       try {
-        const operation = await reserveUsage(tx, candidate.userId, { bucket: 'research', action: 'research_offer', requestId: candidate.id, input: { jobOfferId: candidate.jobOfferId }, jobId: candidate.id });
+        const operation = await reserveUsage(tx, candidate.userId, { bucket: 'general', action: 'research_offer', requestId: candidate.id, input: { jobOfferId: candidate.jobOfferId }, jobId: candidate.id });
         operationId = operation.id;
       } catch (error) {
         await tx.update(jobResearchRuns).set({ status: 'failed', lastError: error instanceof Error ? error.message : 'RESEARCH_ADMISSION_FAILED', completedAt: now, leaseUntil: null }).where(eq(jobResearchRuns.id, candidate.id));
