@@ -78,6 +78,7 @@ export function UpgradePaywall({ source, compact = false, dismissible = false, a
 export function PlanFeedback() {
   const { data, refresh } = usePlanUsage();
   const { t, language } = useLanguage();
+  const prices = usePaywallPrices();
   const [restriction, setRestriction] = useState<PlanRestriction | null>(null);
   useEffect(() => {
     const onRestriction = (event: Event) => {
@@ -92,16 +93,32 @@ export function PlanFeedback() {
   const bucket = restriction?.bucket ? data?.usage[restriction.bucket] : null;
   const feedbackKey = restriction?.kind === 'rate' ? 'plans.rateBody' : restriction?.kind === 'progress' ? 'plans.progressBody'
     : restriction?.code === 'MATCH_BATCH_TOO_LARGE' ? 'plans.batchBody' : bucket ? 'plans.quotaBody' : 'plans.limitBody';
+  const offerTrial = restriction?.kind === 'quota' && data?.plan !== 'pro' && prices.trialEligible === true && typeof prices.monthlyAmount === 'number';
+  const trialDays = prices.trialDays || 7;
+  const monthlyAmount = typeof prices.monthlyAmount === 'number'
+    ? new Intl.NumberFormat(language === 'es' ? 'es-ES' : 'en-GB', {
+      style: 'currency',
+      currency: (prices.currency || 'EUR').toUpperCase(),
+      maximumFractionDigits: prices.monthlyAmount % 1 === 0 ? 0 : 2,
+    }).format(prices.monthlyAmount)
+    : '';
+  const trialSource = restriction?.source || 'quota';
   return <PlanDialog open={!!restriction} title={t(restriction?.kind === 'quota' ? 'plans.limitTitle' : 'plans.waitTitle')} onClose={() => setRestriction(null)}>
     <p className="mt-4 text-sm leading-6 text-text-muted">{t(feedbackKey, { limit: restriction?.limit ?? data?.limits.matchBatchSize ?? 0 })}</p>
     {bucket && <div className="mt-4 rounded-[8px] bg-warning-surface p-3 text-sm text-warning-text">
       <p>{t('plans.used', { used: bucket.used + bucket.reserved, limit: bucket.limit })}</p>
       {bucket.resetAt && <p>{t('plans.renews', { date: new Date(bucket.resetAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB') })}</p>}
     </div>}
+    {offerTrial && <div className="mt-4 rounded-[10px] border border-info-text/20 bg-info-surface p-4">
+      <p className="text-sm font-semibold text-info-text">{t('plans.trial', { days: trialDays })}</p>
+      <p className="mt-1 text-sm leading-6 text-info-text">{t('plans.trialToday')}</p>
+      <p className="text-sm leading-6 text-info-text">{t('plans.trialTerms', { amount: monthlyAmount, period: t('plans.monthly') })}</p>
+    </div>}
     <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
       <Button type="button" variant="secondary" onClick={() => setRestriction(null)}>{t('plans.close')}</Button>
       {restriction?.code === 'CV_READ_ONLY' && <ButtonLink href="/dashboard" variant="secondary">{t('plans.chooseActive')}</ButtonLink>}
-      {restriction?.kind === 'quota' && data?.plan !== 'pro' && <UpgradePaywall source={restriction?.source || 'quota'} compact />}
+      {offerTrial && <ButtonLink href={`/dashboard/subscription?interval=monthly&source=${encodeURIComponent(trialSource)}`} variant="strong" onClick={() => recordPaywallEvent('paywall_cta', trialSource)}>{t('plans.trialOfferCta', { days: trialDays })}</ButtonLink>}
+      {!offerTrial && restriction?.kind === 'quota' && data?.plan !== 'pro' && <UpgradePaywall source={trialSource} compact />}
     </div>
   </PlanDialog>;
 }
