@@ -295,10 +295,10 @@ const en = {
     sidebar: {
       menu: {
         cvs: 'My CVs',
-        applications: "Jobs",
+        applications: 'Applications',
         applicationsAll: 'All',
         companies: 'Companies',
-        toggleApplications: "Show or hide the jobs menu",
+        toggleApplications: 'Show or hide the applications menu',
         adminPanel: 'Admin Panel',
       },
       logout: {
@@ -504,7 +504,7 @@ const en = {
       },
     },
     applications: {
-      title: "Jobs",
+      title: 'Applications',
       subtitle: 'Your application CRM: filter, sort, choose columns and save views.',
       filters: {
         status: 'Status',

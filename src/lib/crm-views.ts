@@ -29,7 +29,7 @@ export const COMPANY_COLUMNS: CrmColumn[] = [
   { id: 'location', label: ['Ubicación', 'Location'], kind: 'text' },
   { id: 'sector', label: ['Sector', 'Industry'], kind: 'text' },
   { id: 'website', label: ['Web', 'Website'], kind: 'text' },
-  { id: 'applicationCount', label: ['Trabajos', 'Jobs'], kind: 'number' },
+  { id: 'applicationCount', label: ['Candidaturas', 'Applications'], kind: 'number' },
   { id: 'noteCount', label: ['Notas', 'Notes'], kind: 'number' },
   { id: 'updatedAt', label: ['Actualizado', 'Updated'], kind: 'date' },
   { id: 'createdAt', label: ['Creado', 'Created'], kind: 'date' },
