@@ -15,6 +15,8 @@ import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
 import { recordAiRunStat } from '@/lib/ai-run-stats';
 import { processCvOptimization } from '@/lib/cv-optimization/service';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
+import { processDiscovery } from '@/lib/offer-discovery/service';
+import { DISCOVERY_MODEL } from '@/lib/offer-discovery/types';
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
@@ -27,8 +29,8 @@ export async function processAiJob(job: AiJob) {
         const units = job.kind === 'match_batch' ? new Set(payload.offerIds).size : 1;
         if (job.kind === 'match_batch' && units > 1 && plan !== 'pro') throw new AiUsageHttpError(403, 'PRO_REQUIRED', 'El matching en lote requiere Pro.');
         if (job.kind === 'match_batch' && units > Math.max(1, limits.matchBatchSize)) throw new AiUsageHttpError(400, 'MATCH_BATCH_TOO_LARGE', 'El lote supera el tamaño permitido.');
-        if (!['match_batch', 'import_offer', 'networking'].includes(job.kind)) throw new AiUsageHttpError(400, 'UNSUPPORTED_AI_JOB', 'Este trabajo de IA ya no está disponible.');
-        const operation = await reserveUsage(tx, job.userId, { bucket: job.kind === 'match_batch' ? 'matching' : 'general', requestId: job.id, action: `legacy:${job.kind}`, input: job.payload, units, jobId: job.id });
+        if (!['match_batch', 'import_offer', 'networking', 'discover_offers'].includes(job.kind)) throw new AiUsageHttpError(400, 'UNSUPPORTED_AI_JOB', 'Este trabajo de IA ya no está disponible.');
+        const operation = await reserveUsage(tx, job.userId, { bucket: job.kind === 'match_batch' ? 'matching' : job.kind === 'discover_offers' ? 'discovery' : 'general', requestId: job.id, action: `legacy:${job.kind}`, input: job.payload, units, jobId: job.id });
         const [updated] = await tx.update(aiJobs).set({ usageOperationId: operation.id }).where(eq(aiJobs.id, job.id)).returning();
         return updated;
       });
@@ -40,7 +42,7 @@ export async function processAiJob(job: AiJob) {
   return withAiUsageContext({ userId: job.userId, jobId: job.id, functionKey: job.kind }, () => bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const importController = new AbortController();
-  const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants'].includes(job.kind) ? setInterval(() => {
+  const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(job.kind) ? setInterval(() => {
     if (renewing) return;
     renewing = true;
     void renewAiJobLease(job).then(owned => {
@@ -54,6 +56,9 @@ export async function processAiJob(job: AiJob) {
   try {
     let result: Record<string, unknown>;
     switch (job.kind) {
+      case 'discover_offers':
+        result = await processDiscovery(job, importController.signal);
+        break;
       case 'optimize_cv_variants':
         await processCvOptimization(job, importController.signal);
         return;
@@ -85,8 +90,8 @@ export async function processAiJob(job: AiJob) {
     if (!completed) return;
     if (job.kind !== 'networking') void recordAiRunStat({
       functionKey: job.kind,
-      provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
-      model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
+      provider: ['import_offer', 'discover_offers'].includes(job.kind) ? 'openai' : snapshot.general.pro.provider,
+      model: job.kind === 'discover_offers' ? DISCOVERY_MODEL : job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
       plan: 'unknown',
       success: true,
       latencyMs: Date.now() - started,
@@ -112,8 +117,8 @@ export async function processAiJob(job: AiJob) {
     });
     if (job.kind !== 'networking') void recordAiRunStat({
       functionKey: job.kind,
-      provider: job.kind === 'import_offer' ? 'openai' : snapshot.general.pro.provider,
-      model: job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
+      provider: ['import_offer', 'discover_offers'].includes(job.kind) ? 'openai' : snapshot.general.pro.provider,
+      model: job.kind === 'discover_offers' ? DISCOVERY_MODEL : job.kind === 'import_offer' ? OFFER_IMPORT_MODEL : snapshot.general.pro.model,
       plan: 'unknown',
       success: false,
       latencyMs: Date.now() - started,

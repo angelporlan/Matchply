@@ -43,3 +43,14 @@ Web, worker de IA y worker de investigación se recrearon conservando los volúm
 La oferta anual se verificó y activó únicamente en Stripe test local. La prueba está implementada y permanece desactivada por `STRIPE_TRIAL_REMINDERS_VERIFIED=false` hasta verificar los recordatorios de fin de prueba en el Dashboard del entorno. Stripe no envía esos correos en sandbox y esa preferencia no se confirma mediante su API pública. [Procedimiento y condiciones de activación](../../monetization-billing.md).
 
 Las migraciones y el código están preparados para despliegue; no se desplegó ni se modificó la facturación de producción.
+
+
+## Actualización de cuotas — 12 de octubre de 2026
+
+- «Candidaturas por IA»: 10 nuevas candidaturas al mes en Gratis, 100 en Pro; solo se consumen las publicadas, con scoring inicial incluido.
+- Investigación profunda: una acción general por informe útil, también para cuentas gratuitas. Las otras cuotas conservan sus valores.
+- Migración 0040 probada desde una base vacía y aplicada al desarrollo local. Conserva contadores, historial y ajustes; repetirla es inocuo. No modifica producción.
+- Integraciones de discovery, investigación y migración: 29 pruebas correctas, sin omisiones. Incluyen tandas de cinco, último saldo de dos/una, cupo agotado, mes anterior, búsquedas vacías, idempotencia y reservas antiguas.
+- Suite general: 399 correctas, 17 integraciones omitidas sin sus bases configuradas, cero fallos. Typecheck, lint y build correctos; solo advertencias existentes de hooks.
+- Web local y ambos workers usan el nuevo código. Cuotas persistidas verificadas: Gratis 10 / Pro 100.
+- Revisión visual: contador nuevo, límites visibles en tarjetas Gratis/Pro, español e inglés y presentación móvil/escritorio. [Captura de planes](../candidaturas-para-ti/qa/quota-plans-es-1440.png).

@@ -3,16 +3,30 @@ import assert from 'node:assert/strict';
 import { defaultPlanConfig, parsePlanConfig, renderPaywallCopy } from '@/lib/plan-config';
 import { utcUsageMonth, nextUsageMonth, usageInputHash } from '@/lib/usage';
 
-test('agreed plan defaults use three CVs and monthly AI, matching and research pools', () => {
+test('agreed plan defaults use three CVs and monthly AI, matching and discovery pools', () => {
   const config = parsePlanConfig(defaultPlanConfig());
-  assert.deepEqual(config.free, { maxCvs: 3, maxBaseCvs: 1, maxAdaptedCvs: 2, generalAiMonthly: 10, matchingMonthly: 10, researchMonthly: 0, matchBatchSize: 1, apiKeys: 0, apiRequestsPerMinute: 0 });
-  assert.equal(config.pro.maxCvs, null); assert.equal(config.pro.generalAiMonthly, 200); assert.equal(config.pro.matchBatchSize, 50);
+  assert.deepEqual(config.free, { maxCvs: 3, maxBaseCvs: 1, maxAdaptedCvs: 2, generalAiMonthly: 10, matchingMonthly: 10, discoveryMonthly: 10, matchBatchSize: 1, apiKeys: 0, apiRequestsPerMinute: 0 });
+  assert.equal(config.pro.maxCvs, null); assert.equal(config.pro.generalAiMonthly, 200); assert.equal(config.pro.matchBatchSize, 50); assert.equal(config.pro.discoveryMonthly, 100);
 });
 test('invalid units, permissions, CV coherence and batch capacity cannot be published', () => {
-  for (const mutate of [(c: any) => c.free.generalAiMonthly = -1, (c: any) => c.free.matchingMonthly = 1.5, (c: any) => c.pro.matchBatchSize = 301, (c: any) => c.pro.apiKeys = 0, (c: any) => c.free.maxCvs = 2, (c: any) => c.free.generalAiMonthly = null]) {
+  for (const mutate of [(c: any) => c.free.generalAiMonthly = -1, (c: any) => c.free.matchingMonthly = 1.5, (c: any) => c.pro.matchBatchSize = 301, (c: any) => c.pro.apiKeys = 0, (c: any) => c.free.maxCvs = 2, (c: any) => c.free.generalAiMonthly = null, (c: any) => c.free.discoveryMonthly = -1, (c: any) => c.pro.discoveryMonthly = null]) {
     const config = defaultPlanConfig(); mutate(config); assert.throws(() => parsePlanConfig(config));
   }
   const disabled = defaultPlanConfig(); disabled.free.matchBatchSize = 0; disabled.free.matchingMonthly = 0; assert.equal(parsePlanConfig(disabled).free.matchingMonthly, 0);
+});
+test('historic research plan configurations load with the new delivery caps and copy', () => {
+  const legacy: any = defaultPlanConfig();
+  for (const plan of ['free', 'pro', 'guest']) {
+    delete legacy[plan].discoveryMonthly;
+    legacy[plan].researchMonthly = plan === 'pro' ? 10 : 0;
+  }
+  legacy.paywall.copy.b.es.body = 'PRO incluye {researchMonthly} investigaciones profundas.';
+  legacy.paywall.copy.b.en.body = 'PRO includes {researchMonthly} deep research reports.';
+  const config = parsePlanConfig(legacy);
+  assert.equal(config.free.discoveryMonthly, 10); assert.equal(config.pro.discoveryMonthly, 100);
+  assert.equal('researchMonthly' in config.pro, false);
+  assert.equal(renderPaywallCopy(config.paywall.copy.b.es, config.pro).body, 'PRO incluye 100 candidaturas encontradas por IA.');
+  assert.equal(renderPaywallCopy(config.paywall.copy.b.en, config.pro).body, 'PRO includes 100 jobs found by AI.');
 });
 test('paywall text is bilingual plain text with known dynamic values', () => {
   const config = defaultPlanConfig(); const copy = renderPaywallCopy(config.paywall.copy.b.en, config.pro);

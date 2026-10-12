@@ -13,7 +13,7 @@ export function UsagePanel({ compact = false, showUpgrade = false }: { compact?:
   const reported = useRef(new Set<string>());
   useEffect(() => {
     if (!data) return;
-    for (const key of ['general', 'matching', 'research'] as const) {
+    for (const key of ['general', 'matching', 'discovery'] as const) {
       const bucket = data.usage[key];
       const identity = `${key}:${bucket.resetAt || 'guest'}:${data.configVersion}`;
       if (quotaState(bucket) === 'warning' && !reported.current.has(identity)) {
@@ -28,7 +28,7 @@ export function UsagePanel({ compact = false, showUpgrade = false }: { compact?:
   return <section aria-label={t('plans.usage')} className={compact ? 'space-y-3' : 'rounded-[12px] border border-subtle bg-surface p-5 space-y-4'}>
     {!compact && <h2 className="text-lg font-display font-semibold">{t('plans.usage')} · {t(`plans.${data.plan}`)}</h2>}
     <div className="grid gap-3 sm:grid-cols-3">
-      {(['general', 'matching', 'research'] as const).map(key => {
+      {(['general', 'matching', 'discovery'] as const).map(key => {
         const bucket = data.usage[key];
         if (bucket.limit === 0) return null;
         const state = quotaState(bucket);

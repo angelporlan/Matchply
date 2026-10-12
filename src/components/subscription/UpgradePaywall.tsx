@@ -58,7 +58,7 @@ export function UpgradePaywall({ source, compact = false, dismissible = false, a
   const values = {
     generalLimit: data?.limits.generalAiMonthly,
     matchingLimit: data?.limits.matchingMonthly,
-    researchLimit: data?.limits.researchMonthly,
+    discoveryLimit: data?.limits.discoveryMonthly,
     cvLimit: data?.limits.maxCvs === null ? t('plans.unlimited') : data?.limits.maxCvs,
     remaining: data?.usage.general.remaining,
     resetAt: data?.usage.general.resetAt ? new Date(data.usage.general.resetAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB') : '',

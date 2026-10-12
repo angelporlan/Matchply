@@ -201,8 +201,8 @@ test('AI usage is reserved at admission and settled with durable results', { ski
       await db.update(jobResearchRuns).set({ attempt: 3 }).where(eq(jobResearchRuns.id, retried.id));
       await researchWorker.failResearchRun({ ...retried, attempt: 3 }, new Error('Fixture terminal failure'));
     });
-    await t.test('a useful research report consumes atomically; aborted work does not publish or consume', async sub => {
-      const userId = await makeUser(true); const target = await offer(userId);
+    await t.test('Free research uses one general AI action; aborted work and discovery use none of that action', async sub => {
+      const userId = await makeUser(); const target = await offer(userId);
       const { runResearch } = await import('@/lib/research/orchestrator');
       const previousKey = process.env.OPENAI_API_KEY;
       process.env.OPENAI_API_KEY = 'quota-fixture-key';
@@ -214,6 +214,9 @@ test('AI usage is reserved at admission and settled with durable results', { ski
         assert.equal(result.status, 'completed');
         assert.equal((await research.getResearchQuota(userId)).used, 1); assert.equal((await research.getResearchQuota(userId)).reserved, 0);
         const [saved] = await db.select().from(jobResearchRuns).where(eq(jobResearchRuns.id, claimed.id)); assert.ok(saved.report);
+        const [operation] = await db.select().from(usageOperations).where(eq(usageOperations.id, saved.usageOperationId!));
+        assert.equal(operation.bucket, 'general'); assert.equal(operation.consumedUnits, 1);
+        assert.equal((await usage.getUsageSnapshot(userId)).usage.discovery.used, 0);
         assert.equal(fakeFetch.mock.callCount(), 5, 'four specialists and synthesizer form one research unit');
         const secondOffer = await offer(userId); const second = await research.enqueueResearchForOffer(userId, secondOffer.id); assert.ok(second.run);
         const secondClaim = await researchWorker.claimNextResearchRun(); assert.equal(secondClaim?.id, second.run.id); assert.ok(secondClaim);

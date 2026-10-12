@@ -281,6 +281,13 @@
       "when": 1791713880559,
       "tag": "0039_far_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1791828850500,
+      "tag": "0040_discovery_allowance",
+      "breakpoints": true
     }
   ]
 }

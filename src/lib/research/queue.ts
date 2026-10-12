@@ -44,7 +44,7 @@ export async function enqueueResearchForOffer(
       let operationId = current.usageOperationId;
       const [operation] = operationId ? await tx.select().from(usageOperations).where(eq(usageOperations.id, operationId)).limit(1) : [];
       if (!operation || operation.status === 'released') {
-        const reserved = await reserveUsage(tx, userId, { bucket: 'research', action: 'research_offer', requestId: randomUUID(), input: { jobOfferId }, jobId: current.id });
+        const reserved = await reserveUsage(tx, userId, { bucket: 'general', action: 'research_offer', requestId: randomUUID(), input: { jobOfferId }, jobId: current.id });
         operationId = reserved.id;
       }
       const [requeued] = await tx.update(jobResearchRuns).set({ status: 'queued', attempt: 0, usageOperationId: operationId,
@@ -72,5 +72,5 @@ export async function getResearchRunForUser(userId: string, jobOfferId: string) 
 
 export async function getResearchQuota(userId: string) {
   const snapshot = await getUsageSnapshot(userId);
-  return { ...snapshot.usage.research, periodStart: utcUsageMonth() };
+  return { ...snapshot.usage.general, periodStart: utcUsageMonth() };
 }

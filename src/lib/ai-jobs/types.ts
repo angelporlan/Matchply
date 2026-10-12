@@ -4,6 +4,7 @@ export const AI_JOB_KINDS = [
   'import_offer',
   'networking',
   'optimize_cv_variants',
+  'discover_offers',
 ] as const;
 
 export type AiJobKind = typeof AI_JOB_KINDS[number];
@@ -17,4 +18,4 @@ export type MatchBatchPayload = {
 };
 
 export type ImportOfferPayload = { url: string; requestId: string };
-export type AiJobPayload = MatchBatchPayload | ImportOfferPayload | NetworkingPayload | import('@/lib/cv-optimization/types').OptimizeJobPayload;
+export type AiJobPayload = MatchBatchPayload | ImportOfferPayload | NetworkingPayload | import('@/lib/cv-optimization/types').OptimizeJobPayload | import('@/lib/offer-discovery/types').DiscoverOffersPayload;

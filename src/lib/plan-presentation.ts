@@ -4,7 +4,7 @@ export type PlanLimitsView = {
   maxAdaptedCvs: number | null;
   generalAiMonthly: number;
   matchingMonthly: number;
-  researchMonthly: number;
+  discoveryMonthly: number;
   matchBatchSize: number;
   apiKeys: number;
   apiRequestsPerMinute: number;
@@ -22,13 +22,13 @@ export type PlanUsageSnapshot = {
   plan: 'guest' | 'free' | 'pro';
   configVersion: number;
   limits: PlanLimitsView;
-  usage: { general: QuotaBucketView; matching: QuotaBucketView; research: QuotaBucketView };
+  usage: { general: QuotaBucketView; matching: QuotaBucketView; discovery: QuotaBucketView };
   cv: { total: number; max: number | null; activeIds: string[]; readOnlyIds: string[]; baseCvId?: string | null; cvs?: Array<{ id: string; title: string; isBase: boolean }> };
   trial?: { eligible?: boolean; active?: boolean; endAt?: string | null };
   firstValueAt?: string | null;
 };
 
-export type PlanRestriction = { code: string; bucket?: 'general' | 'matching' | 'research'; source: string; kind: 'quota' | 'rate' | 'progress'; limit?: number };
+export type PlanRestriction = { code: string; bucket?: 'general' | 'matching' | 'discovery'; source: string; kind: 'quota' | 'rate' | 'progress'; limit?: number };
 
 export function quotaState(bucket: QuotaBucketView): 'available' | 'warning' | 'exhausted' {
   if (bucket.remaining <= 0) return 'exhausted';
@@ -50,7 +50,7 @@ export function getPlanRestriction(value: unknown, source: string): PlanRestrict
   const kind = /(RATE_LIMITED|TOO_MANY_REQUESTS)/.test(code) ? 'rate' : code === 'OPERATION_IN_PROGRESS' ? 'progress' : 'quota';
   if (!/(QUOTA_EXCEEDED|QUOTA_EXHAUSTED|PLAN_REQUIRED|PRO_REQUIRED|SUBSCRIPTION_REQUIRED|CV_LIMIT|CV_READ_ONLY|API_KEY_LIMIT|TOO_MANY_KEYS|BATCH_LIMIT|MATCH_BATCH_TOO_LARGE|RATE_LIMITED|TOO_MANY_REQUESTS|OPERATION_IN_PROGRESS)/.test(code)) return null;
   const rawBucket = candidate.bucket || nested.bucket;
-  const bucket = rawBucket === 'general' || rawBucket === 'matching' || rawBucket === 'research' ? rawBucket : undefined;
+  const bucket = rawBucket === 'general' || rawBucket === 'matching' || rawBucket === 'discovery' ? rawBucket : undefined;
   const limit = candidate.limit ?? nested.limit;
   return { code, bucket, source, kind, ...(typeof limit === 'number' ? { limit } : {}) };
 }

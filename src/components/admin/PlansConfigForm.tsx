@@ -13,7 +13,7 @@ type AdminState = Awaited<ReturnType<typeof loadPlansAdminState>>;
 const FIELDS: Array<{ key: keyof PlanLimits; label: string; storage?: boolean }> = [
   { key: 'maxCvs', label: 'cvs', storage: true }, { key: 'maxBaseCvs', label: 'baseCvs', storage: true },
   { key: 'maxAdaptedCvs', label: 'adaptedCvs', storage: true }, { key: 'generalAiMonthly', label: 'general' },
-  { key: 'matchingMonthly', label: 'matching' }, { key: 'researchMonthly', label: 'research' },
+  { key: 'matchingMonthly', label: 'matching' }, { key: 'discoveryMonthly', label: 'discovery' },
   { key: 'matchBatchSize', label: 'batch' }, { key: 'apiKeys', label: 'keys' }, { key: 'apiRequestsPerMinute', label: 'requests' },
 ];
 
@@ -84,7 +84,7 @@ export default function PlansConfigForm({ initialState }: { initialState: AdminS
         <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm text-left">
           <thead><tr><th scope="col" className="p-3">{t('plans.limitLabel')}</th><th scope="col" className="p-3">{t('plans.free')}</th><th scope="col" className="p-3">{t('plans.pro')}</th></tr></thead>
           <tbody>{FIELDS.map(field => <tr key={field.key} className="border-t border-subtle">
-            <th scope="row" className="p-3 font-medium">{t(`plans.${field.label}`)}<span className="block text-xs font-normal text-text-muted">{field.storage ? t('plans.storedUnit') : ['generalAiMonthly', 'matchingMonthly', 'researchMonthly'].includes(field.key) ? t('plans.monthly') : field.key === 'apiKeys' ? t('plans.activeKeysUnit') : field.key === 'matchBatchSize' ? t('plans.batchUnit') : ''}</span></th>
+            <th scope="row" className="p-3 font-medium">{t(`plans.${field.label}`)}<span className="block text-xs font-normal text-text-muted">{field.storage ? t('plans.storedUnit') : ['generalAiMonthly', 'matchingMonthly', 'discoveryMonthly'].includes(field.key) ? t('plans.monthly') : field.key === 'apiKeys' ? t('plans.activeKeysUnit') : field.key === 'matchBatchSize' ? t('plans.batchUnit') : ''}</span></th>
             {(['free', 'pro'] as const).map(plan => <td key={plan} className="p-3 align-top">
               <label className="sr-only" htmlFor={`${plan}-${field.key}`}>{t(`plans.${field.label}`)} · {t(`plans.${plan}`)}</label>
               <input id={`${plan}-${field.key}`} type="number" min="0" max="1000000" step="1" required={draft[plan][field.key] !== null} disabled={draft[plan][field.key] === null} value={draft[plan][field.key] ?? ''} className={inputClass} onChange={event => updateLimit(plan, field.key, event.target.value === '' ? Number.NaN : Number(event.target.value))} />
