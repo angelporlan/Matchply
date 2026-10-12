@@ -6,7 +6,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 /** Only display catalog prices validated by the billing endpoint. */
 export function usePaywallPrices() {
   const { language } = useLanguage();
-  const [prices, setPrices] = useState<{ monthlyPrice?: string; annualPrice?: string; trialEligible?: boolean }>({});
+  const [prices, setPrices] = useState<{ monthlyPrice?: string; annualPrice?: string; monthlyAmount?: number; currency?: string; trialEligible?: boolean; trialDays?: number }>({});
   useEffect(() => {
     const controller = new AbortController();
     void fetch('/api/stripe/catalog', { cache: 'no-store', signal: controller.signal }).then(async response => {
@@ -15,7 +15,10 @@ export function usePaywallPrices() {
       const format = new Intl.NumberFormat(language === 'es' ? 'es-ES' : 'en-GB', { style: 'currency', currency: catalog.currency });
       setPrices({ monthlyPrice: catalog.monthly.available ? format.format(catalog.monthly.amount) : undefined,
         annualPrice: catalog.annual.available ? format.format(catalog.annual.amount) : undefined,
-        trialEligible: catalog.trialEligible === true });
+        monthlyAmount: typeof catalog.monthly?.amount === 'number' ? catalog.monthly.amount : undefined,
+        currency: typeof catalog.currency === 'string' ? catalog.currency : undefined,
+        trialEligible: catalog.trialEligible === true,
+        trialDays: typeof catalog.trialDays === 'number' ? catalog.trialDays : undefined });
     }).catch(() => undefined);
     return () => controller.abort();
   }, [language]);
