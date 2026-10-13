@@ -210,7 +210,7 @@ test('the list reader never clicks, scrolls or calls LinkedIn', () => {
 });
 
 test('summary and stub fill keep a real description in place', () => {
-  assert.equal(jobList.summary({ created: 1, existing: 2, failed: 0 }), '1 oferta nueva y 2 ya estaban en Matchply. La descripción completa entra al abrir cada oferta.');
+  assert.equal(jobList.summary({ created: 1, existing: 2, failed: 0 }), '1 oferta nueva y 2 ya estaban en Matchply.');
   assert.equal(jobList.summary({ created: 0, existing: 1, failed: 0 }), '1 ya estaba en Matchply.');
   assert.equal(jobList.summary({ created: 0, existing: 0, failed: 0 }), 'No hay ofertas visibles en la lista.');
   assert.equal(listStubCanTakeDescription({ description: 'Madrid\nJoppy', sourceMetadata: { captureKind: 'list' } }, 'x'.repeat(80)), true);

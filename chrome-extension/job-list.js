@@ -263,7 +263,6 @@
     if (!parts.length) return "No hay ofertas visibles en la lista.";
     let text = parts.join(", ").replace(/, ([^,]*)$/, " y $1");
     text = text.charAt(0).toUpperCase() + text.slice(1) + ".";
-    if (created) text += " La descripción completa entra al abrir cada oferta.";
     if (counts?.truncated) text += " Hay más en la lista: baja y vuelve a pulsar.";
     return text;
   }

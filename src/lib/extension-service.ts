@@ -9,6 +9,7 @@ import { upsertExternalApplication } from '@/lib/application-service';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { markExtensionCapture } from '@/lib/extension-auth';
 import { listStubCanTakeDescription, separatorCompanyCanTakeIdentity } from '@/lib/extension-capture';
+import { offerNeedsDescriptionLookup } from '@/lib/matching/description-lookup';
 
 const MAX_TITLE_LENGTH = 240;
 const MAX_COMPANY_LENGTH = 240;
@@ -102,6 +103,7 @@ function normalizeSourceMetadata(input: unknown, location: string | null, workpl
   };
   const captureKind = source.captureKind === 'list' || source.captureKind === 'detail' ? source.captureKind : null;
   if (captureKind) Object.assign(metadata, { captureKind });
+  if (source.descriptionSource === 'public_page') Object.assign(metadata, { descriptionSource: 'public_page' });
   if (JSON.stringify(metadata).length > MAX_METADATA_LENGTH) {
     throw new ExtensionPayloadError('sourceMetadata exceeds the allowed size');
   }
@@ -136,6 +138,7 @@ export async function ingestLinkedInOffer(
   try { captures = captureInput(input.people); } catch (error) { throw new ExtensionPayloadError(error instanceof PeopleError ? error.message : 'Invalid people'); }
   const [existing] = await db.select({
     id: jobOffers.id,
+    title: jobOffers.title,
     company: jobOffers.company,
     description: jobOffers.description,
     sourceMetadata: jobOffers.sourceMetadata,
@@ -151,17 +154,35 @@ export async function ingestLinkedInOffer(
       updatedAt: new Date(),
     }).where(and(eq(jobOffers.id, existing.id), eq(jobOffers.userId, userId)));
   }
+  const previous = existing?.sourceMetadata && typeof existing.sourceMetadata === 'object' && !Array.isArray(existing.sourceMetadata)
+    ? existing.sourceMetadata as Record<string, unknown>
+    : {};
+  const descriptionMetadata = { ...previous, ...sourceMetadata, captureKind: 'detail' as const };
   // A list stub may receive the full description the first time that offer is opened.
   if (existing && description && listStubCanTakeDescription(existing, description)) {
-    const previous = existing.sourceMetadata && typeof existing.sourceMetadata === 'object' && !Array.isArray(existing.sourceMetadata)
-      ? existing.sourceMetadata as Record<string, unknown>
-      : {};
     await db.update(jobOffers).set({
       description,
-      sourceMetadata: { ...previous, ...sourceMetadata, captureKind: 'detail' },
+      sourceMetadata: descriptionMetadata,
       updatedAt: new Date(),
     }).where(and(eq(jobOffers.id, existing.id), eq(jobOffers.userId, userId)));
   }
+  const filledDescription = Boolean(existing && description && listStubCanTakeDescription(existing, description));
+  const needsDescription = offerNeedsDescriptionLookup(filledDescription ? {
+    title: existing?.title || title,
+    company: separatorCompanyCanTakeIdentity(existing?.company, { title, company }) ? company : existing?.company,
+    description,
+    sourceMetadata: descriptionMetadata,
+  } : existing ? {
+    title: existing.title,
+    company: separatorCompanyCanTakeIdentity(existing.company, { title, company }) ? company : existing.company,
+    description: existing.description,
+    sourceMetadata: existing.sourceMetadata,
+  } : {
+    title,
+    company,
+    description: description || rawText,
+    sourceMetadata,
+  });
   const { offer, created } = existing ? { offer: existing, created: false } : await upsertExternalApplication(userId, {
     title,
     company,
@@ -189,6 +210,7 @@ export async function ingestLinkedInOffer(
   return {
     success: true,
     created,
+    needsDescription,
     application: { id: offer.id },
     ...(peopleResult ? { people: peopleResult } : {}),
     ...(peopleError ? { peopleError } : {}),

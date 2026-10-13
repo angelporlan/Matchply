@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Matchply LinkedIn Capture",
-  "version": "2.3.11",
+  "version": "2.3.12",
   "description": "Captura ofertas en LinkedIn y las env\u00eda a tu cuenta de Matchply.",
   "permissions": [
     "storage",
@@ -30,6 +30,7 @@
       "js": [
         "people.js",
         "job-list.js",
+        "public-description.js",
         "content.js"
       ],
       "run_at": "document_idle"

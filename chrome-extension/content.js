@@ -79,6 +79,8 @@
   let browseTimer = null;
   let batchRunning = false;
   let listNotice = "";
+  let descriptionAbort = null;
+  const describedJobIds = new Set();
   let configReady = Promise.resolve();
   let jobsObserverAttached = false;
 
@@ -1474,6 +1476,7 @@
       const { action, value } = control.dataset;
       if (action === "save") void attemptCapture(currentJobId(), true);
       if (action === "capture-visible") void captureVisible();
+      if (action === "stop-descriptions") descriptionAbort?.abort();
       if (action === "skip") skipCurrent();
       if (action === "toggle-settings") {
         widgetExpanded = !widgetExpanded;
@@ -1708,6 +1711,7 @@
     if (kind === "skipped") return "Oferta omitida";
     if (kind === "manual") return "Captura manual";
     if (kind === "browse") return "Elige una oferta";
+    if (kind === "batch") return state.progressLabel || "Guardando la lista…";
     return `Se guarda en ${state.remaining ?? remainingSeconds()} s`;
   }
 
@@ -1866,7 +1870,7 @@
       skipped: `<span class="status" role="status" aria-live="polite">Oferta omitida</span>`,
       manual: `<span class="status">Captura manual</span>`,
       browse: `<span class="status">Elige una oferta</span>`,
-      batch: `<span class="status" role="status" aria-live="polite">Guardando la lista…</span>`,
+      batch: `<span class="status" role="status" aria-live="polite">${escapeHtml(state.progressLabel || "Guardando la lista…")}</span>`,
       countdown: `<span class="time">Se guarda en <span data-remaining aria-live="off">${state.remaining ?? remainingSeconds()} s</span></span>`,
     };
     const docked = headerOnly();
@@ -1876,26 +1880,31 @@
       : (kind === "manual" || kind === "skipped" || kind === "error" || (kind === "saved" && newPeople().length))
         ? `<button class="quick" data-action="save" type="button" aria-label="${quickLabel}" title="${quickLabel}">${zapSvg}</button>`
         : "";
+    const stopQuick = docked && kind === "batch" && state.progressLabel
+      ? `<button class="quick quiet" data-action="stop-descriptions" type="button" aria-label="Detener la lectura de descripciones" title="Detener">Detener</button>`
+      : "";
     const listQuick = docked && !["saving", "waiting", "batch"].includes(kind)
       ? `<button class="quick quiet" data-action="capture-visible" type="button" aria-label="Capturar ofertas visibles" title="Capturar las ofertas que ya se ven en la lista">${listSvg}</button>`
       : "";
     const pinButton = `<button class="pin${config.showHeader ? " active" : ""}" type="button" data-action="toggle-header" aria-pressed="${config.showHeader}" aria-label="${config.showHeader ? "Quitar el indicador de la cabecera" : "Mostrar el indicador en la cabecera de LinkedIn"}" title="${config.showHeader ? "Quitar de la cabecera" : "Mostrar en la cabecera"}">${pinSvg}</button>`;
     const dragAttrs = docked ? "" : ` data-drag-handle tabindex="0" role="group" aria-label="Mover indicador: usa las flechas para desplazarlo" title="Arrastra aquí para mover el indicador"`;
     const grip = docked ? "" : `<span class="drag-cue">${gripSvg}</span>`;
-    const header = `<div class="top"${dragAttrs}>${brand}${grip}<div class="top-actions">${headerStatus[kind] || ""}${quick}${listQuick}${pinButton}<button class="expand" type="button" data-action="toggle-settings" aria-label="${widgetExpanded ? "Cerrar" : "Abrir"} ajustes de Matchply" aria-expanded="${widgetExpanded}" aria-controls="matchply-inline-settings" title="${widgetExpanded ? "Cerrar ajustes" : "Ver y cambiar ajustes"}">${widgetExpanded ? collapseSvg : expandSvg}</button></div></div>`;
+    const header = `<div class="top"${dragAttrs}>${brand}${grip}<div class="top-actions">${headerStatus[kind] || ""}${quick}${stopQuick}${listQuick}${pinButton}<button class="expand" type="button" data-action="toggle-settings" aria-label="${widgetExpanded ? "Cerrar" : "Abrir"} ajustes de Matchply" aria-expanded="${widgetExpanded}" aria-controls="matchply-inline-settings" title="${widgetExpanded ? "Cerrar ajustes" : "Ver y cambiar ajustes"}">${widgetExpanded ? collapseSvg : expandSvg}</button></div></div>`;
 
     const blocks = {
       saved: `${photoWarning ? '<p class="notice">Los contactos se guardaron; alguna foto no está disponible. Puedes reintentar.</p>' : ''}${newPeople().length ? `<div class="actions"><button class="save" data-action="save" type="button">${photoWarning ? 'Reintentar fotos' : 'Capturar personas'} (${newPeople().length})</button></div>` : ""}`,
       saving: "",
       waiting: "",
       browse: `<p class="notice">Abre una oferta para guardarla con su descripción, o captura las que ya se ven.</p>`,
-      batch: `<p class="notice">Leyendo las ofertas que ya se ven. No se abre ninguna.</p>`,
+      batch: state.progressLabel
+        ? `<p class="notice">${escapeHtml(state.progressLabel)}. No se abre ninguna oferta.</p><button class="list" data-action="stop-descriptions" type="button">Detener</button>`
+        : `<p class="notice">Leyendo las ofertas que ya se ven. No se abre ninguna.</p>`,
       error: `<p class="status-detail">${escapeHtml(state.error || "No se pudo guardar la oferta.")}</p><div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Reintentar</button></div>`,
       skipped: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar oferta</button></div>`,
       manual: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar oferta</button></div>`,
       countdown: `<div class="actions"><button class="save" data-action="save" type="button">${zapSvg} Guardar ahora</button><button class="skip" data-action="skip" type="button">${skipSvg} Omitir</button></div>`,
     };
-    const listCapture = !["saving", "waiting", "batch"].includes(kind) ? `<div class="list-capture"><button class="list" data-action="capture-visible" type="button">Capturar visibles</button><p class="hint">Guarda las ofertas que LinkedIn ya muestra, sin abrirlas. La descripción entra al abrir cada una. Si bajas en la lista, puedes volver a pulsarlo.</p>${listNotice ? `<p class="notice">${escapeHtml(listNotice)}</p>` : ""}</div>` : "";
+    const listCapture = !["saving", "waiting", "batch"].includes(kind) ? `<div class="list-capture"><button class="list" data-action="capture-visible" type="button">Capturar visibles</button><p class="hint">Guarda las ofertas que LinkedIn ya muestra, sin abrirlas. La descripción pública se lee sin usar tu sesión. Si bajas en la lista, puedes volver a pulsarlo.</p>${listNotice ? `<p class="notice">${escapeHtml(listNotice)}</p>` : ""}</div>` : "";
     widgetCard.innerHTML = `${header}<div class="dock-panel">${blocks[kind] || blocks.countdown}${listCapture}${renderWidgetSettingsMarkup()}</div>`;
     widgetCard.classList.toggle("expanded", widgetExpanded);
     widgetRenderedExpanded = widgetExpanded;
@@ -2027,6 +2036,36 @@
     return { offers, truncated: !!listed.truncated };
   }
 
+  function waitForDescriptions(ms, signal) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+        resolve();
+      }, { once: true });
+    });
+  }
+
+  function readPublicDescription(html, jobId) {
+    const parser = globalThis.MatchplyPublicDescription;
+    if (!parser?.read || !html) return "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return parser.read(doc, jobId, html);
+  }
+
+  function pendingDescriptionIds(offers, result) {
+    const reported = Array.isArray(result?.pendingIds) ? result.pendingIds.map(String) : null;
+    return offers.filter((offer) => {
+      const id = String(offer.job_id || "");
+      if (!/^\d{6,}$/.test(id) || describedJobIds.has(id)) return false;
+      if (offer.sourceMetadata?.captureKind === "detail" && String(offer.description || "").trim().length >= 80) {
+        describedJobIds.add(id);
+        return false;
+      }
+      return reported ? reported.includes(id) : offer.sourceMetadata?.captureKind === "list";
+    });
+  }
+
   async function captureVisible() {
     if (!config.enabled) return { ok: false, error: "La extensión está apagada." };
     if (captureInProgress || batchRunning) return { ok: false, error: "Captura en curso" };
@@ -2051,22 +2090,79 @@
           ? "Recarga la pestaña de LinkedIn."
           : "El archivo local no está en marcha.",
       };
-    } finally {
-      batchRunning = false;
-      captureInProgress = false;
     }
     const created = Number(result?.created) || 0;
     const existing = Number(result?.existing) || 0;
     const failed = Number(result?.failed) || 0;
     if (!result?.ok) {
+      batchRunning = false;
+      captureInProgress = false;
       const error = result?.error || "No se pudo guardar la lista.";
       listNotice = "";
       renderWidget({ error });
       return { ok: false, error, created, existing, failed, total: offers.length };
     }
+
+    const pending = pendingDescriptionIds(offers, result);
+    let described = 0;
+    let stopped = false;
+    if (pending.length && globalThis.MatchplyPublicDescription?.shouldStop) {
+      descriptionAbort = new AbortController();
+      const signal = descriptionAbort.signal;
+      for (let index = 0; index < pending.length; index += 1) {
+        if (signal.aborted) break;
+        const offer = pending[index];
+        renderWidget({ batch: true, progressLabel: `Leyendo descripciones ${index + 1}/${pending.length}` });
+        let page = null;
+        try {
+          page = await chrome.runtime.sendMessage({ type: "read-public-job-html", jobId: offer.job_id });
+        } catch (_) {
+          stopped = true;
+          break;
+        }
+        if (signal.aborted) break;
+        if (globalThis.MatchplyPublicDescription.shouldStop(page)) {
+          stopped = true;
+          break;
+        }
+        const description = readPublicDescription(page?.html, offer.job_id);
+        if (description) {
+          let saved = null;
+          try {
+            saved = await chrome.runtime.sendMessage({
+              type: "capture-linkedin-jobs",
+              payload: {
+                offers: [{
+                  ...offer,
+                  description,
+                  sourceMetadata: { ...(offer.sourceMetadata || {}), captureKind: "detail", descriptionSource: "public_page" },
+                }],
+              },
+            });
+          } catch (_) {
+            stopped = true;
+            break;
+          }
+          const stillPending = Array.isArray(saved?.pendingIds) && saved.pendingIds.map(String).includes(String(offer.job_id));
+          if (saved?.ok && !stillPending) {
+            describedJobIds.add(String(offer.job_id));
+            described += 1;
+          }
+        }
+        if (index < pending.length - 1 && !signal.aborted) {
+          await waitForDescriptions(1200 + Math.floor(Math.random() * 1301), signal);
+        }
+      }
+      descriptionAbort = null;
+    }
+
+    batchRunning = false;
+    captureInProgress = false;
     listNotice = globalThis.MatchplyJobList.summary({ created, existing, failed, truncated });
+    if (described) listNotice += described === 1 ? " 1 descripción leída." : ` ${described} descripciones leídas.`;
+    if (stopped) listNotice += " La lectura se detuvo. Vuelve a pulsar para seguir por las que faltan.";
     const openId = currentJobId();
-    const detailed = offers.some((offer) => offer.job_id === openId && offer.sourceMetadata?.captureKind === "detail");
+    const detailed = offers.some((offer) => offer.job_id === openId && offer.sourceMetadata?.captureKind === "detail") || describedJobIds.has(String(openId || ""));
     if (openId && detailed) {
       lastCompletedJobId = openId;
       renderWidget({ saved: true });
@@ -2076,7 +2172,7 @@
     } else {
       renderWidget();
     }
-    return { ok: true, message: listNotice, created, existing, failed, total: offers.length };
+    return { ok: true, message: listNotice, created, existing, failed, total: offers.length, described };
   }
 
   async function attemptCapture(jobId, force) {

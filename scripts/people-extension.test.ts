@@ -103,7 +103,7 @@ test('linkedin stays armed across a client-side navigation into jobs', async () 
   const wait = () => new Promise((resolve) => setTimeout(resolve, 150));
   onUpdated(4, { url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' }, { id: 4, url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' });
   await wait();
-  assert.deepEqual(injected.map((item) => [...(item.files || [])]), [['people.js', 'job-list.js', 'content.js']]);
+  assert.deepEqual(injected.map((item) => [...(item.files || [])]), [['people.js', 'job-list.js', 'public-description.js', 'content.js']]);
   onUpdated(4, { title: 'LinkedIn' }, { id: 4, url: 'https://www.linkedin.com/jobs/search/?currentJobId=1' });
   onUpdated(9, { status: 'complete' }, { id: 9, url: 'https://example.com/' });
   onUpdated(4, { url: 'https://www.linkedin.com/jobs/view/2/' }, { id: 4, url: 'https://www.linkedin.com/jobs/view/2/' });
@@ -113,7 +113,7 @@ test('linkedin stays armed across a client-side navigation into jobs', async () 
   onInstalled();
   await wait();
   assert.equal(injected.length, 2);
-  assert.deepEqual([...(injected[1].files || [])], ['people.js', 'job-list.js', 'content.js']);
+  assert.deepEqual([...(injected[1].files || [])], ['people.js', 'job-list.js', 'public-description.js', 'content.js']);
 });
 test('opt-out, invalid photo sources and messages outside job pages do not download images', async () => {
   const off = background({ success: true }, { capturePeople: false });
