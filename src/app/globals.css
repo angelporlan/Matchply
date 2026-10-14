@@ -557,6 +557,158 @@ details[open] .faq-answer {
   animation: curate-scan-shimmer 1.6s ease-in-out infinite;
 }
 
+/* Match batch: profile and offer meet in the center. Text does not move. */
+.match-join {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ai-surface);
+}
+
+.match-join__node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.match-join__node--offer {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.match-join__glyph {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ai-text);
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 40%, var(--border-subtle));
+}
+
+.match-join__link {
+  position: relative;
+  width: 84px;
+  height: 16px;
+  flex: none;
+}
+
+.match-join__link-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ai-accent) 28%, transparent);
+}
+
+.match-join__arm {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--ai-action);
+}
+
+.match-join__arm--left {
+  left: 0;
+  transform-origin: left center;
+  animation: match-arm 1.6s ease-in-out infinite;
+}
+
+.match-join__arm--right {
+  right: 0;
+  transform-origin: right center;
+  animation: match-arm 1.6s ease-in-out infinite;
+}
+
+.match-join__mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--ai-action);
+  animation: match-link-mark 1.6s ease-in-out infinite;
+}
+
+.match-join__check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  color: var(--success-text);
+  background: var(--ai-surface);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+.match-join__offer-label {
+  animation: match-offer-in 160ms ease-out;
+}
+
+.match-row-active {
+  background: var(--ai-surface);
+  box-shadow: inset 3px 0 0 var(--ai-action);
+}
+
+.match-score-in {
+  animation: match-score-in 160ms ease-out;
+}
+
+@keyframes match-arm {
+  0% { transform: scaleX(0.12); }
+  45% { transform: scaleX(1); }
+  72% { transform: scaleX(1); }
+  100% { transform: scaleX(0.12); }
+}
+
+@keyframes match-link-mark {
+  0%, 34% { opacity: 0; }
+  46%, 72% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes match-offer-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes match-score-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.match-join--settled .match-join__arm {
+  animation: none;
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-join__arm,
+  .match-join__mark,
+  .match-join__offer-label,
+  .match-score-in {
+    animation: none;
+  }
+
+  .match-join__arm {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes cursor-blink {
   0%,
   100% {
