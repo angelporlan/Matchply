@@ -2011,28 +2011,72 @@
     finally { captureInProgress = false; }
   }
 
+  function detailPane() {
+    return document.querySelector(".jobs-search__job-details, .jobs-details__main-content, .jobs-details, [data-view-name='job-detail-page']");
+  }
+
+  function openDetailJobId() {
+    const pane = detailPane();
+    const link = pane?.querySelector(".job-details-jobs-unified-top-card__job-title a[href*='/jobs/view/'], .jobs-unified-top-card__job-title a[href*='/jobs/view/'], h1 a[href*='/jobs/view/']");
+    const paneId = linkedJobId(link);
+    if (/^\d{6,}$/.test(paneId || "")) return paneId;
+    return currentJobId();
+  }
+
+  function panelDescription(jobId) {
+    const pane = detailPane();
+    const id = String(jobId || "");
+    if (!pane || !/^\d{6,}$/.test(id)) return "";
+    const titleLink = pane.querySelector(".job-details-jobs-unified-top-card__job-title a[href*='/jobs/view/'], .jobs-unified-top-card__job-title a[href*='/jobs/view/'], h1 a[href*='/jobs/view/']");
+    const titleId = linkedJobId(titleLink);
+    if (titleId && titleId !== id) return "";
+    if (!titleId) {
+      const otherId = linkedJobId(pane.querySelector("a[href*='/jobs/view/']"));
+      if (otherId && otherId !== id) return "";
+    }
+    const nodes = ["#job-details", ".jobs-description__content", ".jobs-box__html-content", ".jobs-description-content__text", ".show-more-less-html__markup"];
+    for (const selector of nodes) {
+      const node = pane.querySelector(selector);
+      if (!node || isNoise(node)) continue;
+      const html = node.innerHTML || "";
+      const prepared = globalThis.MatchplyPublicDescription?.prepareHtml
+        ? globalThis.MatchplyPublicDescription.prepareHtml(html)
+        : html;
+      const text = clean(prepared.replace(/<[^>]+>/g, ""));
+      if (text.length >= 80) return text;
+    }
+    return "";
+  }
+
   function readVisibleOffers() {
     const reader = globalThis.MatchplyJobList;
     if (!reader?.read) return { offers: [], truncated: false };
     const listed = reader.read(document);
-    const openId = currentJobId();
-    const offers = (listed.offers || []).map((offer) => {
-      if (!openId || offer.job_id !== openId) return offer;
-      const full = buildPayload(openId);
-      if (!full || full.description.length < 80) return offer;
-      return {
-        job_id: full.job_id,
-        url: full.url,
-        title: full.title,
-        company: full.company,
-        location: full.location,
-        workplace_type: full.workplace_type,
-        employment_type: full.employment_type,
-        description: full.description,
-        raw_text: full.raw_text,
-        sourceMetadata: { captureKind: "detail" },
-      };
-    });
+    const openId = openDetailJobId();
+    const panel = panelDescription(openId);
+    let offers = reader.withOpenDescription
+      ? reader.withOpenDescription(listed.offers, openId, panel)
+      : (listed.offers || []);
+    if (!panel) {
+      offers = offers.map((offer) => {
+        if (!openId || offer.job_id !== openId) return offer;
+        if (offer.sourceMetadata?.captureKind === "detail" && String(offer.description || "").trim().length >= 80) return offer;
+        const full = buildPayload(openId);
+        if (!full || full.description.length < 80) return offer;
+        return {
+          job_id: full.job_id,
+          url: full.url,
+          title: full.title,
+          company: full.company,
+          location: full.location,
+          workplace_type: full.workplace_type,
+          employment_type: full.employment_type,
+          description: full.description,
+          raw_text: full.raw_text,
+          sourceMetadata: { captureKind: "detail" },
+        };
+      });
+    }
     return { offers, truncated: !!listed.truncated };
   }
 
@@ -2104,27 +2148,39 @@
     }
 
     const pending = pendingDescriptionIds(offers, result);
-    let described = 0;
+    let described = offers.filter((offer) => offer.sourceMetadata?.captureKind === "detail" && String(offer.description || "").trim().length >= 80).length;
     let stopped = false;
-    if (pending.length && globalThis.MatchplyPublicDescription?.shouldStop) {
+    const parser = globalThis.MatchplyPublicDescription;
+    if (pending.length && parser?.shouldStop) {
       descriptionAbort = new AbortController();
       const signal = descriptionAbort.signal;
+      const pacedWait = (kind) => {
+        const [min, max] = parser.waitRange(kind);
+        return waitForDescriptions(min + Math.floor(Math.random() * (max - min + 1)), signal);
+      };
+      const fetchPage = async (jobId) => {
+        try {
+          return await chrome.runtime.sendMessage({ type: "read-public-job-html", jobId });
+        } catch (_) {
+          return null;
+        }
+      };
       for (let index = 0; index < pending.length; index += 1) {
         if (signal.aborted) break;
         const offer = pending[index];
         renderWidget({ batch: true, progressLabel: `Leyendo descripciones ${index + 1}/${pending.length}` });
-        let page = null;
-        try {
-          page = await chrome.runtime.sendMessage({ type: "read-public-job-html", jobId: offer.job_id });
-        } catch (_) {
-          stopped = true;
-          break;
-        }
+        let page = await fetchPage(offer.job_id);
         if (signal.aborted) break;
-        if (globalThis.MatchplyPublicDescription.shouldStop(page)) {
-          stopped = true;
-          break;
+        if (!page) { stopped = true; break; }
+        if (parser.isRateLimit(page)) {
+          renderWidget({ batch: true, progressLabel: `Esperando para reintentar ${index + 1}/${pending.length}` });
+          await pacedWait("cooldown");
+          if (signal.aborted) break;
+          page = await fetchPage(offer.job_id);
+          if (signal.aborted) break;
+          if (!page || parser.isRateLimit(page)) { stopped = true; break; }
         }
+        if (parser.shouldStop(page)) { stopped = true; break; }
         const description = readPublicDescription(page?.html, offer.job_id);
         if (description) {
           let saved = null;
@@ -2149,9 +2205,7 @@
             described += 1;
           }
         }
-        if (index < pending.length - 1 && !signal.aborted) {
-          await waitForDescriptions(1200 + Math.floor(Math.random() * 1301), signal);
-        }
+        if (index < pending.length - 1 && !signal.aborted) await pacedWait("gap");
       }
       descriptionAbort = null;
     }

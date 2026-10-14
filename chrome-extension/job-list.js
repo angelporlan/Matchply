@@ -267,7 +267,23 @@
     return text;
   }
 
-  const api = { read, summary, MAX_VISIBLE };
+  function withOpenDescription(offers, openId, description) {
+    const id = String(openId || "");
+    const text = String(description || "").trim();
+    if (!/^\d{6,}$/.test(id) || text.length < 80) return offers || [];
+    return (offers || []).map((offer) => {
+      if (String(offer?.job_id || "") !== id) return offer;
+      const current = String(offer.description || "").trim();
+      if (offer.sourceMetadata?.captureKind === "detail" && current.length >= 80) return offer;
+      return {
+        ...offer,
+        description: text,
+        sourceMetadata: { ...(offer.sourceMetadata || {}), captureKind: "detail" },
+      };
+    });
+  }
+
+  const api = { read, summary, withOpenDescription, MAX_VISIBLE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MatchplyJobList = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -74,6 +74,14 @@
       || /http-equiv=["']refresh["'][^>]*url=https:\/\/www\.linkedin\.com\/?["']/i.test(sample);
   }
 
+  function isRateLimit(response) {
+    return Number(response?.status) === 429;
+  }
+
+  function waitRange(kind) {
+    return kind === "cooldown" ? [8000, 10000] : [3000, 5000];
+  }
+
   function shouldStop(response) {
     const status = Number(response?.status);
     const type = String(response?.type || "");
@@ -85,7 +93,7 @@
     return isBotPage(response?.html);
   }
 
-  const api = { prepareHtml, read, isBotPage, shouldStop, MIN_DESCRIPTION };
+  const api = { prepareHtml, read, isBotPage, isRateLimit, waitRange, shouldStop, MIN_DESCRIPTION };
   root.MatchplyPublicDescription = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

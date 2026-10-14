@@ -55,6 +55,17 @@ test('short text is ignored and a sign-in link does not stop a real description'
   assert.match(read(html), /mínimo 3 años/);
 });
 
+test('only a 429 is a rate limit, with one cooldown and a slower gap', () => {
+  assert.equal(reader.isRateLimit({ status: 429 }), true);
+  assert.equal(reader.isRateLimit({ status: 200 }), false);
+  assert.equal(reader.isRateLimit({ status: 302 }), false);
+  assert.equal(reader.isRateLimit({ status: 0, type: 'opaqueredirect' }), false);
+  assert.equal(reader.isRateLimit(null), false);
+  assert.deepEqual(reader.waitRange('gap'), [3000, 5000]);
+  assert.deepEqual(reader.waitRange('cooldown'), [8000, 10000]);
+  assert.deepEqual(reader.waitRange('other'), [3000, 5000]);
+});
+
 test('a rate limit, an opaque redirect and a bot page stop the batch', () => {
   assert.equal(reader.shouldStop({ status: 429, type: 'basic', url: '', html: '' }), true);
   assert.equal(reader.shouldStop({ status: 302, type: 'basic', url: 'https://www.linkedin.com/authwall' }), true);
@@ -110,4 +121,21 @@ test('visible capture reads public html without clicking or calling LinkedIn its
   assert.equal(content.includes('jobs-guest'), false);
   assert.equal(content.includes('openVisibleCard'), false);
   assert.equal(content.includes('job-card-container__link'), false);
+
+  const panel = content.slice(content.indexOf('function panelDescription'), content.indexOf('function readVisibleOffers'));
+  assert.match(panel, /#job-details/);
+  assert.match(panel, /\.jobs-description__content/);
+  assert.match(panel, /innerHTML/);
+  assert.equal(panel.includes('.click('), false);
+  assert.equal(panel.includes('scrollIntoView'), false);
+  assert.match(content, /withOpenDescription/);
+
+  const loopStart = content.indexOf('const pacedWait');
+  const loop = content.slice(loopStart, content.indexOf('descriptionAbort = null', loopStart));
+  assert.equal((loop.match(/pacedWait\("cooldown"\)/g) || []).length, 1);
+  assert.equal((loop.match(/fetchPage\(offer\.job_id\)/g) || []).length, 2);
+  assert.match(loop, /Esperando para reintentar/);
+  assert.ok(loop.indexOf('isRateLimit(page)') < loop.indexOf('pacedWait("cooldown")'));
+  assert.ok(loop.indexOf('pacedWait("cooldown")') < loop.indexOf('shouldStop(page)'));
+  assert.match(loop, /pacedWait\("gap"\)/);
 });
