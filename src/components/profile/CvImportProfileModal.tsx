@@ -161,7 +161,7 @@ export default function CvImportProfileModal({
                 Auto-Completar Perfil desde CV
               </h2>
               <p className="text-xs text-text-muted font-sans">
-                La IA extraerá tu trayectoria, stack y proyectos en segundos.
+                La IA arma el documento maestro, el stack y los proyectos.
               </p>
             </div>
           </div>
