@@ -11,6 +11,7 @@ import { SYSTEM_VIEWS, normalizeViewConfig } from '@/lib/application-views';
 import { getDashboardViewer } from '@/lib/session';
 import { loadApplicationsWorkspace } from '@/lib/application-list-query';
 import { timed } from '@/lib/logger';
+import { chromeExtensionStoreUrl } from '@/lib/chrome-extension-store';
 
 interface ApplicationsPageProps {
   searchParams?: { layout?: string; view?: string; company?: string };
@@ -105,6 +106,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
           savedViews={savedViews}
           initialViewId={initialViewId}
           initialCompanyId={searchParams?.company}
+          extensionStoreUrl={chromeExtensionStoreUrl(process.env.CHROME_EXTENSION_STORE_URL)}
         />
       </main>
     </div>
