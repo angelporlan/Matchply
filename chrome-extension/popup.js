@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000";
+const API_BASE = "https://matchply.com";
 
 document.addEventListener("DOMContentLoaded", () => {
   const pairingCard = document.getElementById("pairingCard");

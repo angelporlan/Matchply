@@ -2132,7 +2132,7 @@
         ok: false,
         error: /Extension context invalidated/i.test(String(err))
           ? "Recarga la pestaña de LinkedIn."
-          : "El archivo local no está en marcha.",
+          : "No se pudo conectar con Matchply. Comprueba tu conexión y vuelve a intentarlo.",
       };
     }
     const created = Number(result?.created) || 0;
@@ -2275,7 +2275,7 @@
     } catch (err) {
       const error = /Extension context invalidated/i.test(String(err))
         ? "Recarga la pestaña de LinkedIn."
-        : "El archivo local no está en marcha.";
+        : "No se pudo conectar con Matchply. Comprueba tu conexión y vuelve a intentarlo.";
       renderWidget({ error });
       return { ok: false, error };
     } finally {

@@ -1,5 +1,5 @@
 importScripts('people.js');
-const API_BASE = "http://localhost:3000";
+const API_BASE = "https://matchply.com";
 const INGEST_ENDPOINT = `${API_BASE}/api/extension/linkedin/ingest`;
 const STATUS_ENDPOINT = `${API_BASE}/api/extension/status`;
 
@@ -159,7 +159,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               body: JSON.stringify(payload),
             });
           } catch {
-            error = error || "El archivo local no está en marcha.";
+            error = error || "No se pudo conectar con Matchply. Comprueba tu conexión y vuelve a intentarlo.";
             break;
           }
           if (!response.ok) {

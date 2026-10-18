@@ -8,6 +8,7 @@
     "prebuild": "npm run build:workers",
     "build": "next build",
     "build:workers": "node scripts/build-workers.mjs",
+    "extension:package": "node scripts/package-chrome-extension.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
