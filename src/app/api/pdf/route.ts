@@ -14,6 +14,7 @@ import { formatPdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { log } from '@/lib/logger';
 import { beginGuestPdfDownload, completeGuestPdfDownload, releaseGuestPdfDownload } from '@/lib/guest-pdf';
 import { UsageError, type UsageOperation } from '@/lib/usage';
+import { pdfDownloadFilename } from '@/lib/user-name';
 
 // Only what the renderer needs; `cv` also stores markdown history-sized content,
 // so we never pull columns we do not use.
@@ -176,9 +177,9 @@ export async function GET(req: NextRequest) {
       durationMs: Date.now() - started,
     });
 
-    const userName = actor.kind === 'guest' ? (cv.title || 'CV') : (actor.name || 'User');
-    const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
-    const filename = `CV ${safeName}.pdf`;
+    const filename = actor.kind === 'guest'
+      ? `CV ${(cv.title || 'CV').replace(/[/\\?%*:|"<>]/g, '').trim() || 'CV'}.pdf`
+      : pdfDownloadFilename(actor.name);
     const encodedFilename = encodeURIComponent(filename);
 
     const response = pdfResponse(buffer, pageBreaks, {

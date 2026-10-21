@@ -19,3 +19,12 @@ export function sanitizeDisplayName(raw: unknown): string | null {
 
   return name;
 }
+
+const PDF_FILENAME_UNSAFE = /[/\\?%*:|"<>]/g;
+
+/** Nombre de descarga del PDF: «CV» seguido del nombre visible, o CV.pdf si no hay uno válido. */
+export function pdfDownloadFilename(raw: unknown): string {
+  const visible = sanitizeDisplayName(raw);
+  const safe = (visible ?? '').replace(PDF_FILENAME_UNSAFE, '').replace(/\s+/g, ' ').trim();
+  return safe ? `CV ${safe}.pdf` : 'CV.pdf';
+}

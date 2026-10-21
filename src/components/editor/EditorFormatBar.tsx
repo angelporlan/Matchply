@@ -27,8 +27,63 @@ const COLOR_PRESETS = [
 ];
 
 export function bodyPointSize(scale: number): string {
-  const points = Math.round(scale * 9 * 10) / 10;
-  return Number.isInteger(points) ? String(points) : points.toFixed(1);
+  return String(Number((scale * 9).toFixed(6)));
+}
+
+function PointValueInput({ value, min, max, label, onChange }: {
+  value: number;
+  min: number;
+  max: number;
+  label: string;
+  onChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => setDraft(String(value)), [value]);
+
+  const commit = (raw: string) => {
+    const parsed = Number(raw);
+    if (!raw.trim() || !Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const next = Math.min(max, Math.max(min, parsed));
+    setDraft(String(next));
+    if (next !== value) onChange(next);
+  };
+
+  return (
+    <label className="flex shrink-0 items-center gap-1 font-mono text-ai-action cursor-text">
+      <input
+        type="number"
+        inputMode="decimal"
+        aria-label={`${label} (pt)`}
+        title={`${min}–${max} pt · Enter para aplicar, Escape para cancelar`}
+        min={min}
+        max={max}
+        step="any"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onFocus={(event) => event.currentTarget.select()}
+        onBlur={(event) => commit(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.value = String(value);
+            setDraft(String(value));
+            event.currentTarget.blur();
+          }
+        }}
+        style={{ width: `${Math.max(draft.length, 1)}ch`, font: 'inherit' }}
+        className="appearance-none rounded-none border-0 bg-transparent p-0 text-right text-inherit cursor-text [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      />
+      <span aria-hidden="true">pt</span>
+    </label>
+  );
 }
 
 export default function EditorFormatBar({
@@ -84,6 +139,10 @@ export default function EditorFormatBar({
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const focused = document.activeElement;
+        if (focused instanceof HTMLInputElement && containerRef.current.contains(focused)) {
+          focused.blur();
+        }
         setOpenPopover(null);
       }
     };
@@ -149,17 +208,24 @@ export default function EditorFormatBar({
               </div>
 
               <div>
-                <div className="flex justify-between text-[11px] font-medium text-text mb-1">
+                <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-text mb-1">
                   <span>Tamaño del texto</span>
-                  <span className="font-mono text-ai-action">{points} pt</span>
+                  <PointValueInput
+                    label="Tamaño del texto"
+                    value={Number(points)}
+                    min={5.4}
+                    max={12.6}
+                    onChange={(value) => onScaleChange(value / 9)}
+                  />
                 </div>
                 <input
                   type="range"
-                  min="0.6"
-                  max="1.4"
+                  aria-label="Tamaño del texto (pt)"
+                  min="5.4"
+                  max="12.6"
                   step="0.1"
-                  value={scale}
-                  onChange={(e) => onScaleChange(parseFloat(e.target.value))}
+                  value={Number(points)}
+                  onChange={(e) => onScaleChange(parseFloat(e.target.value) / 9)}
                   className="w-full accent-text cursor-pointer"
                 />
                 <div className="flex justify-between text-[9px] text-text-muted mt-1">
@@ -192,15 +258,22 @@ export default function EditorFormatBar({
 
           {openPopover === 'margin' && (
             <div className="absolute left-0 top-8.5 z-40 w-52 bg-surface border border-subtle rounded-xl p-3.5 shadow-dialog">
-              <div className="flex justify-between text-[11px] font-medium text-text mb-1.5">
+              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-text mb-1.5">
                 <span>Margen de página</span>
-                <span className="font-mono text-ai-action">{pageMargin} pt</span>
+                <PointValueInput
+                  label="Margen de página"
+                  value={pageMargin}
+                  min={18}
+                  max={72}
+                  onChange={onMarginChange}
+                />
               </div>
               <input
                 type="range"
+                aria-label="Margen de página (pt)"
                 min="18"
                 max="72"
-                step="6"
+                step="0.1"
                 value={pageMargin}
                 onChange={(e) => onMarginChange(parseFloat(e.target.value))}
                 className="w-full accent-text cursor-pointer"

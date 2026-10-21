@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeDisplayName } from '@/lib/user-name';
+import { pdfDownloadFilename, sanitizeDisplayName } from '@/lib/user-name';
 
 test('sanitizeDisplayName trims and collapses whitespace', () => {
   assert.equal(sanitizeDisplayName('  Carlos   García  '), 'Carlos García');
@@ -19,4 +19,12 @@ test('sanitizeDisplayName rejects invalid values', () => {
 
 test('sanitizeDisplayName strips control characters', () => {
   assert.equal(sanitizeDisplayName('Ana\u0000\u0007López'), 'Ana López');
+});
+
+test('pdfDownloadFilename prefixes the visible name with CV', () => {
+  assert.equal(pdfDownloadFilename('  Carlos   García  '), 'CV Carlos García.pdf');
+  assert.equal(pdfDownloadFilename('Ana/María: López'), 'CV AnaMaría López.pdf');
+  assert.equal(pdfDownloadFilename(''), 'CV.pdf');
+  assert.equal(pdfDownloadFilename(null), 'CV.pdf');
+  assert.equal(pdfDownloadFilename('A'), 'CV.pdf');
 });

@@ -89,7 +89,7 @@ export function PdfDownloadLink({
     if (beforeDownload && !await beforeDownload()) return;
     await downloadPdf({
       url: downloadUrl,
-      filename: isGuest || onDownloaded ? 'CV.pdf' : undefined,
+      filename: isGuest ? 'CV.pdf' : undefined,
       onForbidden: () => {
         if (!isGuest) return;
         onGuestDownloadConsumed?.();
