@@ -47,9 +47,12 @@ import { UsagePanel } from '@/components/subscription/UsagePanel';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
+import { CvPhotoControl, useCvPhoto } from './CvPhotoControl';
+import type { CvPhotoState } from '@/lib/cv-photo-types';
 
 interface EditorClientProps {
   cv: CV;
+  initialPhoto?: CvPhotoState;
   isPremium: boolean;
   availablePrompts: {
     id: string;
@@ -100,7 +103,7 @@ export default function EditorClient(props: EditorClientProps) {
   return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
-function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
+function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
@@ -166,6 +169,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
+  const photoControl = useCvPhoto(cv.id, initialPhoto ?? { enabled: false, url: null, source: null }, readOnly || isStreaming || variantBusy);
   const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
   const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
   const displayContent = liveGeneration?.content ?? reviewContent;
@@ -653,6 +657,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             content: text,
+            cvId: cv.id,
+            showPhoto: photoControl.photo.enabled,
             template: templateName,
             accentColor: style.accentColor || null,
             fontFamily: style.fontFamily || 'helvetica',
@@ -677,7 +683,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       clearTimeout(handle);
       controller.abort();
     };
-  }, [reviewContent, accentColor, fontFamily, pageMargin, scale, templateName, isStreaming]);
+  }, [reviewContent, accentColor, fontFamily, pageMargin, scale, templateName, isStreaming, cv.id, photoControl.photo]);
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
@@ -716,7 +722,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
-              disabled={isStreaming || variantBusy}
+              disabled={isStreaming || variantBusy || photoControl.busy}
               beforeDownload={persistence.flush}
               variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
@@ -725,6 +731,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       </header>
 
       {!readOnly && <EditorFormatBar
+        photoControl={<CvPhotoControl control={photoControl} />}
         fontFamily={fontFamily}
         pageMargin={pageMargin}
         scale={scale}
@@ -819,6 +826,9 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
             {showDocument && (
               <div className="contents" ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }}>
               <ResumeSheet
+                photoUrl={photoControl.photo.enabled ? photoControl.photo.url : null}
+                onPhotoChange={photoControl.choose}
+                photoBusy={photoControl.busy}
                 cvId={cv.id}
                 content={displayContent}
                 fontFamily={fontFamily}

@@ -72,6 +72,7 @@ export const cvs = pgTable('cv', {
   fontFamily: text('fontFamily').default('helvetica'),
   pageMargin: doublePrecision('pageMargin').default(36),
   scale: doublePrecision('scale').default(1.0),
+  showPhoto: boolean('showPhoto').default(false).notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
@@ -81,6 +82,16 @@ export const cvs = pgTable('cv', {
   // Base CV lookup for AI: ORDER BY isBase DESC, isPrincipal DESC LIMIT 1 per user.
   userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
+
+// Optional overrides stay out of CV lists, markdown and AI prompts.
+export const cvPhotos = pgTable('cv_photo', {
+  cvId: uuid('cvId').primaryKey().references(() => cvs.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytes: text('bytes').notNull(),
+  byteSize: integer('byteSize').notNull(),
+  hash: text('hash').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 // Sources and variants are detail-only data. cv.content mirrors the active variant.
 export const cvOptimizations = pgTable('cv_optimization', {

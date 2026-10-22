@@ -1,6 +1,7 @@
 import { planTranslations } from './plans';
 
 const es = {
+    cvPhoto: { include: 'Foto en el CV', change: 'Cambiar foto', upload: 'Subir foto', select: 'Seleccionar foto para este CV', portrait: 'Foto del currículum', useAccount: 'Usar foto de la cuenta', missing: 'Tu cuenta no tiene una foto disponible. Sube una para este CV.', saving: 'Guardando foto…', saveError: 'No se pudo guardar el cambio de foto. Vuelve a intentarlo.' },
     accountPhoto: {
       title: 'Foto de perfil',
       upload: 'Subir foto de perfil',

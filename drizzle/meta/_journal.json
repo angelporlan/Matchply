@@ -288,6 +288,13 @@
       "when": 1791828850500,
       "tag": "0040_discovery_allowance",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1792656473498,
+      "tag": "0041_same_mister_fear",
+      "breakpoints": true
     }
   ]
 }

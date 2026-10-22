@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { cleanMarkdownInline, parseCvDocument, type CVContent, type ContactInfo, type Entry, type Section } from '@/lib/cv-document';
 import {
   CV_METRICS,
+  CV_PHOTO,
   SVG_ICONS,
   contentWidthPt,
   getFontScale,
@@ -76,13 +77,14 @@ interface CustomizeOptions {
   fontFamily: FontSet;
   pageMargin: number;
   accentColor: string | null;
+  photo?: { bytes: string; hash: string };
 }
 
 function buildCustomize(options: any): CustomizeOptions {
   const fontFamily = FONT_FAMILIES[options.fontFamily] || FONT_FAMILIES.helvetica;
   const pageMargin = Number(options.pageMargin) || PAGE_MARGIN;
   const accentColor = options.accentColor || null;
-  return { fontFamily, pageMargin, accentColor };
+  return { fontFamily, pageMargin, accentColor, photo: options.photo };
 }
 
 function getLinkUrl(value: string, label: string = ''): string | null {
@@ -252,12 +254,14 @@ function drawBullet(doc: any, text: string, layout: any, cust: CustomizeOptions)
 
   const bulletX = margin + CV_METRICS.bulletMark;
   const textX = margin + CV_METRICS.bulletText;
-  const startY = doc.y;
-
   doc.font(ff.regular)
     .fontSize(layout.bulletSize)
-    .fillColor(COLORS.text)
-    .text('\u2022', bulletX, startY);
+    .fillColor(COLORS.text);
+  // Keep the mark with its first text line. Letting the mark paginate first
+  // would leave it alone on one page and send the text to yet another page.
+  if (doc.y + doc.currentLineHeight(true) > doc.page.maxY()) doc.continueOnNewPage();
+  const startY = doc.y;
+  doc.text('\u2022', bulletX, startY, { lineBreak: false });
 
   drawMarkdownText(doc, text, textX, startY, cWidth - CV_METRICS.bulletText, cust, layout, {
     size: layout.bodySize,
@@ -456,17 +460,36 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
   doc.info.Author = cv.name;
   doc.info.Subject = 'Curriculum Vitae';
 
+  const photo = cust.photo;
+  const nameX = margin + (photo ? CV_PHOTO.width + CV_PHOTO.gap : 0);
+  const nameWidth = cWidth - (nameX - margin);
+  if (photo) {
+    doc.save().rect(margin, margin, CV_PHOTO.width, CV_PHOTO.height).clip();
+    doc.image(Buffer.from(photo.bytes, 'base64'), margin, margin, { cover: [CV_PHOTO.width, CV_PHOTO.height], align: 'center', valign: 'center' });
+    doc.restore();
+  }
+
   doc.font(ff.bold)
     .fontSize(layout.nameSize)
-    .fillColor(COLORS.text)
-    .text(cv.name.toUpperCase(), margin, margin || PAGE_MARGIN, {
-      width: cWidth,
-      align: 'center',
+    .fillColor(photo ? accent : COLORS.text)
+    .text(cv.name.toUpperCase(), nameX, margin || PAGE_MARGIN, {
+      width: nameWidth,
+      align: photo ? 'left' : 'center',
       characterSpacing: CV_METRICS.nameCharacterSpacing
     });
 
   doc.moveDown(CV_METRICS.nameMoveDown);
-  drawContactLines(doc, cv.contact, layout, showIcons, cust);
+  if (photo) {
+    const iconSize = layout.contactSize * CV_METRICS.contactIconScale;
+    for (const item of cv.contact) {
+      const icon = showIcons ? getIconType(item.label, item.value) : null;
+      const indent = icon ? iconSize + CV_METRICS.iconGap : 0;
+      if (icon) drawIcon(doc, icon, nameX, doc.y - CV_METRICS.iconLift, iconSize, COLORS.muted);
+      doc.font(ff.regular).fontSize(layout.contactSize).fillColor(COLORS.muted)
+        .text(`${item.label}: ${item.value}`, nameX + indent, doc.y, { width: nameWidth - indent, lineGap: CV_METRICS.contactLineExtra, link: getLinkUrl(item.value, item.label) ?? undefined });
+    }
+    doc.y = Math.max(margin + CV_PHOTO.height, doc.y);
+  } else drawContactLines(doc, cv.contact, layout, showIcons, cust);
 
   const headerRuleY = doc.y + CV_METRICS.headerRuleGap;
   doc.moveTo(margin, headerRuleY)

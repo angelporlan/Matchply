@@ -20,6 +20,7 @@ export type PdfCacheInput = {
   fontFamily: string;
   pageMargin: number;
   fontSize: number;
+  photoHash?: string | null;
 };
 
 export function pdfCacheKey(input: PdfCacheInput) {

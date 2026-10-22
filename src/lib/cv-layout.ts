@@ -32,6 +32,9 @@ export const PDF_COLORS = {
   muted: '#555555',
 } as const;
 
+/** Shared portrait box, independent of the selected text size. */
+export const CV_PHOTO = { width: 72, height: 90, gap: 18 } as const;
+
 export const BASE_LAYOUT = {
   nameSize: 20,
   contactSize: 8.5,

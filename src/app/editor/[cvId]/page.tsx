@@ -11,6 +11,7 @@ import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { getCvOptimizationView } from '@/lib/cv-optimization/service';
 import type { OptimizeJobPayload } from '@/lib/cv-optimization/types';
+import { getCvPhotoState } from '@/lib/cv-photo';
 
 interface EditorPageProps {
   params: {
@@ -96,6 +97,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
   return (
     <EditorClient
       cv={editorCv}
+      initialPhoto={await getCvPhotoState(userId, cvId)}
       isPremium={isPremium}
       availablePrompts={availablePrompts || []}
       baseCvContent={baseCvContent}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { 
   Minus, 
   Plus, 
@@ -107,6 +107,7 @@ export default function EditorFormatBar({
   onSelectVariant,
   onRetryVariant,
   variantBusy = false,
+  photoControl,
 }: {
   fontFamily: string;
   pageMargin: number;
@@ -128,6 +129,7 @@ export default function EditorFormatBar({
   onSelectVariant?: (mode: OptimizeModeId) => void;
   onRetryVariant?: (mode: OptimizeModeId) => void;
   variantBusy?: boolean;
+  photoControl?: ReactNode;
 }) {
   const { t } = useLanguage();
 
@@ -345,6 +347,7 @@ export default function EditorFormatBar({
           )}
         </div>
 
+        {photoControl}
         <div className="w-px h-4 bg-subtle" />
 
         {/* Zoom Segmentado Continuo */}
