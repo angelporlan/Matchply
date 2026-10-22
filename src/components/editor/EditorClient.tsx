@@ -19,6 +19,7 @@ import { EditorPersistenceContext, useEditorPersistence } from './EditorPersiste
 import { CvVariantConfirm } from './CvVariantConfirm';
 import { useCvGenerationAnimation } from './useCvGenerationAnimation';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { runApplicationCommand } from '@/app/dashboard/applications/actions';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
 import {
@@ -128,6 +129,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
 
   const [sessionBase, setSessionBase] = useState<string | null>(null);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
+  const [sentExportId, setSentExportId] = useState<string | null>(null);
   const [optimization, setOptimization] = useState(initialOptimization);
   const [activeMode, setActiveMode] = useState<OptimizeModeId>(isOptimizeModeId(cv.activeOptimizeMode || '') ? cv.activeOptimizeMode as OptimizeModeId : 'optimize_adapted');
   const [variantBusy, setVariantBusy] = useState(false);
@@ -489,11 +491,13 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
     const mark = sessionStorage.getItem(offerKey);
     const requested = new URLSearchParams(window.location.search).get('sent') === '1';
     if (shouldOpenSentPrompt({ status: linkedOffer.status, mark, requested })) {
+      setSentExportId(sessionStorage.getItem(`matchply_export_cv_${cv.id}`));
       setSentPromptOpen(true);
     }
   }, [linkedOffer?.id, linkedOffer?.status, cv.id]);
 
-  const notePdfDownloaded = () => {
+  const notePdfDownloaded = (exportId?: string) => {
+    setSentExportId(exportId || null);
     const decision = noteDownloadForSentPrompt({
       cvId: cv.id,
       offerId: linkedOffer?.id ?? null,
@@ -505,10 +509,16 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
     if (decision.open) setSentPromptOpen(true);
   };
 
-  const closeSentPrompt = (answer: 'yes' | 'no' | 'later') => {
+  const sentCommand = useRef<{ signature: string; id: string }>();
+  const closeSentPrompt = async (answer: 'yes' | 'no' | 'later', withoutDocument = false) => {
+    if (answer === 'yes' && linkedOffer?.id) {
+      const exportId = withoutDocument ? null : sentExportId;
+      if (sentCommand.current?.signature !== String(exportId)) sentCommand.current = { signature: String(exportId), id: crypto.randomUUID() };
+      const result = await markApplicationSent(linkedOffer.id, exportId, sentCommand.current.id);
+      if ('error' in result) { window.alert(language === 'es' ? 'No se pudo registrar el envío. Puedes reintentar.' : 'Could not record submission. You can retry.'); return; }
+    }
     if (linkedOffer?.id) sessionStorage.setItem(sentPromptKey(linkedOffer.id), 'done');
     setSentPromptOpen(false);
-    if (answer === 'yes') void markApplicationSent(linkedOffer!.id);
   };
 
   const revertToBase = async () => {
@@ -519,18 +529,20 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
     await persistence.flush();
   };
 
-  const scheduleStyleSave = () => {
-    if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
-    styleTimerRef.current = setTimeout(async () => {
-      const style = styleRef.current;
+  const styleSaveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const saveStyle = () => {
+    const style = { ...styleRef.current };
+    styleSaveQueue.current = styleSaveQueue.current.catch(() => false).then(async () => {
       setSaveStatus('saving');
       const result = await updateCvStyling(cv.id, style);
-      if (!result.success) {
-        setSaveStatus('error');
-        return;
-      }
-      setSaveStatus((current) => (current === 'saving' ? 'saved' : current));
-    }, 400);
+      setSaveStatus(result.success ? 'saved' : 'error');
+      return Boolean(result.success);
+    });
+    return styleSaveQueue.current;
+  };
+  const scheduleStyleSave = () => {
+    if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+    styleTimerRef.current = setTimeout(() => { void saveStyle(); }, 400);
   };
 
   const applyStyle = (partial: Partial<{ accentColor: string; fontFamily: string; pageMargin: number; scale: number }>) => {
@@ -723,9 +735,22 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
               disabled={isStreaming || variantBusy || photoControl.busy}
-              beforeDownload={persistence.flush}
+              beforeDownload={async () => {
+                if (!await persistence.flush()) return false;
+                if (styleTimerRef.current) { clearTimeout(styleTimerRef.current); styleTimerRef.current = null; }
+                if (readOnly) return true;
+                return saveStyle();
+              }}
               variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
+            {linkedOffer && diffBase && <Button variant="secondary" onClick={async () => {
+              const key = `matchply_reviewed_${linkedOffer.id}_${optimization?.id || cv.id}`;
+              let commandId = sessionStorage.getItem(key);
+              if (!commandId) { commandId = crypto.randomUUID(); sessionStorage.setItem(key, commandId); }
+              const result = await runApplicationCommand(linkedOffer.id, { action: 'reviewed', commandId });
+              if ('error' in result) window.alert(language === 'es' ? 'No se pudo registrar la revisión. Puedes reintentar.' : 'Could not record your review. You can retry.');
+              else window.alert(language === 'es' ? 'Revisión registrada.' : 'Review recorded.');
+            }}>{language === 'es' ? 'He revisado la adaptación' : 'I reviewed the tailored CV'}</Button>}
           </div>
         </div>
       </header>
@@ -915,7 +940,10 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       <CvVariantConfirm mode={confirmVariant} onClose={()=>setConfirmVariant(null)} onConfirm={()=>{ const mode=confirmVariant; setConfirmVariant(null); if (mode) void generateVariant(mode); }} />
       <ApplicationSentPrompt
         open={sentPromptOpen}
-        onYes={() => closeSentPrompt('yes')}
+        context={`${linkedOffer?.title || ''} · ${linkedOffer?.company || ''}`}
+        exportId={sentExportId}
+        hasDocument={Boolean(sentExportId)}
+        onYes={withoutDocument => closeSentPrompt('yes', withoutDocument)}
         onNo={() => closeSentPrompt('no')}
         onDismiss={() => closeSentPrompt('later')}
       />

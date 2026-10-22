@@ -36,7 +36,7 @@ interface PdfViewerProps {
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
-  onDownloaded?: () => void;
+  onDownloaded?: (exportId?: string, exportStatus?: string) => void;
   /** Debounced unsaved preview. When set, the sheet is rendered from this payload instead of the database. */
   livePreview?: PdfLivePreview | null;
   zoom?: PdfZoom;
@@ -60,14 +60,14 @@ export function PdfDownloadLink({
   isGuest?: boolean;
   guestCanDownload?: boolean;
   onGuestDownloadConsumed?: () => void;
-  onDownloaded?: () => void;
+  onDownloaded?: (exportId?: string, exportStatus?: string) => void;
   className?: string;
   children?: React.ReactNode;
   beforeDownload?: () => Promise<boolean>;
   variantQuery?: string;
   disabled?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const downloadUrl = `/api/pdf?cvId=${cvId}&download=true${variantQuery}`;
   const guestRegisterHref = '/register?source=guest-pdf';
@@ -95,10 +95,13 @@ export function PdfDownloadLink({
         onGuestDownloadConsumed?.();
         window.location.href = guestRegisterHref;
       },
-      onDownloaded: () => {
+      onDownloaded: (exportId, exportStatus) => {
+        if (exportId) sessionStorage.setItem(`matchply_export_cv_${cvId}`, exportId);
+        else sessionStorage.removeItem(`matchply_export_cv_${cvId}`);
+        if (exportStatus === 'unavailable') window.alert(language === 'es' ? 'PDF descargado. No se pudo conservar una copia; puedes reintentar la descarga.' : 'PDF downloaded. A copy could not be saved; you can retry downloading.');
         if (isGuest) onGuestDownloadConsumed?.();
         trackUmamiConversion('cv_downloaded');
-        onDownloaded?.();
+        onDownloaded?.(exportId, exportStatus);
         if (isGuest && consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
       },
     });

@@ -1,3 +1,4 @@
+import { storePdfExport } from '@/lib/cv-export';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cvs, cvVariants, cvOptimizations } from '@/db/schema';
@@ -186,8 +187,14 @@ export async function GET(req: NextRequest) {
       ? `CV ${(cv.title || 'CV').replace(/[/\\?%*:|"<>]/g, '').trim() || 'CV'}.pdf`
       : pdfDownloadFilename(actor.name);
     const encodedFilename = encodeURIComponent(filename);
+    let exportId: string | undefined;
+    if (isDownload) {
+      try { exportId = await storePdfExport({ userId: actor.userId, cvId: cv.id, buffer, filename, pages: countPdfPages(buffer), operationId: guestDownload?.id, optimizationId: optimizationId || undefined, modeId: modeId || undefined }); }
+      catch (error) { log({ event: 'cv_export_save_failed', level: 'warn', error }); }
+    }
 
     const response = pdfResponse(buffer, pageBreaks, {
+      ...(isDownload ? { 'X-Matchply-Export-Status': exportId ? 'saved' : 'unavailable', ...(exportId ? { 'X-Matchply-Export-Id': exportId } : {}) } : {}),
       'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       'Cache-Control': cacheControl,
       ETag: etag,

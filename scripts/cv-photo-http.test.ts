@@ -8,8 +8,8 @@ test('CV photo API enforces ownership, origin, upload bounds and PDF photo selec
   assert.ok([database!, baseUrl!].every(value => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname)) && new URL(database!).pathname.includes('test'));
   process.env.DATABASE_URL = database;
   const { db, pool } = await import('@/db');
-  const { users, cvs } = await import('@/db/schema');
-  const { inArray } = await import('drizzle-orm');
+  const { users, cvs, jobOffers } = await import('@/db/schema');
+  const { inArray, eq } = await import('drizzle-orm');
   const { default: bcrypt } = await import('bcryptjs');
   const { saveProfilePhoto } = await import('@/lib/avatar/profile');
   const ids = [randomUUID(), randomUUID()], password = randomUUID();
@@ -52,5 +52,21 @@ test('CV photo API enforces ownership, origin, upload bounds and PDF photo selec
     assert.equal((await owner(path, options('PATCH', { enabled: false }))).status, 200);
     const plain = await owner(`/api/pdf?cvId=${cv.id}`); assert.equal(plain.status, 200);
     assert.ok(!Buffer.from(await plain.arrayBuffer()).toString('latin1').includes('/Subtype /Image'));
+    await db.update(users).set({ subscriptionStatus: 'none' }).where(eq(users.id, ids[0]));
+    const exported = await owner(`/api/pdf?cvId=${cv.id}&download=true`);
+    assert.equal(exported.status, 200);
+    assert.equal(exported.headers.get('X-Matchply-Export-Status'), 'saved');
+    const exportId = exported.headers.get('X-Matchply-Export-Id'); assert.ok(exportId);
+    const exact = Buffer.from(await exported.arrayBuffer());
+    const [offer] = await db.insert(jobOffers).values({ userId: ids[0], title: 'Synthetic submission', company: 'Synthetic employer', cvId: cv.id }).returning();
+    const { applyApplicationCommand } = await import('@/lib/application-continuity');
+    await db.transaction(tx => applyApplicationCommand(tx, ids[0], offer.id, { action: 'sent', exportId, commandId: randomUUID() }));
+    await db.update(cvs).set({ content: '# Different text', fontFamily: 'times' }).where(eq(cvs.id, cv.id));
+    await owner(path, options('PATCH', { enabled: true }));
+    await db.delete(cvs).where(eq(cvs.id, cv.id));
+    const historical = await owner(`/api/cv/exports/${exportId}`);
+    assert.equal(historical.status, 200);
+    assert.deepEqual(Buffer.from(await historical.arrayBuffer()), exact);
+    assert.equal((await anonymous(`/api/cv/exports/${exportId}`)).status, 403);
   } finally { await db.delete(users).where(inArray(users.id, ids)); await pool.end(); }
 });

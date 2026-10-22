@@ -112,7 +112,10 @@ export default function CvCard({
             onGuestDownloadConsumed?.();
             window.location.href = '/register?source=guest-pdf';
           },
-          onDownloaded: () => {
+          onDownloaded: (exportId, exportStatus) => {
+            if (exportId) sessionStorage.setItem(`matchply_export_cv_${cv.id}`, exportId);
+            else sessionStorage.removeItem(`matchply_export_cv_${cv.id}`);
+            if (exportStatus === 'unavailable') window.alert(language === 'es' ? 'PDF descargado, copia no conservada.' : 'PDF downloaded; copy not retained.');
             if (isGuest) onGuestDownloadConsumed?.();
             trackUmamiConversion('cv_downloaded');
             if (isGuest && consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);

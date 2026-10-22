@@ -17,9 +17,10 @@ interface EditorPageProps {
   params: {
     cvId: string;
   };
+  searchParams?: { offerId?: string };
 }
 
-export default async function EditorPage({ params }: EditorPageProps) {
+export default async function EditorPage({ params, searchParams }: EditorPageProps) {
   let actor;
   try {
     actor = await getActor({ allowGuest: true });
@@ -74,9 +75,9 @@ export default async function EditorPage({ params }: EditorPageProps) {
         status: jobOffers.status,
       })
       .from(jobOffers)
-      .where(and(eq(jobOffers.userId, userId), eq(jobOffers.cvId, cvId)))
+      .where(and(eq(jobOffers.userId, userId), eq(jobOffers.cvId, cvId), ...(searchParams?.offerId && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(searchParams.offerId) ? [eq(jobOffers.id, searchParams.offerId)] : [])))
       .orderBy(desc(jobOffers.updatedAt))
-      .limit(1),
+      .limit(2),
   ]);
 
   const isGuest = actor.kind === 'guest';
@@ -110,7 +111,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
         isBase: item.isBase,
         isPrincipal: item.isPrincipal,
       }))}
-      linkedOffer={linkedRows[0] ?? null}
+      linkedOffer={linkedRows.length === 1 ? linkedRows[0] : null}
       optimization={optimization}
       pendingOptimizationJobId={pendingJob?.id}
       pendingOptimizationIsRetry={Boolean((pendingJob?.payload as {retry?:boolean} | undefined)?.retry)}
