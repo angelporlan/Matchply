@@ -11,15 +11,16 @@ import { listCompanyLookups } from '@/lib/company-service';
 import { getDashboardViewer } from '@/lib/session';
 
 interface OfferPageProps {
+  searchParams?: { continue?: string };
   params: {
     id: string;
   };
 }
 
-export default async function OfferDetailsPage({ params }: OfferPageProps) {
+export default async function OfferDetailsPage({ params, searchParams }: OfferPageProps) {
   const viewer = await getDashboardViewer();
   if (!viewer) {
-    redirect('/login');
+    redirect(`/login?next=${encodeURIComponent(`/dashboard/applications/offer/${params.id}${searchParams?.continue === '1' ? '?continue=1' : ''}`)}`);
   }
   const dbUser = viewer.user;
 
@@ -44,7 +45,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
   ]);
 
   if (!offer) {
-    redirect('/dashboard/applications');
+    redirect(searchParams?.continue === '1' ? '/dashboard?importReturn=missing' : '/dashboard/applications');
   }
 
   return (
@@ -60,6 +61,7 @@ export default async function OfferDetailsPage({ params }: OfferPageProps) {
           companies={companies}
           isPremium={isPremium}
           initialResearch={initialResearch}
+          continueAdaptation={searchParams?.continue === '1'}
         />
         <RelatedPeople userId={dbUser.id} offerId={params.id} />
       </main>

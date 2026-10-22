@@ -491,6 +491,7 @@ export default function ApplicationsClient({
       return;
     }
     showToast(t('applications.table.statusUpdated'));
+    router.refresh();
   };
 
   const handleConfirmDeleteOffer = async () => {
@@ -514,11 +515,13 @@ export default function ApplicationsClient({
     setLocalOffers((prev) => prev.map((item) => selectedIds.has(item.id) ? { ...item, status, updatedAt: new Date() } : item));
     const results = await Promise.all(ids.map((id) => updateJobOfferStatus(id, status)));
     if (results.some((result) => result.error)) {
-      setLocalOffers(previous);
+      const failed = new Set(ids.filter((_, index) => results[index].error));
+      setLocalOffers(previous.map(item => !selectedIds.has(item.id) || failed.has(item.id) ? item : { ...item, status, updatedAt: new Date() }));
       showToast(t('applications.table.statusError'), 'info');
     } else {
       showToast(t('applications.table.bulkStatusUpdated').replace('{count}', String(ids.length)));
     }
+    router.refresh();
     setSelectedIds(new Set());
   };
 

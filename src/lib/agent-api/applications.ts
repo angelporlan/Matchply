@@ -1,3 +1,4 @@
+import { applyApplicationCommand } from '@/lib/application-continuity';
 import { and, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
@@ -36,6 +37,8 @@ const detailColumns = {
   scoreOverall: currentMatchScore,
   tldr: jobOffers.tldr,
   nextFollowupDate: jobOffers.nextFollowupDate,
+  nextAction: jobOffers.nextAction,
+  followupVersion: jobOffers.followupVersion,
   createdAt: jobOffers.createdAt,
   updatedAt: jobOffers.updatedAt,
 };
@@ -59,6 +62,8 @@ function toSummary(row: ApplicationSummary) {
     legitimacyTier: row.legitimacyTier,
     livenessStatus: row.livenessStatus,
     nextFollowupDate: row.nextFollowupDate,
+    nextAction: row.nextAction,
+    followupVersion: row.followupVersion,
     source: row.source,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -179,7 +184,7 @@ async function insertApplication(userId: string, input: CreateApplicationInput, 
         url: input.url,
         platform: input.platform,
         description: input.description,
-        status: input.status,
+        status: 'interested',
         source: AGENT_SOURCE,
         externalSource: input.externalId ? AGENT_SOURCE : null,
         externalId: input.externalId,
@@ -189,6 +194,7 @@ async function insertApplication(userId: string, input: CreateApplicationInput, 
       })
       .returning({ id: jobOffers.id });
 
+    await applyApplicationCommand(tx, userId, created.id, { status: input.status, nextAction: input.nextAction, ...(input.followupProvided ? { nextFollowupDate: input.nextFollowupDate } : {}), source: 'agent_api' });
     if (input.note) {
       await tx.insert(companyNotes).values({
         userId,
@@ -293,6 +299,7 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
   if (input.status !== undefined) { fields.status = input.status; changed.push('status'); }
   if (input.cvId !== undefined) { fields.cvId = input.cvId; changed.push('cvId'); }
   if (input.nextFollowupDate !== undefined) { fields.nextFollowupDate = input.nextFollowupDate; changed.push('nextFollowupDate'); }
+  if (input.nextAction !== undefined) changed.push('nextAction');
   if (input.externalId !== undefined) {
     fields.externalSource = input.externalId ? AGENT_SOURCE : null;
     fields.externalId = input.externalId;
@@ -324,6 +331,10 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
 
   try {
     await db.transaction(async (tx) => {
+      if (input.status !== undefined || input.nextFollowupDate !== undefined || input.nextAction !== undefined) {
+        await applyApplicationCommand(tx, userId, current.id, { status: input.status, nextFollowupDate: input.nextFollowupDate, nextAction: input.nextAction, source: 'agent_api' });
+        delete fields.status; delete fields.nextFollowupDate;
+      }
       if (changed.some((field) => field !== 'note')) {
         await tx
           .update(jobOffers)

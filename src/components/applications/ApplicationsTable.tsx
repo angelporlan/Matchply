@@ -35,6 +35,7 @@ import CompanyIcon from '@/components/companies/CompanyIcon';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationScoreBadge from './ApplicationScoreBadge';
 import ApplicationStatusSelect from './ApplicationStatusSelect';
+import FollowupCell from './FollowupCell';
 import { SelectionCheckbox, FavoriteButton } from '@/components/crm/CrmControls';
 import { Button } from '@/components/ui/Button';
 
@@ -246,7 +247,7 @@ export default function ApplicationsTable({
         }
         return (
           <NextLink
-            href={`/editor/${offer.cvId}`}
+            href={`/editor/${offer.cvId}?offerId=${offer.id}`}
             onClick={(event) => event.stopPropagation()}
             className="text-ai hover:underline truncate max-w-[200px] inline-block align-bottom"
             title={cvTitle || undefined}
@@ -255,19 +256,7 @@ export default function ApplicationsTable({
           </NextLink>
         );
       }
-      case 'followup': {
-        if (!offer.nextFollowupDate) {
-          return <span className="text-slate-400 dark:text-text-muted">—</span>;
-        }
-        const followupDate = new Date(offer.nextFollowupDate);
-        const isOverdue = followupDate.setHours(0, 0, 0, 0) < todayStart;
-        return (
-          <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${isOverdue ? 'text-rose-500 dark:text-rose-400 font-semibold' : 'text-text-muted dark:text-slate-300'}`}>
-            <CalendarClock className="w-3.5 h-3.5 stroke-[1.75]" />
-            {formatDate(new Date(offer.nextFollowupDate))}
-          </span>
-        );
-      }
+      case 'followup': return <FollowupCell offer={offer} />;
       case 'platform':
         return offer.platform
           ? <span className="text-[10px] font-bold text-slate-400 dark:text-text-muted uppercase tracking-wider">{offer.platform}</span>

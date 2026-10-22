@@ -1,4 +1,5 @@
 "use client";
+import ApplicationContinuity from './ApplicationContinuity';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
@@ -88,6 +89,7 @@ interface JobOfferDetailsPageProps {
   companies?: CompanyLookupItem[];
   isPremium: boolean;
   initialResearch?: any;
+  continueAdaptation?: boolean;
 }
 
 export default function JobOfferDetailsPage({
@@ -96,17 +98,22 @@ export default function JobOfferDetailsPage({
   companies = [],
   isPremium,
   initialResearch = null,
+  continueAdaptation = false,
 }: JobOfferDetailsPageProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const [offer, setOffer] = useState<JobOffer>(initialOffer);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
+  const [sentExportId, setSentExportId] = useState<string | null>(null);
+  const sentRequest = useRef<{ signature: string; id: string }>();
+  useEffect(() => { setOffer(initialOffer); }, [initialOffer]);
 
   useEffect(() => {
     const mark = sessionStorage.getItem(sentPromptKey(offer.id));
     const requested = new URLSearchParams(window.location.search).get('sent') === '1';
+    setSentExportId(offer.cvId ? sessionStorage.getItem(`matchply_export_cv_${offer.cvId}`) : null);
     setSentPromptOpen(shouldOpenSentPrompt({ status: offer.status, mark, requested }));
-  }, [offer.id, offer.status]);
+  }, [offer.id, offer.status, offer.cvId]);
   
   const [isEditing, setIsEditing] = useState(false);
   const [evaluatingMatch, setEvaluatingMatch] = useState(false);
@@ -247,7 +254,7 @@ export default function JobOfferDetailsPage({
     if (optimizingCv) return;
     setError(null);
     const baseCv = userCvs.find(c => c.id === planUsage?.cv.baseCvId) || userCvs.find(c => c.isBase && !planUsage?.cv.readOnlyIds.includes(c.id));
-    if (!baseCv) { setError(t('dashboard.errors.noPrimary')); return; }
+    if (!baseCv) { router.push(`/dashboard?importCv=1&offerId=${offer.id}`); return; }
     if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return; }
     const adaptedCount = userCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
@@ -418,16 +425,23 @@ export default function JobOfferDetailsPage({
 
   return (
     <div className="space-y-6">
+      {continueAdaptation && <div className="rounded-xl border border-control bg-surface p-4"><Button onClick={() => void handleOptimizeCvForOffer()}>{language === 'es' ? 'Continuar adaptación' : 'Continue tailoring'}</Button></div>}
       <ApplicationSentPrompt
         open={sentPromptOpen}
-        onYes={() => {
-          sessionStorage.setItem(sentPromptKey(offer.id), 'done');
-          setSentPromptOpen(false);
-          void markApplicationSent(offer.id).then((result) => {
+        context={`${offer.title} · ${offer.company}`}
+        exportId={sentExportId}
+        hasDocument={Boolean(sentExportId)}
+        onYes={withoutDocument => {
+          const exportId = withoutDocument ? null : sentExportId;
+          if (sentRequest.current?.signature !== String(exportId)) sentRequest.current = { signature: String(exportId), id: crypto.randomUUID() };
+          return markApplicationSent(offer.id, exportId, sentRequest.current.id).then((result) => {
             if ('success' in result && result.success) {
-              setOffer((prev) => ({ ...prev, status: 'applied' }));
+              sessionStorage.setItem(sentPromptKey(offer.id), 'done');
+              setSentPromptOpen(false);
+              sentRequest.current = undefined;
+              setOffer((prev) => ({ ...prev, ...result }));
               router.refresh();
-            }
+            } else { setError(language === 'es' ? 'No se pudo registrar el envío. Puedes reintentar.' : 'Could not record submission. You can retry.'); }
           });
         }}
         onNo={() => {
@@ -662,7 +676,7 @@ export default function JobOfferDetailsPage({
               {offer.cvId ? (
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <a
-                    href={`/editor/${offer.cvId}`}
+                    href={`/editor/${offer.cvId}?offerId=${offer.id}`}
                     className="btn-raised btn-raised--secondary btn-raised--sm w-full"
                   >
                     <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -809,6 +823,8 @@ export default function JobOfferDetailsPage({
             )}
           </div>
 
+          <ApplicationContinuity onConfirmSent={() => { setSentExportId(offer.cvId ? sessionStorage.getItem(`matchply_export_cv_${offer.cvId}`) : null); setSentPromptOpen(true); }} offerId={offer.id} followup={offer} onUpdated={value => setOffer(previous => ({ ...previous, ...value, nextFollowupDate: value.nextFollowupDate ? new Date(value.nextFollowupDate) : null }))} />
+
           {/* Barra de pestañas */}
           <div className="flex border-b border-subtle pb-px overflow-x-auto scrollbar-none gap-4 shrink-0 font-display">
             <button
@@ -866,7 +882,7 @@ export default function JobOfferDetailsPage({
             )}
             
             {/* PESTAÑA: EVALUACIÓN IA */}
-            {activeTab === 'ai_eval' && <MatchAnalysisDetails evidence={matchEvidence} details={matchDetails} />}
+            {activeTab === 'ai_eval' && <MatchAnalysisDetails offerId={offer.id} evidence={matchEvidence} details={matchDetails} />}
             {activeTab === 'ai_eval' && offer.rawReport && !matchEvidence && (
               <div className="space-y-4 animate-fadeIn">
                 <h3 className="text-sm font-bold text-text uppercase tracking-wider font-display border-b border-subtle pb-2">

@@ -1,0 +1,1 @@
+ALTER TABLE "cv_export" ADD COLUMN "provenance" jsonb;

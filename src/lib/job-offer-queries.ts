@@ -26,6 +26,8 @@ export const applicationSummaryColumns = {
   legitimacyTier: jobOffers.legitimacyTier,
   livenessStatus: jobOffers.livenessStatus,
   nextFollowupDate: jobOffers.nextFollowupDate,
+  nextAction: jobOffers.nextAction,
+  followupVersion: jobOffers.followupVersion,
   source: jobOffers.source,
   createdAt: jobOffers.createdAt,
   updatedAt: jobOffers.updatedAt,
@@ -46,6 +48,8 @@ export const jobOfferOwnershipColumns = {
   externalId: jobOffers.externalId,
   sourceMetadata: jobOffers.sourceMetadata,
   nextFollowupDate: jobOffers.nextFollowupDate,
+  nextAction: jobOffers.nextAction,
+  followupVersion: jobOffers.followupVersion,
 };
 
 // CV metadata for rename/style/delete/principal flows (no markdown content).
@@ -170,6 +174,8 @@ export type ApplicationSummary = {
   legitimacyTier: string | null;
   livenessStatus: string | null;
   nextFollowupDate: Date | null;
+  nextAction: string | null;
+  followupVersion: number;
   source: string | null;
   createdAt: Date;
   updatedAt: Date;

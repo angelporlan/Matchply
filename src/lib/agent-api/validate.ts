@@ -376,8 +376,16 @@ export type CreateApplicationInput = {
   cvId: string | null;
   externalId: string | null;
   nextFollowupDate: Date | null;
+  followupProvided?: boolean;
+  nextAction?: string | null;
   note?: string;
 };
+
+function parseNextAction(value: unknown): string | null {
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || value.length > 1000) throw new AgentApiError(400, 'invalid_next_action', 'La próxima acción no es válida.');
+  return value.trim() || null;
+}
 
 export function parseCreateApplicationBody(value: unknown): CreateApplicationInput {
   const record = asRecord(value);
@@ -398,6 +406,8 @@ export function parseCreateApplicationBody(value: unknown): CreateApplicationInp
     cvId: 'cvId' in record ? parseCvIdValue(record.cvId) : null,
     externalId: parseExternalIdValue(record.externalId),
     nextFollowupDate: 'nextFollowupDate' in record ? parseFollowupValue(record.nextFollowupDate) : null,
+    followupProvided: 'nextFollowupDate' in record,
+    ...('nextAction' in record ? { nextAction: parseNextAction(record.nextAction) } : {}),
     note: parseNoteValue(record.note),
   };
 }
@@ -419,6 +429,7 @@ export function parsePatchApplicationBody(value: unknown): PatchApplicationInput
   if ('status' in record) patch.status = parseAgentStatus(record.status);
   if ('cvId' in record) patch.cvId = parseCvIdValue(record.cvId);
   if ('externalId' in record) patch.externalId = parseExternalIdValue(record.externalId);
+  if ('nextAction' in record) patch.nextAction = parseNextAction(record.nextAction);
   if ('nextFollowupDate' in record) patch.nextFollowupDate = parseFollowupValue(record.nextFollowupDate);
   if ('scoreOverall' in record) patch.scoreOverall = parseScoreOverall(record.scoreOverall);
   if ('tldr' in record) patch.tldr = parseTldr(record.tldr);
