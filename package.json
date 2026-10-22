@@ -13,6 +13,14 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-concurrency=1 scripts/*.test.ts",
+    "test:integration": "node scripts/test-integration.mjs",
+    "test:integration:migration": "node scripts/test-integration.mjs migration",
+    "test:integration:single-connection": "node scripts/test-integration.mjs single-connection",
+    "test:http": "node scripts/test-integration.mjs http",
+    "test:e2e": "playwright test",
+    "perf:seed": "tsx scripts/performance-fixtures.ts",
+    "perf:browser": "playwright test --project=performance",
+    "perf:queries": "tsx scripts/performance-queries.ts",
     "research:worker": "tsx scripts/research-worker.ts",
     "ai:worker": "tsx scripts/ai-worker.ts",
     "activation:emails": "tsx scripts/activation-emails.ts",
@@ -45,6 +53,7 @@
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.12.12",
     "@types/pdfkit": "^0.13.4",

@@ -48,18 +48,20 @@ test('admin tables filter and sort the full database before paginating', { skip:
     });
 
     await t.test('audit searches resolve actor and affected identities, and preserve system events', async () => {
-      const actor = await listAdminAuditLogs(query('actorUserId', 'equals', 'Person 00'), now);
+      // Migrations legitimately insert system audit events. Restrict assertions to this fixture's day.
+      const audit = (params: Record<string, string>) => listAdminAuditLogs({ ...params, created: 'custom', from: '2026-10-04', to: '2026-10-04' }, now);
+      const actor = await audit(query('actorUserId', 'equals', 'Person 00'));
       assert.equal(actor.total, 32); assert.equal(actor.rows.length, 25);
       assert.equal(actor.rows[0].actorName, 'Person 00');
-      const affected = await listAdminAuditLogs(query('affectedUserId', 'contains', '%_'), now);
+      const affected = await audit(query('affectedUserId', 'contains', '%_'));
       assert.equal(affected.total, 32); assert.equal(affected.rows[0].affectedName, 'Literal %_ match');
-      assert.equal((await listAdminAuditLogs({ q: 'Literal %_' }, now)).total, 32);
-      const systems = await listAdminAuditLogs(query('actorUserId', 'isEmpty'), now);
+      assert.equal((await audit({ q: 'Literal %_' })).total, 32);
+      const systems = await audit(query('actorUserId', 'isEmpty'));
       assert.equal(systems.total, 1); assert.equal(systems.rows[0].action, 'system_repair');
       assert.ok(!JSON.stringify(actor.rows).includes('HEAVY_AUDIT_DETAILS'));
-      const excluded = await listAdminAuditLogs(query('actorUserId', 'notEquals', 'Person 00'), now);
+      const excluded = await audit(query('actorUserId', 'notEquals', 'Person 00'));
       assert.equal(excluded.total, 1);
-      const older = await listAdminAuditLogs({ sort: 'createdAt', dir: 'asc', pageSize: '10' }, now);
+      const older = await audit({ sort: 'createdAt', dir: 'asc', pageSize: '10' });
       assert.equal(older.rows[0].id, logs[0]);
       assert.equal(parseAuditQuery({ sort: 'details', page: 'Infinity' }).sort, 'createdAt');
     });
