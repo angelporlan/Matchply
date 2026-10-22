@@ -210,3 +210,17 @@ export function wrapContactItems(items: ContactWidth[], separatorWidth: number, 
   if (current.length) lines.push(current);
   return lines;
 }
+
+/** Two aligned columns beside the portrait; long items keep a full-width row. */
+export function wrapPhotoContactItems(items: ContactWidth[], contentWidth: number, columnGap: number = CV_PHOTO.gap): number[][] {
+  const columnWidth = (contentWidth - columnGap) / 2;
+  const fitsColumn = (index: number) => items[index].textWidth + items[index].iconWidth <= columnWidth;
+  const rows: number[][] = [];
+  for (let index = 0; index < items.length; index++) {
+    if (index + 1 < items.length && fitsColumn(index) && fitsColumn(index + 1)) {
+      rows.push([index, index + 1]);
+      index++;
+    } else rows.push([index]);
+  }
+  return rows;
+}

@@ -8,3 +8,4 @@
 | AC-04 | Cambiar/ocultar foto cambia clave PDF; binario fuera de Markdown/listados | Caché e integración |
 | AC-05 | Otro usuario, solo lectura, generación en curso, cuerpo excesivo y entrada inválida rechazados | Integración y HTTP |
 | AC-06 | Control accesible con cursor, toque y teclado; ES/EN y ambos temas | Recorrido de editor y capturas |
+| AC-07 | Seis contactos cortos ocupan tres filas; los largos recuperan el ancho completo | Helper compartido, posiciones PDF y captura de editor |

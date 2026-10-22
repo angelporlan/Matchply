@@ -12,6 +12,7 @@ import {
   isSkillsSection,
   sanitizePdfText,
   scaleLayout,
+  wrapPhotoContactItems,
 } from '@/lib/cv-layout';
 
 export type { CVContent, ContactInfo, Entry, Section };
@@ -481,12 +482,27 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
   doc.moveDown(CV_METRICS.nameMoveDown);
   if (photo) {
     const iconSize = layout.contactSize * CV_METRICS.contactIconScale;
-    for (const item of cv.contact) {
-      const icon = showIcons ? getIconType(item.label, item.value) : null;
-      const indent = icon ? iconSize + CV_METRICS.iconGap : 0;
-      if (icon) drawIcon(doc, icon, nameX, doc.y - CV_METRICS.iconLift, iconSize, COLORS.muted);
-      doc.font(ff.regular).fontSize(layout.contactSize).fillColor(COLORS.muted)
-        .text(`${item.label}: ${item.value}`, nameX + indent, doc.y, { width: nameWidth - indent, lineGap: CV_METRICS.contactLineExtra, link: getLinkUrl(item.value, item.label) ?? undefined });
+    doc.font(ff.regular).fontSize(layout.contactSize).fillColor(COLORS.muted);
+    const items = cv.contact.map(item => ({
+      textWidth: doc.widthOfString(`${item.label}: ${item.value}`),
+      iconWidth: showIcons && getIconType(item.label, item.value) ? iconSize + CV_METRICS.iconGap : 0,
+    }));
+    const rows = wrapPhotoContactItems(items, nameWidth);
+    const columnWidth = (nameWidth - CV_PHOTO.gap) / 2;
+    for (const row of rows) {
+      const rowY = doc.y;
+      let rowBottom = rowY;
+      row.forEach((index, column) => {
+        const item = cv.contact[index];
+        const icon = showIcons ? getIconType(item.label, item.value) : null;
+        const indent = items[index].iconWidth;
+        const x = nameX + column * (columnWidth + CV_PHOTO.gap);
+        const width = row.length === 2 ? columnWidth : nameWidth;
+        if (icon) drawIcon(doc, icon, x, rowY - CV_METRICS.iconLift, iconSize, COLORS.muted);
+        doc.text(`${item.label}: ${item.value}`, x + indent, rowY, { width: width - indent, lineGap: CV_METRICS.contactLineExtra, link: getLinkUrl(item.value, item.label) ?? undefined });
+        rowBottom = Math.max(rowBottom, doc.y);
+      });
+      doc.y = rowBottom;
     }
     doc.y = Math.max(margin + CV_PHOTO.height, doc.y);
   } else drawContactLines(doc, cv.contact, layout, showIcons, cust);

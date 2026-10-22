@@ -15,6 +15,27 @@ test('a photo is embedded only when explicitly supplied and the document remains
   assert.equal((withPhoto.buffer.toString('latin1').match(/\/Subtype \/Image/g) ?? []).length, 1);
   assert.equal(countPdfPages(plain.buffer), 1); assert.equal(countPdfPages(withPhoto.buffer), 1);
 });
+test('short portrait contacts share a row in two columns and long contacts use the full row', async () => {
+  const lines: Array<{ x: number; y: number; text: string }> = [];
+  const original = PDFDocument.prototype._line;
+  PDFDocument.prototype._line = function (this: PDFKit.PDFDocument, text: string, options: any, wrapper: any) {
+    lines.push({ x: this.x, y: this.y, text });
+    return original.call(this, text, options, wrapper);
+  };
+  try {
+    const contacts = '# Candidate\n\n**Email:** candidate@example.test | **Teléfono:** +34 600 000 000 | **Ubicación:** Murcia, España | **LinkedIn:** linkedin.com/in/candidate';
+    await generatePdfBuffer(contacts, { photo });
+    const email = lines.find(line => line.text.includes('Email:'))!, phone = lines.find(line => line.text.includes('Teléfono:'))!;
+    const location = lines.find(line => line.text.includes('Ubicación:'))!, linkedin = lines.find(line => line.text.includes('LinkedIn:'))!;
+    assert.ok(email && phone && location && linkedin);
+    assert.equal(email.y, phone.y); assert.equal(location.y, linkedin.y);
+    assert.ok(phone.x > email.x + 150); assert.ok(location.y > email.y);
+    lines.length = 0;
+    await generatePdfBuffer(contacts.replace('candidate@example.test', 'candidate.with.a.much.longer.professional.address@example.test'), { photo });
+    const longEmail = lines.find(line => line.text.includes('Email:'))!, nextPhone = lines.find(line => line.text.includes('Teléfono:'))!;
+    assert.ok(nextPhone.y > longEmail.y);
+  } finally { PDFDocument.prototype._line = original; }
+});
 test('long photo headers wrap within the text column and move the body below the portrait', async () => {
   const lines: Array<{ x: number; y: number; width: number; text: string }> = [];
   const original = PDFDocument.prototype._line;
@@ -52,6 +73,6 @@ test('long photo CVs never create a page containing only a bullet mark', async (
   try {
     await generatePdfBuffer(markdown + '\n' + '- Coordinación de equipos, planificación y seguimiento de resultados.\n'.repeat(150), { photo });
     assert.ok(pages.size > 1);
-    assert.ok([...pages.values()].every(lines => lines.some(line => line.replace(/\u2022/g, '').trim().length > 0)));
+    assert.ok(Array.from(pages.values()).every(lines => lines.some(line => line.replace(/\u2022/g, '').trim().length > 0)));
   } finally { PDFDocument.prototype._line = original; }
 });

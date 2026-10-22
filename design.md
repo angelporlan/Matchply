@@ -346,6 +346,8 @@ El editor muestra el mismo documento en páginas A4 apiladas, cortadas donde cor
 
 Toolbar neutra, sin relieve en cada icono. Markdown sobrio: no reutilizar púrpura IA para cualquier encabezado. Mostrar «Guardando…», «Guardado» o error real de persistencia.
 
+La foto del CV es opcional y empieza desactivada. Al activarla se usa la foto de la cuenta; el retrato permite subir una sustitución propia por CV con cursor, toque y teclado. La cabecera coloca retrato a la izquierda y nombre/contacto a la derecha. Los contactos cortos se distribuyen en dos columnas alineadas; un dato largo ocupa una fila completa. Hoja editable y PDF comparten esas medidas y cortes.
+
 Hoja PDF blanca también en oscuro, proporciones A4 y estilos propios de plantilla. La hoja usa la misma fuente, los mismos iconos, el cuerpo, los saltos de línea y los saltos de página que el PDF; el zoom de pantalla escala la página y no recompone el texto. Las secciones (Contacto, Experiencia, etc.) están en la columna de revisión. Pulsar una sustituye esa columna por los campos de la sección y un botón para volver; la hoja sigue visible. No abre un segundo documento al lado. El tema de UI nunca recolorea el documento exportado. Zoom accesible, carga neutral, recuperación de errores y consistencia entre vista previa y PDF. Renderizar PDF no es por sí mismo una operación IA.
 
 ### Candidaturas / Postulaciones

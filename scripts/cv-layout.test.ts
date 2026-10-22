@@ -13,6 +13,7 @@ import {
   sanitizePdfText,
   splitSkillItem,
   wrapContactItems,
+  wrapPhotoContactItems,
 } from '@/lib/cv-layout';
 
 test('font line ratios match the embedded Liberation fonts', () => {
@@ -72,4 +73,13 @@ test('contact wrapping keeps the separator off the end of a line', () => {
     wrapContactItems([{ textWidth: 10, iconWidth: 0 }, { textWidth: 10, iconWidth: 0 }], 5, 24),
     [[0], [1]],
   );
+});
+
+test('portrait contacts use two aligned columns only when both items fit', () => {
+  const widths = (values: number[]) => values.map(textWidth => ({ textWidth, iconWidth: 10 }));
+  assert.deepEqual(wrapPhotoContactItems(widths([150, 120, 100, 160, 130, 120]), 420, 20), [[0, 1], [2, 3], [4, 5]]);
+  assert.deepEqual(wrapPhotoContactItems(widths([240, 100, 150, 230, 110]), 420, 20), [[0], [1, 2], [3], [4]]);
+  assert.deepEqual(wrapPhotoContactItems(widths([190, 190]), 420, 20), [[0, 1]]);
+  assert.deepEqual(wrapPhotoContactItems(widths([191, 190]), 420, 20), [[0], [1]]);
+  assert.deepEqual(wrapPhotoContactItems([], 420), []);
 });
