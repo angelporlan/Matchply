@@ -1,5 +1,8 @@
 # Landing, demostraciones y descubrimiento — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: Blog público ES/EN con cuatro artículos por idioma, enlaces desde navegación y pie, fuentes originales y CTA contextual. La URL del blog controla el idioma y su indexación. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F01**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

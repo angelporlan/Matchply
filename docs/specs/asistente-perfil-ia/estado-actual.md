@@ -1,5 +1,8 @@
 # Extracción, entrevista y documento profesional con IA — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: Los prompts de extracción, entrevista, síntesis y pulido sirven a distintas profesiones y conservan la naturaleza real de estudios, prácticas y trabajo. Ejecución y depuración comparten los mismos prompts; no se cambian proveedores. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F11**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

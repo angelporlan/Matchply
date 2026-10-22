@@ -1,5 +1,8 @@
 # Perfil profesional, preferencias y reglas de selección — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: La completitud numérica por tecnologías se sustituye por información disponible y pendiente. Competencias libres con nivel y evidencia declarada, herramientas opcionales y conservación de categorías y preferencias antiguas. El análisis permite confirmar aportaciones sin sobrescribir el perfil. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F10**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

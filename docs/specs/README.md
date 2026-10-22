@@ -16,6 +16,10 @@ Fotografía del código local: **12 de septiembre de 2026**. El análisis es est
 
 Para una funcionalidad nueva, crea una carpeta y copia [PLANTILLA-FUNCIONALIDAD.md](PLANTILLA-FUNCIONALIDAD.md) como `spec.md`; añádela al índice. Si todavía no existe, indícalo como «No implementada» en su ficha de estado actual.
 
+## Continuidad y blog · 22/10/2026
+
+Contrato aprobado e implementación local: [requisitos](continuidad-y-blog/spec.md), [aceptación](continuidad-y-blog/expectations.md), [plan](continuidad-y-blog/plan.md), [evidencias](continuidad-y-blog/evidence.md), [publicación](continuidad-y-blog/release.md) y [evaluación de entrevistas](continuidad-y-blog/interview-evaluation.md). Las fichas afectadas incluyen una actualización que sustituye su fotografía anterior en los puntos modificados.
+
 ## Índice
 
 | ID | Funcionalidad | Qué hace hoy | Tu definición futura |

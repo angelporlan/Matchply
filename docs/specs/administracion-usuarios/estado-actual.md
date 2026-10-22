@@ -1,5 +1,8 @@
 # Administración de usuarios y estadísticas — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: La página de tráfico añade hitos explícitos de candidaturas de los últimos 30 días, denominadores y ausencia de registro. No infiere respuesta de una descarga ni atribuye causalidad a la conversión. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F23**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

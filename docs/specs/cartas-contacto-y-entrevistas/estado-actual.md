@@ -1,5 +1,8 @@
 # Carta de presentación, mensaje de contacto y preparación de entrevista — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: La salida de cartas/mensajes se valida antes de guardar. Hay una reparación como máximo; un resultado inválido no sustituye contenido previo y libera la reserva de uso. Las reglas exigen hechos respaldados. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F16**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.
