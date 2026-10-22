@@ -169,6 +169,25 @@ test('discovery queue publishes scored offers atomically, deduplicates and prote
       assert.equal(snapshot.usage.general.used, 0);
       await assert.rejects(enqueue(id), error => (error as { code?: string }).code === 'QUOTA_EXCEEDED');
     });
+    await t.test('admins reserve and deliver five jobs near and beyond their normal plan allowance', async () => {
+      for (const used of [99, 105]) {
+        const id = await fixtureUser(true);
+        await db.update(users).set({ role: 'admin' }).where(eq(users.id, id));
+        await db.insert(usagePeriods).values({ userId: id, bucket: 'discovery', periodStart: utcUsageMonth(), used });
+        const run = await claimed(id);
+        assert.equal((await getUsageSnapshot(id)).usage.discovery.reserved, 5);
+        const result = await processDiscovery(run, new AbortController().signal, {
+          search: async () => Array.from({ length: 5 }, (_, index) => foundOffer(`admin-${used}-${index}`)), score: scoreAll,
+        });
+        assert.equal(result.added.length, 5);
+        await queue.completeAiJob(run.id, result, run);
+        const snapshot = await getUsageSnapshot(id);
+        assert.equal(snapshot.usage.discovery.used, used + 5);
+        assert.equal(snapshot.usage.discovery.limit, 100);
+        assert.equal(snapshot.usage.discovery.reserved, 0);
+        assert.equal(snapshot.usage.discovery.unlimited, true);
+      }
+    });
     await t.test('discovery usage from a previous UTC month does not spend this month’s allowance', async () => {
       const id = await fixtureUser();
       const previousMonth = utcUsageMonth(); previousMonth.setUTCMonth(previousMonth.getUTCMonth() - 1);

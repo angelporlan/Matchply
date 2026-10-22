@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getPlanRestriction, interpolatePlanCopy, nextPlanTabIndex, quotaState, type QuotaBucketView } from '@/lib/plan-presentation';
+import { getPlanRestriction, interpolatePlanCopy, isQuotaExhausted, nextPlanTabIndex, quotaState, type QuotaBucketView } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 
 const bucket = (patch: Partial<QuotaBucketView> = {}): QuotaBucketView => ({ used: 0, reserved: 0, limit: 10, remaining: 10, resetAt: null, ...patch });
@@ -10,6 +10,18 @@ test('quota feedback includes work in flight and blocks at zero remaining', () =
   assert.equal(quotaState(bucket({ used: 6, reserved: 2, remaining: 2 })), 'warning');
   assert.equal(quotaState(bucket({ used: 8, reserved: 2, remaining: 0 })), 'exhausted');
   assert.equal(quotaState(bucket({ limit: 0, remaining: 0 })), 'exhausted');
+});
+
+test('admin usage keeps the real plan denominator without exhaustion or warnings', () => {
+  const overLimit = bucket({ used: 495, limit: 300, remaining: 0, unlimited: true });
+  assert.equal(quotaState(overLimit), 'available');
+  assert.equal(isQuotaExhausted(overLimit), false);
+  assert.equal(overLimit.used, 495);
+  assert.equal(overLimit.limit, 300);
+  assert.equal(quotaState(bucket({ used: 299, limit: 300, remaining: 1, unlimited: true })), 'available');
+  assert.equal(isQuotaExhausted(bucket({ limit: 0, remaining: 0, unlimited: true })), false);
+  assert.equal(isQuotaExhausted(bucket({ used: 495, limit: 300, remaining: 0 })), true);
+  assert.equal(isQuotaExhausted(undefined), false);
 });
 
 test('plan failures open quota feedback, while ordinary rate limits and in-flight retries do not upsell', () => {
