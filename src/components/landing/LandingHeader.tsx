@@ -40,7 +40,7 @@ export default function LandingHeader({ isLoggedIn, copy }: { isLoggedIn: boolea
     };
   }, [open]);
 
-  const links = [{ href: '#how-it-works', text: copy.how }, { href: '#pricing', text: copy.pricing }, { href: '#faq', text: copy.faq }];
+  const links = [{ href: '#how-it-works', text: copy.how }, { href: '#pricing', text: copy.pricing }, { href: '#faq', text: copy.faq }, { href: '/blog', text: 'Blog' }];
 
   return (
     <header ref={headerRef} className="sticky top-0 z-40 border-b border-subtle bg-canvas/95 backdrop-blur-sm">
