@@ -102,28 +102,35 @@ async function enqueueVariantGeneration(userId: string, optimizationId: string, 
 }
 
 /** Lock quota/owner before the job. Re-read owner after a guest claim. */
-async function lockPublication(tx: PlanDb, job: AiJob, terminal = false) {
+async function lockPublicationGuard(tx: PlanDb, job: AiJob, terminal = false) {
   await lockCvUser(tx, job.userId);
-  const [operation] = await tx.select().from(usageOperations).where(eq(usageOperations.id, job.usageOperationId!)).limit(1);
+  const [operation] = await tx.select({ id: usageOperations.id, userId: usageOperations.userId, status: usageOperations.status }).from(usageOperations).where(eq(usageOperations.id, job.usageOperationId!)).limit(1);
   if (!operation || !['reserved', 'consumed'].includes(operation.status)) throw new CvOptimizationError('OPERATION_RELEASED');
   if (operation.userId !== job.userId) await lockCvUser(tx, operation.userId);
   const [lease] = await tx.select({ id: aiJobs.id }).from(aiJobs).where(and(eq(aiJobs.id, job.id), eq(aiJobs.status, terminal ? 'failed' : 'running'), eq(aiJobs.attempt, job.attempt), ...(terminal ? [] : [gt(aiJobs.leaseUntil, new Date())]))).for('update').limit(1);
   if (!lease) throw new CvOptimizationError('OPTIMIZATION_LEASE_LOST');
-  const [run] = await tx.select().from(cvOptimizations).where(and(eq(cvOptimizations.id, jobPayload(job).optimizationId), eq(cvOptimizations.userId, operation.userId))).limit(1);
+  const [run] = await tx.select({ id: cvOptimizations.id, cvId: cvOptimizations.cvId }).from(cvOptimizations).where(and(eq(cvOptimizations.id, jobPayload(job).optimizationId), eq(cvOptimizations.userId, operation.userId))).limit(1);
   if (!run) throw new CvOptimizationError('OPTIMIZATION_NOT_FOUND');
-  const [cv] = await tx.select().from(cvs).where(and(eq(cvs.id, run.cvId), eq(cvs.userId, operation.userId))).for('update').limit(1);
+  const [cv] = await tx.select({ id: cvs.id, optimizationId: cvs.optimizationId, pendingUsageOperationId: cvs.pendingUsageOperationId }).from(cvs).where(and(eq(cvs.id, run.cvId), eq(cvs.userId, operation.userId))).for('update').limit(1);
   if (!cv || (jobPayload(job).retry ? cv.optimizationId !== run.id || Boolean(cv.pendingUsageOperationId) : cv.pendingUsageOperationId !== operation.id)) throw new CvOptimizationError('STALE_OPTIMIZATION');
   return { run, cv, ownerId: operation.userId };
 }
 
-async function checkpoint(job: AiJob, update: (tx: PlanDb) => Promise<unknown>) {
-  await db.transaction(async tx => { await lockPublication(tx, job); await update(tx); });
+async function lockPublication(tx: PlanDb, job: AiJob, terminal = false) {
+  const guarded = await lockPublicationGuard(tx, job, terminal);
+  // Source snapshots are needed at admission/finalization, never at every preview chunk.
+  const [run] = await tx.select().from(cvOptimizations).where(eq(cvOptimizations.id, guarded.run.id)).limit(1);
+  return { ...guarded, run };
 }
-export async function readOptimizationProgress(optimizationId: string, stage: OptimizeProgress['stage'], live?: { modes: OptimizeModeId[]; attempt: number }): Promise<OptimizeProgress> {
-  const [run] = await db.select({ cvId: cvOptimizations.cvId }).from(cvOptimizations).where(eq(cvOptimizations.id, optimizationId)).limit(1);
+
+async function checkpoint(job: AiJob, update: (tx: PlanDb) => Promise<unknown>) {
+  await db.transaction(async tx => { await lockPublicationGuard(tx, job); await update(tx); });
+}
+export async function readOptimizationProgress(optimizationId: string, stage: OptimizeProgress['stage'], live?: { modes: OptimizeModeId[]; attempt: number }, tx: PlanDb = db): Promise<OptimizeProgress> {
+  const [run] = await tx.select({ cvId: cvOptimizations.cvId }).from(cvOptimizations).where(eq(cvOptimizations.id, optimizationId)).limit(1);
   if (!run) throw new CvOptimizationError('OPTIMIZATION_NOT_FOUND');
-  const variants = await db.select({ modeId: cvVariants.modeId, status: cvVariants.status, error: cvVariants.error }).from(cvVariants).where(eq(cvVariants.optimizationId, optimizationId));
-  const [preview] = live?.modes.length ? await db.select({ modeId: cvVariants.modeId, content: cvVariants.content }).from(cvVariants)
+  const variants = await tx.select({ modeId: cvVariants.modeId, status: cvVariants.status, error: cvVariants.error }).from(cvVariants).where(eq(cvVariants.optimizationId, optimizationId));
+  const [preview] = live?.modes.length ? await tx.select({ modeId: cvVariants.modeId, content: cvVariants.content }).from(cvVariants)
     .where(and(eq(cvVariants.optimizationId, optimizationId), inArray(cvVariants.modeId, live.modes), eq(cvVariants.status, 'generating'))).limit(1) : [];
   return { stage, cvId: run.cvId, optimizationId, variants: variants as OptimizeProgress['variants'],
     ...(preview ? { preview: { modeId: preview.modeId as OptimizeModeId, content: preview.content, attempt: live!.attempt } } : {}) };
@@ -135,7 +142,7 @@ export async function processCvOptimization(job: AiJob, signal: AbortSignal, cal
   const offer = run.offer as OptimizeOffer;
   const model = resolveModelForFunction(parseAiRuntimeConfig(run.resolvedAiConfig), 'optimize_cv', run.subscriptionStatus === 'active' ? 'pro' : 'free').ref;
   const plan = run.subscriptionStatus === 'active' ? 'pro' : 'free';
-  const progress = async (stage: OptimizeProgress['stage']) => checkpoint(job, async tx => { await tx.update(aiJobs).set({ result: await readOptimizationProgress(run.id, stage) }).where(eq(aiJobs.id, job.id)); });
+  const progress = async (stage: OptimizeProgress['stage']) => checkpoint(job, async tx => { await tx.update(aiJobs).set({ result: await readOptimizationProgress(run.id, stage, undefined, tx) }).where(eq(aiJobs.id, job.id)); });
   let analysis: CvAnalysis;
   if (run.analysis) analysis = validateAnalysis(run.analysis, run.sourceMarkdown, run.sourceProfile);
   else {

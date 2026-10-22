@@ -37,8 +37,15 @@ export async function getAiJob(jobId: string) {
   return job || null;
 }
 
-export async function getAiJobForUser(userId: string, jobId: string) {
-  const [job] = await db.select().from(aiJobs).where(and(
+export const aiJobProgressColumns = {
+  id: aiJobs.id, userId: aiJobs.userId, kind: aiJobs.kind, status: aiJobs.status,
+  payload: aiJobs.payload, result: aiJobs.result, attempt: aiJobs.attempt, lastError: aiJobs.lastError,
+  createdAt: aiJobs.createdAt, completedAt: aiJobs.completedAt,
+};
+export type AiJobProgress = Pick<AiJob, keyof typeof aiJobProgressColumns>;
+
+export async function getAiJobForUser(userId: string, jobId: string): Promise<AiJobProgress | null> {
+  const [job] = await db.select(aiJobProgressColumns).from(aiJobs).where(and(
     eq(aiJobs.id, jobId),
     eq(aiJobs.userId, userId),
   )).limit(1);
@@ -244,6 +251,6 @@ export async function failAiJob(job: AiJob, error: unknown) {
   });
 }
 
-export function isTerminalAiJob(job: AiJob) {
+export function isTerminalAiJob(job: Pick<AiJob, 'status'>) {
   return job.status === 'completed' || job.status === 'failed';
 }

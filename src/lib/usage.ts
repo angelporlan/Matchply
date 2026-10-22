@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, aiRequestUsage, cvs, jobResearchRuns, usageItems, usageOperations, usagePeriods, users, monetizationAssignments, monetizationEvents } from '@/db/schema';
-import { getUserPlan, type PlanDb } from '@/lib/plan-store';
+import { getUserPlan, type PlanDb, type UserPlanContext } from '@/lib/plan-store';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
 import type { QuotaBucketView } from '@/lib/plan-presentation';
 export type UsageBucket = 'general' | 'matching' | 'discovery';
@@ -172,10 +172,11 @@ export async function reconcileUsage() {
     await releaseUsage(tx, operation.id);
   });
 }
-export async function getUsageSnapshot(userId: string) {
-  const { user, config, plan, limits, unlimitedUsage } = await getUserPlan(userId);
+export async function getUsageSnapshot(userId: string, tx: PlanDb = db, resolvedPlan?: UserPlanContext) {
+  const { user, config, plan, limits, unlimitedUsage } = resolvedPlan ?? await getUserPlan(userId, tx);
+  if (user.id !== userId) throw new Error('Unauthorized');
   const start = user.isGuest ? new Date(0) : utcUsageMonth();
-  const periods = await db.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.periodStart, start)));
+  const periods = await tx.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.periodStart, start)));
   const usage = {} as Record<UsageBucket, QuotaBucketView>;
   for (const bucket of ['general', 'matching', 'discovery'] as const) {
     const row = periods.find(p => p.bucket === bucket);

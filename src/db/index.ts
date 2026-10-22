@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { ObservedPool } from '@/lib/observed-pool';
+import { log } from '@/lib/logger';
 import * as schema from './schema';
 
 function resolveDatabaseUrl() {
@@ -17,12 +18,14 @@ const statementTimeoutMs = Math.max(
   Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS || 15_000),
 );
 
-export const pool = new Pool({
+export const pool = new ObservedPool({
   connectionString: resolveDatabaseUrl(),
   max: Math.max(1, Number(process.env.DATABASE_POOL_MAX || 8)),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
   options: `-c statement_timeout=${statementTimeoutMs}`,
+}, durationMs => {
+  if (durationMs >= 25) log({ event: 'database_pool_acquire', durationMs });
 });
 
 export const db = drizzle(pool, { schema });
