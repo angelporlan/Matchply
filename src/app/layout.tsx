@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Outfit } from 'next/font/google';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import type { Language } from '@/lib/i18n/types';
 import SessionChrome from '@/components/session/SessionChrome';
@@ -31,7 +31,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = cookies();
-  const cookieLang = cookieStore.get('lang')?.value;
+  const cookieLang = headers().get('x-matchply-blog-language') || cookieStore.get('lang')?.value;
   const initialLanguage: Language = (cookieLang === 'es' || cookieLang === 'en') ? cookieLang : 'es';
 
   const isDebugEnabled = isAiPromptsDebugEnabled();

@@ -10,10 +10,10 @@ import DashboardClient from './DashboardClient';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
 import { timed } from '@/lib/logger';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams?: { offerId?: string; importCv?: string; importReturn?: string } }) {
   const viewer = await getDashboardViewer();
   if (!viewer) {
-    redirect('/login');
+    redirect(`/login?next=${encodeURIComponent('/dashboard' + (searchParams?.importCv === '1' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(searchParams.offerId || '') ? `?importCv=1&offerId=${searchParams.offerId}` : ''))}`);
   }
 
   const dbUser = viewer.user;
@@ -35,6 +35,7 @@ export default async function DashboardPage() {
       .where(and(eq(jobOffers.userId, userId), isNotNull(jobOffers.cvId)))
       .orderBy(jobOffers.cvId, desc(jobOffers.updatedAt)),
   ]));
+  const [returnOffer] = searchParams?.importCv === '1' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(searchParams.offerId || '') ? await db.select({ id: jobOffers.id }).from(jobOffers).where(and(eq(jobOffers.id, searchParams.offerId!), eq(jobOffers.userId, userId))).limit(1) : [];
   const availablePrompts = publicOptimizeModes();
 
   return (
@@ -48,6 +49,8 @@ export default async function DashboardPage() {
         {/* Sección de Currículums */}
         <DashboardClient
           initialCvs={userCvs}
+          returnOfferId={returnOffer?.id}
+          importOfferMissing={searchParams?.importReturn === 'missing' || (searchParams?.importCv === '1' && !returnOffer)}
           cvTargets={cvTargets}
           isPremium={isPremium}
           isGuest={isGuest}

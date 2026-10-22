@@ -13,6 +13,7 @@ export const ACTIVATION_EMAIL_FOLLOWUP = 'activation_email_followup';
 export type ActivationEmailKind = 'day1_pdf' | 'followup_applied';
 
 export type ActivationEmailPlan = {
+  nextFollowupDate?: Date | null;
   kind: ActivationEmailKind;
   userId: string;
   email: string;
@@ -201,6 +202,7 @@ export function selectActivationEmails(candidates: ActivationEmailCandidate[], n
     if (!due) continue;
     plans.push({
       kind: candidate.kind,
+      ...(candidate.kind === 'followup_applied' ? { nextFollowupDate: candidate.nextFollowupDate } : {}),
       userId: candidate.userId,
       email: candidate.email,
       cvId: candidate.cvId,

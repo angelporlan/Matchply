@@ -131,7 +131,7 @@ export default async function LandingPage() {
         </section>
       </main>
       <footer className="border-t border-subtle bg-surface px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 lg:flex-row lg:items-start"><div><Logo iconSize="sm" textSize="md" /><p className="mt-3 max-w-sm text-sm leading-6 text-text-muted">{copy.footer.tagline}</p><p className="mt-4 text-xs text-text-muted">© {new Date().getFullYear()} Matchply. {copy.footer.rights}</p></div><nav aria-label={copy.footer.label} className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-text-muted">{[['/privacy', copy.footer.privacy], ['/terms', copy.footer.terms], ['/cookies', copy.footer.cookies], ['mailto:matchplyapp@gmail.com', copy.footer.support]].map(([href, label]) => <a key={href} href={href} className="flex min-h-11 items-center hover:text-text hover:underline">{label}</a>)}</nav></div>
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 lg:flex-row lg:items-start"><div><Logo iconSize="sm" textSize="md" /><p className="mt-3 max-w-sm text-sm leading-6 text-text-muted">{copy.footer.tagline}</p><p className="mt-4 text-xs text-text-muted">© {new Date().getFullYear()} Matchply. {copy.footer.rights}</p></div><nav aria-label={copy.footer.label} className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-text-muted">{[['/blog', 'Blog'], ['/privacy', copy.footer.privacy], ['/terms', copy.footer.terms], ['/cookies', copy.footer.cookies], ['mailto:matchplyapp@gmail.com', copy.footer.support]].map(([href, label]) => <a key={href} href={href} className="flex min-h-11 items-center hover:text-text hover:underline">{label}</a>)}</nav></div>
       </footer>
     </div>
   );

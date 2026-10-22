@@ -189,6 +189,11 @@ export async function deliverActivationEmail(plan: ActivationEmailPlan) {
   if (!isActivationEmailEnabled(env)) {
     throw new Error('activation_email_disabled');
   }
+  // Revalidate immediately before sending: candidates may have changed since loading.
+  if (plan.kind === 'followup_applied') {
+    const [current] = await db.select({ status: jobOffers.status, date: jobOffers.nextFollowupDate }).from(jobOffers).where(and(eq(jobOffers.id, plan.offerId!), eq(jobOffers.userId, plan.userId))).limit(1);
+    if (!current || current.status !== 'applied' || !current.date || current.date.getTime() !== plan.nextFollowupDate?.getTime()) return;
+  }
   const appUrl = (env.NEXTAUTH_URL || env.APP_URL || '').replace(/\/$/, '');
   const secret = env.NEXTAUTH_SECRET || '';
   const message = buildActivationEmail({

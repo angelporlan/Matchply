@@ -89,6 +89,7 @@ export const UMAMI_CONVERSION_EVENTS = [
   'cv_downloaded',
   'offer_pasted',
   'diff_viewed',
+  'blog_cta_clicked',
 ] as const;
 
 export type UmamiConversionEvent = typeof UMAMI_CONVERSION_EVENTS[number];
