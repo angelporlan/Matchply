@@ -10,6 +10,9 @@ for (const profile of profiles) test(`authenticated lightweight pages: ${profile
     expect(response?.status()).toBe(200);
     expect(page.url()).not.toContain('/login');
     await expect(page.locator(route.startsWith('/editor/') ? '[contenteditable="true"]' : 'main').first()).toBeVisible();
+    if (route === '/dashboard' && profile !== 'small') {
+      await expect.poll(() => page.locator('main img[src^="data:image/"]').count()).toBeGreaterThanOrEqual(3);
+    }
     if (!route.startsWith('/editor/')) expect(await response!.text()).not.toMatch(/HEAVY_REPORT_SENTINEL|HEAVY_DESCRIPTION_SENTINEL|## Experiencia Profesional/);
   }
   expect(hydration).toEqual([]);

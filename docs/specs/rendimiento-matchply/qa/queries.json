@@ -1,0 +1,1258 @@
+{
+  "baseline": {
+    "build": "d0dfcc2",
+    "node": "v20.20.2",
+    "date": "2026-10-22T12:14:27.485Z",
+    "data": [
+      {
+        "profile": "small",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 0.4020829999999478,
+        "p95Ms": 1.2814169999999194,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.011,
+            "executionMs": 0.014,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 1,
+            "totalCost": 8.18
+          },
+          {
+            "planningMs": 0.025,
+            "executionMs": 0.029,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 1,
+            "totalCost": 24.52
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.7411670000000186,
+        "p95Ms": 1.2043750000000273,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.016,
+            "executionMs": 0.01,
+            "sharedHitBlocks": 4,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.54
+          },
+          {
+            "planningMs": 0.039,
+            "executionMs": 0.038,
+            "sharedHitBlocks": 28,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 8,
+            "totalCost": 91.16
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.5649999999999409,
+        "p95Ms": 0.8679580000000442,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.019,
+            "executionMs": 0.011,
+            "sharedHitBlocks": 4,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.53
+          },
+          {
+            "planningMs": 0.162,
+            "executionMs": 0.114,
+            "sharedHitBlocks": 10,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 2,
+            "totalCost": 40.99
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.8035409999999956,
+        "p95Ms": 1.2699999999999818,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.059,
+            "executionMs": 0.024,
+            "sharedHitBlocks": 25,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 31.42
+          },
+          {
+            "planningMs": 0.093,
+            "executionMs": 0.247,
+            "sharedHitBlocks": 59,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 10,
+            "totalCost": 187.86
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 0.97362499999997,
+        "p95Ms": 1.1539579999999887,
+        "selects": 3,
+        "plans": [
+          {
+            "planningMs": 0.019,
+            "executionMs": 0.01,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.5
+          },
+          {
+            "planningMs": 0.116,
+            "executionMs": 0.092,
+            "sharedHitBlocks": 73,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 10,
+            "totalCost": 272.61
+          },
+          {
+            "planningMs": 0.057,
+            "executionMs": 0.026,
+            "sharedHitBlocks": 33,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 10,
+            "totalCost": 32.62
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 1.0265419999999494,
+        "p95Ms": 1.8921249999999645,
+        "selects": 8,
+        "plans": [
+          {
+            "planningMs": 0.019,
+            "executionMs": 0.024,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.004,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.009,
+            "executionMs": 0.003,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.019,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 0.4158750000000282,
+        "p95Ms": 0.4874999999999545,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.011,
+            "executionMs": 0.024,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 20,
+            "totalCost": 9.99
+          },
+          {
+            "planningMs": 0.026,
+            "executionMs": 0.268,
+            "sharedHitBlocks": 23,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 20,
+            "totalCost": 265.32
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.6624590000000126,
+        "p95Ms": 0.7929579999999987,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.018,
+            "executionMs": 0.047,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 16.55
+          },
+          {
+            "planningMs": 0.042,
+            "executionMs": 0.199,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 253.24
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.6043329999999969,
+        "p95Ms": 0.7818750000000136,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.016,
+            "executionMs": 0.034,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 15.79
+          },
+          {
+            "planningMs": 0.038,
+            "executionMs": 0.084,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 326.83
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.8300000000000409,
+        "p95Ms": 0.9422920000000659,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.055,
+            "executionMs": 0.175,
+            "sharedHitBlocks": 24,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 56.93
+          },
+          {
+            "planningMs": 0.091,
+            "executionMs": 0.424,
+            "sharedHitBlocks": 105,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 460.6
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 1.112083999999868,
+        "p95Ms": 1.2463330000000497,
+        "selects": 3,
+        "plans": [
+          {
+            "planningMs": 0.018,
+            "executionMs": 0.043,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 14.29
+          },
+          {
+            "planningMs": 0.098,
+            "executionMs": 0.283,
+            "sharedHitBlocks": 187,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 756.29
+          },
+          {
+            "planningMs": 0.044,
+            "executionMs": 0.072,
+            "sharedHitBlocks": 87,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 25,
+            "totalCost": 100.48
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 0.8163750000001073,
+        "p95Ms": 1.1057089999999334,
+        "selects": 8,
+        "plans": [
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.006,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.009,
+            "executionMs": 0.003,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 2.168792000000167,
+        "p95Ms": 2.36462500000016,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.031,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 100,
+            "totalCost": 13.08
+          },
+          {
+            "planningMs": 0.02,
+            "executionMs": 2.229,
+            "sharedHitBlocks": 221,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 100,
+            "totalCost": 672.07
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.7774999999999181,
+        "p95Ms": 0.8683750000000146,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.017,
+            "executionMs": 0.387,
+            "sharedHitBlocks": 27,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 154.79
+          },
+          {
+            "planningMs": 0.034,
+            "executionMs": 0.111,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 250.74
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.7435829999999441,
+        "p95Ms": 0.8165000000001328,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.022,
+            "executionMs": 0.242,
+            "sharedHitBlocks": 27,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 147.29
+          },
+          {
+            "planningMs": 0.038,
+            "executionMs": 0.081,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 255.51
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.807207999999946,
+        "p95Ms": 0.9063750000000255,
+        "selects": 2,
+        "plans": [
+          {
+            "planningMs": 0.048,
+            "executionMs": 0.176,
+            "sharedHitBlocks": 24,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 56.93
+          },
+          {
+            "planningMs": 0.08,
+            "executionMs": 0.319,
+            "sharedHitBlocks": 130,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 462.85
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 2.353582999999844,
+        "p95Ms": 3.1962499999999636,
+        "selects": 3,
+        "plans": [
+          {
+            "planningMs": 0.019,
+            "executionMs": 0.354,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 128.29
+          },
+          {
+            "planningMs": 0.099,
+            "executionMs": 1.495,
+            "sharedHitBlocks": 281,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 948.99
+          },
+          {
+            "planningMs": 0.046,
+            "executionMs": 0.158,
+            "sharedHitBlocks": 68,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 25,
+            "totalCost": 181.02
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 0.8027090000000499,
+        "p95Ms": 1.1048339999999826,
+        "selects": 8,
+        "plans": [
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.009,
+            "executionMs": 0.006,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.009,
+            "executionMs": 0.003,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.006,
+            "executionMs": 0.008,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          }
+        ]
+      }
+    ]
+  },
+  "candidate": {
+    "build": "c0eef47",
+    "node": "v20.20.2",
+    "date": "2026-10-22T12:14:28.622Z",
+    "data": [
+      {
+        "profile": "small",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 0.38920799999999645,
+        "p95Ms": 1.4964580000000183,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.07445338333333211,
+        "plans": [
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.013,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 1,
+            "totalCost": 8.18
+          },
+          {
+            "planningMs": 0.023,
+            "executionMs": 0.019,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 1,
+            "totalCost": 24.52
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.7244160000000193,
+        "p95Ms": 1.0496669999999995,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.006022849999998432,
+        "plans": [
+          {
+            "planningMs": 0.017,
+            "executionMs": 0.01,
+            "sharedHitBlocks": 4,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.54
+          },
+          {
+            "planningMs": 0.042,
+            "executionMs": 0.056,
+            "sharedHitBlocks": 28,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 8,
+            "totalCost": 91.16
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.5921669999999608,
+        "p95Ms": 0.8200840000000085,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.006542366666663687,
+        "plans": [
+          {
+            "planningMs": 0.021,
+            "executionMs": 0.012,
+            "sharedHitBlocks": 4,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.53
+          },
+          {
+            "planningMs": 0.045,
+            "executionMs": 0.038,
+            "sharedHitBlocks": 10,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 2,
+            "totalCost": 40.99
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.7813750000000255,
+        "p95Ms": 0.9122499999999718,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.005400000000000205,
+        "plans": [
+          {
+            "planningMs": 0.061,
+            "executionMs": 0.029,
+            "sharedHitBlocks": 25,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 31.42
+          },
+          {
+            "planningMs": 0.092,
+            "executionMs": 0.271,
+            "sharedHitBlocks": 59,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 10,
+            "totalCost": 187.86
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 0.9873750000000427,
+        "p95Ms": 1.3428329999999846,
+        "selects": 3,
+        "meanPoolAcquireMs": 0.005036555555553453,
+        "plans": [
+          {
+            "planningMs": 0.02,
+            "executionMs": 0.01,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 4.5
+          },
+          {
+            "planningMs": 0.103,
+            "executionMs": 0.107,
+            "sharedHitBlocks": 73,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 10,
+            "totalCost": 272.61
+          },
+          {
+            "planningMs": 0.049,
+            "executionMs": 0.026,
+            "sharedHitBlocks": 33,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 10,
+            "totalCost": 32.62
+          }
+        ]
+      },
+      {
+        "profile": "small",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 0.7807920000000195,
+        "p95Ms": 1.1563340000000153,
+        "selects": 5,
+        "meanPoolAcquireMs": 0.018147473333329646,
+        "plans": [
+          {
+            "planningMs": 0.015,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.006,
+            "executionMs": 0.008,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.007,
+            "executionMs": 0.003,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Seq Scan",
+            "actualRows": 0,
+            "totalCost": 2.05
+          },
+          {
+            "planningMs": 0.011,
+            "executionMs": 0.014,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 1,
+            "totalCost": 8.18
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 0,
+            "totalCost": 8.17
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 0.4306250000000773,
+        "p95Ms": 0.48679200000003675,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.039638183333342646,
+        "plans": [
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.015,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 20,
+            "totalCost": 9.99
+          },
+          {
+            "planningMs": 0.02,
+            "executionMs": 0.184,
+            "sharedHitBlocks": 23,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 20,
+            "totalCost": 265.32
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.7029170000000704,
+        "p95Ms": 0.928792000000044,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.004999966666665993,
+        "plans": [
+          {
+            "planningMs": 0.017,
+            "executionMs": 0.047,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 16.55
+          },
+          {
+            "planningMs": 0.035,
+            "executionMs": 0.119,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 253.24
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.6170419999999694,
+        "p95Ms": 0.7017500000000609,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.004968066666666952,
+        "plans": [
+          {
+            "planningMs": 0.017,
+            "executionMs": 0.036,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 15.79
+          },
+          {
+            "planningMs": 0.034,
+            "executionMs": 0.094,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 326.83
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.8345839999999498,
+        "p95Ms": 0.9631249999999909,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.004554116666666156,
+        "plans": [
+          {
+            "planningMs": 0.052,
+            "executionMs": 0.17,
+            "sharedHitBlocks": 24,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 56.93
+          },
+          {
+            "planningMs": 0.079,
+            "executionMs": 0.324,
+            "sharedHitBlocks": 105,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 460.6
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 1.1892910000000256,
+        "p95Ms": 1.3659999999999854,
+        "selects": 3,
+        "meanPoolAcquireMs": 0.005197211111115192,
+        "plans": [
+          {
+            "planningMs": 0.019,
+            "executionMs": 0.042,
+            "sharedHitBlocks": 3,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 14.29
+          },
+          {
+            "planningMs": 0.097,
+            "executionMs": 0.326,
+            "sharedHitBlocks": 187,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 756.29
+          },
+          {
+            "planningMs": 0.051,
+            "executionMs": 0.075,
+            "sharedHitBlocks": 87,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 25,
+            "totalCost": 100.48
+          }
+        ]
+      },
+      {
+        "profile": "medium",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 0.6626659999999447,
+        "p95Ms": 0.7969999999999118,
+        "selects": 5,
+        "meanPoolAcquireMs": 0.012953593333332568,
+        "plans": [
+          {
+            "planningMs": 0.022,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.008,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.006,
+            "executionMs": 0.002,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Seq Scan",
+            "actualRows": 0,
+            "totalCost": 2.05
+          },
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.02,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 20,
+            "totalCost": 9.99
+          },
+          {
+            "planningMs": 0.007,
+            "executionMs": 0.009,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 0,
+            "totalCost": 8.17
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "dashboard",
+        "samples": 30,
+        "p50Ms": 2.1879579999999805,
+        "p95Ms": 2.7027500000000373,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.02997491666666292,
+        "plans": [
+          {
+            "planningMs": 0.011,
+            "executionMs": 0.033,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 100,
+            "totalCost": 13.08
+          },
+          {
+            "planningMs": 0.021,
+            "executionMs": 2.367,
+            "sharedHitBlocks": 221,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 100,
+            "totalCost": 672.07
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "applications",
+        "samples": 30,
+        "p50Ms": 0.83400000000006,
+        "p95Ms": 1.0884170000000495,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.0040854166666671665,
+        "plans": [
+          {
+            "planningMs": 0.017,
+            "executionMs": 0.38,
+            "sharedHitBlocks": 27,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 154.79
+          },
+          {
+            "planningMs": 0.033,
+            "executionMs": 0.116,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 250.74
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "archived",
+        "samples": 30,
+        "p50Ms": 0.7426249999999754,
+        "p95Ms": 0.8546249999999418,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.003262483333334861,
+        "plans": [
+          {
+            "planningMs": 0.016,
+            "executionMs": 0.237,
+            "sharedHitBlocks": 27,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 147.29
+          },
+          {
+            "planningMs": 0.034,
+            "executionMs": 0.084,
+            "sharedHitBlocks": 90,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 255.51
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "companies",
+        "samples": 30,
+        "p50Ms": 0.8424999999999727,
+        "p95Ms": 0.9980409999999438,
+        "selects": 2,
+        "meanPoolAcquireMs": 0.0032450500000038573,
+        "plans": [
+          {
+            "planningMs": 0.05,
+            "executionMs": 0.174,
+            "sharedHitBlocks": 24,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 56.93
+          },
+          {
+            "planningMs": 0.096,
+            "executionMs": 0.331,
+            "sharedHitBlocks": 130,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 462.85
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "people",
+        "samples": 30,
+        "p50Ms": 2.3274169999999685,
+        "p95Ms": 2.48762499999998,
+        "selects": 3,
+        "meanPoolAcquireMs": 0.003203255555551247,
+        "plans": [
+          {
+            "planningMs": 0.027,
+            "executionMs": 0.336,
+            "sharedHitBlocks": 7,
+            "sharedReadBlocks": 0,
+            "nodeType": "Aggregate",
+            "actualRows": 1,
+            "totalCost": 128.29
+          },
+          {
+            "planningMs": 0.116,
+            "executionMs": 1.495,
+            "sharedHitBlocks": 281,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 25,
+            "totalCost": 948.99
+          },
+          {
+            "planningMs": 0.053,
+            "executionMs": 0.154,
+            "sharedHitBlocks": 68,
+            "sharedReadBlocks": 0,
+            "nodeType": "Unique",
+            "actualRows": 25,
+            "totalCost": 181.02
+          }
+        ]
+      },
+      {
+        "profile": "large",
+        "name": "usage",
+        "samples": 30,
+        "p50Ms": 0.7204580000000078,
+        "p95Ms": 0.8781250000000682,
+        "selects": 5,
+        "meanPoolAcquireMs": 0.009587493333335716,
+        "plans": [
+          {
+            "planningMs": 0.013,
+            "executionMs": 0.006,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 1.04
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.008,
+            "sharedHitBlocks": 2,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 1,
+            "totalCost": 8.17
+          },
+          {
+            "planningMs": 0.006,
+            "executionMs": 0.002,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Seq Scan",
+            "actualRows": 0,
+            "totalCost": 2.05
+          },
+          {
+            "planningMs": 0.01,
+            "executionMs": 0.041,
+            "sharedHitBlocks": 8,
+            "sharedReadBlocks": 0,
+            "nodeType": "Sort",
+            "actualRows": 100,
+            "totalCost": 13.08
+          },
+          {
+            "planningMs": 0.005,
+            "executionMs": 0.007,
+            "sharedHitBlocks": 1,
+            "sharedReadBlocks": 0,
+            "nodeType": "Limit",
+            "actualRows": 0,
+            "totalCost": 8.17
+          }
+        ]
+      }
+    ]
+  }
+}

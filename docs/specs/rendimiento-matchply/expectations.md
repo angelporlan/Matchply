@@ -2,7 +2,7 @@
 
 | Criterio | Verificación |
 | --- | --- |
-| AC-01 / REQ-01 | ≥3 miniaturas: la tercera espera; duplicados comparten render, abortar un suscriptor conserva los demás; fallo permite reintento. |
+| AC-01 / REQ-01 | ≥3 miniaturas: la tercera espera; duplicados comparten render, abortar un suscriptor conserva los demás; fallo permite reintento. Chromium debe mostrar al menos tres previews reales en cuentas con varios CVs. |
 | AC-02 / REQ-02 | 10 peticiones PDF iguales producen un render; distintas claves son independientes; error limpia pendientes. Cola, timeout, crash y recuperación probados. |
 | AC-03 / REQ-03 | Como máximo una consulta de uso/polling pendiente por pantalla; invalidación durante lectura obtiene resultado fresco; desmontaje no publica datos. |
 | AC-04 / REQ-04 | Escribir y pegar en documento/fuente no calcula LCS oculto; comparación conserva orden y líneas; debug desactivado no consulta endpoint. |

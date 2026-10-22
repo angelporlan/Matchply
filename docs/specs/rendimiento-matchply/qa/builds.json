@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-22",
+  "node": "20.20.2",
+  "next": "14.2.35",
+  "docker": {
+    "architecture": "aarch64",
+    "cpus": 10,
+    "vmMemoryBytes": 8321712128,
+    "webMemoryBytes": 1073741824,
+    "webHeapMiB": 768,
+    "pdfWorkers": 2,
+    "databasePoolMax": 8
+  },
+  "builds": {
+    "baseline": {
+      "commit": "d0dfcc2",
+      "buildId": "9R2SQMlLfDh2Rni0icqrP",
+      "sourceSha256": "4d65a1dd6d96d4998e3a41c8ffe2cdc8b2e72bd78ff8627d2a5d9c952c90086e",
+      "packageLockSha256": "10e510ad7b89f52ded77b92fc3c3807c572c512de661516dd29d3412146b7607",
+      "routes": [
+        "./src/components/editor/EditorCvMenu.tsx",
+        "./src/components/editor/MarkdownEditor.tsx",
+        "./src/components/editor/ResumeSheet.tsx",
+        "./src/components/editor/useCvGenerationAnimation.ts",
+        "┌ ƒ /                                       6.58 kB         148 kB",
+        "├ ƒ /dashboard                              21.5 kB         192 kB",
+        "├ ƒ /dashboard/applications                 20.7 kB         188 kB",
+        "├ ƒ /editor/[cvId]                          45.9 kB         264 kB",
+        "+ First Load JS shared by all               88 kB"
+      ]
+    },
+    "candidate": {
+      "commit": "c0eef47",
+      "buildId": "shvgQxcCLGB24wdfKtC8F",
+      "sourceSha256": "b40caecd5dc37c48160c6cd0ee9ca082c395a124fa3e72b84986f536e33d3fe2",
+      "packageLockSha256": "990efaf5a8b1aaa44f5b313cc8b9ab7827b88a40536eb79c1993e965070efbe3",
+      "routes": [
+        "./src/components/editor/EditorCvMenu.tsx",
+        "./src/components/editor/ResumeSheet.tsx",
+        "./src/components/editor/useCvGenerationAnimation.ts",
+        "┌ ƒ /                                       6.58 kB         148 kB",
+        "├ ƒ /dashboard                              21.6 kB         192 kB",
+        "├ ƒ /dashboard/applications                 21.3 kB         186 kB",
+        "├ ƒ /editor/[cvId]                          47.6 kB         263 kB",
+        "+ First Load JS shared by all               88 kB"
+      ]
+    }
+  }
+}

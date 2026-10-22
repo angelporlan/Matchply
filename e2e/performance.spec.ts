@@ -5,10 +5,14 @@ test('record production navigation timings and resource bytes', async ({ browser
   test.setTimeout(2 * 60 * 60_000);
   const samples = Number(process.env.PERF_SAMPLES || 30);
   const origin = process.env.INTEGRATION_TEST_APP_URL || 'http://127.0.0.1:3100';
+  const selectedProfiles = profiles.filter(profile => !process.env.PERF_PROFILES || process.env.PERF_PROFILES.split(',').includes(profile));
+  const devices = process.env.PERF_DEVICE === 'desktop' ? [false] : process.env.PERF_DEVICE === 'mobile' ? [true] : [false,true];
+  const caches = process.env.PERF_CACHE === 'cold' ? [true] : process.env.PERF_CACHE === 'warm' ? [false] : [true,false];
+  if (!selectedProfiles.length || !Number.isInteger(samples) || samples < 1) throw new Error('Invalid performance selection');
   const data: unknown[] = [];
   const budgets = new Map<string, { count: number; started: number }>();
   let rateLimited = 0;
-  for (const profile of profiles) for (const mobile of [false, true]) {
+  for (const profile of selectedProfiles) for (const mobile of devices) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 } });
     await login(context, profile);
     const page = await context.newPage(); const cdp = await context.newCDPSession(page);
@@ -19,7 +23,8 @@ test('record production navigation timings and resource bytes', async ({ browser
     await cdp.send('Network.enable');
     await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: mobile ? 150 : 20, downloadThroughput: (mobile ? 10 : 50) * 1024 * 1024 / 8, uploadThroughput: 10 * 1024 * 1024 / 8 });
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: mobile ? 4 : 1 });
-    for (const route of routes(profile)) for (const cold of [true, false]) {
+    for (const route of routes(profile).filter(route => !process.env.PERF_ROUTE || route === process.env.PERF_ROUTE)) for (const cold of caches) {
+      if (process.env.PERF_WARM_SERVER === '1') await page.goto(route);
       const timings: number[] = []; let bytes = 0, js = 0;
       for (let sample = 0; sample < samples; sample++) {
         // Keep the product's real PDF rate limit enabled, including cold thumbnail loads.
@@ -44,7 +49,7 @@ test('record production navigation timings and resource bytes', async ({ browser
       data.push({ kind: 'document', profile, mobile, cold, route, samples, p50Ms: timings[Math.floor(samples * .5)], p95Ms: timings[Math.min(samples - 1, Math.ceil(samples * .95) - 1)], meanBytes: bytes / samples, meanJsBytes: js / samples });
       console.log(JSON.stringify({ profile, mobile, cold, route, samples, p50Ms: timings[Math.floor(samples * .5)] }));
     }
-    if (!mobile) {
+    if (!mobile && process.env.PERF_CLIENT_NAV !== '0') {
       await page.goto('/dashboard/applications');
       for (const route of ['/dashboard', '/dashboard/applications']) {
         const times: number[] = []; let rscBytes = 0;
@@ -71,6 +76,7 @@ test('record production navigation timings and resource bytes', async ({ browser
   await testInfo.attach('navigation-metrics', { body: JSON.stringify({
     date: new Date().toISOString(), browser: browser.version(), runnerNode: process.version,
     build: process.env.PERF_BUILD || 'unspecified', serverRuntime: process.env.PERF_SERVER_RUNTIME || 'unspecified',
+    serverPrimed: process.env.PERF_WARM_SERVER === '1',
     desktop: { viewport:[1440,1000], latencyMs:20, downloadMiBits:50, cpuRate:1 },
     mobile: { viewport:[390,844], latencyMs:150, downloadMiBits:10, cpuRate:4 },
     data,

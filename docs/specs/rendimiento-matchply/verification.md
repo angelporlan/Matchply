@@ -41,7 +41,11 @@ Para repetir la referencia, ejecutar el mismo script de consultas sobre un check
 
 Consultas: 30 muestras por escenario y perfil, con una ejecución previa de calentamiento, conteo de lecturas y `EXPLAIN (ANALYZE, BUFFERS)` de SELECTs en las fixtures. Navegador: tres muestras son exploratorias; usar `PERF_SAMPLES=30` para una distribución mayor. El runner respeta el rate limit real de PDF mediante pausas entre grupos y registra separadamente documento frío/repetido y navegación cliente en escritorio.
 
+`cold` vacía la caché HTTP de Chromium; cada `goto` carga un documento nuevo. La repetición conserva assets HTTP, y la navegación cliente conserva el Router Cache y prefetch. El proceso web y la caché de PostgreSQL permanecen calientes; no se presenta esto como arranque frío del servidor.
+
 Ejecutar referencia y candidato secuencialmente, sin builds ni pruebas paralelas. Los resultados del navegador se adjuntan como `navigation-metrics` en el reporte JSON de Playwright. `PERF_OUTPUT_DIR` permite conservar cada ejecución por separado. CI conserva las regresiones durante 14 días; las métricas temporales no son assertions de CI.
+
+Para investigar un caso concreto, se puede restringir con `PERF_PROFILES=small,medium`, `PERF_DEVICE=desktop`, `PERF_CACHE=cold`, `PERF_ROUTE=/dashboard` y `PERF_CLIENT_NAV=0`. `PERF_WARM_SERVER=1` realiza una navegación previa antes de medir; debe aplicarse igual a referencia y candidato. Este fue el seguimiento de diez muestras registrado tras las variaciones de la primera ejecución.
 
 ## Configuración y memoria
 
