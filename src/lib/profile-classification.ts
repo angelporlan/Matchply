@@ -6,7 +6,8 @@ export type ProfileFamily =
   | 'data'
   | 'ai'
   | 'software_other'
-  | 'non_software';
+  | 'non_software'
+  | 'unknown';
 
 export type ProfileSeniority = 'junior' | 'mid' | 'senior' | 'unknown';
 
@@ -35,6 +36,7 @@ const FAMILIES: ProfileFamily[] = [
   'ai',
   'software_other',
   'non_software',
+  'unknown',
 ];
 
 const SENIORITIES: ProfileSeniority[] = ['junior', 'mid', 'senior', 'unknown'];
@@ -44,8 +46,8 @@ const BACKEND_HINTS = /\b(node\.?js|express|nestjs|django|flask|spring|laravel|r
 const MOBILE_HINTS = /\b(android|ios|swift|kotlin|flutter|react native|mobile)\b/i;
 const DATA_HINTS = /\b(pandas|spark|airflow|etl|tableau|power bi|data engineer|data analyst|warehouse|dbt)\b/i;
 const AI_HINTS = /\b(llm|rag|openai|gemini|langchain|machine learning|deep learning|tensorflow|pytorch|nlp|prompt engineering|ai engineer)\b/i;
-const SOFTWARE_HINTS = /\b(javascript|typescript|python|java|php|c\+\+|c#|golang|rust|docker|git|software|desarrollador|developer|programmer|ingenier[oa])\b/i;
-const NON_SOFTWARE_HINTS = /\b(marketing|seo|sem|campaign|copywriting|social media|community manager|sales|comercial|rrhh|recursos humanos)\b/i;
+const SOFTWARE_HINTS = /\b(javascript|typescript|python|java|php|c\+\+|c#|golang|rust|docker|git|software|desarrollador|developer|programmer)\b/i;
+const NON_SOFTWARE_HINTS = /\b(marketing|seo|sem|campaign|copywriting|social media|community manager|sales|comercial|rrhh|recursos humanos|administrativ[oa]|administration|enfermer[oa]|nurse|sanidad|healthcare|docente|teacher|teaching|electricista|electrician|fontaner[oa]|plumber)\b/i;
 
 export function heuristicClassifyCareerProfile(text: string): ProfileClassification {
   const dump = (text || '').trim();
@@ -56,9 +58,12 @@ export function heuristicClassifyCareerProfile(text: string): ProfileClassificat
   const ai = AI_HINTS.test(dump);
   const software = SOFTWARE_HINTS.test(dump) || frontend || backend || mobile || data || ai;
   const nonSoftware = NON_SOFTWARE_HINTS.test(dump);
+  const softwareRole = /\b(desarrollador|developer|programmer|ingenier[oa] de software|software engineer|frontend|backend|full[ -]?stack|data analyst|data engineer|ai engineer|mobile developer|mobile engineer)\b/i.test(dump);
 
-  let family: ProfileFamily = 'software_other';
-  if (software || frontend || backend || mobile || data || ai) {
+  let family: ProfileFamily = 'unknown';
+  if (nonSoftware && !softwareRole) {
+    family = 'non_software';
+  } else if (software && softwareRole) {
     if (ai && !frontend && !backend && !mobile) family = 'ai';
     else if (mobile && !frontend && !backend) family = 'mobile';
     else if (data && !frontend && !backend) family = 'data';
@@ -135,7 +140,8 @@ function summarizeClassification(classification: ProfileClassification): string 
     data: 'Datos',
     ai: 'IA / ML',
     software_other: 'Software',
-    non_software: 'Otro perfil',
+    non_software: 'Perfil profesional',
+    unknown: 'Por determinar',
   };
   const seniorityLabel: Record<ProfileSeniority, string> = {
     junior: 'junior',
@@ -151,48 +157,13 @@ function summarizeClassification(classification: ProfileClassification): string 
 
 export function genericSoftwareInterviewQuestions(
   classification: ProfileClassification,
+  language: 'es' | 'en' = 'es',
 ): InterviewQuestion[] {
-  const stackHint = classification.stackHints.length
-    ? classification.stackHints.slice(0, 3).join(', ')
-    : 'las tecnologías que realmente usas';
-
-  const projectQuestion =
-    classification.seniority === 'junior'
-      ? 'Cuéntame un proyecto (prácticas, freelance, bootcamp o personal) que mejor muestre cómo construyes software. ¿Qué hiciste tú y con qué herramientas?'
-      : 'Describe un proyecto reciente del que estés orgulloso: qué problema resolviste, qué stack usaste y qué impacto tuvo (usuarios, tiempo, dinero, calidad).';
-
-  const stackQuestion =
-    classification.family === 'frontend'
-      ? `¿Con qué stack de interfaz trabajas día a día (frameworks, CSS, testing)? No listes de oído: solo lo que has usado de verdad${classification.stackHints.length ? `, además de ${stackHint}` : ''}.`
-      : classification.family === 'backend'
-        ? `¿Con qué lenguajes, APIs y bases de datos has trabajado de verdad${classification.stackHints.length ? ` (además de ${stackHint})` : ''}?`
-        : `¿Cuál es tu stack real de trabajo (lenguajes, frameworks, bases de datos, cloud)? Quédate en lo que has usado, no en lo que te gustaría ${classification.stackHints.length ? `— ya he visto indicios de ${stackHint}` : ''}.`;
-
-  const targetQuestion =
-    'Si tienes un norte profesional (rol, sector, remoto/ciudad), escríbelo. Si no, déjalo en blanco: usaremos tu experiencia actual tal cual.';
-
+  const es = language === 'es';
   return [
-    {
-      id: 'q1',
-      category: 'stack',
-      question: stackQuestion,
-      hint: 'La IA solo podrá afirmar tecnologías que tú confirmes. Mejor poco y cierto que una lista inflada.',
-      suggestedAnswers: [],
-    },
-    {
-      id: 'q2',
-      category: 'projects',
-      question: projectQuestion,
-      hint: 'Un caso concreto (qué hiciste + con qué + resultado) vale más que diez títulos de puesto.',
-      suggestedAnswers: [],
-    },
-    {
-      id: 'q3',
-      category: 'target',
-      question: targetQuestion,
-      hint: 'Opcional. Si lo rellenas, el documento y el matching se orientan a ese objetivo sin inventar experiencia.',
-      suggestedAnswers: [],
-    },
+    { id: 'q1', category: 'skills', question: es ? '¿Qué competencias o métodos has utilizado realmente y en qué contexto?' : 'Which skills or methods have you actually used, and in what context?', hint: es ? 'Puedes incluir trabajo, formación, prácticas o voluntariado. Las herramientas son opcionales.' : 'Include employment, training, placements or volunteering. Tools are optional.', suggestedAnswers: [] },
+    { id: 'q2', category: 'experience', question: es ? 'Describe una situación concreta: qué necesitaba resolverse, qué hiciste tú y cuál fue el resultado conocido.' : 'Describe a specific situation: what was needed, what you did and the known outcome.', hint: es ? 'No necesitas una cifra si no se midió. Distingue tu contribución de la del equipo.' : 'No number is needed if none was measured. Separate your contribution from the team’s.', suggestedAnswers: [] },
+    { id: 'q3', category: 'target', question: es ? 'Si tienes un objetivo profesional o condiciones preferidas, puedes indicarlos. Es opcional.' : 'If you have a career goal or preferred conditions, you may add them. This is optional.', hint: es ? 'Un objetivo no acredita experiencia.' : 'A goal does not establish experience.', suggestedAnswers: [] },
   ];
 }
 

@@ -23,23 +23,23 @@ const COPY: Record<ProfileEntryKind, {
   move: string;
 }> = {
   experience: {
-    empty: 'Añade las empresas donde has trabajado: puesto, stack y un resultado concreto.',
+    empty: 'Añade tu experiencia: contexto, puesto, contribución y resultado conocido. Indica si fue empleo, prácticas o voluntariado.',
     add: 'Añadir puesto',
     item: 'Puesto',
     title: 'Empresa',
     titlePlaceholder: 'Acme Corp',
-    rolePlaceholder: 'Full Stack Developer',
-    descriptionPlaceholder: 'Qué hiciste en el día a día y con qué tecnologías.',
+    rolePlaceholder: 'Auxiliar de administración',
+    descriptionPlaceholder: 'Qué hiciste, cuál fue tu responsabilidad y en qué contexto.',
     move: 'Mover a proyectos',
   },
   project: {
-    empty: 'Añade proyectos propios o freelance: qué construiste, con qué y qué cambió.',
+    empty: 'Añade proyectos propios, de formación o freelance: qué hiciste y qué resultado conoces.',
     add: 'Añadir proyecto',
     item: 'Proyecto',
     title: 'Nombre',
-    titlePlaceholder: 'Matchply',
-    rolePlaceholder: 'Fundador, Full Stack…',
-    descriptionPlaceholder: 'Problema, qué construiste tú y con qué.',
+    titlePlaceholder: 'Proyecto de formación',
+    rolePlaceholder: 'Participante, coordinador…',
+    descriptionPlaceholder: 'Necesidad, contribución propia y alcance real del proyecto.',
     move: 'Mover a experiencia',
   },
 };
@@ -180,12 +180,12 @@ export default function KeyProjectsEditor({ kind = 'project', projects, onChange
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text mb-1.5">Stack usado</label>
+              <label className="block text-xs font-semibold text-text mb-1.5">Herramientas o métodos (opcional)</label>
               <input
                 value={project.techStack || ''}
                 onChange={(event) => update(index, { techStack: event.target.value })}
                 className={inputClass}
-                placeholder="TypeScript, Node.js, Docker…"
+                placeholder="Solo los que utilizaste realmente"
               />
             </div>
             <div>

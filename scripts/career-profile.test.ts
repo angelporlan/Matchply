@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   addUniqueSkill,
   attachSkillEvidence,
-  computeProfileCompleteness,
+  profileInformationChecklist,
   detectStructuredProfile,
   entriesOfKind,
   extractProjectsFromMarkdown,
@@ -105,24 +105,13 @@ test('detectStructuredProfile hydrates skills with project evidence', () => {
   assert.notEqual(node?.evidence, 'Trayectoria');
 });
 
-test('completeness rewards evidence not just dump length', () => {
-  const empty = computeProfileCompleteness({ bio: BIO });
-  assert.ok(empty.score < 50);
-  assert.ok(empty.missingItems.some((item) => item.section === 'skills'));
-
-  const detected = detectStructuredProfile({ bio: BIO, cvMarkdown: CV });
-  const ready = computeProfileCompleteness({
-    bio: BIO,
-    masterDocument: `${BIO}\n\nProducto propio Matchply en producción con Stripe y Docker.`,
-    curationCriteria: 'Prioriza TypeScript y Node. Penaliza ofertas en inglés.',
-    skills: detected.skills,
-    keyProjects: detected.projects,
-    preferredLocations: 'Remoto, Valencia',
-    preferredWorkplaces: ['remote'],
-    salaryMin: 35000,
-  });
-  assert.ok(ready.score >= 80, `expected >= 80, got ${ready.score}`);
-  assert.equal(ready.level, 'Listo para la IA');
+test('profile checklist describes available evidence without numeric or technology requirements', () => {
+  const empty = profileInformationChecklist({ bio: BIO });
+  assert.equal(empty.find(item => item.section === 'dump')?.present, true);
+  assert.equal(empty.find(item => item.section === 'skills')?.present, false);
+  const checklist = profileInformationChecklist({ bio: 'Formación en enfermería', skills: [{ name: 'Atención al paciente', category: 'other', proficiency: 'used', evidence: 'Prácticas supervisadas en un hospital' }] });
+  assert.equal(checklist.find(item => item.section === 'skills')?.present, true);
+  assert.equal(checklist.find(item => item.section === 'criteria')?.optional, true);
 });
 
 test('formatCareerProfileContext keeps stack even when a master document exists', () => {

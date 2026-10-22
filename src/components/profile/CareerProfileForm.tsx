@@ -541,7 +541,7 @@ export default function CareerProfileForm({
             <div className="space-y-1 max-w-xl">
               <h2 className="text-lg font-bold text-text font-display">Empieza por tu experiencia</h2>
               <p className="text-sm text-text-muted">
-                Sube un CV o pega tu trayectoria. Con eso se crean el documento maestro, el stack y los proyectos.
+                Sube un CV o pega tu trayectoria. Con eso se crean el documento maestro, las competencias y las actividades.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -557,11 +557,11 @@ export default function CareerProfileForm({
               <div className="space-y-4 max-w-3xl">
                 <DictationTextarea
                   id="career-dump"
-                  label="Tu trayectoria, proyectos y tecnologías"
+                  label="Tu trayectoria, formación y actividades"
                   value={bio}
                   onChange={setBio}
                   rows={8}
-                  placeholder="Pega aquí tu CV, el About de LinkedIn o unas notas con puestos, stack y resultados."
+                  placeholder="Pega aquí tu CV, el About de LinkedIn o unas notas con puestos, formación y contribuciones."
                 />
                 <div>
                   <label className="block text-xs font-bold text-text mb-1.5 font-display" htmlFor="career-direction">
@@ -618,7 +618,7 @@ export default function CareerProfileForm({
 
             {autoFilled && (
               <div className="p-4 rounded-[12px] bg-ai-surface border border-ai/20 text-ai-text text-xs font-semibold">
-                Hemos rellenado stack y proyectos desde tu texto. Revisa la prueba de cada tecnología. Los cambios se guardan con la barra de abajo.
+                Hemos extraído competencias y actividades desde tu texto. Revisa la evidencia de cada competencia. Los cambios se guardan con la barra de abajo.
               </div>
             )}
 
@@ -677,8 +677,8 @@ export default function CareerProfileForm({
                       <Layers className="w-4 h-4 stroke-[1.75]" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-bold text-text font-display">Stack con evidencia</h2>
-                      <p className="text-xs text-text-muted">Solo lo que puedes defender. Enlaza cada tecnología a un proyecto o logro.</p>
+                      <h2 className="text-sm font-bold text-text font-display">Competencias con evidencia</h2>
+                      <p className="text-xs text-text-muted">Solo lo que puedes defender. Relaciona cada competencia con una contribución real.</p>
                     </div>
                   </div>
                   <button type="button" onClick={handleDetectFromSources} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ai-text">
@@ -748,7 +748,7 @@ export default function CareerProfileForm({
                       type="text"
                       value={targetRolesText}
                       onChange={(event) => setDirection(event.target.value)}
-                      placeholder="Full Stack, AI Engineer…"
+                      placeholder="Administración, ventas, docencia…"
                       className={inputClass}
                     />
                   </div>

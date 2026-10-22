@@ -36,18 +36,6 @@ export type TechStackCategories = {
   database?: string[];
 };
 
-export type ProfileCompletenessItem = {
-  label: string;
-  boost: number;
-  section: string;
-};
-
-export type ProfileCompleteness = {
-  score: number;
-  level: string;
-  missingItems: ProfileCompletenessItem[];
-};
-
 const SKILL_CATEGORIES: SkillCategory[] = [
   'frontend',
   'backend',
@@ -498,57 +486,15 @@ export function hasStructuredProfile(profile: { skills?: unknown; keyProjects?: 
   );
 }
 
-export function computeProfileCompleteness(input: {
-  bio?: string;
-  masterDocument?: string;
-  curationCriteria?: string;
-  skills?: ProfileSkill[];
-  keyProjects?: KeyProject[];
-  preferredLocations?: string;
-  companyPreferences?: string;
-  salaryMin?: number | '' | null;
-  preferredWorkplaces?: string[];
-}): ProfileCompleteness {
-  let score = 0;
-  const missing: ProfileCompletenessItem[] = [];
-
-  if ((input.bio || '').trim().length >= 80) score += 15;
-  else missing.push({ label: '+15% Pega tu experiencia', boost: 15, section: 'dump' });
-
-  if ((input.masterDocument || '').trim().length >= 120) score += 15;
-  else missing.push({ label: '+15% Documento maestro', boost: 15, section: 'master' });
-
-  const skills = input.skills || [];
-  const withEvidence = skills.filter((skill) => (skill.evidence || '').trim().length >= 2);
-  if (skills.length >= 5) score += 20;
-  else missing.push({ label: '+20% Añade tu stack (mín. 5)', boost: 20, section: 'skills' });
-
-  if (withEvidence.length >= 3) score += 15;
-  else missing.push({ label: '+15% Enlaza skills a un logro', boost: 15, section: 'skills' });
-
-  const projects = (input.keyProjects || []).filter(
-    (project) => (project.title || '').trim() && ((project.description || '').trim() || (project.impact || '').trim()),
-  );
-  if (projects.length >= 1) score += 15;
-  else missing.push({ label: '+15% Añade un puesto o un proyecto', boost: 15, section: 'experience' });
-
-  if ((input.curationCriteria || '').trim().length >= 20) score += 10;
-  else missing.push({ label: '+10% Reglas de puntuación', boost: 10, section: 'criteria' });
-
-  const hasPreferences = Boolean(
-    (input.preferredLocations || '').trim()
-    || (input.companyPreferences || '').trim()
-    || (typeof input.salaryMin === 'number' && input.salaryMin > 0)
-    || (input.preferredWorkplaces || []).length > 0,
-  );
-  if (hasPreferences) score += 10;
-  else missing.push({ label: '+10% Ubicación, modalidad o salario', boost: 10, section: 'criteria' });
-
-  let level = 'Básico';
-  if (score >= 80) level = 'Listo para la IA';
-  else if (score >= 50) level = 'A medio camino';
-
-  return { score, level, missingItems: missing };
+export function profileInformationChecklist(input: {
+  bio?: string; masterDocument?: string; skills?: ProfileSkill[]; keyProjects?: KeyProject[];
+  preferredLocations?: string; preferredWorkplaces?: string[]; salaryMin?: number | '' | null;
+}) {
+  return [
+    { section: 'dump', present: Boolean(input.bio?.trim() || input.masterDocument?.trim()), optional: false },
+    { section: 'skills', present: Boolean(input.skills?.some(skill => skill.name.trim() && skill.evidence?.trim()) || input.keyProjects?.some(project => project.description.trim())), optional: false },
+    { section: 'criteria', present: Boolean(input.preferredLocations?.trim() || input.preferredWorkplaces?.length || input.salaryMin), optional: true },
+  ];
 }
 
 function compactProjects(projects: KeyProject[], limit = 3) {
@@ -639,7 +585,7 @@ export const SKILL_CATEGORY_LABELS: Record<SkillCategory, string> = {
   ai_ml: 'IA',
   cloud_devops: 'Cloud / DevOps',
   database: 'Datos',
-  other: 'Otra',
+  other: 'Competencias',
 };
 
 export const SKILL_PROFICIENCY_LABELS: Record<SkillProficiency, string> = {
