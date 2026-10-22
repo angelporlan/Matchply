@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-22",
+  "candidateCode": "c0eef47",
+  "unit": {
+    "pass": 438,
+    "fail": 0,
+    "skipped": 23
+  },
+  "integration": {
+    "pass": 141,
+    "fail": 0,
+    "skipped": 0
+  },
+  "poolOne": {
+    "pass": 12,
+    "fail": 0,
+    "skipped": 0
+  },
+  "migration": {
+    "pass": 1,
+    "fail": 0,
+    "skipped": 0
+  },
+  "http": {
+    "pass": 3,
+    "fail": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "expected": 8,
+    "unexpected": 0,
+    "skipped": 0
+  },
+  "operator": {
+    "pass": 9
+  },
+  "lintWarnings": 4
+}

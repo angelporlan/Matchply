@@ -47,5 +47,74 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: Required database integrations (no skips)
+        run: npm run test:integration
+        env:
+          INTEGRATION_TEST_DATABASE_URL: postgresql://postgres:ci_only@127.0.0.1:5432/matchply_test
+      - name: Optimization with a single database connection
+        run: npm run test:integration:single-connection
+        env:
+          INTEGRATION_TEST_DATABASE_URL: postgresql://postgres:ci_only@127.0.0.1:5432/matchply_test
+      - name: Isolated migration fixture
+        run: |
+          node --input-type=module -e "import pg from 'pg'; const c = new pg.Client({connectionString:process.env.DATABASE_URL}); await c.connect(); await c.query('CREATE DATABASE matchply_migration_test'); await c.end();"
+          DATABASE_URL=postgresql://postgres:ci_only@127.0.0.1:5432/matchply_migration_test npm run db:migrate
+          INTEGRATION_TEST_DATABASE_URL=postgresql://postgres:ci_only@127.0.0.1:5432/matchply_migration_test npm run test:integration:migration
       - run: python3 -m unittest discover -s scripts/deploy -p '*_test.py'
       - run: npm run build
+  browser:
+    name: standalone browser regression
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_only
+          POSTGRES_DB: matchply_browser_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:ci_only@127.0.0.1:5432/matchply_browser_test
+      INTEGRATION_TEST_DATABASE_URL: postgresql://postgres:ci_only@127.0.0.1:5432/matchply_browser_test
+      INTEGRATION_TEST_APP_URL: http://127.0.0.1:3100
+      NEXTAUTH_URL: http://127.0.0.1:3100
+      NEXTAUTH_SECRET: ci-browser-placeholder-not-a-production-secret
+      AUTH_TRUST_HOST: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run db:migrate
+      - run: npm run build
+      - name: Start standalone on Node 20 and verify HTTP contracts
+        run: |
+          mkdir -p .next/standalone/public .next/standalone/.next/static .next/standalone/dist
+          cp -R public/. .next/standalone/public/
+          cp -R .next/static/. .next/standalone/.next/static/
+          cp -R dist/. .next/standalone/dist/
+          (cd .next/standalone && PORT=3100 HOSTNAME=127.0.0.1 node server.js > /tmp/matchply-browser.log 2>&1 &)
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:3100/api/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3100/api/health
+          npm run test:http
+      - run: npm run perf:seed
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --project=regression
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-regression
+          path: test-results/
+          retention-days: 14

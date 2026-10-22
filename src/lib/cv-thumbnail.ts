@@ -47,6 +47,7 @@ export function renderCvThumbnail(
   width = 560,
   signal?: AbortSignal,
 ): Promise<string> {
+  if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
   const key = cvThumbnailKey(cvId, version);
   const cached = THUMB_CACHE.get(key);
   if (cached) return Promise.resolve(cached);
@@ -59,14 +60,22 @@ export function renderCvThumbnail(
 
   let aborted = false;
   let destroy: (() => void) | null = null;
+  let resolveTask!: (value: string) => void;
+  let rejectTask!: (error: unknown) => void;
+  // Subscribers must keep the same promise while this task waits in the queue.
+  const promise = new Promise<string>((resolve, reject) => {
+    resolveTask = resolve;
+    rejectTask = reject;
+  });
   const task: InFlightTask = {
     key,
     subscribers: 1,
     abort: () => {
       aborted = true;
       destroy?.();
+      rejectTask(new DOMException('Aborted', 'AbortError'));
     },
-    promise: Promise.resolve(''),
+    promise,
   };
 
   const render = async () => {
@@ -85,8 +94,8 @@ export function renderCvThumbnail(
       throw new DOMException('Aborted', 'AbortError');
     }
 
-    const doc = await loadingTask.promise;
     try {
+      const doc = await loadingTask.promise;
       if (aborted) throw new DOMException('Aborted', 'AbortError');
       const page = await doc.getPage(1);
       const baseViewport = page.getViewport({ scale: 1 });
@@ -102,19 +111,20 @@ export function renderCvThumbnail(
         void loadingTask.destroy();
       };
       await renderTask.promise;
+      if (aborted) throw new DOMException('Aborted', 'AbortError');
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       rememberThumbnail(key, dataUrl);
       return dataUrl;
     } finally {
-      doc.cleanup();
+      await loadingTask.destroy();
     }
   };
 
   const start = () => {
     activeCount += 1;
-    task.promise = render()
+    void render().then(resolveTask, rejectTask)
       .finally(() => {
-        IN_FLIGHT.delete(key);
+        if (IN_FLIGHT.get(key) === task) IN_FLIGHT.delete(key);
         activeCount -= 1;
         pumpQueue();
       });
@@ -132,13 +142,21 @@ export function renderCvThumbnail(
 
 function subscribe(task: InFlightTask, signal?: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
-    const onAbort = () => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return false;
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
       task.subscribers -= 1;
+      return true;
+    };
+    const onAbort = () => {
+      if (!finish()) return;
       if (task.subscribers <= 0) {
         const queuedIndex = QUEUE.findIndex((item) => item.key === task.key);
         if (queuedIndex >= 0) QUEUE.splice(queuedIndex, 1);
         task.abort();
-        IN_FLIGHT.delete(task.key);
+        if (IN_FLIGHT.get(task.key) === task) IN_FLIGHT.delete(task.key);
       }
       reject(new DOMException('Aborted', 'AbortError'));
     };
@@ -150,12 +168,10 @@ function subscribe(task: InFlightTask, signal?: AbortSignal) {
     signal?.addEventListener('abort', onAbort, { once: true });
     task.promise.then(
       (value) => {
-        signal?.removeEventListener('abort', onAbort);
-        resolve(value);
+        if (finish()) resolve(value);
       },
       (error) => {
-        signal?.removeEventListener('abort', onAbort);
-        reject(error);
+        if (finish()) reject(error);
       },
     );
   });

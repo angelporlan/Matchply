@@ -1,0 +1,29 @@
+{
+  "memorySnapshot": [
+    {
+      "name": "matchply-perf-baseline",
+      "memory": "110.5MiB / 1GiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "matchply-perf-candidate",
+      "memory": "113MiB / 1GiB",
+      "cpu": "0.11%"
+    }
+  ],
+  "state": [
+    "/matchply-perf-baseline OOM=false Restarts=0 Memory=1073741824",
+    "/matchply-perf-candidate OOM=false Restarts=0 Memory=1073741824"
+  ],
+  "pdfWorkers": {
+    "completions": 12,
+    "maxQueueWaitMs": 1,
+    "disabled": 0
+  },
+  "concurrentPreviewFixture": {
+    "selection": "Last 10 preview events for the large synthetic profile, final concurrency regression",
+    "requests": 10,
+    "shared": 9,
+    "cacheHits": 0
+  }
+}

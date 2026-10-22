@@ -1,11 +1,13 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { cvPlanSelections, cvs, cvVariants } from '@/db/schema';
-import { getUserPlan, type PlanDb } from '@/lib/plan-store';
+import { getUserPlan, type PlanDb, type UserPlanContext } from '@/lib/plan-store';
 import { UsageError } from '@/lib/usage';
 export async function lockCvUser(tx: PlanDb, userId: string) { await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${userId}`}))`); }
-export async function getCvAccess(userId: string, tx: PlanDb = db) {
-  const { plan, limits } = await getUserPlan(userId, tx);
+export async function getCvAccess(userId: string, tx: PlanDb = db, resolvedPlan?: UserPlanContext) {
+  const context = resolvedPlan ?? await getUserPlan(userId, tx);
+  if (context.user.id !== userId) throw new Error('Unauthorized');
+  const { plan, limits } = context;
   const rows = await tx.select({ id: cvs.id, title: cvs.title, isBase: cvs.isBase, isPrincipal: cvs.isPrincipal, pendingUsageOperationId: cvs.pendingUsageOperationId }).from(cvs).where(eq(cvs.userId, userId)).orderBy(desc(cvs.updatedAt), desc(cvs.id));
   const [selection] = await tx.select().from(cvPlanSelections).where(eq(cvPlanSelections.userId, userId)).limit(1);
   const bases = rows.filter(cv => cv.isBase);
@@ -16,10 +18,13 @@ export async function getCvAccess(userId: string, tx: PlanDb = db) {
   const baseIds = orderedBases.slice(0, limits.maxBaseCvs ?? bases.length).map(cv => cv.id);
   // Legacy extra base documents remain available in read-only mode, rather than being reclassified.
   const variants = rows.filter(cv => !cv.isBase);
-  const selectedVariants = (selection?.adaptedCvIds ?? []).map(id => variants.find(cv => cv.id === id)).filter((cv): cv is typeof variants[number] => Boolean(cv));
-  const candidates = [...selectedVariants, ...variants.filter(cv => !selectedVariants.some(selected => selected.id === cv.id))];
+  const variantsById = new Map(variants.map(cv => [cv.id, cv]));
+  const selectedVariants = (selection?.adaptedCvIds ?? []).map(id => variantsById.get(id)).filter((cv): cv is typeof variants[number] => Boolean(cv));
+  const selectedIds = new Set(selectedVariants.map(cv => cv.id));
+  const candidates = [...selectedVariants, ...variants.filter(cv => !selectedIds.has(cv.id))];
   const activeIds = [...baseIds, ...candidates.slice(0, limits.maxAdaptedCvs ?? candidates.length).map(cv => cv.id)].slice(0, limits.maxCvs ?? rows.length);
-  return { total: rows.length, max: limits.maxCvs, activeIds, readOnlyIds: rows.filter(cv => !activeIds.includes(cv.id)).map(cv => cv.id), baseCvId: activeIds.includes(baseCvId ?? '') ? baseCvId : activeIds[0] ?? null, cvs: rows };
+  const activeSet = new Set(activeIds);
+  return { total: rows.length, max: limits.maxCvs, activeIds, readOnlyIds: rows.filter(cv => !activeSet.has(cv.id)).map(cv => cv.id), baseCvId: activeSet.has(baseCvId ?? '') ? baseCvId : activeIds[0] ?? null, cvs: rows };
 }
 export async function requireCvCreation(tx: PlanDb, userId: string, input: { isBase?: boolean }) {
   if (input.isBase !== undefined && typeof input.isBase !== 'boolean') throw new UsageError(400, 'INVALID_CV_TYPE', 'Invalid resume category');

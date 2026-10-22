@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useDeferredValue } from 'react';
+import { useState, useEffect, useRef, useDeferredValue, useMemo } from 'react';
 import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
 import {
@@ -349,7 +349,10 @@ export default function MarkdownEditor({
   const [content, setContent] = useState(initialContent);
   const deferredContent = useDeferredValue(content);
   const [mode, setMode] = useState<'visual' | 'markdown' | 'diff'>(forcedMode || 'visual');
-  const [diffLines, setDiffLines] = useState<DiffLine[]>([]);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const diffLines = useMemo<DiffLine[]>(() => mode === 'diff' && originalContent
+    ? computeDiff(originalContent, deferredContent) : [], [mode, originalContent, deferredContent]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingSaveRef = useRef<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
@@ -358,12 +361,6 @@ export default function MarkdownEditor({
   const addedCount = diffLines.filter(l => l.type === 'added').length;
   const removedCount = diffLines.filter(l => l.type === 'removed').length;
 
-  useEffect(() => {
-    if (originalContent) {
-      setDiffLines(computeDiff(originalContent, content));
-    }
-  }, [originalContent, content]);
-  
   // Refs for Markdown editor sync scroll
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -378,7 +375,7 @@ export default function MarkdownEditor({
   useEffect(() => {
     setContent(initialContent);
     onContentChangeRef.current?.(initialContent);
-    if (mode === 'visual' && editableRef.current && document.activeElement !== editableRef.current) {
+    if (modeRef.current === 'visual' && editableRef.current && document.activeElement !== editableRef.current) {
       editableRef.current.innerHTML = mdToHtml(initialContent);
     }
   }, [initialContent]);

@@ -1,0 +1,107 @@
+{
+  "reason": "Repeat the two slower 3-sample dashboard cases with 10 samples and a primed server",
+  "baseline": {
+    "date": "2026-10-22T12:26:28.467Z",
+    "browser": "156.0.8078.4",
+    "runnerNode": "v26.3.0",
+    "build": "d0dfcc2",
+    "serverRuntime": "Node20.20.2",
+    "serverPrimed": true,
+    "desktop": {
+      "viewport": [
+        1440,
+        1000
+      ],
+      "latencyMs": 20,
+      "downloadMiBits": 50,
+      "cpuRate": 1
+    },
+    "mobile": {
+      "viewport": [
+        390,
+        844
+      ],
+      "latencyMs": 150,
+      "downloadMiBits": 10,
+      "cpuRate": 4
+    },
+    "data": [
+      {
+        "kind": "document",
+        "profile": "small",
+        "mobile": false,
+        "cold": true,
+        "route": "/dashboard",
+        "samples": 10,
+        "p50Ms": 401.80000001192093,
+        "p95Ms": 405,
+        "meanBytes": 475369.5,
+        "meanJsBytes": 358833.4
+      },
+      {
+        "kind": "document",
+        "profile": "medium",
+        "mobile": false,
+        "cold": true,
+        "route": "/dashboard",
+        "samples": 10,
+        "p50Ms": 418.7999999821186,
+        "p95Ms": 429.80000001192093,
+        "meanBytes": 504134.2,
+        "meanJsBytes": 372542.6
+      }
+    ]
+  },
+  "candidate": {
+    "date": "2026-10-22T12:26:38.198Z",
+    "browser": "156.0.8078.4",
+    "runnerNode": "v26.3.0",
+    "build": "c0eef47",
+    "serverRuntime": "Node20.20.2",
+    "serverPrimed": true,
+    "desktop": {
+      "viewport": [
+        1440,
+        1000
+      ],
+      "latencyMs": 20,
+      "downloadMiBits": 50,
+      "cpuRate": 1
+    },
+    "mobile": {
+      "viewport": [
+        390,
+        844
+      ],
+      "latencyMs": 150,
+      "downloadMiBits": 10,
+      "cpuRate": 4
+    },
+    "data": [
+      {
+        "kind": "document",
+        "profile": "small",
+        "mobile": false,
+        "cold": true,
+        "route": "/dashboard",
+        "samples": 10,
+        "p50Ms": 388.7999999821186,
+        "p95Ms": 399,
+        "meanBytes": 515035.5,
+        "meanJsBytes": 398248
+      },
+      {
+        "kind": "document",
+        "profile": "medium",
+        "mobile": false,
+        "cold": true,
+        "route": "/dashboard",
+        "samples": 10,
+        "p50Ms": 408.90000000596046,
+        "p95Ms": 427.7999999821186,
+        "meanBytes": 458658,
+        "meanJsBytes": 330442.3
+      }
+    ]
+  }
+}
