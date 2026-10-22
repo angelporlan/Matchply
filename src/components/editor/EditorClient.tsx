@@ -101,7 +101,7 @@ const loadingTipsEn = [
 ];
 
 export default function EditorClient(props: EditorClientProps) {
-  return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
+  return <PlanUsageProvider key={`${props.cv.userId}:${props.isGuest}`}><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
 function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {

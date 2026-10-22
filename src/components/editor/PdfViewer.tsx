@@ -201,16 +201,18 @@ export default function PdfViewer({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     let localUrl: string | null = null;
 
     setLoading(true);
     setErrorTimeout(false);
 
     const timer = setTimeout(() => {
-      if (active && !pdfBlobUrl) setErrorTimeout(true);
+      if (active && !blobUrlRef.current) setErrorTimeout(true);
     }, 7000);
 
     const publishPages = (response: Response) => {
+      if (!active) return;
       const parsed = Number(response.headers.get('X-Pdf-Pages'));
       if (!Number.isFinite(parsed) || parsed < 1) return;
       setPageCount(parsed);
@@ -224,6 +226,7 @@ export default function PdfViewer({
         let response: Response;
         if (preview) {
           response = await fetch('/api/pdf', {
+            signal: controller.signal,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -238,6 +241,7 @@ export default function PdfViewer({
         } else if (streamingContent) {
           const style = styleRef.current;
           response = await fetch('/api/pdf', {
+            signal: controller.signal,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -250,7 +254,7 @@ export default function PdfViewer({
             }),
           });
         } else {
-          response = await fetch(`/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`);
+          response = await fetch(`/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`, { signal: controller.signal });
         }
 
         if (!response.ok) {
@@ -268,9 +272,10 @@ export default function PdfViewer({
         });
         setLoading(false);
       } catch (error) {
+        if (!active || controller.signal.aborted) return;
         console.error('Error fetching PDF preview blob:', error);
         if (active) {
-          if (!pdfBlobUrl) {
+          if (!blobUrlRef.current) {
             setPdfBlobUrl(`/api/pdf?cvId=${cvId}&v=${version}&r=${retryKey}`);
           }
           setLoading(false);
@@ -282,9 +287,10 @@ export default function PdfViewer({
 
     return () => {
       active = false;
+      controller.abort();
       clearTimeout(timer);
     };
-  }, [version, cvId, retryKey, liveKey, isAiStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [version, cvId, retryKey, liveKey, isAiStreaming]);
 
   const handleManualReload = () => {
     setLoading(true);

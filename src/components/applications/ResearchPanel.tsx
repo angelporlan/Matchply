@@ -2,7 +2,7 @@
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, ExternalLink, Loader2, RefreshCw, ShieldAlert, Sparkles } from 'lucide-react';
 
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
@@ -10,6 +10,7 @@ import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 import { ButtonLink } from '@/components/ui/Button';
+import { startSerialPoll } from '@/lib/serial-poll';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 type ResearchData = {
@@ -48,19 +49,19 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    const response = await fetch(`/api/research/${offerId}`, { cache: 'no-store' });
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch(`/api/research/${offerId}`, { cache: 'no-store', signal });
     if (!response.ok) return;
     const body = await response.json();
+    if (signal?.aborted) return;
     setResearch(body.research || null);
     if (body.research && !['queued', 'running'].includes(body.research.status)) refreshPlanUsage();
-  }
+  }, [offerId]);
 
   useEffect(() => {
-    if (!research || !['queued', 'running'].includes(research.status)) return;
-    const timer = window.setInterval(() => { void load(); }, 4_000);
-    return () => window.clearInterval(timer);
-  }, [research?.status, offerId]);
+    if (!['queued', 'running'].includes(research?.status || '')) return;
+    return startSerialPoll(load, 4_000);
+  }, [research?.status, load]);
 
   async function retry() {
     if (loading) return;

@@ -25,7 +25,7 @@ export default async function DashboardLayout({
 
   return (
     <NavigationPendingProvider>
-      <PlanUsageProvider>
+      <PlanUsageProvider key={`${viewer.user.id}:${viewer.impersonation}`}>
       <PlanFeedback />
       <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
         <Sidebar

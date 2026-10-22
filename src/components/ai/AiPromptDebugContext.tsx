@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { isAiPromptsDebugEnabled, parseDebugPromptBody, type AiPromptDebugRequest, type AiPromptDebugResponse } from '@/lib/ai-prompts-debug';
-import AiPromptDebugModal from './AiPromptDebugModal';
+import dynamic from 'next/dynamic';
+const AiPromptDebugModal = dynamic(() => import('./AiPromptDebugModal'));
 
 interface AiPromptDebugContextType {
   inspectOrExecutePrompt: (request: AiPromptDebugRequest) => Promise<boolean>;
@@ -39,9 +40,10 @@ export function AiPromptDebugProvider({
   useEffect(() => {
     if (typeof initialDebugEnabled === 'boolean') {
       setIsDebugEnabled(initialDebugEnabled);
-      if (initialDebugEnabled) return;
+      return;
     }
-    fetch('/api/ai/debug-prompt')
+    const controller = new AbortController();
+    fetch('/api/ai/debug-prompt', { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.enabled) {
@@ -49,13 +51,14 @@ export function AiPromptDebugProvider({
         }
       })
       .catch(() => {});
+    return () => controller.abort();
   }, [initialDebugEnabled]);
 
   const inspectOrExecutePrompt = useCallback(
     async (request: AiPromptDebugRequest): Promise<boolean> => {
-      let enabled = isDebugEnabled || isAiPromptsDebugEnabled();
+      let enabled = typeof initialDebugEnabled === 'boolean' ? initialDebugEnabled : isDebugEnabled || isAiPromptsDebugEnabled();
 
-      if (!enabled) {
+      if (!enabled && typeof initialDebugEnabled !== 'boolean') {
         try {
           const res = await fetch('/api/ai/debug-prompt');
           if (res.ok) {
@@ -102,7 +105,7 @@ export function AiPromptDebugProvider({
         resolverRef.current = resolve;
       });
     },
-    [isDebugEnabled],
+    [isDebugEnabled, initialDebugEnabled],
   );
 
   const handleExecute = () => {
@@ -124,7 +127,7 @@ export function AiPromptDebugProvider({
   return (
     <AiPromptDebugContext.Provider value={{ inspectOrExecutePrompt, isDebugEnabled }}>
       {children}
-      <AiPromptDebugModal
+      {isOpen && <AiPromptDebugModal
         isOpen={isOpen}
         loading={loading}
         error={error}
@@ -132,7 +135,7 @@ export function AiPromptDebugProvider({
         onExecute={handleExecute}
         onCopyAndClose={handleCancelOrClose}
         onCancel={handleCancelOrClose}
-      />
+      />}
     </AiPromptDebugContext.Provider>
   );
 }
