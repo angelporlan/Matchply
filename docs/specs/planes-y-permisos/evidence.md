@@ -54,3 +54,15 @@ Las migraciones y el código están preparados para despliegue; no se desplegó 
 - Suite general: 399 correctas, 17 integraciones omitidas sin sus bases configuradas, cero fallos. Typecheck, lint y build correctos; solo advertencias existentes de hooks.
 - Web local y ambos workers usan el nuevo código. Cuotas persistidas verificadas: Gratis 10 / Pro 100.
 - Revisión visual: contador nuevo, límites visibles en tarjetas Gratis/Pro, español e inglés y presentación móvil/escritorio. [Captura de planes](../candidaturas-para-ti/qa/quota-plans-es-1440.png).
+
+## Uso ilimitado del administrador — 22 de octubre de 2026
+
+Completion gate: PASS para REQ-ADMIN-01/02/03 e INV-ADMIN-01; cambio local sin migración ni despliegue de producción.
+
+- `admin-usage.integration.test.ts`, `ai-usage-integration.test.ts` y `offer-discovery.integration.test.ts`: 35 pruebas correctas, sin omisiones. `plans-integration.test.ts`: otras 16 correctas, sin omisiones. Ejecutadas contra una BD local aislada creada vacía y migrada para esta verificación, sin copiar datos de usuarios.
+- E-ADMIN-01/02: administradores Free y Pro superan las tres bolsas y conservan denominadores, reservas concurrentes, consumo parcial, liberación e idempotencia. Usuarios normales e invitados no heredan la exención; retirar el rol aplica de nuevo la cuota al uso existente. Admin suspendido rechazado. Límites mensuales cero comprobados dentro de una transacción revertida.
+- E-ADMIN-03: discovery reserva y publica cinco candidaturas para admins con 99 y 105 unidades usadas frente a un límite de 100. Los tests previos conservan el bloqueo normal y las búsquedas restringidas al último saldo.
+- E-ADMIN-04: `plan-presentation.test.ts` pasa de fallo reproducido («495 de 300» se trataba como agotado) a siete pruebas correctas. Render HTML de los componentes reales `UsagePanel`, `InlineAllowance` y `SubscriptionCards` en ES/EN con proveedores de datos simulados: mantiene «495 de 300»/«495 of 300», muestra uso ilimitado, conserva el comportamiento del usuario normal y admite denominador cero. Esta comprobación no es una revisión visual en navegador.
+- `npm test`: 412 correctas, 18 integraciones omitidas por faltar sus variables de entorno, cero fallos. La primera ejecución restringida impidió a la prueba de timeout abrir un servidor loopback (`EPERM`); la suite completa pasó al permitir localhost.
+- `npm run typecheck`: correcto. `npm run lint`: correcto con las advertencias previas de hooks. `git diff --check`: correcto.
+- La exención procede únicamente del rol persistido del propietario que consulta `getUserPlan`, no del rol del actor iniciador ni de datos enviados por el cliente. Tamaños de lote, CVs, capacidades del plan, frecuencia y permisos sobre datos conservan sus comprobaciones existentes. No se modifican planes publicados ni facturación.

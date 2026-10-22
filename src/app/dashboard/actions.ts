@@ -1,4 +1,5 @@
 "use server";
+import { profileEvidence } from '@/db/schema';
 
 import { db } from "@/db";
 import { cvs, jobOffers, users } from "@/db/schema";
@@ -326,28 +327,18 @@ export async function saveUserCareerProfileAction(profileData: any): Promise<Act
     const ctx = await requireProductContext();
     const userId = ctx.effectiveUser!.id;
 
-    const [user] = await db
-      .select({ careerProfile: users.careerProfile })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    const currentProfile = (user?.careerProfile as any) || {};
-    const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
-    const normalizedFields = normalizeCareerProfileFields({ ...currentProfile, ...profileFields });
-
-    const updatedProfile = {
-      ...currentProfile,
-      ...normalizedFields,
-      hardConstraints: parseMatchConstraints(normalizedFields),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await db
-      .update(users)
-      .set({
-        careerProfile: updatedProfile,
-      })
-      .where(eq(users.id, userId));
+    const normalizedFields = await db.transaction(async tx => {
+      const [user] = await tx.select({ careerProfile: users.careerProfile }).from(users).where(eq(users.id, userId)).for('update');
+      const currentProfile = (user?.careerProfile as Record<string, unknown>) || {};
+      const { hardConstraints: _ignoredHardConstraints, ...profileFields } = profileData || {};
+      const normalized = normalizeCareerProfileFields({ ...currentProfile, ...profileFields });
+      const contributions = await tx.select({ requirement: profileEvidence.requirement, example: profileEvidence.example }).from(profileEvidence).where(eq(profileEvidence.userId, userId));
+      let master = typeof normalized.masterDocument === 'string' ? normalized.masterDocument : '';
+      for (const fact of contributions) if (!master.includes(fact.example)) master += `${master ? '\n\n' : ''}${fact.requirement}\n${fact.example}`;
+      normalized.masterDocument = master;
+      await tx.update(users).set({ careerProfile: { ...currentProfile, ...normalized, hardConstraints: parseMatchConstraints(normalized), updatedAt: new Date().toISOString() } }).where(eq(users.id, userId));
+      return normalized;
+    });
 
     await createAuditLog("career_profile_update", userId, ctx.effectiveUser!.email || null, {
       hasBio: !!normalizedFields.bio,

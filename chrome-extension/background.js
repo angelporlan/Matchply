@@ -1,5 +1,5 @@
 importScripts('people.js');
-const API_BASE = "http://localhost:3000";
+const API_BASE = "https://matchply.com";
 const INGEST_ENDPOINT = `${API_BASE}/api/extension/linkedin/ingest`;
 const STATUS_ENDPOINT = `${API_BASE}/api/extension/status`;
 
@@ -90,12 +90,45 @@ function listedOffer(raw) {
   };
 }
 
+function linkedInJobsSender(sender) {
+  const source = sender?.url || sender?.tab?.url || "";
+  return /^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//.test(source);
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "read-public-job-html") {
+    (async () => {
+      const jobId = String(message.jobId || "");
+      if (!linkedInJobsSender(sender) || !/^\d{6,}$/.test(jobId)) {
+        sendResponse({ status: 0, type: "error", redirected: false, url: "", html: "" });
+        return;
+      }
+      const url = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${jobId}`;
+      try {
+        const response = await fetch(url, { credentials: "omit", cache: "no-store", redirect: "manual", referrerPolicy: "no-referrer" });
+        let html = "";
+        if (response.type !== "opaqueredirect" && response.status >= 200 && response.status < 300) {
+          html = await response.text();
+          if (html.length > 500000) html = "";
+        }
+        sendResponse({
+          status: response.status,
+          type: response.type || "",
+          redirected: response.redirected === true,
+          url: response.url || "",
+          html,
+        });
+      } catch (_) {
+        sendResponse({ status: 0, type: "error", redirected: false, url: "", html: "" });
+      }
+    })();
+    return true;
+  }
+
   if (message?.type === "capture-linkedin-jobs") {
     (async () => {
       try {
-        const source = sender.url || sender.tab?.url || "";
-        if (!/^https:\/\/(?:[a-z0-9-]+\.)*linkedin\.com\/jobs\//.test(source)) {
+        if (!linkedInJobsSender(sender)) {
           sendResponse({ ok: false, error: "Captura disponible solo en empleos de LinkedIn." });
           return;
         }
@@ -115,6 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let failed = 0;
         let error = "";
         let code = "";
+        const pendingIds = [];
         for (const raw of offers) {
           const payload = listedOffer(raw);
           let response;
@@ -125,7 +159,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               body: JSON.stringify(payload),
             });
           } catch {
-            error = error || "El archivo local no está en marcha.";
+            error = error || "No se pudo conectar con Matchply. Comprueba tu conexión y vuelve a intentarlo.";
             break;
           }
           if (!response.ok) {
@@ -160,6 +194,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               await chrome.storage.local.set({ [key]: { ...previous, offer: true } });
             }
           }
+          if (result.needsDescription && payload.sourceJobId) pendingIds.push(String(payload.sourceJobId));
           if (result.created) created += 1;
           else existing += 1;
         }
@@ -176,6 +211,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           existing,
           failed,
           total: offers.length,
+          pendingIds,
           ...(code ? { code } : {}),
           ...(!ok && error ? { error } : {}),
         });
@@ -311,7 +347,7 @@ async function ensureLinkedInCapture(tabId) {
     if (probe?.result) return;
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: false },
-      files: ["people.js", "job-list.js", "content.js"],
+      files: ["people.js", "job-list.js", "public-description.js", "content.js"],
     });
   } catch (_) {
     // The tab can close or discard before the script is allowed to run.

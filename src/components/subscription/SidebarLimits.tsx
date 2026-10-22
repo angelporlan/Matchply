@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Gauge, ChevronDown, Calendar } from 'lucide-react';
 import { AnimatePresence, LazyMotion, m, domAnimation } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { quotaState, type QuotaBucketView } from '@/lib/plan-presentation';
+import { quotaState } from '@/lib/plan-presentation';
 import { usePlanUsage } from './PlanUsageProvider';
 import { recordPaywallEvent } from './UpgradePaywall';
 
@@ -48,12 +48,12 @@ export default function SidebarLimits() {
   // Active quota buckets
   const quotaBuckets = (['general', 'matching', 'discovery'] as const)
     .map((key) => ({ key, bucket: data.usage[key] }))
-    .filter(({ bucket }) => Boolean(bucket && bucket.limit > 0));
+    .filter(({ bucket }) => Boolean(bucket && (bucket.limit > 0 || bucket.unlimited)));
 
   // Calculated percentage across active quota limits
   const totalQuotaPercent = quotaBuckets.reduce((acc, { bucket }) => {
     const used = (bucket.used || 0) + (bucket.reserved || 0);
-    return acc + Math.min(100, (used / bucket.limit) * 100);
+    return acc + Math.min(100, (used / Math.max(1, bucket.limit)) * 100);
   }, 0);
 
   const calculatedPercent =
@@ -144,9 +144,10 @@ export default function SidebarLimits() {
                       <div
                         className="w-full h-1.5 bg-surface-muted dark:bg-canvas rounded-full overflow-hidden border border-subtle/40"
                         role="progressbar"
-                        aria-valuenow={usedTotal}
+                        aria-valuenow={Math.min(usedTotal, Math.max(1, bucket.limit))}
                         aria-valuemin={0}
-                        aria-valuemax={bucket.limit}
+                        aria-valuemax={Math.max(1, bucket.limit)}
+                        aria-valuetext={t('plans.used', { used: bucket.used, limit: bucket.limit })}
                         aria-label={t(`plans.${key}`)}
                       >
                         <div
@@ -162,7 +163,7 @@ export default function SidebarLimits() {
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-text-muted font-sans">
-                        <span>{t('plans.remaining', { remaining: bucket.remaining })}</span>
+                        <span>{bucket.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: bucket.remaining })}</span>
                         {bucket.reserved > 0 && (
                           <span className="text-[9px] text-amber-500 font-medium">
                             {t('plans.reserved', { reserved: bucket.reserved })}

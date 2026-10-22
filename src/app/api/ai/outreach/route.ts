@@ -133,10 +133,11 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     if (operationId) await db.transaction(tx => releaseUsage(tx, operationId!));
     const response = aiUsageErrorResponse(error); if (response) return response;
-    log({ event: 'outreach_failed', level: 'error', error });
+    log({ event: 'outreach_failed', level: 'error', reason: error.message === 'OUTREACH_INVALID_RESPONSE' ? 'invalid_response' : 'generation_failed' });
     return NextResponse.json({
       success: false,
-      error: error.message || 'Internal Server Error'
+      code: error.message === 'OUTREACH_INVALID_RESPONSE' ? 'OUTREACH_INVALID_RESPONSE' : 'OUTREACH_FAILED',
+      error: error.message === 'OUTREACH_INVALID_RESPONSE' ? 'No se obtuvo un resultado completo. Tu cuota se conserva; puedes reintentar. / No complete result. Your allowance is preserved; retry.' : 'No se pudo generar el contenido. / Content generation failed.'
     }, { status: 500 });
   }
 }

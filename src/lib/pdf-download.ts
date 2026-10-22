@@ -6,7 +6,7 @@ export type PdfDownloadOptions = {
   url: string;
   /** Omit to retain the server's download filename. */
   filename?: string;
-  onDownloaded?: () => void;
+  onDownloaded?: (exportId?: string, exportStatus?: string) => void;
   onForbidden?: () => void;
 };
 
@@ -71,7 +71,7 @@ export function createPdfDownloader(dependencies: PdfDownloadDependencies) {
         }
       }
 
-      options.onDownloaded?.();
+      options.onDownloaded?.(response.headers.get('X-Matchply-Export-Id') || undefined, response.headers.get('X-Matchply-Export-Status') || undefined);
       return 'downloaded';
     } catch {
       return 'failed';

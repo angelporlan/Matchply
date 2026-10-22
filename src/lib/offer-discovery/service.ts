@@ -52,9 +52,9 @@ export async function enqueueDiscovery(userId: string, payload: DiscoverOffersPa
     discoveryApiKey();
     await loadCandidate(userId, tx);
     const id = randomUUID();
-    // Reserve only the remaining delivery slots. Each published offer consumes one slot.
+    // Admins retain a full search; other accounts reserve only remaining plan slots.
     const allowance = await getUsageAllowance(userId, 'discovery', tx);
-    const units = Math.max(1, Math.min(DISCOVERY_MAX_OFFERS, allowance.remaining));
+    const units = allowance.unlimited ? DISCOVERY_MAX_OFFERS : Math.max(1, Math.min(DISCOVERY_MAX_OFFERS, allowance.remaining));
     const operation = await reserveUsage(tx, userId, { bucket: 'discovery', requestId: payload.requestId, action: 'discover_offers', input: payload, jobId: id, units });
     const ref = { provider: 'openai' as const, model: DISCOVERY_MODEL };
     const [job] = await tx.insert(aiJobs).values({ id, userId, initiatedByUserId, kind: 'discover_offers', payload,

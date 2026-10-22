@@ -209,8 +209,37 @@ test('the list reader never clicks, scrolls or calls LinkedIn', () => {
   assert.match(readFileSync('chrome-extension/manifest.json', 'utf8'), /job-list\.js/);
 });
 
+test('the open panel description attaches only to the matching card', () => {
+  const panel = `${'Desarrollar servicios de integración. '.repeat(4)}Mínimo tres años.`;
+  const offers = [
+    { job_id: '4477259122', description: '', sourceMetadata: { captureKind: 'list', postedAt: 'hace 1 hora' } },
+    { job_id: '4477240958', description: 'tarjeta', sourceMetadata: { captureKind: 'list' } },
+    { job_id: '4400000001', description: 'y'.repeat(90), sourceMetadata: { captureKind: 'detail', location: 'Madrid' } },
+  ];
+  const next = jobList.withOpenDescription(offers, '4477259122', `  ${panel}`);
+  assert.equal(next[0].description, panel);
+  assert.equal(next[0].sourceMetadata.captureKind, 'detail');
+  assert.equal(next[0].sourceMetadata.postedAt, 'hace 1 hora');
+  assert.equal(next[1], offers[1]);
+  assert.equal(next[2], offers[2]);
+  assert.equal(next[2].description, 'y'.repeat(90));
+  assert.equal(jobList.withOpenDescription(offers, '4477259122', 'corta'), offers);
+  assert.equal(jobList.withOpenDescription(offers, '12345', panel), offers);
+  assert.equal(jobList.withOpenDescription(offers, 'no-es-un-id', panel), offers);
+  const untouched = jobList.withOpenDescription(offers, '000000', panel);
+  assert.equal(untouched[0], offers[0]);
+  assert.equal(untouched[0].sourceMetadata.captureKind, 'list');
+  const replaced = jobList.withOpenDescription(
+    [{ job_id: '4477259122', description: 'corta', sourceMetadata: { captureKind: 'detail', postedAt: 'ayer' } }],
+    '4477259122',
+    panel,
+  );
+  assert.equal(replaced[0].description, panel);
+  assert.equal(replaced[0].sourceMetadata.postedAt, 'ayer');
+});
+
 test('summary and stub fill keep a real description in place', () => {
-  assert.equal(jobList.summary({ created: 1, existing: 2, failed: 0 }), '1 oferta nueva y 2 ya estaban en Matchply. La descripción completa entra al abrir cada oferta.');
+  assert.equal(jobList.summary({ created: 1, existing: 2, failed: 0 }), '1 oferta nueva y 2 ya estaban en Matchply.');
   assert.equal(jobList.summary({ created: 0, existing: 1, failed: 0 }), '1 ya estaba en Matchply.');
   assert.equal(jobList.summary({ created: 0, existing: 0, failed: 0 }), 'No hay ofertas visibles en la lista.');
   assert.equal(listStubCanTakeDescription({ description: 'Madrid\nJoppy', sourceMetadata: { captureKind: 'list' } }, 'x'.repeat(80)), true);

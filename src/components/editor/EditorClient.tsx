@@ -19,6 +19,7 @@ import { EditorPersistenceContext, useEditorPersistence } from './EditorPersiste
 import { CvVariantConfirm } from './CvVariantConfirm';
 import { useCvGenerationAnimation } from './useCvGenerationAnimation';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
+import { runApplicationCommand } from '@/app/dashboard/applications/actions';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
 import { markApplicationSent } from '@/app/dashboard/applications/actions';
 import {
@@ -45,11 +46,14 @@ import { PlanUsageProvider, usePlanUsage } from '@/components/subscription/PlanU
 import { PlanFeedback, UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { UsagePanel } from '@/components/subscription/UsagePanel';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
+import { CvPhotoControl, useCvPhoto } from './CvPhotoControl';
+import type { CvPhotoState } from '@/lib/cv-photo-types';
 
 interface EditorClientProps {
   cv: CV;
+  initialPhoto?: CvPhotoState;
   isPremium: boolean;
   availablePrompts: {
     id: string;
@@ -100,7 +104,7 @@ export default function EditorClient(props: EditorClientProps) {
   return <PlanUsageProvider><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
-function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
+function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
@@ -125,6 +129,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
 
   const [sessionBase, setSessionBase] = useState<string | null>(null);
   const [sentPromptOpen, setSentPromptOpen] = useState(false);
+  const [sentExportId, setSentExportId] = useState<string | null>(null);
   const [optimization, setOptimization] = useState(initialOptimization);
   const [activeMode, setActiveMode] = useState<OptimizeModeId>(isOptimizeModeId(cv.activeOptimizeMode || '') ? cv.activeOptimizeMode as OptimizeModeId : 'optimize_adapted');
   const [variantBusy, setVariantBusy] = useState(false);
@@ -166,6 +171,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
   const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
+  const photoControl = useCvPhoto(cv.id, initialPhoto ?? { enabled: false, url: null, source: null }, readOnly || isStreaming || variantBusy);
   const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
   const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
   const displayContent = liveGeneration?.content ?? reviewContent;
@@ -485,11 +491,13 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     const mark = sessionStorage.getItem(offerKey);
     const requested = new URLSearchParams(window.location.search).get('sent') === '1';
     if (shouldOpenSentPrompt({ status: linkedOffer.status, mark, requested })) {
+      setSentExportId(sessionStorage.getItem(`matchply_export_cv_${cv.id}`));
       setSentPromptOpen(true);
     }
   }, [linkedOffer?.id, linkedOffer?.status, cv.id]);
 
-  const notePdfDownloaded = () => {
+  const notePdfDownloaded = (exportId?: string) => {
+    setSentExportId(exportId || null);
     const decision = noteDownloadForSentPrompt({
       cvId: cv.id,
       offerId: linkedOffer?.id ?? null,
@@ -501,10 +509,16 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     if (decision.open) setSentPromptOpen(true);
   };
 
-  const closeSentPrompt = (answer: 'yes' | 'no' | 'later') => {
+  const sentCommand = useRef<{ signature: string; id: string }>();
+  const closeSentPrompt = async (answer: 'yes' | 'no' | 'later', withoutDocument = false) => {
+    if (answer === 'yes' && linkedOffer?.id) {
+      const exportId = withoutDocument ? null : sentExportId;
+      if (sentCommand.current?.signature !== String(exportId)) sentCommand.current = { signature: String(exportId), id: crypto.randomUUID() };
+      const result = await markApplicationSent(linkedOffer.id, exportId, sentCommand.current.id);
+      if ('error' in result) { window.alert(language === 'es' ? 'No se pudo registrar el envío. Puedes reintentar.' : 'Could not record submission. You can retry.'); return; }
+    }
     if (linkedOffer?.id) sessionStorage.setItem(sentPromptKey(linkedOffer.id), 'done');
     setSentPromptOpen(false);
-    if (answer === 'yes') void markApplicationSent(linkedOffer!.id);
   };
 
   const revertToBase = async () => {
@@ -515,18 +529,20 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
     await persistence.flush();
   };
 
-  const scheduleStyleSave = () => {
-    if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
-    styleTimerRef.current = setTimeout(async () => {
-      const style = styleRef.current;
+  const styleSaveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const saveStyle = () => {
+    const style = { ...styleRef.current };
+    styleSaveQueue.current = styleSaveQueue.current.catch(() => false).then(async () => {
       setSaveStatus('saving');
       const result = await updateCvStyling(cv.id, style);
-      if (!result.success) {
-        setSaveStatus('error');
-        return;
-      }
-      setSaveStatus((current) => (current === 'saving' ? 'saved' : current));
-    }, 400);
+      setSaveStatus(result.success ? 'saved' : 'error');
+      return Boolean(result.success);
+    });
+    return styleSaveQueue.current;
+  };
+  const scheduleStyleSave = () => {
+    if (styleTimerRef.current) clearTimeout(styleTimerRef.current);
+    styleTimerRef.current = setTimeout(() => { void saveStyle(); }, 400);
   };
 
   const applyStyle = (partial: Partial<{ accentColor: string; fontFamily: string; pageMargin: number; scale: number }>) => {
@@ -581,7 +597,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
 
     if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
     if (!await persistence.flush()) return;
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
     const allCvs = planUsage?.cv.cvs || cvChoices;
     const adaptedCount = allCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
@@ -653,6 +669,8 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             content: text,
+            cvId: cv.id,
+            showPhoto: photoControl.photo.enabled,
             template: templateName,
             accentColor: style.accentColor || null,
             fontFamily: style.fontFamily || 'helvetica',
@@ -677,7 +695,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       clearTimeout(handle);
       controller.abort();
     };
-  }, [reviewContent, accentColor, fontFamily, pageMargin, scale, templateName, isStreaming]);
+  }, [reviewContent, accentColor, fontFamily, pageMargin, scale, templateName, isStreaming, cv.id, photoControl.photo]);
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row transition-colors duration-300 text-text font-sans">
@@ -716,15 +734,29 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
               onGuestDownloadConsumed={() => setGuestCanDownload(false)}
               onDownloaded={notePdfDownloaded}
               className="btn-raised"
-              disabled={isStreaming || variantBusy}
-              beforeDownload={persistence.flush}
+              disabled={isStreaming || variantBusy || photoControl.busy}
+              beforeDownload={async () => {
+                if (!await persistence.flush()) return false;
+                if (styleTimerRef.current) { clearTimeout(styleTimerRef.current); styleTimerRef.current = null; }
+                if (readOnly) return true;
+                return saveStyle();
+              }}
               variantQuery={optimization ? `&optimizationId=${optimization.id}&modeId=${activeMode}` : ''}
             />
+            {linkedOffer && diffBase && <Button variant="secondary" onClick={async () => {
+              const key = `matchply_reviewed_${linkedOffer.id}_${optimization?.id || cv.id}`;
+              let commandId = sessionStorage.getItem(key);
+              if (!commandId) { commandId = crypto.randomUUID(); sessionStorage.setItem(key, commandId); }
+              const result = await runApplicationCommand(linkedOffer.id, { action: 'reviewed', commandId });
+              if ('error' in result) window.alert(language === 'es' ? 'No se pudo registrar la revisión. Puedes reintentar.' : 'Could not record your review. You can retry.');
+              else window.alert(language === 'es' ? 'Revisión registrada.' : 'Review recorded.');
+            }}>{language === 'es' ? 'He revisado la adaptación' : 'I reviewed the tailored CV'}</Button>}
           </div>
         </div>
       </header>
 
       {!readOnly && <EditorFormatBar
+        photoControl={<CvPhotoControl control={photoControl} />}
         fontFamily={fontFamily}
         pageMargin={pageMargin}
         scale={scale}
@@ -819,6 +851,9 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
             {showDocument && (
               <div className="contents" ref={node=>{ if (node) node.inert=Boolean(liveGeneration); }}>
               <ResumeSheet
+                photoUrl={photoControl.photo.enabled ? photoControl.photo.url : null}
+                onPhotoChange={photoControl.choose}
+                photoBusy={photoControl.busy}
                 cvId={cv.id}
                 content={displayContent}
                 fontFamily={fontFamily}
@@ -905,7 +940,10 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
       <CvVariantConfirm mode={confirmVariant} onClose={()=>setConfirmVariant(null)} onConfirm={()=>{ const mode=confirmVariant; setConfirmVariant(null); if (mode) void generateVariant(mode); }} />
       <ApplicationSentPrompt
         open={sentPromptOpen}
-        onYes={() => closeSentPrompt('yes')}
+        context={`${linkedOffer?.title || ''} · ${linkedOffer?.company || ''}`}
+        exportId={sentExportId}
+        hasDocument={Boolean(sentExportId)}
+        onYes={withoutDocument => closeSentPrompt('yes', withoutDocument)}
         onNo={() => closeSentPrompt('no')}
         onDismiss={() => closeSentPrompt('later')}
       />

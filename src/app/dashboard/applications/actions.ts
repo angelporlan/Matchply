@@ -13,7 +13,7 @@ import { enqueueMatchBatchJob } from '@/lib/ai-jobs/queue';
 import { settleAiJob } from '@/lib/ai-jobs/settle';
 import { readCurrentMatchBatchResult } from '@/lib/ai-jobs/match-batch-progress';
 import { aiRequestId } from '@/lib/ai-usage-http';
-import { decideApplicationSent } from "@/lib/application-sent";
+import { applyApplicationCommand, applicationTimeline, deleteOwnedApplication, type ApplicationCommand } from '@/lib/application-continuity';
 import { UsageError } from "@/lib/usage";
 
 function revalidateApplicationPaths(...companyIds: Array<string | null | undefined>) {
@@ -54,87 +54,28 @@ export async function getOwnedJobOffer(offerId: string) {
   }
 }
 
-export async function markApplicationSent(offerId: string) {
+export async function runApplicationCommand(offerId: string, command: ApplicationCommand) {
   try {
     const ctx = await requireApplicationContext();
-    const userId = ctx.effectiveUser!.id;
-    const [offer] = await db
-      .select(jobOfferOwnershipColumns)
-      .from(jobOffers)
-      .where(eq(jobOffers.id, offerId))
-      .limit(1);
-
-    if (!offer || offer.userId !== userId) {
-      throw new Error("Forbidden or Offer not found");
-    }
-    if (offer.status !== "interested") {
-      return { success: true, status: offer.status };
-    }
-
-    const decision = decideApplicationSent("yes");
-    await db
-      .update(jobOffers)
-      .set({
-        status: decision.status,
-        nextFollowupDate: decision.nextFollowupDate,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobOffers.id, offerId));
-
-    await createAuditLog("job_offer_status_change", userId, ctx.effectiveUser!.email || null, {
-      offerId: offer.id,
-      title: offer.title,
-      company: offer.company,
-      oldStatus: offer.status,
-      newStatus: decision.status,
-      source: "application_sent",
-    }, auditActorFields(ctx));
-
-    revalidateApplicationPaths(offer.companyId);
-    return { success: true, status: decision.status };
-  } catch (error: any) {
-    console.error("Error marking application sent:", error);
-    return { error: error.message || "Failed to update status" };
+    const result = await db.transaction(tx => applyApplicationCommand(tx, ctx.effectiveUser!.id, offerId, command));
+    revalidateApplicationPaths();
+    revalidatePath(`/dashboard/applications/offer/${offerId}`);
+    void createAuditLog('job_offer_status_change', ctx.effectiveUser!.id, ctx.effectiveUser!.email || null, { offerId, newStatus: result.status }, auditActorFields(ctx));
+    return { success: true as const, status: result.status, nextFollowupDate: result.nextFollowupDate, nextAction: result.nextAction, followupVersion: result.followupVersion };
+  } catch (error) {
+    log({ event: 'application_command_failed', level: 'warn', error });
+    return { error: error instanceof Error ? error.message : 'UPDATE_FAILED' };
   }
 }
-
+export async function markApplicationSent(offerId: string, exportId?: string | null, commandId?: string) {
+  return runApplicationCommand(offerId, { action: 'sent', exportId, commandId });
+}
 export async function updateJobOfferStatus(offerId: string, newStatus: string) {
-  try {
-    const ctx = await requireApplicationContext();
-    const userId = ctx.effectiveUser!.id;
-
-    const [offer] = await db
-      .select(jobOfferOwnershipColumns)
-      .from(jobOffers)
-      .where(eq(jobOffers.id, offerId))
-      .limit(1);
-
-    if (!offer || offer.userId !== userId) {
-      throw new Error("Forbidden or Offer not found");
-    }
-
-    await db
-      .update(jobOffers)
-      .set({
-        status: newStatus,
-        updatedAt: new Date()
-      })
-      .where(eq(jobOffers.id, offerId));
-
-    await createAuditLog("job_offer_status_change", userId, ctx.effectiveUser!.email || null, {
-      offerId: offer.id,
-      title: offer.title,
-      company: offer.company,
-      oldStatus: offer.status,
-      newStatus
-    }, auditActorFields(ctx));
-
-    revalidatePath("/dashboard/applications");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error updating offer status:", error);
-    return { error: error.message || "Failed to update status" };
-  }
+  return runApplicationCommand(offerId, { status: newStatus });
+}
+export async function getApplicationTimeline(offerId: string, page = 0) {
+  const ctx = await requireApplicationContext();
+  return applicationTimeline(ctx.effectiveUser!.id, offerId, page);
 }
 
 export async function updateJobOfferCv(offerId: string, cvId: string | null) {
@@ -185,9 +126,9 @@ export async function deleteJobOffer(offerId: string) {
       throw new Error("Forbidden or Offer not found");
     }
 
-    await db.delete(jobOffers).where(eq(jobOffers.id, offerId));
+    await deleteOwnedApplication(userId, offerId);
 
-    await createAuditLog("job_offer_delete", userId, ctx.effectiveUser!.email || null, {
+    void createAuditLog("job_offer_delete", userId, ctx.effectiveUser!.email || null, {
       offerId: offer.id,
       title: offer.title,
       company: offer.company

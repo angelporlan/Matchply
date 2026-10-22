@@ -20,10 +20,11 @@ export type PdfCacheInput = {
   fontFamily: string;
   pageMargin: number;
   fontSize: number;
+  photoHash?: string | null;
 };
 
 export function pdfCacheKey(input: PdfCacheInput) {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+  return createHash('sha256').update(JSON.stringify({ layoutVersion: '2026-10-22-photo-columns', ...input })).digest('hex');
 }
 
 function remove(key: string) {

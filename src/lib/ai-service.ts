@@ -1,3 +1,5 @@
+import { PROFILE_EXTRACT_PROMPT, PROFILE_INTERVIEW_PROMPT, PROFILE_SYNTHESIS_PROMPT, profilePolishPrompt } from '@/lib/profile-prompts';
+import { parseOutreachResult } from '@/lib/outreach-validation';
 import { ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS, analysisUserPrompt } from '@/lib/cv-optimization/prompts';
 import { factualProfile } from '@/lib/cv-optimization/validation';
 import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
@@ -323,7 +325,7 @@ export class AIService {
       log({ event: 'ai_usage', provider: 'openrouter', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
-      console.error("OpenRouter error:", e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openrouter' });
       throw new Error(`Ha ocurrido un error al optimizar el CV con OpenRouter: ${e.message}`);
     }
   }
@@ -375,7 +377,7 @@ export class AIService {
       log({ event: 'ai_usage', provider: 'deepseek', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
-      console.error("DeepSeek error:", e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'deepseek' });
       throw new Error(`Ha ocurrido un error al optimizar el CV con DeepSeek: ${e.message}`);
     }
   }
@@ -437,7 +439,7 @@ export class AIService {
       }
       return text;
     } catch (e: any) {
-      console.error("Gemini error:", e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'gemini' });
       throw new Error(`Ha ocurrido un error al optimizar el CV con Gemini: ${e.message}`);
     }
   }
@@ -495,7 +497,7 @@ export class AIService {
       });
       return data.choices[0].message.content || '';
     } catch (e: any) {
-      console.error('OpenAI error:', e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openai' });
       throw new Error(`Ha ocurrido un error al procesar con OpenAI: ${e.message}`);
     }
   }
@@ -947,6 +949,7 @@ Asesor de empleo IA optimizado mediante **${providerName}** para encajar con el 
 2. Una carta de presentación (cover letter) profesional y adaptada estilo Harvard (máximo 300 palabras).
 3. Una lista de las 3-5 preguntas técnicas y de comportamiento más probables en una entrevista para esta vacante, junto con consejos clave para responder cada una usando la experiencia del candidato.
 
+Conserva los hechos del CV: no inventes cargos, empresas, fechas, cifras, credenciales o habilidades. No conviertas objetivos en experiencia. Si falta información, omítela. Entrega textos completos sin placeholders.
 Debes responder ÚNICA y EXCLUSIVAMENTE con un objeto JSON válido que contenga las siguientes claves:
 {
   "outreachMessage": "...",
@@ -979,28 +982,15 @@ Descripción: ${jobDescription}`;
       rawResponse = await this.callOpenRouter(cvContent, jobDescription, model, systemPrompt, userPrompt);
     }
 
-    try {
-      let cleanJson = rawResponse.trim();
-      if (cleanJson.includes('```')) {
-        const start = cleanJson.indexOf('{');
-        const end = cleanJson.lastIndexOf('}');
-        if (start !== -1 && end !== -1) {
-          cleanJson = cleanJson.slice(start, end + 1);
-        }
-      }
-      return JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("[AIService.generateOutreachAndPrep] Error parsing JSON:", e, "Raw response:", rawResponse);
-      return {
-        outreachMessage: `Hola, me pongo en contacto en relación con la oferta de ${jobTitle} en ${company}...`,
-        coverLetter: `Estimado equipo de ${company}, les escribo en relación con...`,
-        interviewQuestions: [
-          {
-            question: "¿Por qué te interesa este puesto en nuestra empresa?",
-            tip: "Enfócate en la cultura de la empresa y cómo tu perfil aporta valor."
-          }
-        ]
-      };
+    try { return parseOutreachResult(rawResponse); }
+    catch {
+      // One repair in the same reserved operation. Never log personal model output.
+      const repairPrompt = systemPrompt + '\nCorrige el formato y completa los campos; conserva únicamente hechos de las fuentes. Devuelve JSON válido.';
+      const repaired = provider === 'gemini' ? await this.callGeminiOficial(cvContent, jobDescription, model, repairPrompt, userPrompt)
+        : provider === 'deepseek' ? await this.callDeepSeekOficial(cvContent, jobDescription, model, repairPrompt, userPrompt)
+        : provider === 'openai' ? await this.callOpenAIOficial(cvContent, jobDescription, model, repairPrompt, userPrompt)
+        : await this.callOpenRouter(cvContent, jobDescription, model, repairPrompt, userPrompt);
+      return parseOutreachResult(repaired);
     }
   }
 
@@ -1221,15 +1211,15 @@ Descripción: ${jobDescription}`;
 
     if (!dumpText.trim()) return heuristic;
 
-    const systemPrompt = `Eres un clasificador de perfiles profesionales para una plataforma de empleo tech.
-Nicho principal: desarrollo de software (frontend, backend, fullstack, mobile, datos, IA). Otros oficios se marcan non_software.
+    const systemPrompt = `Eres un clasificador de perfiles profesionales de cualquier profesión.
+Clasifica solo lo demostrado. Conserva categorías técnicas para software; usa non_software para otras profesiones y unknown si no hay información suficiente. No infieras una profesión por una herramienta aislada.
 
 REGLAS:
 - Infieré SOLO de lo escrito. No asumas stacks (ni React, ni Gemini, ni OpenRouter) si no aparecen.
 - El objetivo profesional es OPCIONAL: inferredTargetRole solo si el texto lo dice o si te pasan un objetivo explícito. Si no, null.
 - No conviertas a todo el mundo en AI Engineer.
 - Devuelve ÚNICAMENTE JSON:
-{"family":"frontend|backend|fullstack|mobile|data|ai|software_other|non_software","seniority":"junior|mid|senior|unknown","inferredTargetRole":null,"stackHints":["..."],"summary":"etiqueta corta en español"}`;
+{"family":"frontend|backend|fullstack|mobile|data|ai|software_other|non_software|unknown","seniority":"junior|mid|senior|unknown","inferredTargetRole":null,"stackHints":["..."],"summary":"etiqueta corta en el idioma del candidato"}`;
 
     const userPrompt = `Texto del candidato (CV, LinkedIn o notas):
 ---
@@ -1251,7 +1241,7 @@ ${optionalTarget?.trim() ? `Objetivo explícito opcional: ${optionalTarget.trim(
       }
       return normalizeClassification(JSON.parse(clean), combined);
     } catch (error) {
-      console.error('[AIService.classifyCareerProfile] fallback heurístico:', error);
+      log({ event: 'profile_classification_fallback', level: 'warn' });
       return heuristic;
     }
   }
@@ -1299,47 +1289,7 @@ ${optionalTarget?.trim() ? `Objetivo explícito opcional: ${optionalTarget.trim(
     curationCriteria?: string;
     masterDocument?: string;
   }> {
-    const systemPrompt = `Eres un Chief Technology Officer (CTO) y Lead AI Recruiter de élite. Tu objetivo es analizar la información, CV o notas de un candidato y estructurar su "Perfil Profesional Maestro & Criterios".
-Debes extraer solo lo que el texto demuestra: logros, tecnologías exactas y preferencias. No inventes stacks ni un rol objetivo. El objetivo profesional es opcional.
-
-REGLAS DE SALIDA:
-- Devuelve ÚNICA y EXCLUSIVAMENTE un JSON válido (sin triple backticks ni texto antes/después) con la siguiente estructura exacta:
-{
-  "bio": "Resumen de quién es según el texto...",
-  "experienceYears": null,
-  "targetRoles": [],
-  "techStack": {
-    "frontend": [],
-    "backend": [],
-    "ai_ml": [],
-    "cloud_devops": [],
-    "database": []
-  },
-  "keyProjects": [
-    {
-      "title": "Nombre del proyecto o empresa",
-      "role": "Puesto / Rol desempeñado",
-      "techStack": "Tecnologías clave empleadas",
-      "description": "Qué construyó, reto técnico resuelto y arquitectura",
-      "impact": "Métricas de impacto, automatizaciones o resultados conseguidos"
-    }
-  ],
-  "targetTransition": {
-    "targetRole": "",
-    "targetIndustries": "",
-    "targetGeography": ""
-  },
-  "preferredWorkplaces": [],
-  "preferredLocations": "",
-  "companyPreferences": "",
-  "salaryMin": null,
-  "salaryTarget": null,
-  "curationCriteria": "",
-  "masterDocument": "...",
-  "skills": [
-    { "name": "TypeScript", "category": "frontend", "proficiency": "core", "evidence": "Proyecto o logro real" }
-  ]
-}`;
+    const systemPrompt = PROFILE_EXTRACT_PROMPT;
 
     const userPrompt = `A continuación tienes la información bruta / CV / notas del candidato:
 ---
@@ -1369,7 +1319,7 @@ Por favor, estructura el Perfil Maestro completo en JSON según las instruccione
         ...hydrateStructuredProfile(parsed, { bio: parsed.bio, masterDocument: parsed.masterDocument, cvMarkdown: rawText }),
       };
     } catch (e) {
-      console.error('[AIService.extractProfileFromRawText] Error parsing JSON:', e, 'Raw:', rawResponse);
+      log({ event: 'profile_extraction_invalid_response', level: 'warn' });
       const fallback = {
         bio: rawText.slice(0, 800),
         experienceYears: null,
@@ -1410,18 +1360,7 @@ Por favor, estructura el Perfil Maestro completo en JSON según las instruccione
       [dump, optionalTarget].filter(Boolean).join('\n'),
     );
 
-    const systemPrompt = `Eres un career coach para profesionales de software (y perfiles afines).
-Formula 3 preguntas cortas para rellenar HUECOS del texto del candidato.
-
-REGLAS:
-- Nicho: desarrollo de software. Adapta frontend/backend/fullstack/mobile/datos/IA/junior/senior según la clasificación.
-- Pregunta solo sobre lo que NO está claro en el texto. No preguntes Pinecone, RAG o Gemini si no aparecen.
-- No asumas que quieren ser AI Engineer ni que usan un stack concreto.
-- El objetivo profesional es OPCIONAL: una pregunta puede invitarlo, dejando claro que puede dejarla en blanco.
-- suggestedAnswers vacío [] salvo que sea una paráfrasis de algo que YA dijo el candidato.
-- No uses ejemplos de productos inventados ni de un usuario concreto.
-- Devuelve ÚNICAMENTE un JSON array:
-[{"id":"q1","category":"stack|projects|target","question":"...","hint":"...","suggestedAnswers":[]}]`;
+    const systemPrompt = PROFILE_INTERVIEW_PROMPT;
 
     const userPrompt = `Clasificación: ${JSON.stringify(resolvedClassification)}
 Objetivo explícito (opcional): ${optionalTarget?.trim() || 'ninguno'}
@@ -1455,10 +1394,10 @@ ${dump.slice(0, 10000) || 'Vacío'}
         })).filter((item: InterviewQuestion) => item.question.length > 10);
       }
     } catch (e) {
-      console.error('[AIService.generateProfileInterviewQuestions] fallback genérico:', e);
+      log({ event: 'profile_questions_fallback', level: 'warn' });
     }
 
-    return genericSoftwareInterviewQuestions(resolvedClassification);
+    return genericSoftwareInterviewQuestions(resolvedClassification, /\b(the|with|experience|worked|nurse|teacher|sales)\b/i.test(dump) ? 'en' : 'es');
   }
 
   static async synthesizeProfileFromInterview({
@@ -1476,17 +1415,7 @@ ${dump.slice(0, 10000) || 'Vacío'}
     classification?: ProfileClassification;
     userSubscriptionStatus?: string;
   }): Promise<any> {
-    const systemPrompt = `Redactas el perfil maestro de un candidato para matching de ofertas y adaptación de CVs.
-Público principal: desarrolladores de software de cualquier seniority. Si el perfil no es software, redacta con honestidad lo que hay.
-
-REGLAS:
-- Documento maestro: 250-400 palabras. Quién es, qué ha hecho, con qué tecnología, y el norte SOLO si lo ha dicho.
-- NO inventes herramientas, empresas, métricas ni un rol objetivo. Si no dijo "quiero ser X", no lo inventes.
-- Si pidió no enfatizar algo (p. ej. Dynamics/Microsoft), menciónalo de paso o omítelo.
-- Extrae campos estructurados solo de evidencias del texto. Arrays vacíos si no hay datos. Salario null si no lo dijo.
-- preferredWorkplaces vacío si no lo dijo.
-- Devuelve ÚNICAMENTE JSON:
-{"bio":"...","experienceYears":null,"targetRoles":[],"techStack":{"frontend":[],"backend":[],"ai_ml":[],"cloud_devops":[],"database":[]},"keyProjects":[],"skills":[{"name":"...","category":"backend","proficiency":"solid","evidence":"..."}],"targetTransition":{"targetRole":"","targetIndustries":"","targetGeography":""},"preferredWorkplaces":[],"preferredLocations":"","companyPreferences":"","salaryMin":null,"salaryTarget":null,"curationCriteria":"","masterDocument":"..."}`;
+    const systemPrompt = PROFILE_SYNTHESIS_PROMPT;
 
     const userPrompt = `Clasificación: ${JSON.stringify(classification || {})}
 Objetivo explícito opcional: ${optionalTarget?.trim() || 'ninguno'}
@@ -1526,7 +1455,7 @@ ${qaList.map((qa, i) => `P${i + 1}: ${qa.question}\nR: ${qa.answer}`).join('\n\n
         }),
       };
     } catch (e) {
-      console.error('[AIService.synthesizeProfileFromInterview] Error parsing JSON:', e, 'Raw:', rawResponse);
+      log({ event: 'profile_synthesis_invalid_response', level: 'warn' });
       const combined = [
         dumpText || currentProfile?.bio || '',
         ...qaList.map((qa) => qa.answer),
@@ -1552,15 +1481,7 @@ ${qaList.map((qa, i) => `P${i + 1}: ${qa.question}\nR: ${qa.answer}`).join('\n\n
     currentContent: string;
     userSubscriptionStatus?: string;
   }): Promise<string> {
-    const systemPrompt = `Eres un experto redactor de perfiles técnicos y headhunter internacional.
-Tu tarea es reescribir y pulir el texto de la sección "${sectionType}" proporcionada por un profesional tech.
-
-DIRECTRICES:
-- Si es "bio": Hazla concisa, orientada a impacto y resultados, destacando stack y valor técnico sin caer en clichés corporativos vacíos.
-- Si es "curationCriteria": Conviértelo en reglas claras e inequívocas para que un sistema de scoring de ofertas sepa exactamente qué priorizar, qué penalizar y qué descartar.
-- Si es "project": Enfatiza arquitectura técnica, problemas resueltos y métricas de impacto (fórmula XYZ).
-- Conserva al 100% la verdad de los datos; NO inventes tecnologías que no aparezcan en el texto original.
-- Devuelve DIRECTAMENTE el texto pulido en Markdown simple (sin preámbulos ni bloques envolventes de código).`;
+    const systemPrompt = profilePolishPrompt(sectionType);
 
     const userPrompt = `Texto actual a pulir:\n${currentContent}`;
 
@@ -1725,11 +1646,7 @@ Descripción: ${payload.jobDescription || ''}`;
     }
 
     if (action === 'profile_extract') {
-      const systemPrompt = `Eres un Chief Technology Officer (CTO) y Lead AI Recruiter de élite. Tu objetivo es analizar la información, CV o notas de un candidato y estructurar su "Perfil Profesional Maestro & Criterios".
-Debes extraer solo lo que el texto demuestra: logros, tecnologías exactas y preferencias. No inventes stacks ni un rol objetivo. El objetivo profesional es opcional.
-
-REGLAS DE SALIDA:
-- Devuelve ÚNICA y EXCLUSIVAMENTE un JSON válido (sin triple backticks ni texto antes/después) con la estructura del perfil profesional maestro.`;
+      const systemPrompt = PROFILE_EXTRACT_PROMPT;
 
       const userPrompt = `A continuación tienes la información bruta / CV / notas del candidato:
 ---
@@ -1752,15 +1669,7 @@ Por favor, estructura el Perfil Maestro completo en JSON según las instruccione
       const resolvedClassification = payload.classification || heuristicClassifyCareerProfile(
         [dump, payload.optionalTarget].filter(Boolean).join('\n'),
       );
-      const systemPrompt = `Eres un career coach para profesionales de software (y perfiles afines).
-Formula 3 preguntas cortas para rellenar HUECOS del texto del candidato.
-
-REGLAS:
-- Nicho: desarrollo de software. Adapta frontend/backend/fullstack/mobile/datos/IA/junior/senior según la clasificación.
-- Pregunta solo sobre lo que NO está claro en el texto.
-- No uses ejemplos de productos inventados ni de un usuario concreto.
-- Devuelve ÚNICAMENTE un JSON array:
-[{"id":"q1","category":"stack|projects|target","question":"...","hint":"...","suggestedAnswers":[]}]`;
+      const systemPrompt = PROFILE_INTERVIEW_PROMPT;
 
       const userPrompt = `Clasificación: ${JSON.stringify(resolvedClassification)}
 Objetivo explícito (opcional): ${payload.optionalTarget?.trim() || 'ninguno'}
@@ -1779,13 +1688,7 @@ ${dump.slice(0, 10000) || 'Vacío'}
     }
 
     if (action === 'synthesize_profile') {
-      const systemPrompt = `Redactas el perfil maestro de un candidato para matching de ofertas y adaptación de CVs.
-Público principal: desarrolladores de software de cualquier seniority. Si el perfil no es software, redacta con honestidad lo que hay.
-
-REGLAS:
-- Documento maestro: 250-400 palabras. Quién es, qué ha hecho, con qué tecnología, y el norte SOLO si lo ha dicho.
-- NO inventes herramientas, empresas, métricas ni un rol objetivo. Si no dijo "quiero ser X", no lo inventes.
-- Devuelve ÚNICAMENTE JSON con el perfil estructurado.`;
+      const systemPrompt = PROFILE_SYNTHESIS_PROMPT;
 
       const qaList = Array.isArray(payload.qaList) ? payload.qaList : [];
       const userPrompt = `Clasificación: ${JSON.stringify(payload.classification || {})}
@@ -1810,15 +1713,7 @@ ${qaList.map((qa: any, i: number) => `P${i + 1}: ${qa.question}\nR: ${qa.answer}
     }
 
     if (action === 'polish_section') {
-      const systemPrompt = `Eres un experto redactor de perfiles técnicos y headhunter internacional.
-Tu tarea es reescribir y pulir el texto de la sección "${payload.sectionType || 'sección'}" proporcionada por un profesional tech.
-
-DIRECTRICES:
-- Si es "bio": Hazla concisa, orientada a impacto y resultados, destacando stack y valor técnico sin caer en clichés corporativos vacíos.
-- Si es "curationCriteria": Conviértelo en reglas claras e inequívocas para que un sistema de scoring de ofertas sepa exactamente qué priorizar, qué penalizar y qué descartar.
-- Si es "project": Enfatiza arquitectura técnica, problemas resueltos y métricas de impacto (fórmula XYZ).
-- Conserva al 100% la verdad de los datos; NO inventes tecnologías que no aparezcan en el texto original.
-- Devuelve DIRECTAMENTE el texto pulido en Markdown simple (sin preámbulos ni bloques envolventes de código).`;
+      const systemPrompt = profilePolishPrompt(payload.sectionType || 'sección');
 
       const userPrompt = `Texto actual a pulir:\n${payload.currentContent || ''}`;
 

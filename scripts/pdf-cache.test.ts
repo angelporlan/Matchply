@@ -29,4 +29,6 @@ test('pdf cache keys change when styling options change', () => {
     fontSize: 12.5,
   };
   assert.notEqual(pdfCacheKey(base), pdfCacheKey({ ...base, accentColor: '#2ecc71' }));
+  assert.notEqual(pdfCacheKey(base), pdfCacheKey({ ...base, photoHash: 'account-photo' }));
+  assert.notEqual(pdfCacheKey({ ...base, photoHash: 'account-photo' }), pdfCacheKey({ ...base, photoHash: 'cv-photo' }));
 });

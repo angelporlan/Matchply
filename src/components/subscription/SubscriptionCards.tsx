@@ -364,7 +364,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 />
               </div>
               <p className="text-xs text-text-muted flex items-center justify-between">
-                <span>{usageData.usage.general.remaining} disponibles</span>
+                <span>{usageData.usage.general.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: usageData.usage.general.remaining })}</span>
                 {usageData.usage.general.resetAt && (
                   <span>Renueva: {new Date(usageData.usage.general.resetAt).toLocaleDateString()}</span>
                 )}
@@ -393,7 +393,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 />
               </div>
               <p className="text-xs text-text-muted flex items-center justify-between">
-                <span>{usageData.usage.matching.remaining} disponibles</span>
+                <span>{usageData.usage.matching.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: usageData.usage.matching.remaining })}</span>
                 {usageData.usage.matching.resetAt && (
                   <span>Renueva: {new Date(usageData.usage.matching.resetAt).toLocaleDateString()}</span>
                 )}
@@ -405,7 +405,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-text">{t('plans.discovery')}</span>
                 <span className="text-xs font-medium text-text-muted">
-                  {usageData.usage.discovery.limit === 0 ? t('plans.unavailable') : `${usageData.usage.discovery.used} / ${usageData.usage.discovery.limit}`}
+                  {usageData.usage.discovery.limit === 0 && !usageData.usage.discovery.unlimited ? t('plans.unavailable') : `${usageData.usage.discovery.used} / ${usageData.usage.discovery.limit}`}
                 </span>
               </div>
               <div className="w-full bg-surface-muted rounded-full h-2.5 overflow-hidden">
@@ -426,7 +426,7 @@ export function SubscriptionCards({ config, isPremium }: SubscriptionCardsProps)
                 />
               </div>
               <p className="text-xs text-text-muted flex items-center justify-between">
-                <span>{t('plans.remaining', { remaining: usageData.usage.discovery.remaining })}</span>
+                <span>{usageData.usage.discovery.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: usageData.usage.discovery.remaining })}</span>
               </p>
             </div>
           </div>

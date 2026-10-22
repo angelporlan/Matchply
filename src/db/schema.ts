@@ -72,6 +72,7 @@ export const cvs = pgTable('cv', {
   fontFamily: text('fontFamily').default('helvetica'),
   pageMargin: doublePrecision('pageMargin').default(36),
   scale: doublePrecision('scale').default(1.0),
+  showPhoto: boolean('showPhoto').default(false).notNull(),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => ({
@@ -81,6 +82,16 @@ export const cvs = pgTable('cv', {
   // Base CV lookup for AI: ORDER BY isBase DESC, isPrincipal DESC LIMIT 1 per user.
   userBasePrincipalIdx: index('cv_user_base_principal_idx').on(table.userId, table.isBase, table.isPrincipal),
 }));
+
+// Optional overrides stay out of CV lists, markdown and AI prompts.
+export const cvPhotos = pgTable('cv_photo', {
+  cvId: uuid('cvId').primaryKey().references(() => cvs.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytes: text('bytes').notNull(),
+  byteSize: integer('byteSize').notNull(),
+  hash: text('hash').notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 // Sources and variants are detail-only data. cv.content mirrors the active variant.
 export const cvOptimizations = pgTable('cv_optimization', {
@@ -193,6 +204,8 @@ export const jobOffers = pgTable('job_offer', {
   
   // Seguimiento y Analíticas
   nextFollowupDate: timestamp('nextFollowupDate', { mode: 'date' }), // Cuándo contactar
+  nextAction: text('nextAction'),
+  followupVersion: integer('followupVersion').default(0).notNull(),
   rejectionPatternTags: jsonb('rejectionPatternTags'), // Etiquetas de rechazo
   
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
@@ -204,6 +217,7 @@ export const jobOffers = pgTable('job_offer', {
   favoriteIdx: index('job_offer_user_favorite_idx').on(table.userId, table.isFavorite, table.updatedAt),
   ownerIdentityIdx: uniqueIndex('job_offer_owner_identity_idx').on(table.id, table.userId),
   userStatusIdx: index('job_offer_user_status_idx').on(table.userId, table.status),
+  userFollowupIdx: index('job_offer_user_followup_idx').on(table.userId, table.nextFollowupDate),
   userCompanyIdx: index('job_offer_user_company_id_idx').on(table.userId, table.companyId),
   // Dedupe on upsert from the extension / import (findExisting by URL).
   userUrlIdx: index('job_offer_user_url_idx').on(table.userId, table.url),
@@ -211,6 +225,39 @@ export const jobOffers = pgTable('job_offer', {
   userTitleCompanyIdx: index('job_offer_user_title_company_idx').on(table.userId, table.title, table.company),
   cvIdx: index('job_offer_cv_id_idx').on(table.cvId),
 }));
+
+// Exact exports are independent of editable CV limits; bytes never appear in lists.
+export const cvExports = pgTable('cv_export', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  cvId: uuid('cvId').references(() => cvs.id, { onDelete: 'set null' }),
+  provenance: jsonb('provenance').$type<Record<string, string>>(),
+  hash: text('hash').notNull(), filename: text('filename').notNull(),
+  byteSize: integer('byteSize').notNull(), pages: integer('pages').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  expiresAt: timestamp('expiresAt', { mode: 'date' }),
+}, t => ({ ownerHash: index('cv_export_owner_hash_idx').on(t.userId, t.hash), expiry: index('cv_export_expiry_idx').on(t.expiresAt), ownerId: uniqueIndex('cv_export_owner_id_idx').on(t.id, t.userId) }));
+export const cvExportData = pgTable('cv_export_data', {
+  exportId: uuid('exportId').primaryKey().references(() => cvExports.id, { onDelete: 'cascade' }),
+  bytes: text('bytes').notNull(),
+});
+export const applicationEvents = pgTable('application_event', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  offerId: uuid('offerId').notNull(),
+  commandId: uuid('commandId').notNull(), inputHash: text('inputHash').notNull(),
+  kind: text('kind').notNull(),
+  exportId: uuid('exportId').references(() => cvExports.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ owner: foreignKey({ columns: [t.offerId, t.userId], foreignColumns: [jobOffers.id, jobOffers.userId] }).onDelete('cascade'), command: uniqueIndex('application_event_command_idx').on(t.userId, t.offerId, t.commandId), timeline: index('application_event_timeline_idx').on(t.userId, t.offerId, t.createdAt, t.id), cohort: index('application_event_cohort_idx').on(t.userId, t.createdAt) }));
+
+export const profileEvidence = pgTable('profile_evidence', {
+  id: uuid('id').defaultRandom().primaryKey(), userId: uuid('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  commandId: uuid('commandId').notNull(), inputHash: text('inputHash').notNull(),
+  requirement: text('requirement').notNull(), example: text('example').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, t => ({ command: uniqueIndex('profile_evidence_command_idx').on(t.userId, t.commandId), owner: index('profile_evidence_owner_idx').on(t.userId, t.createdAt) }));
 
 export const people = pgTable('person', {
   id: uuid('id').defaultRandom().primaryKey(),

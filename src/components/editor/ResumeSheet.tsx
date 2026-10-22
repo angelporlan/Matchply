@@ -17,6 +17,7 @@ import {
   CV_FONT_FACE,
   CV_FONT_STACK,
   CV_METRICS,
+  CV_PHOTO,
   PDF_COLORS,
   SVG_ICONS,
   contentWidthPt,
@@ -30,9 +31,12 @@ import {
   sanitizePdfText,
   splitSkillItem,
   wrapContactItems,
+  wrapPhotoContactItems,
 } from '@/lib/cv-layout';
 import { SHEET_PAGE_GAP_PX, sheetPagePx } from '@/lib/pdf-page-breaks';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
+import Image from 'next/image';
+import { Camera } from 'lucide-react';
 import type { PdfZoom } from './PdfViewer';
 import { applyLineSpans, measureSheetPages, type FlowPushMap } from './sheet-pages';
 import './cv-fonts.css';
@@ -171,7 +175,7 @@ function Rule({ color, thickness, before, after }: { color: string; thickness: n
   );
 }
 
-function measureContactLines(contact: ContactInfo[], face: string, contactSize: number, pageMargin: number): number[][] {
+function measureContactLines(contact: ContactInfo[], face: string, contactSize: number, pageMargin: number, withPhoto = false): number[][] {
   if (!contact.length) return [];
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -183,7 +187,9 @@ function measureContactLines(contact: ContactInfo[], face: string, contactSize: 
     textWidth: context.measureText(`${sanitizePdfText(item.label)}: `).width + context.measureText(sanitizePdfText(item.value)).width,
     iconWidth: getIconType(item.label, item.value) ? iconWidth : 0,
   }));
-  return wrapContactItems(items, separatorWidth, contentWidthPt(pageMargin) * CSS_PX_PER_PT);
+  return withPhoto
+    ? wrapPhotoContactItems(items, (contentWidthPt(pageMargin) - CV_PHOTO.width - CV_PHOTO.gap) * CSS_PX_PER_PT, CV_PHOTO.gap * CSS_PX_PER_PT)
+    : wrapContactItems(items, separatorWidth, contentWidthPt(pageMargin) * CSS_PX_PER_PT);
 }
 
 export default function ResumeSheet({
@@ -198,8 +204,14 @@ export default function ResumeSheet({
   onContentChange,
   onSave,
   setSaveStatus,
+  photoUrl,
+  onPhotoChange,
+  photoBusy = false,
 }: {
   cvId: string;
+  photoUrl?: string | null;
+  onPhotoChange?: () => void;
+  photoBusy?: boolean;
   content: string;
   fontFamily: string;
   pageMargin: number;
@@ -253,10 +265,10 @@ export default function ResumeSheet({
   const entryGapPt = layout.entryGap * bodyLine;
   const contactKey = doc.contact.map((item) => `${item.label}\0${item.value}`).join('\n');
   const measuredCovers = contactLines.flat().length === doc.contact.length
-    && contactLines.every((line) => line.every((index) => doc.contact[index]));
+    && contactLines.every((line) => (!photoUrl || line.length <= 2) && line.every((index) => doc.contact[index]));
   const visibleContactLines = measuredCovers
     ? contactLines
-    : [doc.contact.map((_, index) => index)].filter((line) => line.length);
+    : photoUrl ? doc.contact.map((_, index) => [index]) : [doc.contact.map((_, index) => index)].filter((line) => line.length);
 
   useEffect(() => {
     if (content === emitted.current) return;
@@ -304,7 +316,7 @@ export default function ResumeSheet({
     const observer = new ResizeObserver(measure);
     observer.observe(page);
     return () => observer.disconnect();
-  }, [doc, ready, contactLines, fontFamily, pageMargin, scale, accentColor]);
+  }, [doc, ready, contactLines, fontFamily, pageMargin, scale, accentColor, photoUrl]);
 
   useLayoutEffect(() => {
     let cancelled = false;
@@ -318,7 +330,7 @@ export default function ResumeSheet({
       `700 ${layout.sectionSize}pt "${face}"`,
     ];
     if (document.fonts.check(`${layout.contactSize}pt "${face}"`)) {
-      setContactLines(measureContactLines(contactRef.current, face, layout.contactSize, pageMargin));
+      setContactLines(measureContactLines(contactRef.current, face, layout.contactSize, pageMargin, Boolean(photoUrl)));
     }
     const run = async () => {
       await Promise.race([
@@ -326,12 +338,12 @@ export default function ResumeSheet({
         new Promise((resolve) => setTimeout(resolve, 2500)),
       ]);
       if (cancelled) return;
-      setContactLines(measureContactLines(contactRef.current, face, layout.contactSize, pageMargin));
+      setContactLines(measureContactLines(contactRef.current, face, layout.contactSize, pageMargin, Boolean(photoUrl)));
       setReady(true);
     };
     void run();
     return () => { cancelled = true; };
-  }, [contactKey, face, layout.contactSize, layout.nameSize, layout.bodySize, layout.metaSize, layout.headingSize, layout.sectionSize, pageMargin]);
+  }, [contactKey, face, layout.contactSize, layout.nameSize, layout.bodySize, layout.metaSize, layout.headingSize, layout.sectionSize, pageMargin, photoUrl]);
 
   const publish = (next: CVContent, focus?: string) => {
     if (focus) focusId.current = focus;
@@ -368,6 +380,7 @@ export default function ResumeSheet({
   // remeasure when the PDF returns the same cuts and jump the caret.
   const measureKey = [
     breakKey,
+    photoUrl,
     factor,
     pageMargin,
     scale,
@@ -556,6 +569,16 @@ export default function ResumeSheet({
           }}
         >
           <PageGap id="name" pushes={pushes} />
+          <div style={{ display: photoUrl ? 'flex' : 'block', gap: pt(CV_PHOTO.gap), alignItems: 'flex-start', minHeight: photoUrl ? pt(CV_PHOTO.height) : undefined }}>
+            {photoUrl && <button type="button" onClick={onPhotoChange} disabled={photoBusy} aria-label={t('cvPhoto.change')} aria-busy={photoBusy || undefined}
+              className="group relative block shrink-0 overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              style={{ width: pt(CV_PHOTO.width), height: pt(CV_PHOTO.height), border: 0, padding: 0, background: '#fff' }}>
+              <Image unoptimized src={photoUrl} alt={t('cvPhoto.portrait')} width={96} height={120} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 px-1 text-center text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100 motion-reduce:transition-none">
+                <Camera className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />{t('cvPhoto.change')}
+              </span>
+            </button>}
+            <div style={{ flex: 1, minWidth: 0 }}>
           <Field
             flowId="name"
             value={doc.name}
@@ -565,14 +588,37 @@ export default function ResumeSheet({
               fontSize: pt(layout.nameSize),
               lineHeight: em,
               fontWeight: 700,
-              textAlign: 'center',
+              textAlign: photoUrl ? 'left' : 'center',
+              overflowWrap: photoUrl ? 'anywhere' : undefined,
               textTransform: 'uppercase',
               letterSpacing: pt(CV_METRICS.nameCharacterSpacing),
-              color: PDF_COLORS.text,
+              color: photoUrl ? accentColor : PDF_COLORS.text,
               paddingBottom: pt(CV_METRICS.nameMoveDown * fontLine(layout.nameSize, family)),
             }}
           />
 
+          {photoUrl ? <div id="cv-contact" className="cv-group" style={{ position: 'relative' }}>
+            {visibleContactLines.map(row => <Fragment key={`photo-contact-row-${row.join('-')}`}>
+              <PageGap id={`contact-${row[0]}`} pushes={pushes} />
+              <div data-flow={`contact-${row[0]}`} style={{ display: 'grid', gridTemplateColumns: row.length === 2 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', columnGap: pt(CV_PHOTO.gap) }}>
+              {row.map(index => {
+                const item = doc.contact[index];
+                if (!item) return null;
+                const icon = getIconType(item.label, item.value);
+                const indent = icon ? iconSize + CV_METRICS.iconGap : 0;
+                return <div key={`photo-contact-${index}`} style={{ position: 'relative', paddingLeft: pt(indent), fontSize: pt(layout.contactSize), lineHeight: pt(fontLine(layout.contactSize, family) + CV_METRICS.contactLineExtra), color: PDF_COLORS.muted, overflowWrap: 'anywhere' }}>
+                  {icon && <span style={{ position: 'absolute', left: 0, top: 0 }}><CvIcon type={icon} sizePt={iconSize} /></span>}
+                  <Field id={index === doc.contact.length - 1 ? 'cv-contact-last' : undefined} value={item.label} placeholder={t('editor.sheet.contactLabel')} onCommit={(label) => edit(draft => { draft.contact[index].label = label; })} style={{ display: 'inline', whiteSpace: 'normal', overflowWrap: 'anywhere' }} />
+                  {': '}
+                  <Field value={item.value} placeholder={t('editor.sheet.contactValue')} onCommit={(value) => edit(draft => { draft.contact[index].value = value; })} style={{ display: 'inline', whiteSpace: 'normal', overflowWrap: 'anywhere' }} />
+                </div>;
+              })}
+              </div>
+            </Fragment>)}
+            <div className="cv-chrome" style={{ left: '100%', top: 0, paddingLeft: 6 }}>
+              <button type="button" onClick={() => edit(draft => { draft.contact.push({ label: '', value: '' }); }, 'cv-contact-last')}>{t('editor.sheet.addContact')}</button>
+            </div>
+          </div> :
           <div id="cv-contact" className="cv-group" style={{ position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', rowGap: pt(CV_METRICS.contactLineExtra) }}>
               {visibleContactLines.map((line) => (
@@ -640,6 +686,9 @@ export default function ResumeSheet({
             </div>
           </div>
 
+          }
+            </div>
+          </div>
           <Rule color={accentColor} thickness={CV_METRICS.headerRuleWidth} before={CV_METRICS.headerRuleGap} after={CV_METRICS.afterHeaderRule} />
 
           {doc.sections.map((section, sectionIndex) => {

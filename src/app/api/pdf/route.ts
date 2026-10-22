@@ -1,3 +1,4 @@
+import { storePdfExport } from '@/lib/cv-export';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { cvs, cvVariants, cvOptimizations } from '@/db/schema';
@@ -14,6 +15,8 @@ import { formatPdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { log } from '@/lib/logger';
 import { beginGuestPdfDownload, completeGuestPdfDownload, releaseGuestPdfDownload } from '@/lib/guest-pdf';
 import { UsageError, type UsageOperation } from '@/lib/usage';
+import { pdfDownloadFilename } from '@/lib/user-name';
+import { resolveCvPhoto } from '@/lib/cv-photo';
 
 // Only what the renderer needs; `cv` also stores markdown history-sized content,
 // so we never pull columns we do not use.
@@ -27,6 +30,7 @@ const pdfCvColumns = {
   fontFamily: cvs.fontFamily,
   pageMargin: cvs.pageMargin,
   scale: cvs.scale,
+  showPhoto: cvs.showPhoto,
 };
 
 type PdfOptions = {
@@ -36,6 +40,7 @@ type PdfOptions = {
   pageMargin: number;
   fontSize: number;
   showIcons: boolean;
+  photo?: { bytes: string; hash: string };
 };
 
 async function renderWithCache(content: string, pdfOptions: PdfOptions) {
@@ -46,6 +51,7 @@ async function renderWithCache(content: string, pdfOptions: PdfOptions) {
     fontFamily: pdfOptions.fontFamily,
     pageMargin: pdfOptions.pageMargin,
     fontSize: pdfOptions.fontSize,
+    ...(pdfOptions.photo ? { photoHash: pdfOptions.photo.hash } : {}),
   });
   let cached = getCachedPdf(cacheKey);
   const cacheHit = Boolean(cached);
@@ -139,7 +145,8 @@ export async function GET(req: NextRequest) {
       fontFamily: cv.fontFamily || 'helvetica',
       pageMargin: cv.pageMargin ?? 36,
       fontSize: (cv.scale ?? 1.0) * 12.5, // back-converting scale to fontSize
-      showIcons: true
+      showIcons: true,
+      ...(cv.showPhoto ? { photo: await resolveCvPhoto(actor.userId, cv.id) ?? undefined } : {}),
     };
 
     const { buffer, pageBreaks, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
@@ -151,7 +158,7 @@ export async function GET(req: NextRequest) {
     const versioned = searchParams.has('v') && !isDownload;
     const cacheControl = isDownload
       ? 'no-store, max-age=0'
-      : versioned
+      : versioned && !cv.showPhoto
         ? 'private, max-age=31536000, immutable'
         : 'private, no-cache';
 
@@ -176,12 +183,18 @@ export async function GET(req: NextRequest) {
       durationMs: Date.now() - started,
     });
 
-    const userName = actor.kind === 'guest' ? (cv.title || 'CV') : (actor.name || 'User');
-    const safeName = userName.replace(/[/\\?%*:|"<>]/g, '');
-    const filename = `CV ${safeName}.pdf`;
+    const filename = actor.kind === 'guest'
+      ? `CV ${(cv.title || 'CV').replace(/[/\\?%*:|"<>]/g, '').trim() || 'CV'}.pdf`
+      : pdfDownloadFilename(actor.name);
     const encodedFilename = encodeURIComponent(filename);
+    let exportId: string | undefined;
+    if (isDownload) {
+      try { exportId = await storePdfExport({ userId: actor.userId, cvId: cv.id, buffer, filename, pages: countPdfPages(buffer), operationId: guestDownload?.id, optimizationId: optimizationId || undefined, modeId: modeId || undefined }); }
+      catch (error) { log({ event: 'cv_export_save_failed', level: 'warn', error }); }
+    }
 
     const response = pdfResponse(buffer, pageBreaks, {
+      ...(isDownload ? { 'X-Matchply-Export-Status': exportId ? 'saved' : 'unavailable', ...(exportId ? { 'X-Matchply-Export-Id': exportId } : {}) } : {}),
       'Content-Disposition': `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"; filename*=UTF-8''${encodedFilename}`,
       'Cache-Control': cacheControl,
       ETag: etag,
@@ -225,7 +238,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { content, template, accentColor, fontFamily, pageMargin, scale } = body;
+    const { content, template, accentColor, fontFamily, pageMargin, scale, cvId, showPhoto } = body;
+
+    if (showPhoto === true && (typeof cvId !== 'string' || !/^[\da-f-]{36}$/i.test(cvId))) return new NextResponse('Missing cvId for photo', { status: 400 });
 
     if (!content) {
       return new NextResponse('Missing content', { status: 400 });
@@ -239,7 +254,8 @@ export async function POST(req: NextRequest) {
       fontFamily: fontFamily || 'helvetica',
       pageMargin: pageMargin || 36,
       fontSize: (scale || 1.0) * 12.5,
-      showIcons: true
+      showIcons: true,
+      ...(showPhoto === true && typeof cvId === 'string' && /^[\da-f-]{36}$/i.test(cvId) ? { photo: await resolveCvPhoto(actor.userId, cvId) ?? undefined } : {}),
     };
     const { buffer, pageBreaks, cacheHit } = await renderWithCache(content, pdfOptions);
 
@@ -257,6 +273,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     log({ event: 'pdf_preview', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
+    if (error instanceof UsageError) return NextResponse.json(error.toJSON(), { status: error.status });
     return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
   }
 }

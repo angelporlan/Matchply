@@ -32,6 +32,9 @@ export const PDF_COLORS = {
   muted: '#555555',
 } as const;
 
+/** Shared portrait box, independent of the selected text size. */
+export const CV_PHOTO = { width: 72, height: 90, gap: 18 } as const;
+
 export const BASE_LAYOUT = {
   nameSize: 20,
   contactSize: 8.5,
@@ -206,4 +209,18 @@ export function wrapContactItems(items: ContactWidth[], separatorWidth: number, 
   });
   if (current.length) lines.push(current);
   return lines;
+}
+
+/** Two aligned columns beside the portrait; long items keep a full-width row. */
+export function wrapPhotoContactItems(items: ContactWidth[], contentWidth: number, columnGap: number = CV_PHOTO.gap): number[][] {
+  const columnWidth = (contentWidth - columnGap) / 2;
+  const fitsColumn = (index: number) => items[index].textWidth + items[index].iconWidth <= columnWidth;
+  const rows: number[][] = [];
+  for (let index = 0; index < items.length; index++) {
+    if (index + 1 < items.length && fitsColumn(index) && fitsColumn(index + 1)) {
+      rows.push([index, index + 1]);
+      index++;
+    } else rows.push([index]);
+  }
+  return rows;
 }

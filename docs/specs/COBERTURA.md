@@ -156,3 +156,11 @@ Inventario operativo y de pruebas; no se ejecutaron por el hecho de aparecer aqu
 - `/dashboard/applications/people` y `/[id]`, Server Actions y vínculos desde empresas/ofertas: [contrato](networking-personas/spec.md).
 - `/api/ai/networking`, worker `networking` y `/api/extension/linkedin/people`: [expectativas](networking-personas/expectations.md), [plan](networking-personas/plan.md), [evidencias](networking-personas/evidence.md).
 - Fotos privadas: `/api/extension/linkedin/people/avatar`, `/api/people/[id]/avatar`, almacenamiento `person_avatar` y extensión 2.2.0; ampliación y verificaciones en las mismas especificaciones de Personas.
+
+## Continuidad y blog (22/10/2026)
+
+- `/blog`, `/blog/[locale]`, `/blog/[locale]/[slug]`, `/sitemap.xml`, `/robots.txt`: contenido y metadatos públicos, sin crear invitados.
+- `/api/cv/exports/[id]` GET/DELETE: lectura de bytes y eliminación privada de copias.
+- `runApplicationCommand`, `markApplicationSent`, `getApplicationTimeline`, `addRequirementEvidence`: propiedad, transacciones e idempotencia.
+- Servicios `application-continuity`, `cv-export`, `profile-evidence`, `continuity-transfer` y `product-funnel`; worker con limpieza acotada.
+- Contrato, pruebas y salida: [Continuidad y blog](continuidad-y-blog/spec.md), [evidencias](continuidad-y-blog/evidence.md).

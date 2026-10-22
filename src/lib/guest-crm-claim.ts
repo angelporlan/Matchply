@@ -15,6 +15,12 @@ export async function transferGuestCrm(tx: Pick<typeof db, 'execute'>, guestId: 
       returning "companyId"
     ), offers as (
       update job_offer set "userId" = ${userId}::uuid where "userId" = ${guestId}::uuid returning id
+    ), exports as (
+      update cv_export set "userId" = ${userId}::uuid where "userId" = ${guestId}::uuid returning id
+    ), application_events as (
+      update application_event set "userId" = ${userId}::uuid where "userId" = ${guestId}::uuid returning id
+    ), evidence as (
+      update profile_evidence set "userId" = ${userId}::uuid where "userId" = ${guestId}::uuid returning id
     ), contacts as (
       update person set "userId" = ${userId}::uuid where "userId" = ${guestId}::uuid returning id
     ), avatars as (

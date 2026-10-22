@@ -53,6 +53,7 @@ interface DictationTextareaProps {
   placeholder?: string;
   rows?: number;
   label: string;
+  autoStart?: boolean;
 }
 
 export default function DictationTextarea({
@@ -62,6 +63,7 @@ export default function DictationTextarea({
   placeholder,
   rows = 8,
   label,
+  autoStart = false,
 }: DictationTextareaProps) {
   const [listening, setListening] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -170,6 +172,13 @@ export default function DictationTextarea({
       stopListening();
     }
   };
+
+  const startRef = useRef(startListening);
+  startRef.current = startListening;
+  useEffect(() => {
+    if (!autoStart || supported !== true) return;
+    startRef.current();
+  }, [autoStart, supported]);
 
   const toggleListening = () => {
     if (listeningRef.current) {

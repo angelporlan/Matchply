@@ -1,5 +1,8 @@
 # Candidaturas, tablero de postulaciones y detalle de oferta — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: Las entradas de UI y API comparten las reglas de transición. Próxima acción con texto y fecha, completar/posponer con versión, historial privado paginado y confirmación del documento enviado. Rechazar o archivar cancela el seguimiento. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F12**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

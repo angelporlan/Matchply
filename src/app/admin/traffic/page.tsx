@@ -1,3 +1,4 @@
+import ProductFunnel from '@/components/admin/ProductFunnel';
 import { fetchUmamiSummary, type UmamiPeriod } from '@/lib/admin/umami-api';
 import { requireAdminContext } from '@/lib/request-context';
 import { AdminErrorState } from '@/components/admin/AdminStates';
@@ -23,6 +24,7 @@ export default async function AdminTrafficPage({
 
   return (
     <div className="space-y-5">
+      <ProductFunnel />
       <h2 className="text-xl font-semibold font-display">Tráfico</h2>
       <p className="text-sm text-text-muted">
         Medición agregada. No hay recorridos individuales ni datos personales.

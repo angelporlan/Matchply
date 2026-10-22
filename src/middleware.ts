@@ -17,6 +17,9 @@ export function middleware(request: NextRequest) {
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', requestId);
+  requestHeaders.delete('x-matchply-blog-language');
+  const blogLocale = request.nextUrl.pathname.match(/^\/blog\/(es|en)(?:\/|$)/)?.[1];
+  if (blogLocale) requestHeaders.set('x-matchply-blog-language', blogLocale);
   // Never trust a visitor-supplied experiment assignment.
   requestHeaders.delete(LANDING_EXPERIMENT_HEADER_NAME);
 

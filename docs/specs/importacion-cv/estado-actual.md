@@ -1,5 +1,8 @@
 # Importación de PDF o texto y conversión con IA — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: La importación iniciada desde una candidatura conserva su identificador mediante un retorno interno validado. Vuelve al detalle con «Continuar adaptación»; si la candidatura desaparece, el CV importado permanece en la biblioteca. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F06**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

@@ -1,20 +1,20 @@
 'use client';
 
+import RequirementEvidence from './RequirementEvidence';
 import { MATCH_DIMENSION_LABELS, type MatchEvidenceSnapshot, type MatchDetails } from '@/lib/matching/types';
 
 const STATUS_LABELS = { met: 'Acreditado', partial: 'Parcial', missing: 'No acreditado', unknown: 'Desconocido' };
 
-export default function MatchAnalysisDetails({ evidence, details }: { evidence: MatchEvidenceSnapshot | null; details: MatchDetails | null }) {
+export default function MatchAnalysisDetails({ evidence, details, offerId }: { offerId?: string; evidence: MatchEvidenceSnapshot | null; details: MatchDetails | null }) {
   if (!evidence) return <p className="text-sm text-text-muted">El match necesita actualizarse con tu perfil y las reglas actuales.</p>;
-  if (!details) return <p className="text-sm text-text-muted">Tu match es {evidence.score} %. Pulsa «Analizar match» para ver el desglose y las evidencias.</p>;
   return <section className="min-w-0 space-y-6 text-sm text-text [overflow-wrap:anywhere]" aria-label="Desglose del match">
     <div className="space-y-2">
       <h2 className="text-lg font-bold font-display">Match con tu perfil: {evidence.score} %</h2>
-      <p className="leading-relaxed">{details.summary}</p>
+      <p className="leading-relaxed">{details?.summary || 'Revisa los requisitos y sus fuentes. Puedes solicitar un análisis detallado para ampliar la explicación.'}</p>
       <p className="text-xs text-text-muted">Puntuación ponderada inicial: {evidence.baseScore}/100. Los límites aplicados se muestran a continuación.</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
-      {details.dimensions.map(dimension => <div key={dimension.key} className="rounded-[12px] border border-subtle p-4">
+      {details?.dimensions.map(dimension => <div key={dimension.key} className="rounded-[12px] border border-subtle p-4">
         <h3 className="font-semibold">{MATCH_DIMENSION_LABELS[dimension.key]} · {evidence.scoreBreakdown[dimension.key]}/100</h3>
         <p className="mt-2 text-text-muted leading-relaxed">{dimension.explanation}</p>
       </div>)}
@@ -35,11 +35,12 @@ export default function MatchAnalysisDetails({ evidence, details }: { evidence: 
           <span className="text-xs font-medium rounded-[6px] border border-control px-2 py-1">{STATUS_LABELS[requirement.status]}</span>
         </div>
         <p className="text-xs text-text-muted">{requirement.importance === 'required' ? 'Obligatorio' : 'Deseable'}{requirement.alternatives.length ? ` · Alternativas: ${requirement.alternatives.join(', ')}` : ''}</p>
-        <p>{details.requirements.find(item => item.requirementId === requirement.id)?.explanation}</p>
+        <p>{details?.requirements.find(item => item.requirementId === requirement.id)?.explanation}</p>
         <blockquote className="border-l-2 border-control pl-3 text-text-muted"><span className="font-medium">Oferta: </span>{requirement.offerEvidence.quote}</blockquote>
         {requirement.candidateEvidence.map((proof, index) => <blockquote key={index} className="border-l-2 border-control pl-3 text-text-muted"><span className="font-medium">{proof.sourceId === 'cv' ? 'CV' : 'Perfil'}: </span>{proof.quote}</blockquote>)}
+        {offerId && requirement.status !== 'met' && <RequirementEvidence offerId={offerId} requirementId={requirement.id} inputHash={evidence.inputHash} />}
       </article>)}
     </section>
-    {details.nextSteps.length > 0 && <section className="space-y-2"><h3 className="font-semibold">Próximos pasos</h3><ul className="list-disc pl-5 space-y-2">{details.nextSteps.map((step, index) => <li key={index}>{step}</li>)}</ul></section>}
+    {details && details.nextSteps.length > 0 && <section className="space-y-2"><h3 className="font-semibold">Próximos pasos</h3><ul className="list-disc pl-5 space-y-2">{details.nextSteps.map((step, index) => <li key={index}>{step}</li>)}</ul></section>}
   </section>;
 }

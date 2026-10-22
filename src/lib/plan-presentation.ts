@@ -16,6 +16,7 @@ export type QuotaBucketView = {
   limit: number;
   remaining: number;
   resetAt: string | null;
+  unlimited?: boolean;
 };
 
 export type PlanUsageSnapshot = {
@@ -31,8 +32,13 @@ export type PlanUsageSnapshot = {
 export type PlanRestriction = { code: string; bucket?: 'general' | 'matching' | 'discovery'; source: string; kind: 'quota' | 'rate' | 'progress'; limit?: number };
 
 export function quotaState(bucket: QuotaBucketView): 'available' | 'warning' | 'exhausted' {
-  if (bucket.remaining <= 0) return 'exhausted';
+  if (bucket.unlimited) return 'available';
+  if (isQuotaExhausted(bucket)) return 'exhausted';
   return bucket.limit > 0 && (bucket.used + bucket.reserved) / bucket.limit >= 0.8 ? 'warning' : 'available';
+}
+
+export function isQuotaExhausted(bucket: QuotaBucketView | undefined): boolean {
+  return !!bucket && !bucket.unlimited && bucket.remaining <= 0;
 }
 
 /** Unknown placeholders stay visible in admin previews instead of inventing values. */

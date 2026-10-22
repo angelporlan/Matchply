@@ -22,7 +22,7 @@ import { ActiveCvSelector } from '@/components/subscription/ActiveCvSelector';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -31,6 +31,8 @@ import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 const CvQuickPreviewModal = dynamic(() => import('@/components/dashboard/CvQuickPreviewModal'), { ssr: false });
 
 interface DashboardClientProps {
+  returnOfferId?: string;
+  importOfferMissing?: boolean;
   initialCvs: CvListItem[];
   cvTargets: CvTargetSummary[];
   isPremium: boolean;
@@ -49,6 +51,8 @@ interface DashboardClientProps {
 
 export default function DashboardClient({
   initialCvs,
+  returnOfferId,
+  importOfferMissing = false,
   cvTargets,
   isPremium,
   isGuest = false,
@@ -184,7 +188,7 @@ export default function DashboardClient({
     if (importLoading) return;
 
     setImportError(null);
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-import'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-import'); return; }
     const baseCount = userCvs.filter(item => item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxBaseCvs !== null && baseCount >= planUsage.limits.maxBaseCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
       const choices = userCvs.filter(item => item.isBase && planUsage.cv.activeIds.includes(item.id));
@@ -248,7 +252,7 @@ export default function DashboardClient({
       refreshPlanUsage();
       trackUmamiConversion('cv_imported');
       router.refresh();
-      router.push(`/editor/${result.cvId}`);
+      router.push(returnOfferId ? `/dashboard/applications/offer/${returnOfferId}?continue=1` : `/editor/${result.cvId}`);
 
     } catch (err: any) {
       setImportError(err.message || t('dashboard.errors.unexpected'));
@@ -389,7 +393,7 @@ export default function DashboardClient({
     }
     const identity = importedOffer;
 
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
     const adaptedCount = userCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
       const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
@@ -531,7 +535,9 @@ export default function DashboardClient({
         </div>
       )}
 
-      {userCvs.length === 0 ? (
+      {importOfferMissing && <p role="status" className="mb-6 rounded-xl border border-control bg-surface p-4 text-sm">{language === 'es' ? 'La candidatura ya no está disponible. Puedes continuar desde tu biblioteca de CVs.' : 'The application is no longer available. You can continue from your CV library.'}</p>}
+      {returnOfferId && <div className="mb-6 rounded-xl border border-control bg-surface p-4 text-sm"><p>{language === 'es' ? 'Importa tu CV para continuar con la oferta seleccionada. Tu candidatura se conserva.' : 'Import your CV to continue with the selected job. Your application is preserved.'}</p><a className="mt-2 inline-flex min-h-11 items-center underline" href={`/dashboard/applications/offer/${returnOfferId}`}>{language === 'es' ? 'Volver a la candidatura' : 'Back to the application'}</a></div>}
+      {userCvs.length === 0 || returnOfferId ? (
         <div className="bg-surface border border-subtle rounded-[12px] p-6 md:p-8 shadow-sm max-w-4xl mx-auto relative overflow-hidden">
           {/* Glowing background decor */}
           <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-ai/5 dark:bg-ai/8 rounded-full filter blur-3xl pointer-events-none" />

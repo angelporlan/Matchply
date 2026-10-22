@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import {
   Check,
   ChevronDown,
@@ -48,6 +49,8 @@ export default function SkillsEvidenceEditor({
   suggestions = [],
   onChange,
 }: SkillsEvidenceEditorProps) {
+  const { language } = useLanguage(); const es = language === 'es';
+  const categoryLabel = (category: SkillCategory) => category === 'other' ? es ? 'Competencias' : 'Skills' : SKILL_CATEGORY_LABELS[category];
   const update = (index: number, patch: Partial<ProfileSkill>) => {
     onChange(skills.map((skill, i) => (i === index ? { ...skill, ...patch } : skill)));
   };
@@ -104,8 +107,8 @@ export default function SkillsEvidenceEditor({
       {/* Barra superior de métricas y acción de expandir/colapsar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 text-xs">
         <span className="text-text-muted font-medium">
-          <strong className="font-bold text-text">{skills.length}</strong> tecnologías registradas ·{' '}
-          <strong className="font-bold text-emerald-600 dark:text-emerald-400">{totalWithEvidence}</strong> con prueba vinculada
+          <strong className="font-bold text-text">{skills.length}</strong> {es ? 'competencias registradas ·' : 'skills recorded ·'}{' '}
+          <strong className="font-bold text-emerald-600 dark:text-emerald-400">{totalWithEvidence}</strong> {es ? 'con evidencia' : 'with evidence'}
         </span>
 
         <button
@@ -113,22 +116,22 @@ export default function SkillsEvidenceEditor({
           onClick={toggleAll}
           className="text-ai hover:underline font-semibold self-start sm:self-auto font-display text-xs"
         >
-          {allOpen ? 'Colapsar todas' : 'Expandir todas'}
+          {allOpen ? es ? 'Colapsar todas' : 'Collapse all' : es ? 'Expandir todas' : 'Expand all'}
         </button>
       </div>
 
       {skills.length === 0 && (
         <div className="p-6 rounded-[12px] border border-dashed border-subtle bg-canvas/40 text-center space-y-1">
-          <p className="text-sm font-bold text-text font-display">Aún no has añadido tecnologías</p>
+          <p className="text-sm font-bold text-text font-display">{es ? 'Aún no has añadido competencias' : 'No skills added yet'}</p>
           <p className="text-xs text-text-muted">
-            Detecta tu stack desde tu CV con el botón superior o despliega una categoría para añadirla manualmente.
+            {es ? 'Extrae competencias desde tu CV o añade una manualmente.' : 'Extract skills from your CV or add one manually.'}
           </p>
         </div>
       )}
 
       {/* Lista de Acordeones por Categoría */}
       <div className="space-y-2.5">
-        {CATEGORIES.map((category) => {
+        {CATEGORIES.filter(category => category === 'other' || (skillsByCategory.get(category)?.length || 0) > 0).map((category) => {
           const catSkills = skillsByCategory.get(category) || [];
           const isExpanded = !!expandedCats[category];
           const Icon = CATEGORY_ICONS[category] || Terminal;
@@ -154,7 +157,7 @@ export default function SkillsEvidenceEditor({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-text font-display">
-                        {SKILL_CATEGORY_LABELS[category]}
+                        {categoryLabel(category)}
                       </span>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-canvas border border-subtle text-text-muted font-sans">
                         {catSkills.length}
@@ -178,7 +181,7 @@ export default function SkillsEvidenceEditor({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-text-muted font-sans hidden sm:inline">
-                    {evidenceCount}/{catSkills.length} probadas
+                    {evidenceCount}/{catSkills.length} {es ? 'con evidencia declarada' : 'with declared evidence'}
                   </span>
                   {isExpanded ? (
                     <ChevronDown className="w-4 h-4 text-text-muted stroke-[2]" />
@@ -193,7 +196,7 @@ export default function SkillsEvidenceEditor({
                 <div className="p-3.5 border-t border-subtle space-y-2 bg-canvas/15">
                   {catSkills.length === 0 ? (
                     <p className="text-xs text-text-muted italic py-1">
-                      No hay tecnologías registradas en {SKILL_CATEGORY_LABELS[category]}.
+                      {es ? 'No hay competencias registradas.' : 'No skills recorded.'}
                     </p>
                   ) : (
                     catSkills.map(({ skill, index }) => (
@@ -206,7 +209,8 @@ export default function SkillsEvidenceEditor({
                           <input
                             value={skill.name}
                             onChange={(e) => update(index, { name: e.target.value })}
-                            placeholder="Nombre (ej: TypeScript)"
+                            aria-label={es ? 'Nombre de la competencia' : 'Skill name'}
+                            placeholder={es ? 'Nombre (ej.: atención al cliente)' : 'Name (e.g. customer service)'}
                             className="w-full px-2.5 py-1.5 rounded-md bg-canvas border border-control text-xs font-bold text-text focus:outline-none focus:border-ai"
                           />
                         </div>
@@ -226,7 +230,7 @@ export default function SkillsEvidenceEditor({
                                     : 'text-text-muted hover:text-text'
                                 }`}
                               >
-                                {SKILL_PROFICIENCY_LABELS[lvl]}
+                                {es ? SKILL_PROFICIENCY_LABELS[lvl] : ({ basic: 'Basic', used: 'Used', solid: 'Confident', expert: 'Expert' } as Record<string, string>)[lvl] || lvl}
                               </button>
                             );
                           })}
@@ -237,8 +241,9 @@ export default function SkillsEvidenceEditor({
                           <input
                             list={`evidence-cat-${index}`}
                             value={skill.evidence || ''}
+                            aria-label={es ? 'Evidencia declarada' : 'Declared evidence'}
                             onChange={(e) => update(index, { evidence: e.target.value })}
-                            placeholder="Proyecto o prueba de uso..."
+                            placeholder={es ? "Contexto y contribución real..." : "Context and your real contribution..."}
                             className="w-full px-2.5 py-1.5 rounded-md bg-canvas border border-control text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai"
                           />
                           <datalist id={`evidence-cat-${index}`}>
@@ -253,7 +258,7 @@ export default function SkillsEvidenceEditor({
                           <button
                             type="button"
                             onClick={() => remove(index)}
-                            title={`Eliminar ${skill.name || 'tecnología'}`}
+                            title={`Eliminar ${skill.name || 'competencia'}`}
                             className="p-1.5 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                           >
                             <Trash2 className="w-4 h-4 stroke-[1.75]" />
@@ -269,7 +274,7 @@ export default function SkillsEvidenceEditor({
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-ai hover:underline pt-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[2]" />
-                    <span>Añadir a {SKILL_CATEGORY_LABELS[category]}</span>
+                    <span>Añadir a {categoryLabel(category)}</span>
                   </button>
                 </div>
               )}

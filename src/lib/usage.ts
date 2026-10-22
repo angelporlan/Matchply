@@ -4,17 +4,18 @@ import { db } from '@/db';
 import { aiJobs, aiRequestUsage, cvs, jobResearchRuns, usageItems, usageOperations, usagePeriods, users, monetizationAssignments, monetizationEvents } from '@/db/schema';
 import { getUserPlan, type PlanDb } from '@/lib/plan-store';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
+import type { QuotaBucketView } from '@/lib/plan-presentation';
 export type UsageBucket = 'general' | 'matching' | 'discovery';
 function allowanceLimit(bucket: UsageBucket, limits: import('@/lib/plan-config').PlanLimits) {
   return bucket === 'general' ? limits.generalAiMonthly : bucket === 'matching' ? limits.matchingMonthly : limits.discoveryMonthly;
 }
 export async function getUsageAllowance(userId: string, bucket: UsageBucket, tx: PlanDb = db) {
-  const { user, limits } = await getUserPlan(userId, tx);
+  const { user, limits, unlimitedUsage } = await getUserPlan(userId, tx);
   const start = user.isGuest ? new Date(0) : utcUsageMonth();
   const [period] = await tx.select({ used: usagePeriods.used, reserved: usagePeriods.reserved }).from(usagePeriods)
     .where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.bucket, bucket), eq(usagePeriods.periodStart, start))).limit(1);
   const limit = allowanceLimit(bucket, limits), used = period?.used ?? 0, reserved = period?.reserved ?? 0;
-  return { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString() };
+  return { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString(), ...(unlimitedUsage ? { unlimited: true } : {}) };
 }
 export type UsageOperation = typeof usageOperations.$inferSelect;
 export class UsageError extends Error {
@@ -43,15 +44,15 @@ export async function reserveUsage(tx: PlanDb, userId: string, input: UsageInput
     if (existing.status === 'released') throw new UsageError(409, 'OPERATION_RELEASED', 'This operation failed; start a new operation to retry');
     return existing;
   }
-  const { user, plan, limits, config } = await getUserPlan(userId, tx);
+  const { user, plan, limits, config, unlimitedUsage } = await getUserPlan(userId, tx);
   const periodStart = user.isGuest ? new Date(0) : utcUsageMonth();
   const limit = allowanceLimit(input.bucket, limits);
   const resetAt = user.isGuest ? null : nextUsageMonth(periodStart).toISOString();
   await tx.insert(usagePeriods).values({ userId, bucket: input.bucket, periodStart }).onConflictDoNothing();
   const [period] = await tx.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.bucket, input.bucket), eq(usagePeriods.periodStart, periodStart))).for('update').limit(1);
   const usage = { used: period.used, reserved: period.reserved, limit, remaining: Math.max(0, limit - period.used - period.reserved), resetAt };
-  if (limit === 0) throw new UsageError(403, 'PLAN_REQUIRED', 'This feature is unavailable in your plan', { bucket: input.bucket, usage });
-  if (period.used + period.reserved + units > limit) throw new UsageError(429, 'QUOTA_EXCEEDED', 'Your allowance is exhausted', { bucket: input.bucket, usage, required: units });
+  if (!unlimitedUsage && limit === 0) throw new UsageError(403, 'PLAN_REQUIRED', 'This feature is unavailable in your plan', { bucket: input.bucket, usage });
+  if (!unlimitedUsage && period.used + period.reserved + units > limit) throw new UsageError(429, 'QUOTA_EXCEEDED', 'Your allowance is exhausted', { bucket: input.bucket, usage, required: units });
   await tx.update(usagePeriods).set({ reserved: period.reserved + units, updatedAt: new Date() }).where(eq(usagePeriods.id, period.id));
   const [operation] = await tx.insert(usageOperations).values({ userId, periodId: period.id, bucket: input.bucket, requestId: input.requestId, action: input.action, inputHash: hash, units, configVersion: config.version, plan, jobId: input.jobId, expiresAt: new Date(Date.now() + 10 * 60_000) }).returning();
   return operation;
@@ -172,15 +173,15 @@ export async function reconcileUsage() {
   });
 }
 export async function getUsageSnapshot(userId: string) {
-  const { user, config, plan, limits } = await getUserPlan(userId);
+  const { user, config, plan, limits, unlimitedUsage } = await getUserPlan(userId);
   const start = user.isGuest ? new Date(0) : utcUsageMonth();
   const periods = await db.select().from(usagePeriods).where(and(eq(usagePeriods.userId, userId), eq(usagePeriods.periodStart, start)));
-  const usage = {} as Record<UsageBucket, { used: number; reserved: number; limit: number; remaining: number; resetAt: string | null }>;
+  const usage = {} as Record<UsageBucket, QuotaBucketView>;
   for (const bucket of ['general', 'matching', 'discovery'] as const) {
     const row = periods.find(p => p.bucket === bucket);
     const limit = allowanceLimit(bucket, limits);
     const used = row?.used ?? 0, reserved = row?.reserved ?? 0;
-    usage[bucket] = { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString() };
+    usage[bucket] = { used, reserved, limit, remaining: Math.max(0, limit - used - reserved), resetAt: user.isGuest ? null : nextUsageMonth(start).toISOString(), ...(unlimitedUsage ? { unlimited: true } : {}) };
   }
   return { plan, configVersion: config.version, limits, usage };
 }

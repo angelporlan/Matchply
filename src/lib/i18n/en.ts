@@ -1,6 +1,7 @@
 import { planTranslations } from './plans';
 
 const en = {
+    cvPhoto: { include: 'Photo on CV', change: 'Change photo', upload: 'Upload photo', select: 'Select a photo for this CV', portrait: 'CV photo', useAccount: 'Use account photo', missing: 'Your account has no available photo. Upload one for this CV.', saving: 'Saving photo…', saveError: 'Could not save the photo change. Please try again.' },
     accountPhoto: {
       title: 'Profile photo',
       upload: 'Upload profile photo',
@@ -537,6 +538,27 @@ const en = {
     applications: {
       title: 'Applications',
       subtitle: 'Your application CRM: filter, sort, choose columns and save views.',
+      extensionGuide: {
+        trigger: 'How to install and use the LinkedIn extension',
+        close: 'Close guide',
+        title: 'From LinkedIn to your applications',
+        description: 'Save jobs that interest you while browsing LinkedIn and review them here. Available to every registered Matchply account.',
+        installTitle: 'Install and pin the extension',
+        installBody: 'On its Chrome Web Store listing, select “Add to Chrome”. Then open Chrome’s extensions menu (the puzzle piece) and pin Matchply for quick access.',
+        connectTitle: 'Connect your Matchply account',
+        connectBody: 'Go to Settings → Integrations → LinkedIn extension and select “Generate code”. Open the extension, enter the 8-character code and select “Conectar extensión”. The code expires in 10 minutes.',
+        captureTitle: 'Search for jobs on LinkedIn',
+        captureBody: 'Open Jobs and filter by role, location or workplace type. Automatic mode saves opened jobs after your chosen reading delay. In manual mode, select “Guardar oferta ahora” (Save job now).',
+        reviewTitle: 'Organize your saved jobs',
+        reviewBody: 'Return to Applications and refresh to see imported jobs. Review their details, compare them with your profile and decide which to pursue. Saving a job does not submit an application to the company.',
+        batchTitle: 'A tip for saving several jobs',
+        batchBody: 'In a LinkedIn job search, open the extension and select “Capturar visibles” (Capture visible jobs). It saves up to 25 jobs already displayed in the list; scroll or change pages to load more, then repeat. The extension tries to complete their descriptions; if one remains pending, open that job to complete it. Previously saved jobs are updated without duplicates.',
+        controls: 'Choose automatic or manual capture, or switch the extension off. “Capturar personas” (Capture people) is optional and off by default; review its privacy notice before enabling it.',
+        comingSoon: 'Installation from Chrome Web Store will be available once the extension is published. If you already have it installed, you can connect it from Integrations.',
+        installAction: 'Install in Chrome',
+        connectAction: 'Go to Integrations',
+        linkedinAction: 'Open LinkedIn Jobs',
+      },
       filters: {
         status: 'Status',
         allStatuses: 'All statuses',

@@ -1,6 +1,6 @@
 # Planes, cuotas y paywall
 
-Estado: implementación local autorizada en esta conversación. Revisión: 12 de octubre de 2026. No implica un despliegue ni una comprobación de producción.
+Estado: implementación local autorizada en esta conversación. Revisión: 22 de octubre de 2026. No implica un despliegue ni una comprobación de producción.
 
 ## Resultado esperado
 
@@ -29,7 +29,16 @@ La bolsa general incluye adaptación e importación de CV, perfil, cartas, entre
 
 Al agotar almacenamiento, la interfaz ofrece sustituir un documento editable concreto tras confirmación. Adaptar una oferta conserva el CV base. La API reserva cuota y destino juntas; publica el contenido cuando la generación termina. Un fallo conserva el contenido anterior y elimina solamente el destino pendiente creado por esa operación.
 
-Al perder Pro no se borran CVs. Los permitidos siguen activos; el resto se consulta y descarga en modo lectura. El usuario puede elegir CV base y versiones activas. Servidor rechaza modificaciones directas sobre documentos de lectura. El rol admin concede acceso administrativo, sin exención comercial en su cuenta personal. Administrar planes exige administrador real y bloquea suplantación de soporte.
+Al perder Pro no se borran CVs. Los permitidos siguen activos; el resto se consulta y descarga en modo lectura. El usuario puede elegir CV base y versiones activas. Servidor rechaza modificaciones directas sobre documentos de lectura. Administrar planes exige administrador real y bloquea suplantación de soporte.
+
+### Uso ilimitado del administrador (22 de octubre de 2026)
+
+- REQ-ADMIN-01: una cuenta activa, registrada y con rol `admin` MUST poder superar las tres bolsas de uso (acciones de IA, ofertas analizadas y candidaturas por IA), incluso si el límite publicado es cero. La decisión MUST usar el propietario efectivo leído de la BD; una sesión de soporte sobre un usuario normal no hereda la exención del administrador.
+- REQ-ADMIN-02: reservas, consumo, liberación, idempotencia y renovación MUST conservarse. La interfaz MUST mostrar el consumo real y el límite normal del plan, por ejemplo «495 de 300», junto a una indicación de uso ilimitado por ser administrador; MUST NOT bloquear ni mostrar avisos de saldo agotado para esas bolsas.
+- REQ-ADMIN-03: discovery MUST reservar sus plazas normales por búsqueda para administradores aunque el saldo del plan sea cero o insuficiente. El tamaño de lote, almacenamiento, capacidades del plan, rate limits y permisos sobre datos mantienen sus reglas actuales.
+- INV-ADMIN-01: usuarios normales e invitados MUST seguir sujetos a sus cuotas. Cambiar el rol no reinicia consumo: al quitar `admin`, las nuevas operaciones vuelven a comprobar el saldo real.
+
+Cambio local y reversible sin migración ni modificación de Stripe. Asunción de alcance: «usos» se refiere a las tres bolsas mostradas en el panel adjunto. La solicitud explícita del usuario define y autoriza este comportamiento.
 
 ## Panel administrativo
 
@@ -57,5 +66,7 @@ El usuario recibe copy A/B estable por usuario y versión después de obtener el
 | PL-08 | Checkout anual con prueba | Stripe conserva anual; retorno pendiente hasta estado verificado. |
 | PL-09 | Prueba ya utilizada | No promete otra prueba; Checkout sin segundo trial. |
 | PL-10 | Invitado registra cuenta | Conserva uso y asignación; no regenera una bolsa gratuita. |
+| PL-11 | Admin supera cualquiera de las tres bolsas | Sigue operando y contabilizando; conserva el denominador de su plan y muestra uso ilimitado. |
+| PL-12 | Admin pierde rol o usa soporte con otro propietario | Nueva admisión aplica las cuotas del propietario actual sin reiniciar contadores. |
 
 Verificación automatizada: `scripts/plan-presentation.test.ts`, `scripts/plans-integration.test.ts`, `scripts/ai-usage-integration.test.ts` y pruebas de facturación. La integración de planes requiere `PLANS_TEST_DATABASE_URL` apuntando a una BD local aislada cuyo nombre contenga `test`. Revisión visual: admin/publicación y conflicto; selección de CV; bloqueo/aviso; tamaños móvil/escritorio; ES/EN; teclado y temas. Registrar evidencia realizada en `estado-actual.md`; no convertir expectativas en pruebas realizadas.

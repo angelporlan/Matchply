@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000";
+const API_BASE = "https://matchply.com";
 
 document.addEventListener("DOMContentLoaded", () => {
   const pairingCard = document.getElementById("pairingCard");
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (probe?.result) return true;
       await chrome.scripting.executeScript({
         target: { tabId, allFrames: false },
-        files: ["people.js", "job-list.js", "content.js"],
+        files: ["people.js", "job-list.js", "public-description.js", "content.js"],
       });
       return true;
     } catch (_) {
@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setVisibleCapture(
       isJobPage,
       isJobPage
-        ? "Guarda las ofertas que LinkedIn ya muestra en la lista, sin abrirlas. La descripción completa entra al abrir cada una."
+        ? "Guarda las ofertas que LinkedIn ya muestra en la lista, sin abrirlas. La descripción pública se lee sin usar tu sesión."
         : "Abre la búsqueda de empleos en LinkedIn para capturar la lista.",
     );
   }

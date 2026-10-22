@@ -10,11 +10,11 @@ export async function getPlanConfig(tx: PlanDb = db) {
   return parsePlanConfig({ ...(row.config as object), version: row.version });
 }
 export async function getUserPlan(userId: string, tx: PlanDb = db) {
-  const [user] = await tx.select({ id: users.id, isGuest: users.isGuest, subscriptionStatus: users.subscriptionStatus, proGrantedUntil: users.proGrantedUntil, accountStatus: users.accountStatus, createdAt: users.createdAt, stripePriceId: users.stripePriceId, stripePaidAt: users.stripePaidAt, stripeCurrentPeriodEnd: users.stripeCurrentPeriodEnd, stripeTrialEnd: users.stripeTrialEnd }).from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await tx.select({ id: users.id, role: users.role, isGuest: users.isGuest, subscriptionStatus: users.subscriptionStatus, proGrantedUntil: users.proGrantedUntil, accountStatus: users.accountStatus, createdAt: users.createdAt, stripePriceId: users.stripePriceId, stripePaidAt: users.stripePaidAt, stripeCurrentPeriodEnd: users.stripeCurrentPeriodEnd, stripeTrialEnd: users.stripeTrialEnd }).from(users).where(eq(users.id, userId)).limit(1);
   if (!user || user.accountStatus !== 'active') throw new Error('Unauthorized');
   const config = await getPlanConfig(tx);
   const plan = getAccessTier(user.subscriptionStatus, user);
-  return { user, config, plan, limits: config[plan] };
+  return { user, config, plan, limits: config[plan], unlimitedUsage: user.role === 'admin' && !user.isGuest };
 }
 export async function userPlanFeature(userId: string, feature: import('@/lib/subscription').SubscriptionFeature, tx: PlanDb = db) {
   const { limits, plan } = await getUserPlan(userId, tx);

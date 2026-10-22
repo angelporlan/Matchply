@@ -1,5 +1,8 @@
 # Vista previa, generación y descarga PDF — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: Las descargas conservan sus bytes exactos en PostgreSQL. La confirmación asocia una copia a la candidatura; las exportaciones temporales duran 30 días. Las copias enviadas no consumen huecos de CV editable ni se regeneran al descargarlas. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F08**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

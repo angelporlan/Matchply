@@ -15,7 +15,7 @@ import {
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -254,8 +254,8 @@ export default function JobOfferDetailsModal({
     setError(null);
     const baseCv = userCvs.find(cv => cv.id === planUsage?.cv.baseCvId)
       || userCvs.find(cv => cv.isBase && !planUsage?.cv.readOnlyIds.includes(cv.id));
-    if (!baseCv) { setError(t('dashboard.errors.noPrimary')); return; }
-    if (planUsage?.usage.general.remaining === 0) {
+    if (!baseCv) { router.push(`/dashboard?importCv=1&offerId=${offer.id}`); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) {
       reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return;
     }
     const adaptedCount = userCvs.filter(cv => !cv.isBase).length;
@@ -510,7 +510,7 @@ export default function JobOfferDetailsModal({
                         {offer.cvId && (
                           <div className="border-t border-subtle pt-3 flex justify-end">
                             <a
-                              href={`/editor/${offer.cvId}`}
+                              href={`/editor/${offer.cvId}?offerId=${offer.id}`}
                               className="btn-raised btn-raised--secondary btn-raised--sm"
                             >
                               <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -674,7 +674,7 @@ export default function JobOfferDetailsModal({
                               {offer.cvId ? (
                                 <>
                                   <a
-                                    href={`/editor/${offer.cvId}`}
+                                    href={`/editor/${offer.cvId}?offerId=${offer.id}`}
                                     className="btn-raised btn-raised--secondary btn-raised--sm"
                                   >
                                     <Edit3 className="w-3.5 h-3.5 stroke-[1.75]" />

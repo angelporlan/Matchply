@@ -8,6 +8,7 @@ import { JobOffer } from '@/db/schema';
 import { CvListItem, ApplicationSummary, CompanyLookupItem } from '@/lib/job-offer-queries';
 import CompanyLookupInput from '@/components/companies/CompanyLookupInput';
 import ApplicationsTable from './ApplicationsTable';
+import LinkedInExtensionGuide from './LinkedInExtensionGuide';
 import ApplicationViewsMenu, { type ApplicationViewOption } from './ApplicationViewsMenu';
 import { setRowsFavoriteAction } from '@/app/dashboard/applications/crm-actions';
 import { CrmPagination } from '@/components/crm/CrmControls';
@@ -76,6 +77,7 @@ interface ApplicationsClientProps {
   savedViews: SavedApplicationView[];
   initialViewId: string;
   initialCompanyId?: string;
+  extensionStoreUrl: string | null;
 }
 
 export default function ApplicationsClient({
@@ -86,6 +88,7 @@ export default function ApplicationsClient({
   savedViews: initialSavedViews,
   initialViewId,
   initialCompanyId,
+  extensionStoreUrl,
 }: ApplicationsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -488,6 +491,7 @@ export default function ApplicationsClient({
       return;
     }
     showToast(t('applications.table.statusUpdated'));
+    router.refresh();
   };
 
   const handleConfirmDeleteOffer = async () => {
@@ -511,11 +515,13 @@ export default function ApplicationsClient({
     setLocalOffers((prev) => prev.map((item) => selectedIds.has(item.id) ? { ...item, status, updatedAt: new Date() } : item));
     const results = await Promise.all(ids.map((id) => updateJobOfferStatus(id, status)));
     if (results.some((result) => result.error)) {
-      setLocalOffers(previous);
+      const failed = new Set(ids.filter((_, index) => results[index].error));
+      setLocalOffers(previous.map(item => !selectedIds.has(item.id) || failed.has(item.id) ? item : { ...item, status, updatedAt: new Date() }));
       showToast(t('applications.table.statusError'), 'info');
     } else {
       showToast(t('applications.table.bulkStatusUpdated').replace('{count}', String(ids.length)));
     }
+    router.refresh();
     setSelectedIds(new Set());
   };
 
@@ -689,10 +695,13 @@ export default function ApplicationsClient({
     <div className="w-full" aria-busy={listLoading || undefined}>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
         <div>
-          <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
-            <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
-            {t('applications.title')}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-text tracking-tight flex items-center gap-2 font-display">
+              <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
+              {t('applications.title')}
+            </h2>
+            <LinkedInExtensionGuide storeUrl={extensionStoreUrl} />
+          </div>
           <p className="text-text-muted text-sm mt-1 font-sans">
             {t('applications.subtitle')}
           </p>

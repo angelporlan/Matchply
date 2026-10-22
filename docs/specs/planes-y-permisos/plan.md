@@ -8,3 +8,10 @@
 6. Ejecutar suites, lint, typecheck, build, integración Postgres aislada y revisión visual ES/EN/temas. Registrar evidencia sin credenciales.
 
 La publicación en producción no forma parte de este cambio local. La oferta anual/trial requiere catálogo y portal verificados en cada entorno.
+
+## Ampliación: uso ilimitado del administrador
+
+1. Leer rol del propietario en `getUserPlan`; derivar exención de las bolsas sin cambiar plan ni denominadores (REQ-ADMIN-01).
+2. Mantener reservas y consumo transaccionales; omitir solo rechazo por bolsa del admin, incluidas plazas de discovery (REQ-ADMIN-01/03, INV-ADMIN-01).
+3. Propagar indicador opcional por bolsa a la API y usarlo en bloqueos previos y estados/textos ES/EN del panel, sidebar, suscripción y saldo en línea (REQ-ADMIN-02).
+4. Verificar con Postgres local aislado: Free/Pro, tres bolsas, concurrencia, idempotencia, liberación, cambio de rol, usuario normal, invitado y discovery. Ejecutar presentación, tipos, lint y suite habitual. No requiere migración; revertir el código restablece las cuotas manteniendo el historial.

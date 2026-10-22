@@ -2,7 +2,7 @@
 
 | ID | Contexto y acción | Resultado exigido | Evidencia automatizada |
 | --- | --- | --- | --- |
-| E-01 | Dos peticiones piden la última unidad o espacio | Solo una se admite; contador/capacidad no excede | `ai-usage-integration.test.ts`, `plans-integration.test.ts` |
+| E-01 | Dos peticiones de usuarios sujetos a cuota piden la última unidad o espacio | Solo una se admite; contador/capacidad no excede | `ai-usage-integration.test.ts`, `plans-integration.test.ts` |
 | E-02 | Doble clic, entrada distinta con ID usado o respuesta perdida | Una reserva, conflicto para entrada incompatible y resultado recuperable | Ambas suites de integración |
 | E-03 | Lote 50/51, saldo insuficiente o éxito parcial | Tope y saldo al admitir; solo resultados publicados consumen | `ai-usage-integration.test.ts`, `match-batch.test.ts` |
 | E-04 | Worker interrumpido o intento anterior publica | Reclamación segura; intento obsoleto no publica, último fallo libera | `ai-usage-integration.test.ts` |
@@ -14,5 +14,9 @@
 | E-10 | Agente externo aporta evaluación | No se reserva ninguna bolsa interna | Revisión de productores y `matching-persistence.integration.test.ts` |
 | E-11 | Investigación con varias llamadas, informe existente o fallo | Un resultado útil cuesta una unidad; informe reutilizado/reintento no vuelve a cobrar | `ai-usage-integration.test.ts` |
 | E-12 | Uso alcanza 80 %/100 % y Pro agota cuota | Contador, motivo y renovación; texto vigente ES/EN y sin nueva compra para Pro | Helpers de presentación y QA visual |
+| E-ADMIN-01 | Admin Free/Pro supera las tres bolsas, con reservas concurrentes, consumo y liberación | Nuevas operaciones admitidas; consumo real y límites originales; reintento no duplica y fallo libera | `admin-usage.integration.test.ts` (REQ-ADMIN-01/02) |
+| E-ADMIN-02 | Cuenta normal, invitado con rol admin o administrador degradado supera cuota | Se rechaza la nueva operación; contador anterior conservado | `admin-usage.integration.test.ts` (INV-ADMIN-01, PL-12) |
+| E-ADMIN-03 | Discovery de admin cerca o por encima del límite | Reserva cinco plazas y publica/contabiliza cinco candidaturas | `offer-discovery.integration.test.ts` (REQ-ADMIN-03) |
+| E-ADMIN-04 | Contador admin «495 de 300», con cero disponibles o límite cero | Estado disponible, sin bloqueo previo, con indicación localizada de uso ilimitado | `plan-presentation.test.ts`, render de componentes (REQ-ADMIN-02) |
 
 Las pruebas de Postgres requieren URL loopback con nombre `test`. Las pruebas mutables de configuración utilizan una base distinta de las pruebas de workers. Ninguna prueba debe ejecutarse contra producción.

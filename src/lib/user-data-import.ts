@@ -1,3 +1,4 @@
+import { normalizeContinuityPackage, importContinuity } from '@/lib/continuity-transfer';
 import { createHash, randomUUID } from 'node:crypto';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -56,7 +57,7 @@ const OFFER_FIELDS = [
   'isFavorite', 'id', 'title', 'company', 'url', 'platform', 'description', 'status', 'source', 'externalSource', 'externalId',
   'livenessStatus', 'sourceMetadata', 'scoreOverall', 'scoreBreakdown', 'matchInputHash', 'matchKind', 'matchEvidence',
   'matchDetails', 'matchEvaluatedAt', 'tldr', 'redFlags', 'legitimacyTier', 'rawReport', 'targetProofPoints',
-  'coverLetter', 'outreachMessage', 'interviewQuestions', 'nextFollowupDate', 'rejectionPatternTags', 'createdAt', 'updatedAt',
+  'coverLetter', 'outreachMessage', 'interviewQuestions', 'nextFollowupDate', 'nextAction', 'followupVersion', 'rejectionPatternTags', 'createdAt', 'updatedAt',
 ];
 const RESEARCH_FIELDS = [
   'id', 'jobOfferId', 'status', 'trigger', 'attempt', 'leaseUntil', 'nextAttemptAt', 'quotaPeriodStart', 'engineVersion',
@@ -184,7 +185,9 @@ export function normalizeUserDataPackage(input: unknown) {
     if (expected !== list.length) fail(`El recuento de ${name} no coincide.`);
   }
 
-  return { sourceId, sourceEmail, user, ...lists, payloadSha256 };
+  let continuity;
+  try { continuity = normalizeContinuityPackage(payload.continuity); } catch { fail('La extensión de continuidad no es válida.'); }
+  return { sourceId, sourceEmail, user, ...lists, payloadSha256, continuity };
 }
 
 async function existingById<T extends AnyRow>(tx: any, table: T, tableName: string, id: string) {
@@ -381,6 +384,9 @@ export async function importUserData(input: unknown) {
       else await tx.insert(jobOffers).values(values as any);
       offerIds.set(sourceOfferId, destinationOfferId);
     }
+
+    try { await importContinuity(tx, destinationUserId, payload.continuity, cvIds, offerIds); }
+    catch (error) { fail('Los documentos o eventos de continuidad no son compatibles con el paquete.', error instanceof Error && error.message.endsWith('CONFLICT') ? 409 : 400); }
 
     const researchIds = new Map<string, string>();
     for (const sourceRow of payload.jobResearchRuns) {

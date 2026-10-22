@@ -1,5 +1,8 @@
 # Prueba sin cuenta y recuperación al registrarse — estado actual
 
+> Actualización implementada en el checkout local el 22/10/2026: La recuperación transfiere también documentos conservados, eventos y aportaciones dentro del grafo de propiedad. La publicación de un PDF en curso utiliza la operación reservada para resolver el propietario tras un claim. Contrato y verificación en [Continuidad y blog](../continuidad-y-blog/spec.md) y [evidencias](../continuidad-y-blog/evidence.md). Esta actualización sustituye las descripciones anteriores incompatibles; no acredita publicación en producción.
+
+
 Área: **F03**  
 Fecha de inventario: **12 de septiembre de 2026**  
 Método: lectura estática del código local, sin ejecución funcional ni comprobación de producción.

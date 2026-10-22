@@ -6,6 +6,8 @@ Revisión inicial: 4 de octubre de 2026. Cuotas actualizadas el 12 de octubre de
 
 «Candidaturas por IA» sustituye la bolsa de investigaciones: 10 candidaturas nuevas al mes en Gratis y 100 en Pro. Solo se cuentan las que se añaden, con scoring inicial incluido; duplicados, descartes y búsquedas vacías no descuentan. Cada investigación profunda útil consume una acción de IA general y está disponible en cuentas Gratis y Pro. La migración 0040 conserva el historial, el consumo anterior y las reservas ya admitidas.
 
+Desde el 22 de octubre de 2026, las cuentas registradas con rol `admin` pueden superar las tres bolsas. Conservan el plan y los contadores reales (por ejemplo, «495 de 300»), con la indicación «Uso ilimitado por ser administrador». El servidor consulta el rol del propietario efectivo, también al admitir trabajos; quitar el rol restablece las comprobaciones sobre el consumo acumulado. Se conservan reservas, idempotencia y límites técnicos. Cambio local sin migración. [Verificación de la ampliación](evidence.md#uso-ilimitado-del-administrador--22-de-octubre-de-2026).
+
 ## Implementación
 
 - `src/lib/plan-config.ts` valida valores, predeterminados y placeholders. `plan-store.ts` lee singleton persistido; no concede permisos por un fallback cuando falla la BD.

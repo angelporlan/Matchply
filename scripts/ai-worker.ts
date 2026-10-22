@@ -1,3 +1,4 @@
+import { cleanupPdfExports } from '@/lib/cv-export';
 import { processAiJob } from '@/lib/ai-jobs/process';
 import { claimNextAiJob, failAiJob, getAiJob } from '@/lib/ai-jobs/queue';
 import { reconcileUsage } from '@/lib/usage';
@@ -27,11 +28,13 @@ async function processRun() {
 const shutdown = createWorkerShutdown();
 
 let nextReconcileAt = 0;
+let nextExportCleanupAt = Date.now() + 60_000;
 async function workerLoop(slot: number) {
   const idle = createIdleBackoff();
   while (!shutdown.stopping) {
     try {
       if (Date.now() >= nextReconcileAt) { nextReconcileAt = Date.now() + 60_000; await reconcileUsage(); }
+      if (Date.now() >= nextExportCleanupAt) { nextExportCleanupAt = Date.now() + 3600_000; await cleanupPdfExports(); }
       const worked = await processRun();
       if (worked) {
         idle.reset();

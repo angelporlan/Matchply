@@ -30,6 +30,8 @@ function offer(overrides: Partial<ApplicationSummary> = {}): ApplicationSummary 
     legitimacyTier: null,
     livenessStatus: 'active',
     nextFollowupDate: null,
+    nextAction: null,
+    followupVersion: 0,
     source: null,
     createdAt: new Date('2026-09-01T10:00:00.000Z'),
     updatedAt: new Date('2026-09-02T10:00:00.000Z'),

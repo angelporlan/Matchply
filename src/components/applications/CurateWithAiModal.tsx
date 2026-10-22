@@ -3,8 +3,9 @@
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Sparkles, X } from 'lucide-react';
+import { Briefcase, Check, Sparkles, User, X } from 'lucide-react';
 import type { ApplicationSummary } from '@/lib/job-offer-queries';
+import { matchScoreBand } from '@/components/applications/matchScoreStyle';
 import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { readMatchBatchResult, type MatchBatchScore, type MatchBatchError } from '@/lib/ai-jobs/match-batch-state';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
@@ -38,6 +39,7 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
   const [reconnect, setReconnect] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const latestProps = useRef(props);
   latestProps.current = props;
   const { inspectOrExecutePrompt } = useAiPromptDebug();
@@ -247,10 +249,32 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
     return () => { stopped = true; wakeWait?.(); controller.abort(); };
   }, [isOpen, reconnect]);
 
+  const inProgress = phase === 'starting' || phase === 'queued' || phase === 'running';
+  const activeOffer = inProgress
+    ? displayOffers.find(offer => {
+      if (scores.has(offer.id)) return false;
+      const failure = errors.get(offer.id);
+      return !(failure && !outdatedScores.has(offer.id));
+    })
+    : undefined;
+
+  useEffect(() => {
+    const list = listRef.current;
+    const activeId = activeOffer?.id;
+    if (!isOpen || !list || !activeId) return;
+    const row = list.querySelector<HTMLElement>(`[data-offer-id="${activeId}"]`);
+    if (!row) return;
+    const listRect = list.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior = reduce ? 'auto' : 'smooth';
+    if (rowRect.top < listRect.top) list.scrollBy({ top: rowRect.top - listRect.top, behavior });
+    else if (rowRect.bottom > listRect.bottom) list.scrollBy({ top: rowRect.bottom - listRect.bottom, behavior });
+  }, [isOpen, activeOffer?.id]);
+
   if (!isOpen) return null;
   const total = displayOffers.length || offers.length || offersCount;
   const progress = total > 0 ? Math.min(100, Math.round(scores.size / total * 100)) : 0;
-  const inProgress = phase === 'starting' || phase === 'queued' || phase === 'running';
   const title = isSimulation ? 'Demostración del match' : phase === 'completed' ? 'Match calculado'
     : phase === 'failed' ? 'Cálculo terminado con incidencias' : phase === 'disconnected' ? 'Conexión interrumpida' : 'Calculando match';
 
@@ -275,30 +299,42 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
               : inProgress ? 'Si falta la descripción, se busca y se guarda antes de calcular el match. Puedes cerrar esta ventana; el proceso continúa.'
                 : 'El porcentaje mide la afinidad con tu perfil y tus preferencias.'}
           </p>
-          <div className="flex items-center justify-between text-sm text-text-muted" role="status" aria-live="polite">
-            <span>{scores.size} de {total} ofertas actualizadas</span>
-            {inProgress && <span className="flex items-center gap-1.5"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />{phase === 'queued' ? 'En cola' : 'Calculando'}</span>}
+          {(inProgress || phase === 'completed') && (
+            <MatchJoinStage
+              inProgress={inProgress}
+              phase={phase}
+              title={activeOffer?.title}
+              company={activeOffer?.company}
+            />
+          )}
+          <div className="flex items-center justify-between gap-3 text-sm text-text-muted" role="status" aria-live="polite">
+            <span className="min-w-0 truncate">
+              {scores.size} de {total} ofertas actualizadas
+              {inProgress && activeOffer ? <span className="sr-only">. Comparando con {activeOffer.title}</span> : null}
+            </span>
+            {inProgress && <span className="shrink-0 font-medium text-ai-text">{phase === 'queued' ? 'En cola' : phase === 'starting' ? 'Preparando' : 'Comparando'}</span>}
           </div>
           <div role="progressbar" aria-label="Ofertas actualizadas" aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={scores.size}
             className="h-2 overflow-hidden rounded-full bg-surface-muted">
-            <div className="h-full rounded-full bg-ai-action" style={{ width: `${progress}%` }} />
+            <div className="h-full rounded-full bg-ai-action transition-[width] duration-150 ease-out motion-reduce:transition-none" style={{ width: `${progress}%` }} />
           </div>
           {message && <p role="alert" className="rounded-lg bg-warning-surface p-3 text-sm text-warning-text">{message}</p>}
         </div>
-        <ul className="min-h-0 divide-y divide-subtle overflow-y-auto border-y border-subtle">
+        <ul ref={listRef} className="min-h-0 divide-y divide-subtle overflow-y-auto border-y border-subtle">
           {displayOffers.map(offer => {
             const score = scores.get(offer.id);
             const failure = errors.get(offer.id);
+            const comparing = inProgress && activeOffer?.id === offer.id;
             return (
-              <li key={offer.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <li key={offer.id} data-offer-id={offer.id} aria-busy={comparing || undefined} className={`flex items-center justify-between gap-4 px-5 py-3 ${comparing ? 'match-row-active' : ''}`}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-text" title={offer.title}>{offer.title}</p>
                   <p className="truncate text-xs text-text-muted">{offer.company}</p>
                   {failure && score === undefined && <p className="mt-1 text-xs text-warning-text">{outdatedScores.has(offer.id) ? 'Datos modificados · Pendiente de recalcular' : failure}</p>}
                 </div>
-                <span className="shrink-0 font-display text-lg font-bold tabular-nums text-text">
-                  {score !== undefined ? `${score}%` : failure && !outdatedScores.has(offer.id) && offer.scoreOverall !== null ? `${offer.scoreOverall}%`
-                    : <span className="text-sm font-normal text-text-muted">{failure || !inProgress ? 'Sin resultado' : 'Pendiente'}</span>}
+                <span className={`shrink-0 font-display text-lg font-bold tabular-nums ${score === undefined ? 'text-text' : matchScoreTextClass(score)}`}>
+                  {score !== undefined ? <span className="match-score-in">{score}%</span> : failure && !outdatedScores.has(offer.id) && offer.scoreOverall !== null ? `${offer.scoreOverall}%`
+                    : <span className={`text-sm font-normal ${comparing ? 'font-medium text-ai-text' : 'text-text-muted'}`}>{failure || !inProgress ? 'Sin resultado' : comparing ? 'Comparando' : 'Pendiente'}</span>}
                 </span>
               </li>
             );
@@ -312,5 +348,50 @@ export default function CurateWithAiModal(props: CurateWithAiModalProps) {
         </div>
       </div>
     </ModalScrim>
+  );
+}
+
+function matchScoreTextClass(score: number) {
+  const band = matchScoreBand(score);
+  if (band === 'high') return 'text-success-text';
+  if (band === 'mid') return 'text-warning-text';
+  return 'text-text-muted';
+}
+
+function MatchJoinStage({ inProgress, phase, title, company }: {
+  inProgress: boolean;
+  phase: Phase;
+  title?: string;
+  company?: string;
+}) {
+  const offerTitle = title || (phase === 'queued' ? 'En cola' : phase === 'completed' ? 'Listo' : 'Ofertas');
+  return (
+    <div className={`match-join ${inProgress ? '' : 'match-join--settled'}`} aria-hidden="true">
+      <div className="match-join__node">
+        <span className="match-join__glyph">
+          <User className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 overflow-hidden">
+          <span className="block truncate text-sm font-semibold text-text">Perfil</span>
+          <span className="block truncate text-xs font-normal text-text-muted">CV y preferencias</span>
+        </span>
+      </div>
+      <div className="match-join__link">
+        <span className="match-join__link-line">
+          <span className="match-join__arm match-join__arm--left" />
+          <span className="match-join__arm match-join__arm--right" />
+        </span>
+        {inProgress ? <span className="match-join__mark" /> : <Check className="match-join__check" />}
+      </div>
+      <div className="match-join__node match-join__node--offer">
+        <span key={title || phase} className="match-join__offer-label min-w-0 overflow-hidden">
+          <span className="block truncate text-sm font-semibold text-text">{offerTitle}</span>
+          <span className="block truncate text-xs font-normal text-text-muted">{company || (inProgress ? 'Oferta' : 'Comparadas')}</span>
+        </span>
+        <span className="match-join__glyph">
+          <Briefcase className="h-4 w-4" />
+        </span>
+      </div>
+    </div>
   );
 }
