@@ -17,6 +17,8 @@ async function main() {
   const { getUsageSnapshot } = await import('@/lib/usage');
   const { getCvAccess } = await import('@/lib/cv-access');
   const baseline = process.env.PERF_BUILD === 'd0dfcc2';
+  const samples = Number(process.env.PERF_SAMPLES || 30);
+  if (!Number.isInteger(samples) || samples < 1) throw new Error('Invalid PERF_SAMPLES');
   const original = pool.query.bind(pool);
   const records: Array<{ text: string; values?: unknown[] }> = [];
   pool.query = ((...args: any[]) => {
@@ -48,7 +50,7 @@ async function main() {
         const measuredPool = pool as typeof pool & { acquisitionStats?: () => { count: number; totalMs: number } };
         const beforePool = measuredPool.acquisitionStats?.();
         const times: number[] = []; const counts: number[] = []; let sampleQueries: typeof records = [];
-        for (let i=0;i<30;i++) {
+        for (let i=0;i<samples;i++) {
           records.length = 0; const started = performance.now(); await run(); times.push(performance.now()-started); counts.push(records.length);
           if (i===0) sampleQueries = [...records];
         }
@@ -59,8 +61,9 @@ async function main() {
           const plan = result.rows[0]['QUERY PLAN'][0];
           plans.push({ planningMs: plan['Planning Time'], executionMs: plan['Execution Time'], sharedHitBlocks: plan.Plan['Shared Hit Blocks'], sharedReadBlocks: plan.Plan['Shared Read Blocks'], plan: plan.Plan });
         }
+        const rawMs = [...times];
         times.sort((a,b)=>a-b);
-        data.push({ profile,name,samples:30,p50Ms:times[15],p95Ms:times[28],selects:counts[0],
+        data.push({ profile,name,samples,p50Ms:times[Math.floor(samples*.5)],p95Ms:times[Math.min(samples-1,Math.ceil(samples*.95)-1)],rawMs,selects:counts[0],
           ...(beforePool && afterPool ? { meanPoolAcquireMs: (afterPool.totalMs-beforePool.totalMs) / (afterPool.count-beforePool.count) } : {}), plans });
       }
     }

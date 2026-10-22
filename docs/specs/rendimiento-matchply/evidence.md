@@ -68,3 +68,13 @@ No se cambian memoria, concurrencia o topología de producción. El fallback de 
 Rollback: revertir commits/imagen de aplicación mediante el operador existente. No requiere restauración de datos ni reversión de esquema. No se ejecutó ninguna acción sobre producción.
 
 **Completion gate: PASS para la implementación y verificación local del alcance acordado.** AC-01…AC-07 cubiertos por las pruebas y evidencia anterior. La distribución de tiempos en producción y la carga sostenida quedan expresamente sin acreditar.
+
+## Comparación adicional para el portfolio
+
+El 22/10/2026 se repitió SQL con 200 muestras por escenario/versión (dos rondas de 100, orden AB/BA), y Candidaturas móvil de la cuenta grande con 30 muestras por condición/versión. El script nuevo `scripts/performance-comparison.mjs` conserva muestras individuales y valida las ráfagas PDF. `performance-queries.ts` permite `PERF_SAMPLES` y conserva tiempos brutos.
+
+Consumo mantuvo ocho→cinco SELECTs. Sus medianas fueron 0,747→0,623 ms (pequeña), 0,613→0,562 ms (mediana) y 0,653→0,600 ms (grande). Son tiempos SQL/JS después de autenticar, no latencia HTTP. Candidaturas móvil fría: p50 1.653,4→1.604,6 ms; p95 1.673,4→1.700,6 ms. Repetida: p50 419,6→429,9 ms; p95 463,1→466,9 ms. No se deduce una aceleración general de navegación.
+
+Tres ráfagas de diez previews idénticos, con el mismo cuerpo en cada par de builds y diez páginas por documento, necesitaron 30 renders antes y tres después. Tiempos completos por ráfaga: 425/331/315→122/94/75 ms. Son tres ráfagas con peticiones correlacionadas, no evidencia de un SLO. Los 30 previews antiguos tuvieron misses; el camino antiguo ejecuta `renderPdf` en cada miss. En el candidato hubo 27 respuestas compartidas y tres eventos de render completado. Las pruebas exploratorias PDF con cuerpos no emparejados y una aserción binaria inapropiada para IDs/metadatos de renders independientes fueron excluidas; el JSON conserva la repetición emparejada corregida.
+
+Resultados completos y protocolo: [portfolio-comparison.json](qa/portfolio-comparison.json). La base se recreó con datos sintéticos; no se ejecutaron acciones sobre Matchply en producción. El artículo del portfolio incluye los valores que mejoran y los que empeoran, la distinción entre trabajo y latencia y los límites del laboratorio.
