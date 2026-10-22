@@ -15,7 +15,7 @@ import {
   evaluateSingleOfferMatchAction,
   markApplicationSent,
 } from '@/app/dashboard/applications/actions';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { ApplicationSentPrompt } from '@/components/cv/ApplicationSentPrompt';
@@ -248,7 +248,7 @@ export default function JobOfferDetailsPage({
     setError(null);
     const baseCv = userCvs.find(c => c.id === planUsage?.cv.baseCvId) || userCvs.find(c => c.isBase && !planUsage?.cv.readOnlyIds.includes(c.id));
     if (!baseCv) { setError(t('dashboard.errors.noPrimary')); return; }
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return; }
     const adaptedCount = userCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
       const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));

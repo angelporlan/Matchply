@@ -22,7 +22,7 @@ import { ActiveCvSelector } from '@/components/subscription/ActiveCvSelector';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 import dynamic from 'next/dynamic';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -184,7 +184,7 @@ export default function DashboardClient({
     if (importLoading) return;
 
     setImportError(null);
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-import'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-import'); return; }
     const baseCount = userCvs.filter(item => item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxBaseCvs !== null && baseCount >= planUsage.limits.maxBaseCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
       const choices = userCvs.filter(item => item.isBase && planUsage.cv.activeIds.includes(item.id));
@@ -389,7 +389,7 @@ export default function DashboardClient({
     }
     const identity = importedOffer;
 
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
     const adaptedCount = userCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
       const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));

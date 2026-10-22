@@ -15,7 +15,7 @@ import {
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { 
   X, ExternalLink, Calendar, Briefcase, Building2, Link2, 
   FileText, CheckCircle2, Bookmark, Send, PartyPopper, Ban, 
@@ -255,7 +255,7 @@ export default function JobOfferDetailsModal({
     const baseCv = userCvs.find(cv => cv.id === planUsage?.cv.baseCvId)
       || userCvs.find(cv => cv.isBase && !planUsage?.cv.readOnlyIds.includes(cv.id));
     if (!baseCv) { setError(t('dashboard.errors.noPrimary')); return; }
-    if (planUsage?.usage.general.remaining === 0) {
+    if (isQuotaExhausted(planUsage?.usage.general)) {
       reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'offer-cv-adapt'); return;
     }
     const adaptedCount = userCvs.filter(cv => !cv.isBase).length;

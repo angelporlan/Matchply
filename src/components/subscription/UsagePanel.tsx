@@ -30,13 +30,13 @@ export function UsagePanel({ compact = false, showUpgrade = false }: { compact?:
     <div className="grid gap-3 sm:grid-cols-3">
       {(['general', 'matching', 'discovery'] as const).map(key => {
         const bucket = data.usage[key];
-        if (bucket.limit === 0) return null;
+        if (bucket.limit === 0 && !bucket.unlimited) return null;
         const state = quotaState(bucket);
         return <div key={key} className={`rounded-[8px] border p-3 ${state === 'available' ? 'border-subtle bg-canvas' : 'border-warning-text/30 bg-warning-surface'}`}>
           <p className="text-sm font-semibold">{t(`plans.${key}`)}</p>
           <p className="mt-1 text-sm">{t('plans.used', { used: bucket.used, limit: bucket.limit })}</p>
           {bucket.reserved > 0 && <p className="text-xs text-text-muted">{t('plans.reserved', { reserved: bucket.reserved })}</p>}
-          <p className="text-xs text-text-muted">{t('plans.remaining', { remaining: bucket.remaining })}</p>
+          <p className="text-xs text-text-muted">{bucket.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: bucket.remaining })}</p>
           <progress className="mt-2 w-full h-2 accent-[var(--warning-text)]" max={Math.max(1, bucket.limit)} value={Math.min(bucket.limit, bucket.used + bucket.reserved)} aria-label={t(`plans.${key}`)} />
           {state !== 'available' && <p className="mt-1 text-xs text-warning-text">{t(`plans.${state === 'warning' ? 'warning' : 'exhausted'}`, { bucket: t(`plans.${key}`).toLocaleLowerCase(language) })}</p>}
           {bucket.resetAt && <p className="mt-1 text-xs text-text-muted">{t('plans.renews', { date: new Date(bucket.resetAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB') })}</p>}

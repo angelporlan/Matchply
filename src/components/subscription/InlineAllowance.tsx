@@ -12,7 +12,7 @@ export function InlineAllowance({ bucket = 'general' }: { bucket?: 'general' | '
   const allowance = data.usage[bucket];
   const state = quotaState(allowance);
   return <p aria-live="polite" className={`text-xs leading-5 ${state === 'available' ? 'text-text-muted' : 'text-warning-text'}`}>
-    {t(`plans.${bucket}`)}: {t('plans.remaining', { remaining: allowance.remaining })} · {t('plans.used', { used: allowance.used, limit: allowance.limit })}
+    {t(`plans.${bucket}`)}: {allowance.unlimited ? t('plans.adminUnlimited') : t('plans.remaining', { remaining: allowance.remaining })} · {t('plans.used', { used: allowance.used, limit: allowance.limit })}
     {allowance.reserved > 0 && ` · ${t('plans.reserved', { reserved: allowance.reserved })}`}
     {allowance.resetAt ? ` · ${t('plans.renews', { date: new Date(allowance.resetAt).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-GB') })}` : ` · ${t('plans.sessionQuota')}`}
   </p>;

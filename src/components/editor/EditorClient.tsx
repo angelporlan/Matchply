@@ -45,7 +45,7 @@ import { PlanUsageProvider, usePlanUsage } from '@/components/subscription/PlanU
 import { PlanFeedback, UpgradePaywall } from '@/components/subscription/UpgradePaywall';
 import { UsagePanel } from '@/components/subscription/UsagePanel';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
-import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
+import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
 
 interface EditorClientProps {
@@ -581,7 +581,7 @@ function EditorContent({ cv, isPremium, availablePrompts, baseCvContent, user, i
 
     if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
     if (!await persistence.flush()) return;
-    if (planUsage?.usage.general.remaining === 0) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
+    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
     const allCvs = planUsage?.cv.cvs || cvChoices;
     const adaptedCount = allCvs.filter(item => !item.isBase).length;
     if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
