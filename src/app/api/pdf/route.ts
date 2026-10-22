@@ -9,7 +9,7 @@ import { createAuditLog } from '@/lib/audit';
 import { getActor } from '@/lib/actor';
 import { getAllowedCvTemplate } from '@/lib/subscription';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
-import { getCachedPdf, pdfCacheKey, setCachedPdf } from '@/lib/pdf-cache';
+import { pdfCacheKey, renderCachedPdf } from '@/lib/pdf-cache';
 import { countPdfPages } from '@/lib/pdf-pages';
 import { formatPdfBreakHeader } from '@/lib/pdf-page-breaks';
 import { log } from '@/lib/logger';
@@ -53,14 +53,8 @@ async function renderWithCache(content: string, pdfOptions: PdfOptions) {
     fontSize: pdfOptions.fontSize,
     ...(pdfOptions.photo ? { photoHash: pdfOptions.photo.hash } : {}),
   });
-  let cached = getCachedPdf(cacheKey);
-  const cacheHit = Boolean(cached);
-  if (!cached) {
-    const rendered = await renderPdf(content, pdfOptions);
-    setCachedPdf(cacheKey, rendered.buffer, rendered.pageBreaks);
-    cached = { buffer: rendered.buffer, pageBreaks: rendered.pageBreaks };
-  }
-  return { buffer: cached.buffer, pageBreaks: cached.pageBreaks, cacheKey, cacheHit };
+  const rendered = await renderCachedPdf(cacheKey, () => renderPdf(content, pdfOptions));
+  return { ...rendered, cacheKey };
 }
 
 function pdfResponse(buffer: Buffer, pageBreaks: number[], headers: Record<string, string>) {
@@ -149,7 +143,7 @@ export async function GET(req: NextRequest) {
       ...(cv.showPhoto ? { photo: await resolveCvPhoto(actor.userId, cv.id) ?? undefined } : {}),
     };
 
-    const { buffer, pageBreaks, cacheKey, cacheHit } = await renderWithCache(cv.content, pdfOptions);
+    const { buffer, pageBreaks, cacheKey, cacheHit, shared } = await renderWithCache(cv.content, pdfOptions);
     if (!buffer.length || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('PDF generation did not produce a usable document');
     const etag = `"${cacheKey.slice(0, 32)}"`;
 
@@ -180,6 +174,7 @@ export async function GET(req: NextRequest) {
       route: '/api/pdf',
       userId: actor.userId,
       cacheHit,
+      shared,
       durationMs: Date.now() - started,
     });
 
@@ -257,13 +252,14 @@ export async function POST(req: NextRequest) {
       showIcons: true,
       ...(showPhoto === true && typeof cvId === 'string' && /^[\da-f-]{36}$/i.test(cvId) ? { photo: await resolveCvPhoto(actor.userId, cvId) ?? undefined } : {}),
     };
-    const { buffer, pageBreaks, cacheHit } = await renderWithCache(content, pdfOptions);
+    const { buffer, pageBreaks, cacheHit, shared } = await renderWithCache(content, pdfOptions);
 
     log({
       event: 'pdf_preview',
       route: '/api/pdf',
       userId: actor.userId,
       cacheHit,
+      shared,
       durationMs: Date.now() - started,
     });
 

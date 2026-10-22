@@ -25,6 +25,9 @@ type Job = {
   resolve: (result: PdfBufferResult) => void;
   reject: (error: Error) => void;
   timer?: NodeJS.Timeout;
+  enqueuedAt: number;
+  startedAt?: number;
+  settled?: boolean;
 };
 
 type PooledWorker = { worker: Worker; busy: Job | null };
@@ -46,8 +49,19 @@ function workersAvailable() {
 }
 
 function failJob(job: Job, error: Error) {
+  if (job.settled) return;
+  job.settled = true;
   if (job.timer) clearTimeout(job.timer);
   job.reject(error);
+}
+
+function finishJob(job: Job, result: PdfBufferResult) {
+  if (job.settled) return;
+  job.settled = true;
+  if (job.timer) clearTimeout(job.timer);
+  log({ event: 'pdf_render_completed', queueWaitMs: (job.startedAt ?? job.enqueuedAt) - job.enqueuedAt,
+    durationMs: Date.now() - job.enqueuedAt, queued: queue.length });
+  job.resolve(result);
 }
 
 function spawnWorker(): PooledWorker {
@@ -61,29 +75,28 @@ function spawnWorker(): PooledWorker {
     const job = pooled.busy;
     if (!job || job.id !== message.id) return;
     pooled.busy = null;
-    if (job.timer) clearTimeout(job.timer);
     if (message.ok && message.data) {
       const pageBreaks = Array.isArray(message.pageBreaks) ? message.pageBreaks : [];
-      job.resolve({
+      finishJob(job, {
         buffer: Buffer.from(message.data.buffer, message.data.byteOffset, message.data.byteLength),
         pageBreaks,
       });
     } else {
-      job.reject(new Error(message.error || 'PDF worker failed'));
+      failJob(job, new Error(message.error || 'PDF worker failed'));
     }
     pump();
   });
 
   const onGone = (error?: Error) => {
     const index = workers.indexOf(pooled);
-    if (index >= 0) workers.splice(index, 1);
+    if (index < 0) return; // A timeout or the other terminal event already removed it.
+    workers.splice(index, 1);
     const job = pooled.busy;
     pooled.busy = null;
     if (job) {
       // Recover transparently: render this one in-process.
-      if (job.timer) clearTimeout(job.timer);
       log({ event: 'pdf_worker_crashed', level: 'warn', error, fallback: 'in-process' });
-      generatePdfBuffer(job.content, job.options).then(job.resolve, job.reject);
+      generatePdfBuffer(job.content, job.options).then(result => finishJob(job, result), error => failJob(job, error));
     }
     pump();
   };
@@ -99,21 +112,22 @@ function spawnWorker(): PooledWorker {
 
 function pump() {
   while (queue.length > 0) {
+    const next = queue[0];
+    if (Date.now() - next.enqueuedAt >= JOB_TIMEOUT_MS) {
+      queue.shift();
+      log({ event: 'pdf_worker_timeout', level: 'error', phase: 'queue', timeoutMs: JOB_TIMEOUT_MS });
+      failJob(next, new Error('PDF render timed out'));
+      continue;
+    }
     let slot = workers.find((w) => !w.busy);
     if (!slot && workers.length < POOL_SIZE) slot = spawnWorker();
     if (!slot) return;
 
     const job = queue.shift()!;
     slot.busy = job;
-    job.timer = setTimeout(() => {
-      if (slot!.busy !== job) return;
-      slot!.busy = null;
-      log({ event: 'pdf_worker_timeout', level: 'error', timeoutMs: JOB_TIMEOUT_MS });
-      // A stuck worker is terminated; 'exit' handler removes it from the pool.
-      slot!.worker.terminate().catch(() => undefined);
-      failJob(job, new Error('PDF render timed out'));
-    }, JOB_TIMEOUT_MS);
-    slot.worker.postMessage({ id: job.id, content: job.content, options: job.options });
+    job.startedAt = Date.now();
+    try { slot.worker.postMessage({ id: job.id, content: job.content, options: job.options }); }
+    catch (error) { slot.busy = null; failJob(job, error as Error); }
   }
 }
 
@@ -125,7 +139,22 @@ export function renderPdf(content: string, options: Record<string, unknown> = {}
     return Promise.reject(new Error('PDF renderer is busy; try again shortly'));
   }
   return new Promise<PdfBufferResult>((resolve, reject) => {
-    queue.push({ id: nextJobId++, content, options, resolve, reject });
+    const job: Job = { id: nextJobId++, content, options, resolve, reject, enqueuedAt: Date.now() };
+    job.timer = setTimeout(() => {
+      if (job.settled) return;
+      const queuedIndex = queue.indexOf(job);
+      if (queuedIndex >= 0) queue.splice(queuedIndex, 1);
+      const slot = workers.find(worker => worker.busy === job);
+      if (slot) {
+        workers.splice(workers.indexOf(slot), 1);
+        slot.busy = null;
+        void slot.worker.terminate().catch(() => undefined);
+      }
+      log({ event: 'pdf_worker_timeout', level: 'error', phase: job.startedAt !== undefined ? 'render' : 'queue', timeoutMs: JOB_TIMEOUT_MS });
+      failJob(job, new Error('PDF render timed out'));
+      pump();
+    }, JOB_TIMEOUT_MS);
+    queue.push(job);
     pump();
   });
 }

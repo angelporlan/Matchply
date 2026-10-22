@@ -11,7 +11,31 @@ type Entry = { buffer: Buffer; pageBreaks: number[]; storedAt: number };
 export type CachedPdf = { buffer: Buffer; pageBreaks: number[] };
 
 const cache = new Map<string, Entry>();
+const inFlight = new Map<string, Promise<CachedPdf>>();
+const MAX_IN_FLIGHT = Math.max(8, Number(process.env.PDF_WORKER_MAX_QUEUE) || 64)
+  + Math.max(0, Number(process.env.PDF_WORKER_POOL_SIZE) || 2);
 let totalBytes = 0;
+let renders = 0;
+let sharedRenders = 0;
+
+/** Only rendering is shared. Callers must authorize and settle each request separately. */
+export async function renderCachedPdf(key: string, render: () => Promise<CachedPdf>) {
+  const cached = getCachedPdf(key);
+  if (cached) return { ...cached, cacheHit: true, shared: false };
+  const pending = inFlight.get(key);
+  if (pending) {
+    sharedRenders += 1;
+    return { ...await pending, cacheHit: false, shared: true };
+  }
+  if (inFlight.size >= MAX_IN_FLIGHT) throw new Error('PDF renderer is busy; try again shortly');
+  renders += 1;
+  const task = Promise.resolve().then(render).then(result => {
+    setCachedPdf(key, result.buffer, result.pageBreaks);
+    return result;
+  }).finally(() => { inFlight.delete(key); });
+  inFlight.set(key, task);
+  return { ...await task, cacheHit: false, shared: false };
+}
 
 export type PdfCacheInput = {
   content: string;
@@ -60,10 +84,12 @@ export function setCachedPdf(key: string, buffer: Buffer, pageBreaks: number[] =
 }
 
 export function pdfCacheStats() {
-  return { entries: cache.size, bytes: totalBytes };
+  return { entries: cache.size, bytes: totalBytes, inFlight: inFlight.size, renders, sharedRenders };
 }
 
 export function resetPdfCacheForTests() {
   cache.clear();
   totalBytes = 0;
+  renders = 0;
+  sharedRenders = 0;
 }
