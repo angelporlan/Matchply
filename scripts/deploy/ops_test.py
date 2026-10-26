@@ -51,6 +51,31 @@ class OperationsTests(unittest.TestCase):
                 environment = dict(line.split('=', 1) for line in result.stdout.decode().splitlines() if '=' in line)
                 self.assertEqual(environment['VALUE'], value)
 
+    def test_unlock_rejects_wrong_key_before_any_command(self):
+        import base64
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'required').touch()
+            (root / 'image').touch()
+            with patch.object(ops, 'SECURE_MARKER', root / 'required'), patch.object(ops, 'SECURE_IMAGE', root / 'image'), patch.object(ops, 'run') as command:
+                for key in ('not base64!', base64.b64encode(b'short').decode()):
+                    with self.assertRaises(ValueError):
+                        ops.unlock_storage({'key': key})
+                command.assert_not_called()
+
+    def test_secure_storage_guard_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(ops, 'SECURE_MARKER', root / 'required'), patch.object(ops, 'SECURE_DEVICE', root / 'missing'):
+                ops.require_secure_storage()  # Existing deployments remain unchanged until explicitly enabled.
+                (root / 'required').touch()
+                with self.assertRaisesRegex(RuntimeError, 'locked or unavailable'):
+                    ops.require_secure_storage()
+                with patch.object(ops, 'BACKUPS', root / 'backups'):
+                    with self.assertRaises(RuntimeError):
+                        ops.backup()
+                    self.assertFalse((root / 'backups').exists())
+
     def test_deploy_disabled_before_any_side_effect(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(ops, 'ROOT', Path(directory)), patch.object(ops, 'run') as command:
             with self.assertRaisesRegex(RuntimeError, 'not enabled'):
