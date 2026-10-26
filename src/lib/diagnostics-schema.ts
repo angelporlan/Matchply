@@ -15,7 +15,7 @@ export function diagnosticRoute(value: unknown): string {
     ['/api/cv/exports/', '/api/cv/exports/:id'], ['/api/cv/', '/api/cv/:id/:action'],
     ['/api/research/', '/api/research/:id'], ['/blog/', '/blog/:locale/:slug'],
   ]) if (path.startsWith(prefix) && !['/api/cv/import', '/api/cv/parse-pdf', '/api/research/quota'].includes(path)) return template;
-  const fixed = ['/', '/try', '/register', '/login', '/dashboard', '/dashboard/applications', '/dashboard/profile', '/dashboard/subscription', '/api/pdf', '/api/cv/import', '/api/cv/parse-pdf', '/api/ai/optimize', '/api/ai/curate', '/api/ai/offers/import', '/api/ai/offers/discover', '/api/ai/profile/extract', '/api/ai/profile/interview', '/api/research/quota', '/api/diagnostics/errors'];
+  const fixed = ['/', '/try', '/register', '/login', '/dashboard', '/dashboard/applications', '/dashboard/profile', '/dashboard/subscription', '/api/pdf', '/api/cv/import', '/api/cv/parse-pdf', '/api/ai/optimize', '/api/ai/curate', '/api/ai/offers/import', '/api/ai/offers/discover', '/api/ai/profile/extract', '/api/ai/profile/interview', '/api/research/quota', '/api/diagnostics/errors', '/api/diagnostics/reports'];
   return fixed.includes(path) ? path : path.startsWith('/admin') ? '/admin' : '/unknown';
 }
 

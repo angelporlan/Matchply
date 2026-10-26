@@ -15,3 +15,12 @@ El índice está activo en producción. `ERROR_EVENTS_ENABLED=false` desactiva s
 Para investigar, busca la referencia en el panel y consulta los logs del contenedor correspondiente mediante `matchply-vps`. Los registros de origen `browser` pueden compartir la referencia del fallo original; el `traceId` corresponde al POST del informe. Para colas, comprueba también el job y sus intentos. El registro no ejecuta automáticamente trabajos, reintentos ni acciones sobre las cuentas.
 
 Validación: pruebas de saneado y fallos de almacenamiento, integración PostgreSQL de correlación y retención, contrato HTTP de permisos y límites, y navegador con una respuesta fallida y un colector caído. Todas las pruebas usan datos sintéticos y bases aisladas.
+
+
+## Avisos explícitos de usuarios
+
+«¿Algo falló?» aparece en la prueba, el registro, el editor y el dashboard. Al abrirlo captura la última petición fallida de esa página (prioritaria frente al polling posterior) o la última operación observada. Si no hay referencia, lo dice y permite enviar el aviso sin inventar una. El paso es editable y el comentario es opcional, con un máximo de 2000 caracteres. No se adjuntan automáticamente CVs, ofertas, correos, capturas, cuerpos HTTP ni excepciones.
+
+`POST /api/diagnostics/reports` requiere mismo origen, JSON, hasta 10 KiB y cinco segundos de lectura. Limita cinco envíos por IP/sesión cada diez minutos y 120 globales por minuto; los identificadores del limitador son hashes en memoria. Es accesible sin iniciar sesión para poder informar desde la prueba. El cliente conserva el borrador ante fallos y el ID al reintentar el mismo contenido. Solo confirma recepción después de guardar el registro; reintentar no lo duplica.
+
+Los avisos se guardan en `problem_report`, separados del índice automático. El comentario no va a logs ni Umami y se muestra como texto escapado en `/admin/reports`, accesible únicamente a administradores activos sin impersonación. La bandeja pagina de 50 en 50 y enlaza el ID con `/admin/errors`. No envía emails ni notificaciones externas. El worker existente elimina cada hora lotes de hasta 10000 avisos de más de 30 días.

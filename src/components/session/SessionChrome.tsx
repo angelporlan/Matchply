@@ -1,3 +1,4 @@
+import ProblemReportButton from '@/components/diagnostics/ProblemReportButton';
 import ActorEpochGuard from '@/components/session/ActorEpochGuard';
 import ErrorObserver from '@/components/analytics/ErrorObserver';
 import ImpersonationBanner from '@/components/session/ImpersonationBanner';
@@ -33,6 +34,7 @@ export default async function SessionChrome({ children }: { children: React.Reac
       />
       <SignupConversionBeacon />
       {children}
+      <ProblemReportButton />
     </>
   );
 }
