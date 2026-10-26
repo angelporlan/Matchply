@@ -1,5 +1,6 @@
 "use client";
 
+import { escapeHtml } from '@/lib/safe-html';
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
 import { useState, useEffect, useRef } from 'react';
@@ -35,7 +36,7 @@ function mdToHtml(markdown: string): string {
   return markdown
     .split('\n')
     .map(line => {
-      const trimmed = line.trim();
+      const trimmed = escapeHtml(line.trim());
       if (trimmed.startsWith('### ')) {
         return `<h4 class="text-xs font-bold text-text mt-4 mb-1.5 flex items-center gap-1">${trimmed.substring(4)}</h4>`;
       }

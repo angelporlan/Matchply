@@ -1,3 +1,4 @@
+import { cleanInputText, inputSafetyResponse, readPdfFile, readSafeForm, readSafeJson } from '@/lib/input-safety';
 import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,15 +26,14 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
+      const formData = await readSafeForm(req);
       requestId = formData.get('requestId');
       const file = formData.get('file') as File | null;
       const text = formData.get('text') as string | null;
 
       if (file) {
+        const buffer = await readPdfFile(file);
         try {
-          const arrayBuffer = await file.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
           const parsed = await pdf(buffer);
           rawText = parsed.text || '';
         } catch (err: any) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         rawText = text;
       }
     } else {
-      const body = await req.json().catch(() => ({}));
+      const body = await readSafeJson(req);
       rawText = body.text || body.rawText || '';
       requestId = body.requestId;
     }
@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    rawText = cleanInputText(rawText);
+    if (!rawText) return NextResponse.json({ success: false, error: 'No se ha proporcionado texto o archivo para analizar.' }, { status: 400 });
     const extractedProfile = await runWithUsage(actor.userId, { bucket: 'general', action: 'profile:extract', requestId: aiRequestId(req, requestId), input: { textHash: usageInputHash(rawText) } }, () => AIService.extractProfileFromRawText({
       rawText, userSubscriptionStatus: effectiveSubscriptionStatus(actor),
     }));
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
       profile: extractedProfile,
     });
   } catch (error: any) {
+    const inputResponse = inputSafetyResponse(error); if (inputResponse) return inputResponse;
     const response = aiUsageErrorResponse(error); if (response) return response;
     log({ event: 'profile_extract_failed', level: 'error', error });
     return NextResponse.json({
