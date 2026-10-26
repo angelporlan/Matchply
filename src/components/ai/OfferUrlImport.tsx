@@ -1,5 +1,5 @@
 'use client';
-import { userErrorMessage } from '@/lib/user-errors';
+import { userError, userErrorMessage } from '@/lib/user-errors';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
@@ -11,6 +11,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { normalizeOfferUrl, usableOfferDescription, type ImportedOffer, type OfferImportStage } from '@/lib/offer-import/types';
 import { manualOffer } from '@/lib/offer-import/manual';
 import LinkedInExtensionGuide from '@/components/applications/LinkedInExtensionGuide';
+import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 
 const wait = (signal: AbortSignal) => new Promise<void>((resolve, reject) => {
   const done = () => { signal.removeEventListener('abort', abort); resolve(); };
@@ -36,6 +37,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
   const manualInput = useRef<HTMLTextAreaElement>(null);
   const active = useRef<AbortController | null>(null);
   const request = useRef<{ url: string; id: string } | null>(null);
+  const manualReported = useRef<'success' | 'failed' | null>(null);
   const observing = stage !== null;
 
   useEffect(() => () => { active.current?.abort(); }, []);
@@ -45,6 +47,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
     active.current?.abort();
     active.current = null;
     request.current = null;
+    manualReported.current = null;
     setUrl(next); setStage(null); setError(null);
     onChange(manual ? manualOffer(manualText, next) : null);
   };
@@ -52,7 +55,10 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
   const start = async () => {
     if (disabled || observing || active.current) return;
     let normalized: string;
-    try { normalized = normalizeOfferUrl(url); } catch { setError(t('offerImport.invalid')); return; }
+    try { normalized = normalizeOfferUrl(url); } catch {
+      trackUmamiConversion('offer_import_failed', { method: 'url', domain: url, error_code: 'OFFER_URL_INVALID' });
+      setError(t('offerImport.invalid')); return;
+    }
     const controller = new AbortController();
     active.current = controller;
     const signal = controller.signal;
@@ -68,7 +74,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
       const created = await response.json();
       if (!response.ok) {
         if (shouldResetAiOperation(created)) request.current = null;
-        if (reportPlanRestriction(created, 'offer-import')) throw new Error('planLimit');
+        if (reportPlanRestriction(created, 'offer-import')) throw Object.assign(new Error('planLimit'), { code: created.code });
         if (response.status === 400) throw new Error('invalid');
         if (response.status === 429) throw new Error('rateLimited');
         throw new Error('failed');
@@ -83,6 +89,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
         if (job.status === 'completed') {
           const offer = job.result as ImportedOffer;
           if (!usableOfferDescription(offer?.jobDescription)) throw new Error('failed');
+          trackUmamiConversion('offer_imported', { method: 'url', domain: normalized });
           refreshPlanUsage(); onChange(offer); setStage(null); return;
         }
         const nextStage = job.result?.stage;
@@ -93,6 +100,8 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
     } catch (failure) {
       if (signal.aborted) return;
       const code = failure instanceof Error && ['invalid', 'rateLimited', 'blocked', 'planLimit'].includes(failure.message) ? failure.message : 'failed';
+      trackUmamiConversion('offer_import_failed', { method: 'url', domain: normalized,
+        error_code: userError(failure, 'es', ({ invalid: 'OFFER_URL_INVALID', rateLimited: 'RATE_LIMITED', blocked: 'OFFER_PORTAL_BLOCKED', planLimit: 'QUOTA_EXCEEDED', failed: 'OFFER_IMPORT_FAILED' } as Record<string, string>)[code]).code });
       setError(code === 'planLimit' ? t('plans.quotaBody') : userErrorMessage(({ invalid: 'OFFER_URL_INVALID', rateLimited: 'RATE_LIMITED', blocked: 'OFFER_PORTAL_BLOCKED', failed: 'OFFER_IMPORT_FAILED' } as Record<string, string>)[code], language, 'OFFER_IMPORT_FAILED')); setStage(null);
       if (['blocked', 'failed', 'rateLimited'].includes(code)) {
         setManual(true);
@@ -105,6 +114,10 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
     setManualText(description);
     const offer = manualOffer(description, url);
     if (!offer) { onChange(null); return; }
+    if (manualReported.current !== 'success') {
+      trackUmamiConversion('offer_pasted', { method: 'paste', domain: url });
+      manualReported.current = 'success';
+    }
     setError(null);
     onChange(offer);
   };
@@ -141,7 +154,12 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
     {manual && <div className="space-y-2">
       <label htmlFor={`${id}-manual`} className="text-sm font-semibold text-text">{t('offerImport.description')}</label>
       <textarea ref={manualInput} id={`${id}-manual`} aria-describedby={`${id}-manual-help`} rows={6} maxLength={120_000} value={manualText} disabled={disabled}
-        onChange={event => changeManual(event.target.value)} placeholder={t('offerImport.manualHelp')}
+        onChange={event => changeManual(event.target.value)} onBlur={() => {
+          if (manualText.trim() && !manualOffer(manualText, url) && manualReported.current !== 'failed') {
+            trackUmamiConversion('offer_import_failed', { method: 'paste', domain: url, error_code: 'INVALID_INPUT' });
+            manualReported.current = 'failed';
+          }
+        }} placeholder={t('offerImport.manualHelp')}
         className="w-full rounded-lg border border-control bg-canvas p-3 text-base text-text focus:outline-none focus:ring-2 focus:ring-focus" />
       <p id={`${id}-manual-help`} className="text-sm text-text-muted">{t('offerImport.manualHelp')}</p>
     </div>}

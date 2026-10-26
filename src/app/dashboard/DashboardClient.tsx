@@ -1,5 +1,5 @@
 "use client";
-import { userErrorMessage } from '@/lib/user-errors';
+import { userError, userErrorMessage } from '@/lib/user-errors';
 
 import { fetchOptimizationResponse } from '@/lib/cv-optimization/client';
 
@@ -256,11 +256,12 @@ export default function DashboardClient({
       const result = await consumeCvAiStream(response);
       cvRequest.current = null;
       refreshPlanUsage();
-      trackUmamiConversion('cv_imported');
+      trackUmamiConversion('cv_imported', { method: onboardingMode === 'pdf' ? 'pdf' : 'text' });
       router.refresh();
       router.push(returnOfferId ? `/dashboard/applications/offer/${returnOfferId}?continue=1` : `/editor/${result.cvId}`);
 
     } catch (err: any) {
+      trackUmamiConversion('cv_import_failed', { method: onboardingMode === 'pdf' ? 'pdf' : 'text', error_code: userError(err, language, 'CV_IMPORT_FAILED').code });
       setImportError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       setImportLoading(false);
     }
@@ -428,7 +429,6 @@ export default function DashboardClient({
         };
         const requestId = requestForCv(params);
         sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard' }));
-        trackUmamiConversion('offer_pasted');
         const response = await fetchOptimizationResponse('/api/ai/optimize', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId },
           body: JSON.stringify({ ...params, requestId }),

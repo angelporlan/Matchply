@@ -3,7 +3,7 @@
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { isUmamiDoNotTrack, shouldTrackUmamiPath, type UmamiConversionEvent } from '@/lib/umami';
+import { isUmamiDoNotTrack, shouldTrackUmamiPath, type FunnelData, type UmamiConversionEvent } from '@/lib/umami';
 import { createUmamiClient, type UmamiPayload } from '@/lib/umami-client';
 import type { LandingExperiment, LandingExperimentStage, LandingVariant } from '@/lib/landing-experiment';
 
@@ -38,8 +38,8 @@ function browserClient() {
   return client;
 }
 
-export function trackUmamiConversion(event: UmamiConversionEvent) {
-  return browserClient()?.conversion(event) ?? false;
+export function trackUmamiConversion(event: UmamiConversionEvent, data?: FunnelData, dedupeKey?: string) {
+  return browserClient()?.conversion(event, data, dedupeKey) ?? false;
 }
 
 export function trackLandingExperiment(stage: LandingExperimentStage, expectedVariant?: LandingVariant) {

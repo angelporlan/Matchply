@@ -1,5 +1,5 @@
 "use client";
-import { userErrorMessage } from '@/lib/user-errors';
+import { userError, userErrorMessage } from '@/lib/user-errors';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
@@ -202,11 +202,14 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   const generateVariant = async (mode: OptimizeModeId, retry = false) => {
     if (!optimization || variantSwitchLock.current) return;
     variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null); setStreamingRetry(null);
+    let eventKey: string | undefined;
     try {
       if (!await persistence.flush()) return;
       setIsStreaming(true); setLiveGeneration({modeId:mode,content:''});
       setStreamingStep(t('variants.stages.queued'));
       if (retryRequest.current?.mode !== mode) retryRequest.current = { mode, id: crypto.randomUUID() };
+      eventKey = retryRequest.current.id;
+      trackUmamiConversion('cv_optimization_started', { mode }, eventKey);
       const response = await fetchOptimizationResponse(`/api/ai/optimize/${optimization.id}/${retry ? 'retry' : 'generate'}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': retryRequest.current.id }, body: JSON.stringify({ ...(retry ? {modes:[mode]} : {mode}), requestId: retryRequest.current.id }) });
       if (!response.ok) { const problem = await response.json(); if (shouldResetAiOperation(problem)) retryRequest.current = null; throw new Error(problem.error || t('variants.retryError')); }
       await consumeCvOptimization(response, receiveProgress);
@@ -222,8 +225,10 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       setActiveMode(mode); setCvContent(selected.content); setReviewContent(selected.content);
       persistence.reset(selected.content,{optimizationId:view.id,modeId:mode,revision:selected.revision});
       setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1); setSaveStatus('saved');
+      trackUmamiConversion('cv_optimized', { mode }, eventKey);
       retryRequest.current = null; setOptimizeProgress(null);
     } catch (error) {
+      if (eventKey) trackUmamiConversion('cv_optimization_failed', { mode, error_code: userError(error, language, 'AI_UNAVAILABLE').code }, eventKey);
       // A failed job can still have changed the variant status. Keep the saved
       // document visible and expose its retry action without requiring a reload.
       const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' }).then(async response => response.ok ? response.json() : null).catch(() => null);
@@ -357,6 +362,8 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       setStreamingStep(t('editor.aiModal.steps.keywords'));
 
       try {
+        const eventKey = params.requestId;
+        trackUmamiConversion('cv_optimization_started', { mode: params.resumeMode || 'optimize_adapted' }, eventKey);
         const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id, requestId: params.requestId }), { status: 202 }) : await fetchOptimizationResponse('/api/ai/optimize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Idempotency-Key': params.requestId },
@@ -395,7 +402,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         setOptimizeProgress(null);
         setStreamingStep(t('editor.aiModal.steps.success'));
         setSaveStatus('saved');
-        trackUmamiConversion('cv_optimized');
+        trackUmamiConversion('cv_optimized', { mode: params.resumeMode || 'optimize_adapted' }, params.requestId);
         sessionStorage.removeItem('matchply_optimize_params');
         pendingCvRequest.current = null;
         // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
@@ -406,6 +413,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         }, 2000);
 
       } catch (err: any) {
+        trackUmamiConversion('cv_optimization_failed', { mode: params.resumeMode || 'optimize_adapted', error_code: userError(err, language, 'AI_UNAVAILABLE').code }, params.requestId);
         setStreamingError(userErrorMessage(err, language, 'AI_UNAVAILABLE'));
         // Ambiguous delivery must retain the same admission/job IDs. Only an explicit terminal
         // failure permits a fresh generation; a recovered request must never consume quota twice.
@@ -472,7 +480,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       setCvContent(result.content); setReviewContent(result.content);
       setStreamingStep(language === 'es' ? 'Currículum importado con éxito!' : 'Resume imported successfully!');
       setSaveStatus('saved');
-      trackUmamiConversion('cv_imported');
+      trackUmamiConversion('cv_imported', { method: 'text' });
       sessionStorage.removeItem('matchply_import_raw_text');
       sessionStorage.removeItem('matchply_import_request');
       refreshPlanUsage();
@@ -482,6 +490,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       }, 2000);
 
     } catch (err: any) {
+      trackUmamiConversion('cv_import_failed', { method: 'text', error_code: userError(err, language, 'CV_IMPORT_FAILED').code });
       console.error(err);
       setStreamingError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       setCvContent(cv.content); setReviewContent(cv.content);
@@ -644,7 +653,6 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         const signature = JSON.stringify(input);
         if (pendingCvRequest.current?.signature !== signature) pendingCvRequest.current = { signature, id: crypto.randomUUID() };
         const params = { ...input, requestId: pendingCvRequest.current.id };
-        trackUmamiConversion('offer_pasted');
         sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
         setIsAiOpen(false);
         await runOptimizeStream(params);

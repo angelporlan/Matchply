@@ -86,6 +86,11 @@ jobs:
       NEXTAUTH_SECRET: ci-browser-placeholder-not-a-production-secret
       AUTH_TRUST_HOST: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
+      # Synthetic analytics transport is intercepted by browser tests; no external collection.
+      UMAMI_ENABLED: 'true'
+      UMAMI_AEPD_CLEARED: 'true'
+      UMAMI_WEBSITE_ID: 11111111-2222-4333-a444-555555555555
+      NEXT_PUBLIC_UMAMI_SCRIPT_URL: /__analytics-test.js
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

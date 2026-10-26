@@ -25,7 +25,7 @@ async function fetchJson(url: URL) {
   return res.json();
 }
 
-function metricList(raw: unknown): Array<{ x: string; y: number }> {
+function metricList(raw: unknown, limit = 8): Array<{ x: string; y: number }> {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((item) => {
@@ -33,7 +33,7 @@ function metricList(raw: unknown): Array<{ x: string; y: number }> {
       return { x: String(row.x || ''), y: Number(row.y || 0) };
     })
     .filter((item) => item.x)
-    .slice(0, 8);
+    .slice(0, limit);
 }
 
 function statValue(stats: any, key: 'visitors' | 'pageviews' | 'bounces' | 'totaltime') {
@@ -77,7 +77,7 @@ export async function fetchUmamiSummary(period: UmamiPeriod = '7d') {
       fetchJson(metricsUrl('device')).catch(() => []),
       fetchJson(metricsUrl('event')).catch(() => []),
     ]);
-    const conversions = metricList(events).filter((item) =>
+    const conversions = metricList(events, 100).filter((item) =>
       (UMAMI_CONVERSION_EVENTS as readonly string[]).includes(item.x),
     );
     return {

@@ -6,7 +6,7 @@ import {
   type LandingExperimentStage,
   type LandingVariant,
 } from '@/lib/landing-experiment';
-import { shouldTrackUmamiPath, umamiPagePayload, type UmamiConversionEvent } from '@/lib/umami';
+import { UMAMI_CONVERSION_EVENTS, funnelData, shouldTrackUmamiPath, umamiPagePayload, type FunnelData, type UmamiConversionEvent } from '@/lib/umami';
 
 type PagePayload = ReturnType<typeof umamiPagePayload>;
 export type UmamiPayload = Record<string, unknown>;
@@ -22,6 +22,7 @@ type PendingEvent = {
   page: PagePayload;
   variant?: LandingVariant;
   stage?: LandingExperimentStage;
+  data?: FunnelData;
 };
 const PENDING_EXPERIMENT_STORAGE_KEY = `matchply:${LANDING_EXPERIMENT_ID}:pending`;
 const EXPERIMENT_STAGES: LandingExperimentStage[] = ['exposed', 'cta', 'first_pdf', 'signup'];
@@ -57,6 +58,7 @@ export function createUmamiClient(input: {
   let configured = false;
   const sent = new Set<string>();
   const queued = new Set<string>();
+  const conversions = new Set<string>();
   let lastPage = '';
 
   function allowed() {
@@ -168,6 +170,7 @@ export function createUmamiClient(input: {
           language: base.language,
           ...event.page,
           ...(event.name ? { name: event.name } : {}),
+          ...(event.data && Object.keys(event.data).length ? { data: event.data } : {}),
         }));
         if (key) {
           sent.add(key);
@@ -222,8 +225,15 @@ export function createUmamiClient(input: {
     },
     flush,
     experiment,
-    conversion(event: UmamiConversionEvent) {
-      const accepted = enqueue({ name: event });
+    conversion(event: UmamiConversionEvent, data?: FunnelData, dedupeKey?: string) {
+      if (!UMAMI_CONVERSION_EVENTS.includes(event)) return false;
+      const key = dedupeKey ? `${event}:${dedupeKey}` : null;
+      if (key && conversions.has(key)) return true;
+      const accepted = enqueue({ name: event, data: funnelData(event, data) });
+      if (accepted && key) {
+        conversions.add(key);
+        if (conversions.size > 256) conversions.delete(conversions.values().next().value!);
+      }
       if (accepted && event === 'cv_downloaded') experiment('first_pdf');
       if (accepted && event === 'signup_completed') experiment('signup');
       return accepted;
@@ -232,7 +242,11 @@ export function createUmamiClient(input: {
       if (!allowed()) return;
       const pathname = input.page().pathname;
       if (pathname === lastPage) return;
-      if (enqueue({})) lastPage = pathname;
+      if (enqueue({})) {
+        lastPage = pathname;
+        if (pathname === '/') enqueue({ name: 'landing_viewed' });
+        if (pathname === '/try') enqueue({ name: 'trial_started' });
+      }
     },
   };
 }

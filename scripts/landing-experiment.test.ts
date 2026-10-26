@@ -135,10 +135,11 @@ test('readiness retains one initial pageview and exposure, then flushes without 
   f.client.flush();
   f.client.pageview();
   f.client.experiment('exposed', 'A');
-  assert.equal(f.events.length, 2);
+  assert.equal(f.events.length, 3);
   assert.equal(f.events[0].url, '/');
-  assert.equal(f.events[1].name, 'landing_headline_v1_a_exposed');
-  assert.equal(f.events[1].referrer, 'https://example.com');
+  assert.equal(f.events[1].name, 'landing_viewed');
+  assert.equal(f.events[2].name, 'landing_headline_v1_a_exposed');
+  assert.equal(f.events[2].referrer, 'https://example.com');
 });
 
 test('first PDF and signup require exposure and are deduplicated across client remounts', () => {
@@ -146,7 +147,7 @@ test('first PDF and signup require exposure and are deduplicated across client r
   f.makeReady();
   f.client.conversion('cv_downloaded');
   f.client.conversion('signup_completed');
-  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_')).length, 0);
+  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).length, 0);
   f.client.experiment('exposed');
   f.client.conversion('cv_downloaded');
   f.client.conversion('cv_downloaded');
@@ -156,7 +157,7 @@ test('first PDF and signup require exposure and are deduplicated across client r
   remounted.experiment('exposed');
   remounted.conversion('cv_downloaded');
   remounted.conversion('signup_completed');
-  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_')).map((event) => event.name), [
+  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).map((event) => event.name), [
     'landing_headline_v1_a_exposed', 'landing_headline_v1_a_first_pdf', 'landing_headline_v1_a_signup',
   ]);
 });
@@ -194,7 +195,7 @@ test('a deferred exposure survives a full page navigation before the SDK loads a
     remounted.conversion('cv_downloaded');
     remounted.flush();
   }
-  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_')).map((event) => event.name), [
+  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).map((event) => event.name), [
     'landing_headline_v1_a_exposed', 'landing_headline_v1_a_cta', 'landing_headline_v1_a_first_pdf',
   ]);
   assert.equal(f.events.find((event) => event.name === 'landing_headline_v1_a_exposed')?.url, '/');
@@ -242,7 +243,7 @@ test('an excluded visitor creates no deferred measurement storage, and a newly b
   remounted.configure(f.config);
   f.setReady();
   remounted.conversion('cv_downloaded');
-  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_')).length, 0);
+  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).length, 0);
 });
 
 test('SDK readiness before configuration neither erases a previous page queue nor bypasses tracking controls', () => {
@@ -260,7 +261,7 @@ test('SDK readiness before configuration neither erases a previous page queue no
   assert.equal(f.events.length, 0);
   remounted.configure(f.config);
   remounted.conversion('cv_downloaded');
-  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_')).map((event) => event.name), [
+  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).map((event) => event.name), [
     'landing_headline_v1_a_exposed', 'landing_headline_v1_a_first_pdf',
   ]);
 });
@@ -281,7 +282,7 @@ test('rehydration rejects unsafe or malformed queue fields and conversions witho
   f.setReady();
   remounted.flush();
   remounted.conversion('cv_downloaded');
-  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_')).length, 0);
+  assert.equal(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).length, 0);
   for (const value of ['{', '{}', 'x'.repeat(4097)]) {
     f.stored.set(queueKey, value);
     const invalid = createUmamiClient(f.dependencies);
@@ -300,7 +301,7 @@ test('a first landing visit through client navigation updates the persistent exp
   f.page.pathname = '/try';
   f.client.pageview();
   f.client.conversion('cv_downloaded');
-  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_')).map((event) => event.name), [
+  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).map((event) => event.name), [
     'landing_headline_v1_b_exposed', 'landing_headline_v1_b_first_pdf',
   ]);
 });
@@ -342,7 +343,7 @@ test('the guest redirect, registration server action and editor reload retain on
   afterClaim.conversion('cv_downloaded');
   afterClaim.conversion('cv_downloaded');
   const prefix = `landing_headline_v1_${experiment.variant!.toLowerCase()}`;
-  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_')).map((event) => event.name), [
+  assert.deepEqual(f.events.filter((event) => String(event.name).startsWith('landing_headline_')).map((event) => event.name), [
     `${prefix}_exposed`, `${prefix}_signup`, `${prefix}_first_pdf`,
   ]);
   assert.equal(f.events.find((event) => event.name === `${prefix}_first_pdf`)?.url, '/editor/:cvId');
