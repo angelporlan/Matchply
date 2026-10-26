@@ -32,5 +32,5 @@ export function aiUsageErrorResponse(error: unknown): NextResponse | null {
     ...publicUsageDetails(detail.details || {}), ...userError(detail.code || (detail.status === 429 ? 'RATE_LIMITED' : 'INVALID_INPUT')),
     ...publicUsageDetails({ bucket: detail.bucket, used: detail.used, reserved: detail.reserved,
       limit: detail.limit, resetsAt: detail.resetsAt || detail.resetAt }),
-  }, { status: detail.status, headers: { 'Cache-Control': 'no-store' } });
+  }, { status: detail.status, headers: { 'Cache-Control': 'no-store', ...(error instanceof RateLimitError ? { 'Retry-After': String(error.retryAfterSeconds) } : {}) } });
 }

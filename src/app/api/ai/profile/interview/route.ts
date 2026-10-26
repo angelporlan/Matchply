@@ -1,3 +1,4 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
@@ -8,12 +9,14 @@ import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { log } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'profileInterview'); if (limited) return limited;
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    consumeProductSession(actor.userId, 'profileInterview');
     const body = await req.json();
     const { action, currentProfile, qaList, sectionType, currentContent, dumpText, optionalTarget, classification } = body || {};
 

@@ -1,3 +1,4 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { AI_PUBLIC_ERROR, publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
@@ -12,13 +13,13 @@ import { beginUsage, consumeUsage, releaseUsage, usageInputHash } from '@/lib/us
 import { reserveCvTarget } from '@/lib/cv-access';
 import { assertCvPublication } from '@/lib/ai-cv-publication';
 import { aiRequestId, aiUsageErrorResponse } from '@/lib/ai-usage-http';
-import { consumeRateLimit } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
 // @ts-ignore
 import pdf from 'pdf-parse';
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'cvImport'); if (limited) return limited;
   let operationId: string | null = null, targetId: string | null = null, userId: string | null = null;
   const cleanup = async () => {
     if (!operationId) return;
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     const actor = await getActor({ allowGuest: true });
     if (!actor) return new NextResponse('Unauthorized', { status: 401 });
     userId = actor.userId;
-    consumeRateLimit(`ai:import:${userId}`, 8, 10 * 60_000);
+    consumeProductSession(userId, 'cvImport');
     const form = await req.formData();
     const file = form.get('file') as File | null;
     const rawText = form.get('text');

@@ -1,3 +1,5 @@
+import { RateLimitError } from '@/lib/rate-limit';
+import { consumeProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { log } from '@/lib/logger';
 import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest } from 'next/server';
@@ -12,11 +14,14 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
+  try { consumeProductIp(req, 'extensionUpload'); }
+  catch (error) { if (error instanceof RateLimitError) return extensionJson({ error: 'RATE_LIMITED', code: 'RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds) } }); throw error; }
   let session: Awaited<ReturnType<typeof resolveExtensionSession>> | null = null;
   try {
     const contentLength = Number(req.headers.get('content-length') || 0);
     if (contentLength > 220_000) return extensionJson({ error: 'Payload too large' }, { status: 413 });
     session = await resolveExtensionSession(req);
+    consumeProductSession(session.user.id, 'extensionUpload');
     await requireUserFeature(session.user.id, 'linkedinExtension');
     rateLimitExtensionRequest(`${session.user.id}:ingest`);
     if (session.scope !== 'linkedin:ingest') throw new ExtensionAuthError(403, 'Insufficient extension scope');
@@ -25,6 +30,7 @@ export async function POST(req: NextRequest) {
     const result = await ingestLinkedInOffer(session.user.id, session.installation.id, body);
     return extensionJson(result);
   } catch (error) {
+    if (error instanceof RateLimitError) return extensionJson({ error: 'RATE_LIMITED', code: 'RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds) } });
     log({ event: 'extension_request_failed', level: 'error', error });
     if (session) {
       await createAuditLog('extension_job_capture_rejected', session.user.id, session.user.email, {

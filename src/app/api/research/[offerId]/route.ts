@@ -1,3 +1,5 @@
+import { RateLimitError } from '@/lib/rate-limit';
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { log } from '@/lib/logger';
 import { publicErrorBody } from '@/lib/public-errors';
 import { NextResponse } from 'next/server';
@@ -10,7 +12,7 @@ import { AccountSuspendedError, ImpersonationEndedError, SupportActionBlockedErr
 import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 
 function errorResponse(error: unknown) {
-  log({ event: 'research_request_failed', level: 'error', error });
+  if (!(error instanceof RateLimitError)) log({ event: 'research_request_failed', level: 'error', error });
   const response = aiUsageErrorResponse(error); if (response) return response;
   if (error instanceof SubscriptionAccessError) return NextResponse.json(publicErrorBody(error), { status: error.status });
   if (error instanceof ApplicationNotFoundError) return NextResponse.json(publicErrorBody('OFFER_NOT_FOUND'), { status: 404 });
@@ -44,9 +46,11 @@ export async function GET(_req: Request, { params }: { params: { offerId: string
 }
 
 export async function POST(req: Request, { params }: { params: { offerId: string } }) {
+  const limited = checkProductIp(req, 'research'); if (limited) return limited;
   try {
     const user = await currentUser();
     if (!user) return NextResponse.json(publicErrorBody('AUTH_REQUIRED'), { status: 401 });
+    consumeProductSession(user.id, 'research');
     const body = await req.json().catch(() => ({}));
     const research = await enqueueResearchForOffer(user.id, params.offerId, {
       trigger: 'dashboard',

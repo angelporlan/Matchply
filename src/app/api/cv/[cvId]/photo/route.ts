@@ -1,9 +1,10 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getActor } from '@/lib/actor';
 import { getCvPhotoState, resolveCvPhoto, resetCvPhoto, saveCvPhoto, setCvPhotoEnabled } from '@/lib/cv-photo';
 import { PROFILE_PHOTO_BODY_MAX_BYTES } from '@/lib/avatar/profile-limits';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
 import { UsageError } from '@/lib/usage';
 import { log } from '@/lib/logger';
 
@@ -12,7 +13,7 @@ type Context = { params: { cvId: string } };
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 function failure(error: unknown) {
   if (error instanceof UsageError) return json(error.toJSON(), error.status);
-  if (error instanceof RateLimitError) return json({ error: 'PHOTO_RATE_LIMIT' }, 429);
+  if (error instanceof RateLimitError) { const response = json({ error: 'PHOTO_RATE_LIMIT' }, 429); response.headers.set('Retry-After', String(error.retryAfterSeconds)); return response; }
   if (error instanceof SyntaxError || (error instanceof Error && error.message === 'PHOTO_INVALID')) return json({ error: 'PHOTO_INVALID' }, 400);
   if (error instanceof Error && error.message === 'PHOTO_SIZE') return json({ error: 'PHOTO_SIZE' }, 413);
   if (error && typeof error === 'object' && 'status' in error && 'code' in error && typeof error.status === 'number') return json({ error: error.code }, error.status);
@@ -46,6 +47,7 @@ async function readBody(request: Request) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 async function mutate(request: NextRequest, { params }: Context, action: 'upload' | 'toggle' | 'reset') {
+  const limited = checkProductIp(request, 'cvPhoto'); if (limited) return limited;
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) return json({ error: 'Unauthorized' }, 401);
@@ -53,7 +55,7 @@ async function mutate(request: NextRequest, { params }: Context, action: 'upload
     const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || request.nextUrl.host;
     if (request.headers.get('origin') !== new URL(`${protocol}://${host}`).origin || (action !== 'reset' && !request.headers.get('content-type')?.startsWith('application/json'))) return json({ error: 'Forbidden' }, 403);
     if (!/^[\da-f-]{36}$/i.test(params.cvId)) return json({ error: 'CV_NOT_FOUND' }, 404);
-    consumeRateLimit(`cv-photo:${actor.userId}`, 12, 60_000);
+    consumeProductSession(actor.userId, 'cvPhoto');
     const body = action === 'reset' ? null : await readBody(request);
     const state = action === 'upload' ? await saveCvPhoto(actor.userId, params.cvId, body?.avatar)
       : action === 'toggle' ? await setCvPhotoEnabled(actor.userId, params.cvId, body?.enabled) : await resetCvPhoto(actor.userId, params.cvId);

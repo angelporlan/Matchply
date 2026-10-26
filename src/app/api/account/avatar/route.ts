@@ -1,10 +1,11 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { unstable_update } from '@/auth';
 import { requireAccountContext, requireProductContext, auditActorFields } from '@/lib/request-context';
 import { getProfilePhoto, saveProfilePhoto } from '@/lib/avatar/profile';
 import { PROFILE_PHOTO_BODY_MAX_BYTES } from '@/lib/avatar/profile-limits';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
 import { createAuditLog } from '@/lib/audit';
 import { log } from '@/lib/logger';
 import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError, SupportActionBlockedError } from '@/lib/request-errors';
@@ -49,6 +50,7 @@ async function readUpload(request: Request) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = checkProductIp(request, 'profilePhoto'); if (limited) return limited;
   try {
     const ctx = await requireAccountContext();
     if (ctx.realUser.isGuest) return accountRequired();
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || request.nextUrl.host;
     if (request.headers.get('origin') !== new URL(`${protocol}://${host}`).origin || !request.headers.get('content-type')?.startsWith('application/json')) return json({ error: 'Forbidden' }, 403);
     const userId = ctx.realUser.id;
-    consumeRateLimit(`profile-photo:${userId}`, 12, 60_000);
+    consumeProductSession(userId, 'profilePhoto');
     const body = await readUpload(request);
     const result = await saveProfilePhoto(userId, body?.avatar);
     void createAuditLog('user_avatar_upload', userId, null, {}, auditActorFields(ctx));
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
     return json(result);
   } catch (error) {
     if (error instanceof AccountSuspendedError || error instanceof ActorEpochMismatchError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) return json({ error: error.code }, error.status);
-    if (error instanceof RateLimitError) return json({ error: 'PHOTO_RATE_LIMIT' }, error.status);
+    if (error instanceof RateLimitError) { const response = json({ error: 'PHOTO_RATE_LIMIT' }, error.status); response.headers.set('Retry-After', String(error.retryAfterSeconds)); return response; }
     if (error instanceof SyntaxError || (error instanceof Error && error.message === 'PHOTO_INVALID')) return json({ error: 'PHOTO_INVALID' }, 400);
     if (error instanceof Error && error.message === 'PHOTO_SIZE') return json({ error: 'PHOTO_SIZE' }, 413);
     if (error instanceof Error && error.message === 'Unauthorized') return accountRequired();

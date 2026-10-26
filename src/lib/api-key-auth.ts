@@ -12,6 +12,7 @@ import {
 } from '@/lib/agent-api/scopes';
 import { sha256Hex } from '@/lib/crypto-hash';
 import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { trustedClientIp } from '@/lib/client-ip';
 import { canAccessFeature } from '@/lib/subscription';
 import { consumeApiPlanRate } from '@/lib/api-plan-rate';
 import { userPlanFeature } from '@/lib/plan-store';
@@ -73,15 +74,6 @@ export function apiTokenIsUsable(
   return true;
 }
 
-function clientIp(req: { headers: { get(name: string): string | null } }) {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    const ip = forwarded.split(',')[0]?.trim();
-    if (ip) return ip.slice(0, 64);
-  }
-  return req.headers.get('x-real-ip')?.trim().slice(0, 64) || 'unknown';
-}
-
 function enforceLimit(key: string, limit: number, windowMs: number, retryAfterSeconds: number) {
   try {
     consumeRateLimit(key, limit, windowMs);
@@ -127,7 +119,7 @@ export function requireAgentScope(auth: AgentPrincipal, scope: AgentScope) {
 }
 
 export async function authenticateAgentRequest(req: NextRequest): Promise<AgentPrincipal> {
-  enforceLimit(`agent:ip:${clientIp(req)}`, 60, 60_000, 60);
+  enforceLimit(`agent:ip:${trustedClientIp(req)}`, 60, 60_000, 60);
 
   const token = parseBearerApiToken(req.headers.get('authorization'));
   if (!token) throw new AgentApiError(401, 'invalid_token', INVALID_TOKEN);

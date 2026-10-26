@@ -1,4 +1,7 @@
 "use server";
+import { headers } from 'next/headers';
+import { RateLimitError } from '@/lib/rate-limit';
+import { consumeProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { userErrorMessage } from '@/lib/user-errors';
 import { publicErrorBody } from '@/lib/public-errors';
 
@@ -258,6 +261,8 @@ export async function evaluateSingleOfferMatchAction(offerId: string, requestId?
   try {
     const ctx = await requireApplicationContext();
     const userId = ctx.effectiveUser!.id;
+    consumeProductIp({ headers: headers() }, 'singleMatch');
+    consumeProductSession(userId, 'singleMatch');
     const [owned] = await db.select({ id: jobOffers.id }).from(jobOffers)
       .where(and(eq(jobOffers.id, offerId), eq(jobOffers.userId, userId))).limit(1);
     if (!owned) throw new Error("Job offer not found");
@@ -279,7 +284,7 @@ export async function evaluateSingleOfferMatchAction(offerId: string, requestId?
     revalidatePath('/dashboard/applications');
     return { success: true, ...offer, jobId: job.id };
   } catch (error: any) {
-    log({ event: 'offer_match_evaluate_failed', level: 'error', error });
+    if (!(error instanceof RateLimitError)) log({ event: 'offer_match_evaluate_failed', level: 'error', error });
     return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, ...publicErrorBody(error) };
   }
 }

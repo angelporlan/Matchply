@@ -1,6 +1,7 @@
+import { RateLimitError } from '@/lib/rate-limit';
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
-import { consumeRateLimit } from '@/lib/rate-limit';
 import { log } from '@/lib/logger';
 import { resolveOfferIdentity } from '@/lib/offer-fields';
 import { aiRequestId, aiUsageErrorResponse, AiUsageHttpError } from '@/lib/ai-usage-http';
@@ -8,11 +9,12 @@ import { enqueueCvOptimization } from '@/lib/cv-optimization/service';
 import { randomUUID } from 'node:crypto';
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'optimize'); if (limited) return limited;
   let requestId: string = randomUUID();
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) throw new AiUsageHttpError(401, 'AUTH_REQUIRED', 'Tu sesión ha terminado. Vuelve a entrar para continuar.');
-    consumeRateLimit(`ai:optimize:${actor.userId}`, 8, 10 * 60_000);
+    consumeProductSession(actor.userId, 'optimize');
     const body = await req.json();
     requestId = aiRequestId(req, body.requestId);
     const description = typeof body.jobDescription === 'string' ? body.jobDescription.trim() : '';
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
     log({ event: 'cv_optimize_admitted', requestId, jobId: result.jobId, userId: actor.userId, route: '/api/ai/optimize' });
     return NextResponse.json({ ...result, requestId }, { status: 202, headers: { 'Cache-Control': 'no-store', 'x-request-id': requestId } });
   } catch (error) {
-    log({ event: 'cv_optimize_admission_failed', requestId, route: '/api/ai/optimize', level: 'error', error });
+    if (!(error instanceof RateLimitError)) log({ event: 'cv_optimize_admission_failed', requestId, route: '/api/ai/optimize', level: 'error', error });
     const response = aiUsageErrorResponse(error);
     if (response) { response.headers.set('x-request-id', requestId); return response; }
     return NextResponse.json({ error: 'No se pudo iniciar la optimización. Puedes reintentar.', requestId }, { status: 500, headers: { 'x-request-id': requestId } });

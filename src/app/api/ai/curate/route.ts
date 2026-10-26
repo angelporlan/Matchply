@@ -1,3 +1,4 @@
+import { checkProductIp, consumeProductSession, rateLimitResponse } from '@/lib/product-rate-limit';
 import { publicErrorBody } from '@/lib/public-errors';
 import { userErrorMessage } from '@/lib/user-errors';
 import { randomUUID } from 'crypto';
@@ -6,7 +7,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { requireProductContext } from '@/lib/request-context';
 import { db } from '@/db';
 import { jobOffers } from '@/db/schema';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
 import { enqueueMatchBatchJob, getAiJobForUser, isTerminalAiJob } from '@/lib/ai-jobs/queue';
 import { matchBatchCounts } from '@/lib/ai-jobs/match-batch-state';
 import { log } from '@/lib/logger';
@@ -20,6 +21,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const OBSERVER_WINDOW_MS = 50_000;
 
 export async function POST(req: Request) {
+  const limited = checkProductIp(req, 'curate'); if (limited) return limited;
   let userId: string;
   let initiatedByUserId: string;
   try {
@@ -29,6 +31,9 @@ export async function POST(req: Request) {
   } catch {
     return new NextResponse('Unauthorized', { status: 401 });
   }
+
+  try { consumeProductSession(userId, 'curate'); }
+  catch (error) { if (error instanceof RateLimitError) return rateLimitResponse(error); throw error; }
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -44,13 +49,6 @@ export async function POST(req: Request) {
   const requestedIds: string[] | undefined = body.offerIds === undefined ? undefined : Array.from(new Set<string>(body.offerIds));
   const targetThreshold = typeof body.targetThreshold === 'number' && Number.isFinite(body.targetThreshold)
     ? Math.max(0, Math.min(100, Math.round(body.targetThreshold))) : 65;
-
-  try {
-    consumeRateLimit(`ai:curate:${userId}`, 10, 10 * 60_000);
-  } catch (error) {
-    if (error instanceof RateLimitError) return NextResponse.json(publicErrorBody(error), { status: 429 });
-    throw error;
-  }
 
   // The producer selects IDs only. The worker loads descriptions once it owns the job lease.
   const offers = requestedIds?.length === 0 ? [] : await db.select({ id: jobOffers.id }).from(jobOffers)

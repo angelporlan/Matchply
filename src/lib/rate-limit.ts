@@ -1,7 +1,7 @@
 export class RateLimitError extends Error {
   readonly status = 429;
 
-  constructor(message = 'Too many requests; try again later') {
+  constructor(message = 'Too many requests; try again later', readonly retryAfterSeconds = 60) {
     super(message);
     this.name = 'RateLimitError';
   }
@@ -42,7 +42,7 @@ export function consumeRateLimit(key: string, limit: number, windowMs: number) {
     return;
   }
   if (current.count >= limit) {
-    throw new RateLimitError();
+    throw new RateLimitError(undefined, Math.max(1, Math.ceil((current.startedAt + windowMs - now) / 1000)));
   }
   current.count += 1;
 }

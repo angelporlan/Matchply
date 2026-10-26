@@ -1,8 +1,9 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProductContext, auditActorFields } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { enqueueNetworking } from '@/lib/people/ai';
 import { id, choice } from '@/lib/people/validation';
@@ -13,6 +14,7 @@ import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError
 
 export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'networking'); if (limited) return limited;
   try {
     const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' });
     const origin = req.headers.get('origin');
@@ -22,6 +24,7 @@ export async function POST(req: NextRequest) {
     try { expectedOrigin = new URL(`${protocol}://${host}`).origin; } catch { return NextResponse.json({ error: 'Forbidden' }, { status: 403 }); }
     if (origin && origin !== expectedOrigin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const userId = ctx.effectiveUser!.id;
+    consumeProductSession(userId, 'networking');
     if (Number(req.headers.get('content-length')) > 8000) return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     const body = await req.json();
     if (!body || typeof body !== 'object' || JSON.stringify(body).length > 8000) throw new PeopleError('PEOPLE_INVALID_REQUEST');
@@ -32,7 +35,6 @@ export async function POST(req: NextRequest) {
     if (body.offerId) payload.offerId = id(body.offerId);
     if (body.includeCandidate !== undefined) { if (typeof body.includeCandidate !== 'boolean') throw new PeopleError('PEOPLE_INVALID_REQUEST'); payload.includeCandidate = body.includeCandidate; }
     if (payload.action === 'parse_conversation' && (!payload.importId || !payload.threadId)) throw new PeopleError('PEOPLE_REQUIRED');
-    consumeRateLimit(`networking:${userId}`, 6, 60000);
     const job = await enqueueNetworking(userId, payload, ctx.realUser?.id || userId);
     void createAuditLog('networking_enqueued', userId, null, { personId: payload.personId, jobId: job.id, action: payload.action }, auditActorFields(ctx));
     return NextResponse.json({ jobId: job.id }, { status: 202, headers: { 'Cache-Control': 'no-store' } });

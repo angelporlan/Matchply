@@ -1,3 +1,4 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { jobOffers, cvs, users } from '@/db/schema';
@@ -26,10 +27,12 @@ const outreachCvColumns = {
 };
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'outreach'); if (limited) return limited;
   let operationId: string | null = null;
   try {
     const ctx = await requireProductContext({ feature: 'applications' });
     const userId = ctx.effectiveUser!.id;
+    consumeProductSession(userId, 'outreach');
     const body = await req.json();
     const { offerId } = body;
 
