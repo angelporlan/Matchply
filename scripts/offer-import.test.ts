@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { request as httpRequest } from 'node:http';
-import { extractOffer } from '@/lib/offer-import/extract';
+import { extractOffer, isOfferAccessWall } from '@/lib/offer-import/extract';
 import { assertPublicOfferUrl, downloadPublicPage, isPublicAddress, MAX_PAGE_BYTES } from '@/lib/offer-import/public-page';
 import { callOfferResponses, importOffer, OfferImportError, parseStructuredOffer, responseText, type ImportDependencies, type ResponsesResult } from '@/lib/offer-import/service';
 import { normalizeOfferUrl, offerPlatform, sameOfferUrl } from '@/lib/offer-import/types';
@@ -68,7 +68,7 @@ test('Multiple JSON-LD postings are matched by job ID rather than selected by po
   assert.equal(extractOffer(html(other) + `<main>${description}</main>`, url), null);
 });
 
-function fakeRequest(pages: Array<{ redirect?: string; content?: string }>, seen: string[]) {
+function fakeRequest(pages: Array<{ redirect?: string; content?: string; status?: number }>, seen: string[]) {
   return ((target: URL, options: Record<string, unknown>, callback: (response: PassThrough) => void) => {
     seen.push(target.toString());
     const lookup = options.lookup as (host: string, options: object, callback: (...args: unknown[]) => void) => void;
@@ -77,7 +77,7 @@ function fakeRequest(pages: Array<{ redirect?: string; content?: string }>, seen
     const request = new EventEmitter();
     Object.assign(request, { end: () => queueMicrotask(() => {
       const response = Object.assign(new PassThrough(), {
-        statusCode: page.redirect ? 302 : 200,
+        statusCode: page.status || (page.redirect ? 302 : 200),
         headers: page.redirect ? { location: page.redirect } : { 'content-type': 'text/html' },
       });
       callback(response);
@@ -110,6 +110,26 @@ test('Downloader pins DNS, checks every redirect, limits bytes and aborts pendin
   });
   controller.abort(new Error('test deadline'));
   await assert.rejects(pending, /test deadline/);
+});
+
+test('portal authentication, blocking and rate-limit responses become an immediate manual fallback', async () => {
+  for (const status of [401, 403, 429]) {
+    await assert.rejects(importOffer(url, { ...dependencies,
+      download: target => downloadPublicPage(target, undefined, { resolveHost: async () => ({ address: '8.8.8.8', family: 4 }), request: fakeRequest([{ status }], []) }),
+      respond: async () => { assert.fail('A blocked portal must not start a paid search or structuring request'); },
+    }), error => error instanceof OfferImportError && error.message === 'OFFER_PORTAL_BLOCKED' && !error.retryable);
+  }
+});
+
+test('successful HTTP login and bot challenge pages also offer manual entry', async () => {
+  const walls = ['<title>Access denied</title>', '<h1>Just a moment</h1><form id="challenge-form"></form>', '<title>Iniciar sesión</title><input type="password"><main>' + description + '</main>'];
+  for (const page of walls) {
+    assert.equal(isOfferAccessWall(page), true);
+    await assert.rejects(importOffer(url, { ...dependencies, download: async () => ({ html: page, url, visitedUrls: [url] }),
+      respond: async () => { assert.fail('An access wall must not start another request'); },
+    }), /OFFER_PORTAL_BLOCKED/);
+  }
+  assert.equal(isOfferAccessWall('<title>Security engineer</title><main>Experience with CAPTCHA and login systems.</main>'), false);
 });
 
 test('Direct import structures with Luna and never calls web search or summarizes isolated text', async () => {

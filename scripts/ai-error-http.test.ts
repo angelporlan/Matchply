@@ -52,6 +52,13 @@ test('job HTTP responses hide legacy provider details for authenticated and gues
       const raw = await response.text();
       assert.doesNotMatch(raw, /OPENAI|API_KEY|sk-private|\.env|VPS|upstream project/);
       assert.match(raw, /Inténtalo de nuevo/);
+      const [importJob] = await db.insert(aiJobs).values({ userId, kind: 'import_offer', status: 'failed', payload: {}, lastError: 'OFFER_PORTAL_BLOCKED' }).returning({ id: aiJobs.id });
+      const blocked = await request(`/api/ai/jobs/${importJob.id}`);
+      assert.equal(blocked.status, 200);
+      const blockedBody = await blocked.json();
+      assert.equal(blockedBody.errorCode, 'OFFER_PORTAL_BLOCKED');
+      assert.doesNotMatch(blockedBody.lastError, /API_KEY|403|401|Forbidden/);
+
     }
   } finally {
     if (ids.length) await db.delete(users).where(inArray(users.id, ids));

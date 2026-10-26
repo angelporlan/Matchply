@@ -141,14 +141,21 @@ for (const width of [1440, 390]) test(`optimization retry recovers the same admi
   expect(polls).toBe(4);
 });
 
-for (const guest of [true, false]) for (const width of [1440, 390]) test(`pasted offer without URL: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context }) => {
+for (const blocked of [false, true]) for (const guest of [true, false]) for (const width of [1440, 390]) test(`${blocked ? 'blocked portal to pasted offer' : 'pasted offer without URL'}: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context }) => {
   await page.setViewportSize({ width, height: 900 });
   if (!guest) await login(context);
   const content = '# QA Candidate\n\n## Perfil Profesional\nDesarrollo APIs con Python y pruebas automatizadas.';
   const description = 'Buscamos una desarrolladora Python para crear APIs con pruebas automatizadas. Trabajo en equipo y experiencia con bases de datos.';
   let admission: { baseCvId: string; jobDescription: string; url: string; requestId: string } | null = null;
   let imports = 0;
-  await page.route('**/api/ai/offers/import', async route => { imports++; await route.abort(); });
+  await page.route('**/api/ai/offers/import', async route => {
+    imports++;
+    if (blocked) await route.fulfill({ status: 202, json: { jobId: 'blocked-import-job' } });
+    else await route.abort();
+  });
+  await page.route('**/api/ai/jobs/blocked-import-job', route => route.fulfill({ json: {
+    status: 'failed', result: null, lastError: 'No se pudo completar la acción con IA. Inténtalo de nuevo.', errorCode: 'OFFER_PORTAL_BLOCKED',
+  } }));
   await page.route('**/api/ai/optimize', async route => {
     admission = route.request().postDataJSON();
     await route.fulfill({ status: 202, json: { jobId: 'pasted-offer-job', cvId: admission!.baseCvId, requestId: admission!.requestId } });
@@ -169,16 +176,36 @@ for (const guest of [true, false]) for (const width of [1440, 390]) test(`pasted
     await page.goto('/dashboard');
     await page.getByRole('button', { name: 'Generar con IA', exact: true }).click();
   }
-  await page.getByRole('button', { name: 'Pegar descripción manualmente', exact: true }).click();
+  const hasDraft = !blocked || !guest || width === 390;
+  if (hasDraft) await page.getByRole('button', { name: 'Pegar descripción manualmente', exact: true }).click();
   const textarea = page.getByRole('textbox', { name: 'Descripción y requisitos', exact: true });
-  await textarea.fill(description);
-  await expect(page.getByRole('textbox', { name: 'Enlace a la oferta', exact: true })).toHaveValue('');
+  if (hasDraft) await textarea.fill(description);
+  const link = page.getByRole('textbox', { name: 'Enlace a la oferta', exact: true });
+  if (blocked) {
+    await link.fill('https://jobs.hiringroom.com/jobs/example');
+    await page.getByRole('button', { name: 'Importar oferta', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido leer este enlace.' })).toContainText('No hemos podido leer este enlace. Pega aquí la descripción de la oferta.');
+    await expect(textarea).toHaveValue(hasDraft ? description : '');
+    await expect(textarea).toBeFocused();
+    await expect(link).toHaveValue('https://jobs.hiringroom.com/jobs/example');
+    if (!hasDraft) await textarea.fill(description);
+    if (guest && width === 390) {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath('blocked-offer-mobile.png'), fullPage: true });
+      await page.getByText('Cómo importar según el portal', { exact: true }).click();
+      await expect(page.getByText(/HiringRoom y otros portales/)).toBeVisible();
+      await page.getByRole('button', { name: 'Cómo instalar y usar la extensión de LinkedIn', exact: true }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.getByRole('button', { name: 'Cerrar guía', exact: true }).click();
+      await expect(page.getByRole('dialog')).toBeHidden();
+    }
+  } else await expect(link).toHaveValue('');
   const submit = page.getByRole('button', { name: guest ? 'Adaptar mi CV' : 'Iniciar Optimización por IA', exact: true });
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect.poll(() => admission?.jobDescription).toBe(description);
-  expect(admission!.url).toBe('');
-  expect(imports).toBe(0);
+  expect(admission!.url).toBe(blocked ? 'https://jobs.hiringroom.com/jobs/example' : '');
+  expect(imports).toBe(blocked ? 1 : 0);
   await expect(page).toHaveURL(/\/editor\//);
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
 });

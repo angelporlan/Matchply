@@ -79,6 +79,11 @@ export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, d
           resolve({ html: '', redirect: res.headers.location });
           return;
         }
+        if ([401, 403, 429].includes(status)) {
+          res.destroy();
+          reject(new Error('OFFER_PORTAL_BLOCKED'));
+          return;
+        }
         if (status < 200 || status >= 300 || !/text\/html|application\/xhtml\+xml/i.test(res.headers['content-type'] || '') ||
             (res.headers['content-encoding'] && res.headers['content-encoding'] !== 'identity')) {
           res.destroy();

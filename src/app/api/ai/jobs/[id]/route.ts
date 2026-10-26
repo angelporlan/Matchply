@@ -36,6 +36,7 @@ export async function GET(
       status: job.status,
       result: publicAiJobResult(job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued', { modes: (job.payload as OptimizeJobPayload).modes, attempt: job.attempt }) : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result),
       lastError: job.lastError ? AI_PUBLIC_ERROR : null,
+      ...(job.kind === 'import_offer' && job.status === 'failed' ? { errorCode: job.lastError === 'OFFER_PORTAL_BLOCKED' ? 'OFFER_PORTAL_BLOCKED' : 'OFFER_IMPORT_FAILED' } : {}),
       createdAt: job.createdAt,
       completedAt: job.completedAt,
     }, { headers: { 'Cache-Control': 'no-store' } });

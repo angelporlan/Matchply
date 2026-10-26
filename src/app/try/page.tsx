@@ -1,3 +1,4 @@
+import { chromeExtensionStoreUrl } from '@/lib/chrome-extension-store';
 import { count, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
@@ -22,7 +23,7 @@ export default async function TryPage() {
 
   const gate = resolveTryGate({ hasViewer: Boolean(viewer), cvCount, offerCount });
   if (gate.kind === 'redirect') redirect(gate.href);
-  return <TryEntry />;
+  return <TryEntry extensionStoreUrl={chromeExtensionStoreUrl(process.env.CHROME_EXTENSION_STORE_URL)} />;
 }
 
 export const dynamic = 'force-dynamic';

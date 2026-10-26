@@ -3,6 +3,15 @@ import { sameOfferUrl, usableOfferDescription } from './types';
 
 export type ExtractedOffer = { jobTitle: string | null; company: string | null; description: string; isolatedDescription: boolean };
 
+/** Only call after no job description was found: jobs may themselves mention security or CAPTCHA. */
+export function isOfferAccessWall(html: string): boolean {
+  const $ = load(html);
+  const heading = `${$('title').text()} ${$('h1').first().text()}`.trim();
+  return /access denied|403 forbidden|just a moment|attention required|verify (?:you are|you're|that you are) human|verifica que eres humano|acceso denegado/i.test(heading)
+    || ($('input[type="password"]').length > 0 && /sign in|log in|login|iniciar sesi[oó]n|inicia sesi[oó]n/i.test(heading))
+    || $('#challenge-form, #cf-challenge-running').length > 0;
+}
+
 export function htmlText(html: string): string {
   let $ = load(html);
   // Some portals entity-encode the entire JSON-LD description, including its tags.

@@ -1,7 +1,7 @@
 import { log } from '@/lib/logger';
 import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
 import { NEUTRAL_COMPANY, NEUTRAL_JOB_TITLE } from '@/lib/offer-fields';
-import { extractOffer, type ExtractedOffer } from './extract';
+import { extractOffer, isOfferAccessWall, type ExtractedOffer } from './extract';
 import { assertPublicOfferUrl, downloadPublicPage, type PublicPage } from './public-page';
 import { linkedInJobId, normalizeOfferUrl, offerPlatform, sameOfferUrl, usableOfferDescription, type ImportedOffer, type OfferImportStage } from './types';
 
@@ -110,9 +110,10 @@ export async function importOffer(rawUrl: string, dependencies: ImportDependenci
   try {
     page = await download(url, signal);
     if (!linkedInJobId(url) || sameOfferUrl(page.url, url)) extracted = extractOffer(page.html, page.url);
+    if (!extracted?.isolatedDescription && isOfferAccessWall(page.html)) throw new OfferImportError('OFFER_PORTAL_BLOCKED');
   } catch (error) {
     // A blocked redirect must never be handed to a third-party tool.
-    if (error instanceof Error && ['OFFER_URL_BLOCKED', 'OFFER_URL_INVALID'].includes(error.message)) throw new OfferImportError(error.message);
+    if (error instanceof Error && ['OFFER_URL_BLOCKED', 'OFFER_URL_INVALID', 'OFFER_PORTAL_BLOCKED'].includes(error.message)) throw new OfferImportError(error.message);
     log({ event: 'offer_import_direct_unavailable', domain: new URL(url).hostname });
   }
   if (extracted) {

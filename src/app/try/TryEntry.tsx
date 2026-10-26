@@ -22,7 +22,7 @@ import { trialCvMarkdown } from '@/lib/try-entry';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 
-export default function TryEntry() {
+export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreUrl?: string | null }) {
   const { t } = useLanguage();
   const router = useRouter();
   const [interactive, setInteractive] = useState(false);
@@ -401,7 +401,7 @@ export default function TryEntry() {
 
             <div className="mb-5">
               <div className="mb-3"><InlineAllowance /></div>
-              <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={loading} />
+              <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={loading} extensionStoreUrl={extensionStoreUrl} />
             </div>
 
             {error && (
