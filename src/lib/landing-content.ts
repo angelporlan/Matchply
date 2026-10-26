@@ -8,7 +8,6 @@ const es = {
     headlines: { A: 'Adapta tu CV a cada oferta sin empezar de cero.', B: 'Presenta tu experiencia con un CV adaptado a cada oferta.' },
     description: 'Importa tu CV, pega una oferta y revisa la propuesta de la IA antes de descargar tu PDF. Tú decides qué cambios conservar.',
     cta: 'Probar gratis con mi oferta', workspaceCta: 'Abrir mi espacio', reassurance: 'Sin cuenta · sin tarjeta · 1 PDF de prueba', accountReassurance: 'Tu CV y tus candidaturas, en un mismo lugar',
-    priceStart: 'Empieza gratis.', pricePro: 'PRO por', pricePeriod: '/mes',
   },
   how: {
     eyebrow: 'Del CV que tienes al que quieres enviar', title: 'Una candidatura, tres pasos claros.', description: 'La IA propone. Tú revisas. El resultado sigue siendo tuyo.',
@@ -58,7 +57,6 @@ const en: typeof es = {
     headlines: { A: 'Tailor your resume to each job without starting over.', B: 'Present your experience with a resume tailored to each job.' },
     description: 'Import your resume, paste a job and review the AI suggestions before downloading your PDF. You decide which changes to keep.',
     cta: 'Try free with my job', workspaceCta: 'Open my workspace', reassurance: 'No account · no card · 1 trial PDF', accountReassurance: 'Your resumes and applications, in one place',
-    priceStart: 'Start free.', pricePro: 'PRO for', pricePeriod: '/month',
   },
   how: {
     eyebrow: 'From your current resume to your next application', title: 'One application, three clear steps.', description: 'AI suggests. You review. The result is still yours.',
