@@ -28,7 +28,7 @@ test('job HTTP responses hide legacy provider details for authenticated and gues
         const response = await request('/api/guest?redirect=/try');
         assert.equal(response.status, 307);
         // The response identifies the synthetic session so teardown stays scoped.
-        const cookie = [...cookies].find(([key]) => key.includes('guest'));
+        const cookie = Array.from(cookies).find(([key]) => key === 'matchply_guest');
         assert.ok(cookie);
         const { createHash } = await import('node:crypto');
         const { eq } = await import('drizzle-orm');
