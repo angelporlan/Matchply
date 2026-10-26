@@ -182,3 +182,21 @@ for (const guest of [true, false]) for (const width of [1440, 390]) test(`pasted
   await expect(page).toHaveURL(/\/editor\//);
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
 });
+
+test('guest text entry waits for JavaScript readiness instead of losing an early click', async ({ page, context }) => {
+  await context.request.get('/api/guest?redirect=/try');
+  let release!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/_next/static/chunks/app/try/page*.js', async route => {
+    await scriptsReady; await route.continue();
+  });
+  try {
+    await page.goto('/try', { waitUntil: 'commit' });
+    const paste = page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true });
+    await expect(paste).toBeDisabled();
+    release();
+    await expect(paste).toBeEnabled();
+    await paste.click();
+    await expect(page.getByRole('textbox', { name: 'Tu CV', exact: true })).toBeVisible();
+  } finally { release(); }
+});
