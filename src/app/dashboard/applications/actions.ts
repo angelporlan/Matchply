@@ -1,4 +1,6 @@
 "use server";
+import { userErrorMessage } from '@/lib/user-errors';
+import { publicErrorBody } from '@/lib/public-errors';
 
 import { db } from "@/db";
 import { jobOffers, cvs, users } from "@/db/schema";
@@ -49,8 +51,9 @@ export async function getOwnedJobOffer(offerId: string) {
 
     return { success: true as const, offer };
   } catch (error: any) {
-    console.error("Error loading job offer:", error);
-    return { error: error.message || "Failed to load offer" };
+    log({ event: 'product_action_failed', level: 'error', error });
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 
@@ -64,7 +67,8 @@ export async function runApplicationCommand(offerId: string, command: Applicatio
     return { success: true as const, status: result.status, nextFollowupDate: result.nextFollowupDate, nextAction: result.nextAction, followupVersion: result.followupVersion };
   } catch (error) {
     log({ event: 'application_command_failed', level: 'warn', error });
-    return { error: error instanceof Error ? error.message : 'UPDATE_FAILED' };
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 export async function markApplicationSent(offerId: string, exportId?: string | null, commandId?: string) {
@@ -105,8 +109,9 @@ export async function updateJobOfferCv(offerId: string, cvId: string | null) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error updating offer CV:", error);
-    return { error: error.message || "Failed to link CV" };
+    log({ event: 'product_action_failed', level: 'error', error });
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 
@@ -138,8 +143,9 @@ export async function deleteJobOffer(offerId: string) {
     if (offer.cvId) revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error deleting offer:", error);
-    return { error: error.message || "Failed to delete offer" };
+    log({ event: 'product_action_failed', level: 'error', error });
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 
@@ -181,8 +187,9 @@ export async function createJobOffer(offerData: {
     revalidateApplicationPaths(companyRecord?.id);
     return { success: true };
   } catch (error: any) {
-    console.error("Error creating manual job offer:", error);
-    return { error: error.message || "Failed to create manual offer" };
+    log({ event: 'product_action_failed', level: 'error', error });
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 
@@ -241,8 +248,9 @@ export async function updateJobOfferDetails(
     if (offer.cvId) revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error updating offer details:", error);
-    return { error: error.message || "Failed to update offer details" };
+    log({ event: 'product_action_failed', level: 'error', error });
+    const failure = publicErrorBody(error);
+    return { error: failure.error, code: failure.code, action: failure.action };
   }
 }
 
@@ -261,7 +269,7 @@ export async function evaluateSingleOfferMatchAction(offerId: string, requestId?
     if (!progress.items.some(item => item.id === offerId)) {
       return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, error: settled.status === 'queued' || settled.status === 'running'
         ? 'El análisis continúa. Puedes recuperar el resultado en unos instantes.'
-        : progress.errors[0]?.message || settled.lastError || 'No se pudo calcular la afinidad', jobId: job.id };
+        : userErrorMessage(progress.errors[0]?.code === 'lookup' ? 'OFFER_IMPORT_FAILED' : 'AI_UNAVAILABLE'), jobId: job.id };
     }
     const [offer] = await db.select({ score: jobOffers.scoreOverall, scoreBreakdown: jobOffers.scoreBreakdown,
       matchInputHash: jobOffers.matchInputHash, matchEvidence: jobOffers.matchEvidence, matchDetails: jobOffers.matchDetails,
@@ -272,6 +280,6 @@ export async function evaluateSingleOfferMatchAction(offerId: string, requestId?
     return { success: true, ...offer, jobId: job.id };
   } catch (error: any) {
     log({ event: 'offer_match_evaluate_failed', level: 'error', error });
-    return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, error: error.message || 'No se pudo calcular la afinidad', code: error.code };
+    return { success: false, score: null, scoreBreakdown: null, matchInputHash: null, matchEvidence: null, matchDetails: null, ...publicErrorBody(error) };
   }
 }

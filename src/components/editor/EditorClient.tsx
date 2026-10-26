@@ -1,4 +1,5 @@
 "use client";
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
@@ -195,7 +196,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       persistence.reset(selected.content, { optimizationId: optimization.id, modeId: mode, revision: selected.revision });
       setPageCount(null); setPageBreaks(null); setContentVersion(v => v+1);
       setSaveStatus('saved');
-    } catch (error) { setStreamingError(error instanceof Error ? error.message : t('variants.saveError')); }
+    } catch (error) { setStreamingError(userErrorMessage(error, language, 'SAVE_FAILED')); }
     finally { variantSwitchLock.current = false; setVariantBusy(false); }
   };
   const generateVariant = async (mode: OptimizeModeId, retry = false) => {
@@ -231,7 +232,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         setOptimization(view);
         if (view.variants.find(v=>v.modeId===mode)?.status === 'error') retryRequest.current = null;
       }
-      setStreamingError(error instanceof Error ? error.message : t('variants.retryError'));
+      setStreamingError(userErrorMessage(error, language, 'AI_UNAVAILABLE'));
     }
     finally { variantSwitchLock.current = false; setVariantBusy(false); setIsStreaming(false); setLiveGeneration(null); setOptimizeProgress(null); }
   };
@@ -405,7 +406,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         }, 2000);
 
       } catch (err: any) {
-        setStreamingError(err instanceof CvOptimizationClientError && language === 'en' ? 'The connection or generation was interrupted. Your CV and job offer are safe. Retry to continue.' : err.message || t('variants.retryError'));
+        setStreamingError(userErrorMessage(err, language, 'AI_UNAVAILABLE'));
         // Ambiguous delivery must retain the same admission/job IDs. Only an explicit terminal
         // failure permits a fresh generation; a recovered request must never consume quota twice.
         if (err instanceof CvOptimizationClientError && err.terminal) {
@@ -482,7 +483,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
 
     } catch (err: any) {
       console.error(err);
-      setStreamingError(err.message || 'Ocurrió un error al importar el currículum.');
+      setStreamingError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       setCvContent(cv.content); setReviewContent(cv.content);
       setSaveStatus('error');
       setIsStreaming(false);
@@ -650,7 +651,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         setAiLoading(false);
 
       } catch (err: any) {
-        setAiError(err.message || t('dashboard.errors.unexpected'));
+        setAiError(userErrorMessage(err, language, 'AI_UNAVAILABLE'));
         setAiLoading(false);
       }
     } finally { adaptPending.current = false; setAiLoading(false); }

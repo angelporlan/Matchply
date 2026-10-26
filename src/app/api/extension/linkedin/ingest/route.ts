@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest } from 'next/server';
 import { createAuditLog } from '@/lib/audit';
 import { resolveExtensionSession, ExtensionAuthError, rateLimitExtensionRequest } from '@/lib/extension-auth';
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest) {
     const result = await ingestLinkedInOffer(session.user.id, session.installation.id, body);
     return extensionJson(result);
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     if (session) {
       await createAuditLog('extension_job_capture_rejected', session.user.id, session.user.email, {
         reason: error instanceof Error ? error.message : 'unknown',
@@ -31,6 +34,6 @@ export async function POST(req: NextRequest) {
     if (error instanceof ExtensionAuthError || error instanceof ExtensionPayloadError || error instanceof SubscriptionAccessError) {
       return extensionJson({ error: error.message }, { status: error.status });
     }
-    return extensionJson({ error: error instanceof Error ? error.message : 'Unable to ingest LinkedIn offer' }, { status: 500 });
+    return extensionJson({ ...publicErrorBody(error) }, { status: 500 });
   }
 }

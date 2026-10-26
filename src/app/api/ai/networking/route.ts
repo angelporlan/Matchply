@@ -1,3 +1,4 @@
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProductContext, auditActorFields } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
@@ -38,9 +39,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const usageError = aiUsageErrorResponse(error); if (usageError) return usageError;
     if (error instanceof AccountSuspendedError || error instanceof ActorEpochMismatchError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) return NextResponse.json({ error: error.code }, { status: error.status });
-    if (error instanceof PeopleError || error instanceof RateLimitError || error instanceof SubscriptionAccessError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (error instanceof RateLimitError || error instanceof SubscriptionAccessError) return NextResponse.json(publicErrorBody(error), { status: error.status });
+    if (error instanceof PeopleError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof SyntaxError) return NextResponse.json({ error: 'PEOPLE_INVALID_REQUEST' }, { status: 400 });
-    if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json(publicErrorBody('AUTH_REQUIRED'), { status: 401 });
     log({ event: 'networking_enqueue_failed', level: 'error' });
     return NextResponse.json({ error: 'NETWORKING_UNAVAILABLE' }, { status: 500 });
   }

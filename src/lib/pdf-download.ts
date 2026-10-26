@@ -8,6 +8,7 @@ export type PdfDownloadOptions = {
   filename?: string;
   onDownloaded?: (exportId?: string, exportStatus?: string) => void;
   onForbidden?: () => void;
+  onError?: (problem: unknown) => void;
 };
 
 export type PdfDownloadDependencies = {
@@ -46,6 +47,10 @@ export function createPdfDownloader(dependencies: PdfDownloadDependencies) {
 
     try {
       const response = await dependencies.fetch(options.url);
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({ code: response.status === 429 ? 'RATE_LIMITED' : response.status === 401 ? 'AUTH_REQUIRED' : 'PDF_DOWNLOAD_FAILED' }));
+        options.onError?.(problem);
+      }
       if (response.status === 403) {
         options.onForbidden?.();
         return 'forbidden';
@@ -73,7 +78,8 @@ export function createPdfDownloader(dependencies: PdfDownloadDependencies) {
 
       options.onDownloaded?.(response.headers.get('X-Matchply-Export-Id') || undefined, response.headers.get('X-Matchply-Export-Status') || undefined);
       return 'downloaded';
-    } catch {
+    } catch (error) {
+      options.onError?.(error);
       return 'failed';
     } finally {
       inFlight.delete(options.url);

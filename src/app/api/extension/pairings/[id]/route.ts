@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextResponse } from 'next/server';
 import { requireAccountContext } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
@@ -17,8 +19,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     if (error instanceof ExtensionAuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ ...publicErrorBody(error) }, { status: 500 });
   }
 }
 
@@ -45,7 +48,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     });
     return NextResponse.json({ success: true, id: result.id });
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     if (error instanceof ExtensionAuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ ...publicErrorBody(error) }, { status: 500 });
   }
 }

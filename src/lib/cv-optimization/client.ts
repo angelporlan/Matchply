@@ -1,8 +1,9 @@
+import { userErrorMessage } from '@/lib/user-errors';
 import type { OptimizeProgress } from './types';
 
 export class CvOptimizationClientError extends Error {
   constructor(readonly code: string, readonly terminal = false, readonly requestId?: string) {
-    super(terminal ? 'No se pudo completar la optimización. Tu CV y la oferta se conservan. Puedes reintentar.' : 'Se ha interrumpido la conexión. Tu CV y la oferta se conservan. Pulsa Reintentar para recuperar la optimización.');
+    super(userErrorMessage(code, 'es', terminal ? 'OPTIMIZATION_FAILED' : 'OPTIMIZATION_CONNECTION_LOST'));
   }
 }
 

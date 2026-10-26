@@ -1,3 +1,4 @@
+import { userErrorMessage } from '@/lib/user-errors';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -67,7 +68,7 @@ export async function getResearchRunForUser(userId: string, jobOfferId: string) 
     db.select().from(jobResearchAgentRuns).where(eq(jobResearchAgentRuns.researchRunId, run.id)),
     db.select().from(jobResearchSources).where(eq(jobResearchSources.researchRunId, run.id)),
   ]);
-  return { ...run, agents, sources };
+  return { ...run, lastError: run.lastError ? userErrorMessage('AI_UNAVAILABLE') : null, agents: agents.map(agent => ({ ...agent, error: agent.error ? userErrorMessage('AI_UNAVAILABLE') : null })), sources };
 }
 
 export async function getResearchQuota(userId: string) {

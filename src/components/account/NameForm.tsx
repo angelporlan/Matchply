@@ -31,7 +31,7 @@ export default function NameForm({ initialName, onSaved }: NameFormProps) {
 
     if (!result || result.error || typeof result.name !== 'string') {
       setError(
-        result?.error === 'INVALID_NAME'
+        result?.code === 'INVALID_NAME'
           ? t('sidebar.userMenu.nameError')
           : t('sidebar.userMenu.saveError'),
       );

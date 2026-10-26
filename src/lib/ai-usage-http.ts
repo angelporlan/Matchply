@@ -1,3 +1,4 @@
+import { userError, publicUsageDetails } from '@/lib/user-errors';
 import { UsageError } from '@/lib/usage';
 import { RateLimitError } from '@/lib/rate-limit';
 import { SubscriptionAccessError } from '@/lib/permissions';
@@ -28,11 +29,8 @@ export function aiUsageErrorResponse(error: unknown): NextResponse | null {
   if (error.status < 400 || error.status >= 500) return null;
   const detail = error as Error & { status: number; code?: string; details?: Record<string, unknown>; bucket?: string; used?: number; reserved?: number; limit?: number; resetsAt?: unknown; resetAt?: unknown };
   return NextResponse.json({
-    error: detail.message, code: detail.code, ...(detail.details || {}),
-    ...(detail.bucket ? { bucket: detail.bucket } : {}),
-    ...(detail.used !== undefined ? { used: detail.used } : {}),
-    ...(detail.reserved !== undefined ? { reserved: detail.reserved } : {}),
-    ...(detail.limit !== undefined ? { limit: detail.limit } : {}),
-    ...(detail.resetsAt || detail.resetAt ? { resetsAt: detail.resetsAt || detail.resetAt } : {}),
+    ...publicUsageDetails(detail.details || {}), ...userError(detail.code || (detail.status === 429 ? 'RATE_LIMITED' : 'INVALID_INPUT')),
+    ...publicUsageDetails({ bucket: detail.bucket, used: detail.used, reserved: detail.reserved,
+      limit: detail.limit, resetsAt: detail.resetsAt || detail.resetAt }),
   }, { status: detail.status, headers: { 'Cache-Control': 'no-store' } });
 }

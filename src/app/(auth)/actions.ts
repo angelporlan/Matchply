@@ -1,4 +1,6 @@
 "use server";
+import { publicErrorBody } from '@/lib/public-errors';
+import { log } from '@/lib/logger';
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -53,7 +55,7 @@ export async function registerUser(prevState: any, formData: FormData) {
 
     return { success: true };
   } catch (error: any) {
-    console.error("Registration error:", error);
-    return { error: error.message || "Error al procesar el registro" };
+    log({ event: 'registration_failed', level: 'error', error });
+    return { error: publicErrorBody(error).error };
   }
 }

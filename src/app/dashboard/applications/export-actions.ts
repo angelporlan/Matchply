@@ -1,4 +1,6 @@
 "use server";
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
@@ -50,7 +52,7 @@ export async function getOffersExportDataAction(
 
     return { success: true, data: ordered };
   } catch (error: any) {
-    console.error('[export-actions] Error fetching export data:', error);
-    return { success: false, error: error.message || 'FAILED_TO_EXPORT' };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { success: false, ...publicErrorBody(error) };
   }
 }

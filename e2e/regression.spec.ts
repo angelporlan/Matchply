@@ -268,3 +268,24 @@ test('editor disables adaptation during save preflight and admits a double submi
     await expect(page.getByText(/Guardado en la nube|Saved to cloud/).first()).toBeVisible();
   }
 });
+
+test('a failed PDF download shows a safe retry action and a later attempt succeeds', async ({ page, context }) => {
+  await login(context, 'large');
+  await page.goto(`/editor/${fixtureId('large:cv:0')}`);
+  let attempts = 0;
+  await page.route(/\/api\/pdf\?.*download=true/, async route => {
+    if (++attempts === 1) await route.fulfill({ status: 500, json: { code: 'private_provider_error', error: 'RAW_PROVIDER_RESPONSE SELECT sk-client-canary' } });
+    else await route.continue();
+  });
+  const button = page.getByRole('link', { name: 'Descargar PDF', exact: true });
+  await button.click();
+  const error = page.getByRole('alert').filter({ hasText: 'No se pudo descargar el PDF.' });
+  await expect(error).toContainText('vuelve a pulsar Descargar PDF');
+  await expect(page.locator('body')).not.toContainText('sk-client-canary');
+  await expect(page.locator('body')).not.toContainText('RAW_PROVIDER_RESPONSE');
+  const download = page.waitForEvent('download');
+  await button.click();
+  expect((await download).suggestedFilename()).toMatch(/\.pdf$/i);
+  await expect(error).toBeHidden();
+  expect(attempts).toBe(2);
+});

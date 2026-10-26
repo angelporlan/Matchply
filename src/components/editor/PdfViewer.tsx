@@ -1,6 +1,7 @@
 "use client";
+import { userErrorMessage } from '@/lib/user-errors';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, useId, type CSSProperties } from 'react';
 import { Eye, Download, Loader2, AlertTriangle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { A4PageSkeleton } from '@/components/skeletons';
@@ -69,6 +70,8 @@ export function PdfDownloadLink({
 }) {
   const { t, language } = useLanguage();
   const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  const errorId = useId();
   const downloadUrl = `/api/pdf?cvId=${cvId}&download=true${variantQuery}`;
   const guestRegisterHref = '/register?source=guest-pdf';
   const guestDownloadLabel = guestCanDownload
@@ -87,8 +90,11 @@ export function PdfDownloadLink({
     }
 
     if (beforeDownload && !await beforeDownload()) return;
-    await downloadPdf({
+    setDownloadError('');
+    let reported = false;
+    const outcome = await downloadPdf({
       url: downloadUrl,
+      onError: problem => { reported = true; setDownloadError(userErrorMessage(problem, language, 'PDF_DOWNLOAD_FAILED')); },
       filename: isGuest ? 'CV.pdf' : undefined,
       onForbidden: () => {
         if (!isGuest) return;
@@ -105,6 +111,7 @@ export function PdfDownloadLink({
         if (isGuest && consumeGuestSavePrompt(sessionStorage)) setSavePromptOpen(true);
       },
     });
+    if (outcome === 'failed' && !reported) setDownloadError(userErrorMessage('PDF_DOWNLOAD_FAILED', language));
   };
 
   return (
@@ -112,6 +119,7 @@ export function PdfDownloadLink({
       <a
         href={disabled ? undefined : downloadHref}
         aria-disabled={disabled || undefined}
+        aria-describedby={downloadError ? errorId : undefined}
         tabIndex={disabled ? -1 : undefined}
         onClick={handleDownload}
         target={isGuest ? undefined : '_blank'}
@@ -125,6 +133,7 @@ export function PdfDownloadLink({
           </>
         )}
       </a>
+      {downloadError && <p id={errorId} role="alert" className="text-sm text-danger-text">{downloadError}</p>}
       <GuestSavePrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} />
     </>
   );
