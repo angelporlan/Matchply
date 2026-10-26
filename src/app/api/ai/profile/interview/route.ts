@@ -1,3 +1,4 @@
+import { publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { AIService } from '@/lib/ai-service';
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     log({ event: 'profile_interview_failed', level: 'error', error });
     return NextResponse.json({
       success: false,
-      error: error.message || 'Error en el Copiloto de Perfil IA.',
+      ...publicAiFailure(),
     }, { status: 500 });
   }
 }

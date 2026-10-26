@@ -1,3 +1,4 @@
+import { AI_PUBLIC_ERROR, publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { db } from '@/db';
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
         } catch (error) {
           await cleanup();
           log({ event: 'cv_import_stream_failed', level: 'error', userId: userId || undefined, error });
-          if (!cancelled) { controller.enqueue(encoder.encode(`\n\n[ERROR:${error instanceof Error ? error.message : 'No se pudo guardar el CV.'}]`)); controller.close(); }
+          if (!cancelled) { controller.enqueue(encoder.encode(`\n\n[ERROR:${AI_PUBLIC_ERROR}]`)); controller.close(); }
         }
       },
       async cancel() { cancelled = true; await reader.cancel().catch(() => {}); await cleanup(); },
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     await cleanup();
     const response = aiUsageErrorResponse(error); if (response) return response;
     log({ event: 'cv_import_failed', level: 'error', userId: userId || undefined, error });
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'No se pudo importar el CV.' }, { status: 500 });
+    return NextResponse.json(publicAiFailure(), { status: 500 });
   }
 }
 export const dynamic = 'force-dynamic';

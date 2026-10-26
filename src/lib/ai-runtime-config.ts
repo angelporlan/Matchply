@@ -35,6 +35,7 @@ export type AiFunctionOverride = {
 export type AiRuntimeConfig = {
   version: number;
   general: { free: AiModelRef; pro: AiModelRef };
+  cvOptimizationFallback?: AiModelRef;
   overrides: Partial<Record<AiFunctionKey, AiFunctionOverride>>;
   tested: Array<{
     provider: AiProvider;
@@ -58,6 +59,13 @@ const PROVIDERS: AiProvider[] = ['openai', 'gemini', 'deepseek', 'openrouter'];
 
 function isProvider(value: unknown): value is AiProvider {
   return value === 'openai' || value === 'gemini' || value === 'deepseek' || value === 'openrouter';
+}
+
+export function parseCvOptimizationFallback(value: unknown): AiModelRef | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const ref = value as Record<string, unknown>;
+  if (!isProvider(ref.provider) || typeof ref.model !== 'string' || !ref.model.trim() || ref.model.length > 200) return undefined;
+  return { provider: ref.provider, model: canonicalAiModel(ref.model) };
 }
 
 function parseModelRef(value: unknown, fallback: AiModelRef): AiModelRef {
@@ -118,8 +126,10 @@ export function parseAiRuntimeConfig(raw: unknown): AiRuntimeConfig {
     })
     : [];
 
+  const cvOptimizationFallback = parseCvOptimizationFallback(value.cvOptimizationFallback);
   return {
     version: Number.isFinite(Number(value.version)) ? Number(value.version) : fallback.version,
+    ...(cvOptimizationFallback ? { cvOptimizationFallback } : {}),
     general: {
       free: parseModelRef(generalRaw.free, fallback.general.free),
       pro: parseModelRef(generalRaw.pro, fallback.general.pro),
@@ -151,6 +161,7 @@ export function hasSuccessfulModelTest(config: AiRuntimeConfig, ref: AiModelRef)
 
 export function collectActiveModelRefs(config: AiRuntimeConfig): AiModelRef[] {
   const refs = [config.general.free, config.general.pro];
+  if (config.cvOptimizationFallback) refs.push(config.cvOptimizationFallback);
   for (const key of AI_FUNCTION_KEYS) {
     const item = config.overrides[key];
     if (item?.free) refs.push(item.free);

@@ -1,3 +1,4 @@
+import { AiProviderError, asAiProviderError } from '@/lib/ai-provider-errors';
 import { PROFILE_EXTRACT_PROMPT, PROFILE_INTERVIEW_PROMPT, PROFILE_SYNTHESIS_PROMPT, profilePolishPrompt } from '@/lib/profile-prompts';
 import { parseOutreachResult } from '@/lib/outreach-validation';
 import { ANALYSIS_PROMPT, CV_GENERATION_BASE, CV_MODE_BLOCKS, analysisUserPrompt } from '@/lib/cv-optimization/prompts';
@@ -217,9 +218,9 @@ export class AIService {
    * - Si falta o es mock: solo permite fallback simulado con ALLOW_AI_MOCK=true.
    * - En cualquier otro caso lanza error claro (evita CVs inventados tipo "Matchply Corp").
    */
-  private static resolveProviderApiKey(envVar: string, providerLabel: string): string | null {
+  private static resolveProviderApiKey(envVar: string, _providerLabel: string): string | null {
     const key = (process.env[envVar] || '').trim();
-    const isMissingOrMock = !key || /mock-?key/i.test(key);
+    const isMissingOrMock = !key || /mock|your_api_key|\.\.\./i.test(key);
     if (!isMissingOrMock) return key;
 
     const allowMock =
@@ -228,11 +229,7 @@ export class AIService {
 
     if (allowMock) return null;
 
-    throw new Error(
-      `${providerLabel}: no hay ${envVar} válida en el servidor. ` +
-      `Añádela a .env (o al entorno Docker/VPS) y reinicia Next.js. ` +
-      `Para usar respuestas simuladas en local, define ALLOW_AI_MOCK=true.`
-    );
+    throw new AiProviderError('AI_NOT_CONFIGURED');
   }
 
   static async probeModel(provider: string, model: string): Promise<string> {
@@ -314,8 +311,8 @@ export class AIService {
       }, AI_FETCH_TIMEOUT_MS);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error de API de OpenRouter (${response.status}): ${response.statusText || errorText}`);
+        await response.body?.cancel();
+        throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
       }
 
       const data = await response.json();
@@ -325,8 +322,9 @@ export class AIService {
       log({ event: 'ai_usage', provider: 'openrouter', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
-      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openrouter' });
-      throw new Error(`Ha ocurrido un error al optimizar el CV con OpenRouter: ${e.message}`);
+      const failure = asAiProviderError(e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openrouter', errorCode: failure.code });
+      throw failure;
     }
   }
 
@@ -366,8 +364,8 @@ export class AIService {
       }, AI_FETCH_TIMEOUT_MS);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error de API de DeepSeek (${response.status}): ${response.statusText || errorText}`);
+        await response.body?.cancel();
+        throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
       }
 
       const data = await response.json();
@@ -377,8 +375,9 @@ export class AIService {
       log({ event: 'ai_usage', provider: 'deepseek', model, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens });
       return data.choices[0].message.content;
     } catch (e: any) {
-      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'deepseek' });
-      throw new Error(`Ha ocurrido un error al optimizar el CV con DeepSeek: ${e.message}`);
+      const failure = asAiProviderError(e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'deepseek', errorCode: failure.code });
+      throw failure;
     }
   }
 
@@ -422,8 +421,8 @@ export class AIService {
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error de API de Gemini (${response.status}): ${response.statusText || errorText}`);
+        await response.body?.cancel();
+        throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
       }
 
       const data = await response.json();
@@ -439,8 +438,9 @@ export class AIService {
       }
       return text;
     } catch (e: any) {
-      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'gemini' });
-      throw new Error(`Ha ocurrido un error al optimizar el CV con Gemini: ${e.message}`);
+      const failure = asAiProviderError(e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'gemini', errorCode: failure.code });
+      throw failure;
     }
   }
 
@@ -480,8 +480,8 @@ export class AIService {
       }, AI_FETCH_TIMEOUT_MS);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error de API de OpenAI (${response.status}): ${response.statusText || errorText}`);
+        await response.body?.cancel();
+        throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
       }
 
       const data = await response.json();
@@ -497,8 +497,9 @@ export class AIService {
       });
       return data.choices[0].message.content || '';
     } catch (e: any) {
-      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openai' });
-      throw new Error(`Ha ocurrido un error al procesar con OpenAI: ${e.message}`);
+      const failure = asAiProviderError(e);
+      log({ event: 'ai_provider_request_failed', level: 'error', provider: 'openai', errorCode: failure.code });
+      throw failure;
     }
   }
 
@@ -539,8 +540,8 @@ export class AIService {
     }, AI_STREAM_CONNECT_TIMEOUT_MS);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error de API de OpenAI (${response.status}): ${response.statusText || errorText}`);
+      await response.body?.cancel();
+      throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
     }
 
     return this.createUnifiedSseStream(response.body!);
@@ -589,8 +590,8 @@ export class AIService {
     }, AI_STREAM_CONNECT_TIMEOUT_MS);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error de API de OpenRouter (${response.status}): ${response.statusText || errorText}`);
+      await response.body?.cancel();
+      throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
     }
 
     return this.createUnifiedSseStream(response.body!);
@@ -627,8 +628,8 @@ export class AIService {
     }, AI_STREAM_CONNECT_TIMEOUT_MS);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error de API de DeepSeek (${response.status}): ${response.statusText || errorText}`);
+      await response.body?.cancel();
+      throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
     }
 
     return this.createUnifiedSseStream(response.body!);
@@ -673,8 +674,8 @@ export class AIService {
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error de API de Gemini (${response.status}): ${response.statusText || errorText}`);
+      await response.body?.cancel();
+      throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
     }
 
     if (!response.body) {
@@ -703,9 +704,7 @@ export class AIService {
                 emittedAny = AIService.processGeminiSseLine(buffer, controller, encoder) || emittedAny;
               }
               if (!emittedAny) {
-                controller.error(new Error(
-                  'Gemini devolvió un stream vacío. Revisa el modelo configurado y la cuota de GEMINI_API_KEY.'
-                ));
+                controller.error(new AiProviderError('AI_INCOMPLETE_RESPONSE'));
                 return;
               }
               controller.close();
@@ -727,7 +726,7 @@ export class AIService {
             if (enqueuedAny) break;
           }
         } catch (err) {
-          controller.error(err);
+          controller.error(asAiProviderError(err));
         }
       },
       cancel() {
@@ -823,7 +822,7 @@ export class AIService {
             }
           }
         } catch (err) {
-          controller.error(err);
+          controller.error(asAiProviderError(err));
         }
       },
       cancel() {
@@ -1127,7 +1126,7 @@ Descripción: ${jobDescription}`;
 
   private static async callOpenAIDecisions(input: string, questions: DecisionQuestion[]): Promise<DecisionAnswer[]> {
     const key = this.resolveProviderApiKey('OPENAI_API_KEY', 'OpenAI');
-    if (!key) throw new Error('AI_PROVIDER_NOT_CONFIGURED');
+    if (!key) throw new AiProviderError('AI_NOT_CONFIGURED');
     const started = Date.now();
     const response = await fetchWithTimeout('https://api.openai.com/v1/decisions', {
       method: 'POST',
@@ -1135,7 +1134,7 @@ Descripción: ${jobDescription}`;
       body: JSON.stringify({ model: DECISION_MODEL, input, questions }),
     }, AI_FETCH_TIMEOUT_MS);
     const body = await response.text();
-    if (!response.ok) throw new Error(`Error de API de OpenAI Decisions (${response.status}): ${body.slice(0, 500)}`);
+    if (!response.ok) throw new AiProviderError(`AI_HTTP_${response.status}`, response.status);
     let data: { answers?: DecisionAnswer[]; usage?: { input_tokens?: number; output_tokens?: number } };
     try { data = JSON.parse(body); } catch { throw new MatchValidationError('La API Decisions devolvió una respuesta ilegible.'); }
     if (!Array.isArray(data.answers)) throw new MatchValidationError('La API Decisions no devolvió respuestas.');

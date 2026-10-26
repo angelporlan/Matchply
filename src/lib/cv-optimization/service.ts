@@ -1,3 +1,4 @@
+import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
 import { randomUUID } from 'node:crypto';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -132,7 +133,7 @@ export async function readOptimizationProgress(optimizationId: string, stage: Op
   const variants = await tx.select({ modeId: cvVariants.modeId, status: cvVariants.status, error: cvVariants.error }).from(cvVariants).where(eq(cvVariants.optimizationId, optimizationId));
   const [preview] = live?.modes.length ? await tx.select({ modeId: cvVariants.modeId, content: cvVariants.content }).from(cvVariants)
     .where(and(eq(cvVariants.optimizationId, optimizationId), inArray(cvVariants.modeId, live.modes), eq(cvVariants.status, 'generating'))).limit(1) : [];
-  return { stage, cvId: run.cvId, optimizationId, variants: variants as OptimizeProgress['variants'],
+  return { stage, cvId: run.cvId, optimizationId, variants: variants.map(v => ({ ...v, error: v.error ? AI_PUBLIC_ERROR : null })) as OptimizeProgress['variants'],
     ...(preview ? { preview: { modeId: preview.modeId as OptimizeModeId, content: preview.content, attempt: live!.attempt } } : {}) };
 }
 const temperature = { optimize_honest: 0.2, optimize_adapted: 0.4, optimize_aggressive: 0.5 };
@@ -247,7 +248,7 @@ export async function getCvOptimizationView(userId: string, cvId: string): Promi
   const [run] = await db.select({ id: cvOptimizations.id, sourceMarkdown: cvOptimizations.sourceMarkdown, analysis: cvOptimizations.analysis }).from(cvOptimizations).where(and(eq(cvOptimizations.id, cv.optimizationId), eq(cvOptimizations.userId, userId), eq(cvOptimizations.cvId, cvId))).limit(1);
   if (!run) return null;
   const variants = await db.select({ modeId: cvVariants.modeId, content: cvVariants.content, status: cvVariants.status, error: cvVariants.error, revision: cvVariants.revision }).from(cvVariants).where(eq(cvVariants.optimizationId, run.id));
-  return { ...run, analysis: run.analysis as CvAnalysis | null, variants: variants as CvVariant[] };
+  return { ...run, analysis: run.analysis as CvAnalysis | null, variants: variants.map(v => ({ ...v, error: v.error ? AI_PUBLIC_ERROR : null })) as CvVariant[] };
 }
 
 export async function saveCvVariant(userId: string, cvId: string, content: string, context: VariantSaveContext) {

@@ -1,3 +1,4 @@
+import { AiProviderError } from '@/lib/ai-provider-errors';
 import { and, eq, gt, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, type AiJob } from '@/db/schema';
@@ -239,7 +240,7 @@ export async function failAiJob(job: AiJob, error: unknown) {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${job.userId}`}))`);
   const [updated] = await tx.update(aiJobs).set({
     status: terminal ? 'failed' : 'queued',
-    lastError: error instanceof Error ? error.message.slice(0, 1_000) : 'AI_JOB_FAILED',
+    lastError: error instanceof AiProviderError ? error.code : error instanceof Error ? error.message.slice(0, 1_000) : 'AI_JOB_FAILED',
     nextAttemptAt: terminal ? null : new Date(Date.now() + Math.min(60_000, job.attempt * 10_000)),
     leaseUntil: null,
     completedAt: terminal ? now : null,

@@ -1,3 +1,5 @@
+import { AI_PUBLIC_ERROR, publicAiFailure, publicAiJobResult } from '@/lib/ai-provider-errors';
+import { log } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { getAiJobForUser } from '@/lib/ai-jobs/queue';
@@ -32,12 +34,13 @@ export async function GET(
       id: job.id,
       kind: job.kind,
       status: job.status,
-      result: job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued', { modes: (job.payload as OptimizeJobPayload).modes, attempt: job.attempt }) : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result,
-      lastError: job.lastError,
+      result: publicAiJobResult(job.kind === 'optimize_cv_variants' && ['queued','running'].includes(job.status) ? await readOptimizationProgress((job.payload as OptimizeJobPayload).optimizationId, (job.result as OptimizeProgress | null)?.stage || 'queued', { modes: (job.payload as OptimizeJobPayload).modes, attempt: job.attempt }) : job.kind === 'match_batch' ? await readCurrentMatchBatchResult(job) : job.result),
+      lastError: job.lastError ? AI_PUBLIC_ERROR : null,
       createdAt: job.createdAt,
       completedAt: job.completedAt,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    log({ event: 'ai_job_read_failed', level: 'error', error });
+    return NextResponse.json(publicAiFailure(), { status: 500 });
   }
 }

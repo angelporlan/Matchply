@@ -27,6 +27,45 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
     return created;
   };
   try {
+    await t.test('provider fallback preserves the admitted snapshot, source CV and one usage charge', async () => {
+      const runtime = await import('@/lib/ai-runtime-store');
+      const { parseAiRuntimeConfig } = await import('@/lib/ai-runtime-config');
+      const { createCvAiCaller } = await import('@/lib/cv-optimization/provider');
+      const oldProvider = process.env.AI_OPTIMIZE_FALLBACK_PROVIDER, oldModel = process.env.AI_OPTIMIZE_FALLBACK_MODEL;
+      try {
+        process.env.AI_OPTIMIZE_FALLBACK_PROVIDER = 'openrouter';
+        process.env.AI_OPTIMIZE_FALLBACK_MODEL = 'synthetic-secondary';
+        runtime.clearAiRuntimeCache();
+        const u = await user(), params = { ...input(''), baseCvId: u.source.id, addToApplications: false };
+        const created = await service.enqueueCvOptimization(u.id, params);
+        const job = await queue.claimAiJobById(created.jobId); assert.ok(job);
+        const snapshot = parseAiRuntimeConfig(job.resolvedAiConfig);
+        assert.equal(snapshot.cvOptimizationFallback?.model, 'synthetic-secondary');
+        process.env.AI_OPTIMIZE_FALLBACK_MODEL = 'changed-after-admission';
+        const calls: string[] = [];
+        const transport = createCvAiCaller({ env: { OPENAI_API_KEY: 'synthetic-primary', OPENROUTER_API_KEY: 'synthetic-secondary' },
+          fallback: async () => (await runtime.getResolvedAiRuntime()).cvOptimizationFallback,
+          record: () => {}, request: async (url, init) => {
+            calls.push(url);
+            const body = JSON.parse(String(init?.body));
+            if (url.includes('api.openai.com')) return new Response('Private auth failure', { status: 401 });
+            assert.equal(body.model, 'synthetic-secondary');
+            assert.ok(body.messages[1].content.includes(cv));
+            const content = body.stream ? cv : JSON.stringify(analysis);
+            return body.stream ? new Response(`data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: 'stop' }] })}\n\n`)
+              : Response.json({ choices: [{ message: { content } }] });
+          } });
+        await runtime.bindAiRuntime(snapshot, () => service.processCvOptimization(job, new AbortController().signal, transport));
+        assert.equal(calls.length, 4);
+        assert.equal((await service.getCvOptimizationView(u.id, created.cvId))?.variants.find(v => v.modeId === 'optimize_adapted')?.status, 'ready');
+        assert.equal((await db.select({ content: cvs.content }).from(cvs).where(eq(cvs.id, u.source.id)))[0].content, cv);
+        assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used, 1);
+      } finally {
+        if (oldProvider === undefined) delete process.env.AI_OPTIMIZE_FALLBACK_PROVIDER; else process.env.AI_OPTIMIZE_FALLBACK_PROVIDER = oldProvider;
+        if (oldModel === undefined) delete process.env.AI_OPTIMIZE_FALLBACK_MODEL; else process.env.AI_OPTIMIZE_FALLBACK_MODEL = oldModel;
+        runtime.clearAiRuntimeCache();
+      }
+    });
     for (const isGuest of [true, false]) await t.test(`pasted offer without a URL completes for ${isGuest ? 'guest' : 'registered'} users`, async () => {
       const u = await user();
       await db.update(users).set({ isGuest }).where(eq(users.id, u.id));
