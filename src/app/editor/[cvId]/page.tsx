@@ -51,7 +51,7 @@ export default async function EditorPage({ params, searchParams }: EditorPagePro
       cv.pendingUsageOperationId ? eq(aiJobs.usageOperationId,cv.pendingUsageOperationId) : sql`${aiJobs.payload}->>'optimizationId' = ${cv.optimizationId}`)).orderBy(desc(aiJobs.createdAt)).limit(1) : [];
 
   let baseCvId: string | null = cv.isBase ? cv.id : null;
-  let baseCvContent: string | null = cv.isBase ? cv.content : null;
+  let baseCvContent: string | null = null;
   if (optimization) {
     const source = await getOriginalCvSource(userId, cvId);
     baseCvId = source?.id || null;
