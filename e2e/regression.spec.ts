@@ -227,3 +227,44 @@ test('guest text entry waits for JavaScript readiness instead of losing an early
     await expect(page.getByRole('textbox', { name: 'Tu CV', exact: true })).toBeVisible();
   } finally { release(); }
 });
+
+test('editor disables adaptation during save preflight and admits a double submission once', async ({ page, context }) => {
+  await login(context);
+  const cvId = fixtureId('medium:cv:1');
+  await page.goto(`/editor/${cvId}`);
+  await page.getByTitle('Ver editor Markdown', { exact: true }).click();
+  const source = page.locator('textarea').first();
+  const original = await source.inputValue();
+  let releaseSave!: () => void, held = false, admissions = 0;
+  const saved = new Promise<void>(resolve => { releaseSave = resolve; });
+  await page.route(`**/editor/${cvId}`, async route => {
+    if (!held && route.request().method() === 'POST' && route.request().headers()['next-action']) {
+      held = true;
+      const response = await route.fetch();
+      await saved;
+      await route.fulfill({ response });
+    } else await route.continue();
+  });
+  await page.route('**/api/ai/optimize', async route => {
+    admissions++;
+    await route.fulfill({ status: 400, json: { error: 'Prueba de admisión terminada sin generar un CV.' } });
+  });
+  try {
+    await source.fill(`${original}\n\nSynthetic pending save.`);
+    await expect.poll(() => held).toBe(true);
+    const description = page.getByRole('textbox', { name: 'Descripción / Requisitos de la Oferta *', exact: true });
+    await description.fill('Buscamos experiencia en Python y APIs con pruebas automatizadas y trabajo en equipo.');
+    const submit = page.getByRole('button', { name: 'Adaptar a esta oferta', exact: true });
+    await submit.click();
+    await expect(submit).toBeDisabled();
+    await expect(page.getByRole('checkbox', { name: 'Foto en el CV', exact: true })).toBeDisabled();
+    await description.evaluate(element => element.closest('form')!.requestSubmit());
+    releaseSave();
+    await expect(page.getByRole('button', { name: 'Reintentar', exact: true })).toBeVisible();
+    expect(admissions).toBe(1);
+  } finally {
+    releaseSave();
+    await source.fill(original);
+    await expect(page.getByText(/Guardado en la nube|Saved to cloud/).first()).toBeVisible();
+  }
+});

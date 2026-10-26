@@ -49,10 +49,9 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
   };
 
   const start = async () => {
-    if (disabled || observing) return;
+    if (disabled || observing || active.current) return;
     let normalized: string;
     try { normalized = normalizeOfferUrl(url); } catch { setError(t('offerImport.invalid')); return; }
-    active.current?.abort();
     const controller = new AbortController();
     active.current = controller;
     const signal = controller.signal;
@@ -98,7 +97,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
         setManual(true);
         onChange(manualOffer(draft, url));
       }
-    }
+    } finally { if (active.current === controller) active.current = null; }
   };
 
   const changeManual = (description: string) => {

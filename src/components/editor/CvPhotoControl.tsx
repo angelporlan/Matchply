@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { optimizeAvatarImage } from '@/lib/avatar/optimize';
+import { reportPlanRestriction } from '@/lib/plan-presentation';
 import { PROFILE_PHOTO_LIMITS } from '@/lib/avatar/profile-limits';
 import type { CvPhotoState } from '@/lib/cv-photo-types';
 
@@ -17,7 +18,7 @@ export function useCvPhoto(cvId: string, initial: CvPhotoState, disabled: boolea
   const request = async (method: string, body?: object) => {
     const response = await fetch(`/api/cv/${cvId}/photo`, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30_000) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.code || result.error || 'PHOTO_SAVE_FAILED');
+    if (!response.ok) { reportPlanRestriction(result, 'cv-photo'); throw new Error(result.code || result.error || 'PHOTO_SAVE_FAILED'); }
     setPhoto(result);
   };
   const act = async (fn: () => Promise<void>) => {
@@ -27,7 +28,8 @@ export function useCvPhoto(cvId: string, initial: CvPhotoState, disabled: boolea
     catch (error) {
       const code = error instanceof Error ? error.message : '';
       const key = ({ PHOTO_MISSING: 'missing', PHOTO_FORMAT: 'formatError', PHOTO_SIZE: 'sizeError', PHOTO_DIMENSIONS: 'dimensionsError', PHOTO_INVALID: 'invalidError', PHOTO_RATE_LIMIT: 'rateLimitError' } as Record<string, string>)[code];
-      setError(key === 'missing' ? t('cvPhoto.missing') : key ? t(`accountPhoto.${key}`) : t('cvPhoto.saveError'));
+      const permission = ({ CV_READ_ONLY: 'readOnly', OPERATION_IN_PROGRESS: 'inProgress', Unauthorized: 'sessionEnded', Forbidden: 'accessError' } as Record<string, string>)[code];
+      setError(permission ? t(`cvPhoto.${permission}`) : key === 'missing' ? t('cvPhoto.missing') : key ? t(`accountPhoto.${key}`) : t('cvPhoto.saveError'));
     } finally { pending.current = false; setBusy(false); }
   };
   return {
@@ -39,7 +41,7 @@ export function useCvPhoto(cvId: string, initial: CvPhotoState, disabled: boolea
   };
 }
 
-export function CvPhotoControl({ control }: { control: ReturnType<typeof useCvPhoto> }) {
+export function CvPhotoControl({ control, isGuest = false }: { control: ReturnType<typeof useCvPhoto>; isGuest?: boolean }) {
   const { t } = useLanguage();
   return <div className="flex flex-wrap items-center gap-2 text-xs text-text">
     <input ref={control.input} type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={control.busy} aria-label={t('cvPhoto.select')}
@@ -53,6 +55,7 @@ export function CvPhotoControl({ control }: { control: ReturnType<typeof useCvPh
       {t(control.busy ? 'cvPhoto.saving' : control.photo.url ? 'cvPhoto.change' : 'cvPhoto.upload')}
     </button>
     {control.photo.source === 'custom' && <button type="button" disabled={control.busy || control.disabled} onClick={() => void control.reset()} className="min-h-11 rounded-md px-2 text-text-muted underline underline-offset-4 hover:text-text">{t('cvPhoto.useAccount')}</button>}
+    {isGuest && <p className="w-full text-xs text-text-muted">{t('cvPhoto.guestHelp')}</p>}
     {control.error && <p id="cv-photo-error" role="alert" className="w-full text-xs text-danger-text">{control.error}</p>}
   </div>;
 }

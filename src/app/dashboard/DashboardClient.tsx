@@ -99,6 +99,7 @@ export default function DashboardClient({
 
   // Estados de IA
   const [aiLoading, setAiLoading] = useState(false);
+  const adaptPending = useRef(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiStep, setAiStep] = useState<string>('');
   const [aiStreamContent, setAiStreamContent] = useState('');
@@ -384,69 +385,73 @@ export default function DashboardClient({
   // Adaptar y abrir el CV confirmado por el servidor.
   const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
-    setAiError(null);
-
-    if (!principalCv) {
-      setAiError(t('dashboard.errors.noPrimary'));
-      return;
-    }
-
-    if (!importedOffer?.jobDescription.trim()) {
-      setAiError(t('dashboard.errors.required'));
-      return;
-    }
-    const identity = importedOffer;
-
-    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
-    const adaptedCount = userCvs.filter(item => !item.isBase).length;
-    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
-      const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
-      if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
-      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'cv-adapt');
-      return;
-    }
-    setAiLoading(true);
-    setAiStep(t('dashboard.steps.keywords'));
-
+    if (adaptPending.current) return;
+    adaptPending.current = true; setAiLoading(true);
     try {
-      const params = {
-        baseCvId: principalCv.id,
-        jobTitle: identity.jobTitle,
-        company: identity.company,
-        url: identity.url,
-        platform: identity.platform,
-        jobDescription: identity.jobDescription,
-        promptId: aiFormData.promptId,
-        addToApplications: aiFormData.addToApplications === 'true',
-        ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
-        confirmOverwrite: confirmed,
-      };
-      const requestId = requestForCv(params);
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard' }));
-      trackUmamiConversion('offer_pasted');
-      const response = await fetchOptimizationResponse('/api/ai/optimize', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId },
-        body: JSON.stringify({ ...params, requestId }),
-      });
-      if (!response.ok) {
-        const problem = await response.json().catch(() => ({}));
-        if (response.status < 500 && response.status !== 429) sessionStorage.removeItem('matchply_optimize_params');
-        if (shouldResetAiOperation(problem)) cvRequest.current = null;
-        reportPlanRestriction(problem, 'cv-adapt');
-        throw new Error(problem.error || t('dashboard.errors.unexpected'));
-      }
-      const admission = await response.clone().json();
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard', jobId: admission.jobId, resultCvId: admission.cvId }));
-      cvRequest.current = null;
-      refreshPlanUsage();
-      setIsAiOpen(false);
-      setAiLoading(false);
-      router.push(`/editor/${admission.cvId}`);
+      setAiError(null);
 
-    } catch (err: any) {
-      setAiError(err.message || t('dashboard.errors.unexpected'));
-      setAiLoading(false);
-    }
+      if (!principalCv) {
+        setAiError(t('dashboard.errors.noPrimary'));
+        return;
+      }
+
+      if (!importedOffer?.jobDescription.trim()) {
+        setAiError(t('dashboard.errors.required'));
+        return;
+      }
+      const identity = importedOffer;
+
+      if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'cv-adapt'); return; }
+      const adaptedCount = userCvs.filter(item => !item.isBase).length;
+      if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && userCvs.length >= planUsage.limits.maxCvs))) {
+        const choices = userCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+        if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+        else reportPlanRestriction({ code: 'CV_LIMIT' }, 'cv-adapt');
+        return;
+      }
+      setAiLoading(true);
+      setAiStep(t('dashboard.steps.keywords'));
+
+      try {
+        const params = {
+          baseCvId: principalCv.id,
+          jobTitle: identity.jobTitle,
+          company: identity.company,
+          url: identity.url,
+          platform: identity.platform,
+          jobDescription: identity.jobDescription,
+          promptId: aiFormData.promptId,
+          addToApplications: aiFormData.addToApplications === 'true',
+          ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
+          confirmOverwrite: confirmed,
+        };
+        const requestId = requestForCv(params);
+        sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard' }));
+        trackUmamiConversion('offer_pasted');
+        const response = await fetchOptimizationResponse('/api/ai/optimize', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId },
+          body: JSON.stringify({ ...params, requestId }),
+        });
+        if (!response.ok) {
+          const problem = await response.json().catch(() => ({}));
+          if (response.status < 500 && response.status !== 429) sessionStorage.removeItem('matchply_optimize_params');
+          if (shouldResetAiOperation(problem)) cvRequest.current = null;
+          reportPlanRestriction(problem, 'cv-adapt');
+          throw new Error(problem.error || t('dashboard.errors.unexpected'));
+        }
+        const admission = await response.clone().json();
+        sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard', jobId: admission.jobId, resultCvId: admission.cvId }));
+        cvRequest.current = null;
+        refreshPlanUsage();
+        setIsAiOpen(false);
+        setAiLoading(false);
+        router.push(`/editor/${admission.cvId}`);
+
+      } catch (err: any) {
+        setAiError(err.message || t('dashboard.errors.unexpected'));
+        setAiLoading(false);
+      }
+    } finally { adaptPending.current = false; setAiLoading(false); }
   };
 
   useEffect(() => {
