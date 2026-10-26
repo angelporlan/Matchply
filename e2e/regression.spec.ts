@@ -401,3 +401,68 @@ test('administrator can find an error reference on desktop and mobile', async ({
     await client.query('delete from "user" where id = $1', [userId]); await client.end();
   }
 });
+
+for (const guest of [true, false]) for (const width of [1440, 390]) test(`another offer preserves the original base: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context, baseURL }) => {
+  const database = process.env.INTEGRATION_TEST_DATABASE_URL;
+  if (!database || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('Repeat-offer fixture requires an isolated local test database');
+  const { randomUUID, createHash } = await import('node:crypto');
+  const { default: pg } = await import('pg');
+  const { default: bcrypt } = await import('bcryptjs');
+  const client = new pg.Client({ connectionString: database }); await client.connect();
+  const userId = randomUUID(), baseId = randomUUID(), adaptedId = randomUUID(), optimizationId = randomUUID();
+  const password = randomUUID(), email = `repeat-${userId}@example.test`, token = randomUUID();
+  const original = '# Original candidate\n\n## Perfil Profesional\nPython APIs, SQL and automated testing.';
+  const tailored = original + '\n\nOnly for the first offer.';
+  const description = 'Buscamos una desarrolladora Python para construir APIs con pruebas automatizadas y bases de datos SQL, trabajando en equipo.';
+  const admissions: Array<{ baseCvId: string; jobDescription: string; requestId: string; url: string }> = [];
+  try {
+    await client.query('insert into "user" (id, email, "passwordHash", "subscriptionStatus", "isGuest", "guestTokenHash", "guestExpiresAt") values ($1, $2, $3, $4, $5, $6, $7)', [userId, email, bcrypt.hashSync(password, 4), guest ? 'none' : 'active', guest, guest ? createHash('sha256').update(token).digest('hex') : null, guest ? new Date(Date.now() + 86400_000) : null]);
+    await client.query('insert into cv (id, "userId", title, content, "isBase", "isPrincipal") values ($1,$2,$3,$4,true,true), ($5,$2,$6,$7,false,false)', [baseId, userId, 'Original base', original, adaptedId, 'First tailored CV', tailored]);
+    await client.query('insert into cv_optimization (id, "userId", "cvId", "sourceCvId", "sourceMarkdown", "sourceProfile", offer, "promptVersion", "resolvedAiConfig", "subscriptionStatus", "operationId") values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [optimizationId, userId, adaptedId, baseId, original, '', JSON.stringify({}), 'synthetic', JSON.stringify({}), 'none', randomUUID()]);
+    await client.query('update cv set "optimizationId"=$1, "activeOptimizeMode"=$2 where id=$3', [optimizationId, 'optimize_adapted', adaptedId]);
+    await client.query('insert into cv_variant ("optimizationId", "modeId", content, status) values ($1,$2,$3,$4)', [optimizationId, 'optimize_adapted', tailored, 'ready']);
+    if (guest) await context.addCookies([{ name: 'matchply_guest', value: token, url: baseURL! }]);
+    else {
+      const csrf = await (await context.request.get('/api/auth/csrf')).json();
+      await context.request.post('/api/auth/callback/credentials', { form: { csrfToken: csrf.csrfToken, email, password, callbackUrl: `${baseURL}/dashboard` } });
+      expect((await (await context.request.get('/api/auth/session')).json()).user.id).toBe(userId);
+    }
+    await page.setViewportSize({ width, height: 900 });
+    await page.route('**/api/ai/offers/import', route => route.fulfill({ status: 202, json: { jobId: 'repeat-import' } }));
+    await page.route('**/api/ai/jobs/repeat-import', route => route.fulfill({ json: { status: 'completed', result: { jobTitle: 'Second role', company: 'Second company', jobDescription: description, platform: 'other', url: 'https://example.test/jobs/second', sources: [], sourceMethod: 'direct' } } }));
+    await page.route('**/api/ai/optimize', async route => {
+      admissions.push(route.request().postDataJSON());
+      await route.fulfill({ status: 202, json: { jobId: 'repeat-optimize', cvId: adaptedId, requestId: admissions.at(-1)!.requestId } });
+    });
+    await page.route('**/api/ai/jobs/repeat-optimize', route => route.fulfill({ json: { status: 'completed', result: { stage: 'completed', optimizationId, variants: [] } } }));
+    await page.goto(`/editor/${adaptedId}`);
+    const repeat = page.getByRole('button', { name: 'Adaptar a otra oferta', exact: true });
+    await expect(repeat).toBeVisible(); await expect(repeat).toBeEnabled();
+    await repeat.click();
+    const dialog = page.getByRole('dialog', { name: 'Adaptar a otra oferta', exact: true });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('textbox', { name: 'Enlace a la oferta', exact: true }).fill('https://example.test/jobs/second');
+    await dialog.getByRole('button', { name: 'Importar oferta', exact: true }).click();
+    await expect(dialog.getByText('Second role', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`repeat-offer-${guest}-${width}.png`), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await dialog.getByRole('button', { name: 'Adaptar a esta oferta', exact: true }).dblclick();
+    await expect.poll(() => admissions.length).toBe(1);
+    expect(admissions[0]).toMatchObject({ baseCvId: baseId, jobDescription: description, url: 'https://example.test/jobs/second' });
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
+    await expect(repeat).toBeEnabled(); await repeat.click();
+    await dialog.getByRole('button', { name: 'Pegar descripción manualmente', exact: true }).click();
+    const paste = dialog.getByRole('textbox', { name: 'Descripción y requisitos', exact: true });
+    await paste.fill(description + ' Otra oferta distinta.');
+    await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+    await expect(repeat).toBeFocused(); await repeat.click();
+    await expect(paste).toHaveValue(description + ' Otra oferta distinta.');
+    await dialog.getByRole('button', { name: 'Adaptar a esta oferta', exact: true }).click();
+    await expect.poll(() => admissions.length).toBe(2);
+    expect(admissions[1].baseCvId).toBe(baseId);
+    expect(admissions[1].requestId).not.toBe(admissions[0].requestId);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
+    expect((await client.query('select content from cv where id=$1', [baseId])).rows[0].content).toBe(original);
+    expect((await client.query('select content from cv where id=$1', [adaptedId])).rows[0].content).toBe(tailored);
+  } finally { await client.query('delete from "user" where id=$1', [userId]); await client.end(); }
+});

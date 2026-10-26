@@ -1371,6 +1371,7 @@ const es = {
         saving: 'Guardando cambios...',
         error: 'Error de conexión',
       },
+      repeatOffer: { title: 'Adaptar a otra oferta', help: 'Reutilizaremos tu CV original. Añade el enlace o pega la descripción de la nueva oferta.', missingBase: 'El CV original ya no está disponible. Elige o importa un CV base en el panel.' },
       aiModal: {
         title: 'Optimización Inteligente por IA',
         subtitle: 'Adaptaremos una copia de este currículum para que coincida con los requisitos exactos de la oferta.',

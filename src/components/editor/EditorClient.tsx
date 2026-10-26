@@ -6,6 +6,8 @@ import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CV } from '@/db/schema';
+import OfferUrlImport from '@/components/ai/OfferUrlImport';
+import type { ImportedOffer } from '@/lib/offer-import/types';
 import MarkdownEditor from './MarkdownEditor';
 import PdfViewer, { PdfDownloadLink, type PdfZoom } from './PdfViewer';
 import ResumeSheet from './ResumeSheet';
@@ -34,7 +36,7 @@ import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
 import {
   Sparkles, ArrowLeft,
-  Crown, Briefcase, Building2, Link, FileText, CheckCircle2, X, RefreshCw,
+  CheckCircle2, X, RefreshCw,
   AlertCircle
 } from 'lucide-react';
 import LinkNext from 'next/link';
@@ -45,7 +47,6 @@ import { useAiPromptDebug } from '@/components/ai/AiPromptDebugContext';
 import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 import { PlanUsageProvider, usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 import { PlanFeedback, UpgradePaywall } from '@/components/subscription/UpgradePaywall';
-import { UsagePanel } from '@/components/subscription/UsagePanel';
 import { CvReplacementDialog } from '@/components/subscription/CvReplacementDialog';
 import { isQuotaExhausted, reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
 import { consumeCvAiStream } from '@/lib/cv-ai-stream';
@@ -66,6 +67,7 @@ interface EditorClientProps {
     color?: string | null;
   }[];
   baseCvContent?: string | null;
+  baseCvId?: string | null;
   user: {
     name?: string | null;
     email?: string | null;
@@ -105,7 +107,7 @@ export default function EditorClient(props: EditorClientProps) {
   return <PlanUsageProvider key={`${props.cv.userId}:${props.isGuest}`}><EditorPersistenceContext.Provider value={true}><EditorContent key={props.cv.id} {...props} /></EditorPersistenceContext.Provider><PlanFeedback /></PlanUsageProvider>;
 }
 
-function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvContent, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
+function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvContent, baseCvId, user, isGuest = false, guestCanDownloadPdf = false, cvChoices = [], linkedOffer = null, optimization: initialOptimization = null, pendingOptimizationJobId, pendingOptimizationIsRetry, pendingOptimizationMode }: EditorClientProps) {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
@@ -162,8 +164,9 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiStep, setAiStep] = useState<string>('');
-  const [aiStreamContent, setAiStreamContent] = useState('');
+  const [nextOffer, setNextOffer] = useState<ImportedOffer | null>(null);
+  const repeatButtonRef = useRef<HTMLButtonElement>(null);
+  const repeatDialogRef = useRef<HTMLDivElement>(null);
   const [cvContent, setCvContent] = useState(cv.content);
   const adaptPending = useRef(false);
   const optimizationRunning = useRef(false);
@@ -341,7 +344,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         action: 'optimize_cv',
         title: 'Optimización de CV con IA',
         data: {
-          baseCvMarkdown: params.baseCvMarkdown || cvContent || cv.content,
+          baseCvMarkdown: params.baseCvMarkdown || (params.baseCvId === baseCvId ? baseCvContent : null) || cvContent || cv.content,
           jobDescription: params.jobDescription,
           promptId: params.promptId,
           candidateName: params.candidateName,
@@ -606,6 +609,23 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
     setFocusAdapt(false);
   }, [focusAdapt, mobilePane, surface]);
 
+  useEffect(() => {
+    if (!isAiOpen) return;
+    const returnFocus = repeatButtonRef.current;
+    const frame = requestAnimationFrame(() => repeatDialogRef.current?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !adaptPending.current) { event.preventDefault(); setIsAiOpen(false); }
+      if (event.key !== 'Tab') return;
+      const elements = Array.from(repeatDialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href], summary') || []).filter(element => element.getClientRects().length);
+      if (!elements?.length) return;
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === repeatDialogRef.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === repeatDialogRef.current)) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', onKey); returnFocus?.focus(); };
+  }, [isAiOpen]);
+
   // La API reserva y crea el destino antes de generar la nueva versión.
   const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
@@ -617,6 +637,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
         setAiError(t('editor.aiModal.requiredError'));
         return;
       }
+      if (!baseCvId) { setAiError(t('editor.repeatOffer.missingBase')); return; }
       const identity = resolveOfferIdentity({
         jobTitle: aiFormData.jobTitle,
         company: aiFormData.company,
@@ -630,16 +651,15 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       const adaptedCount = allCvs.filter(item => !item.isBase).length;
       if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
         const choices = allCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
-        if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+        if (choices.length) { setIsAiOpen(false); setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } }); }
         else reportPlanRestriction({ code: 'CV_LIMIT' }, 'editor-adapt');
         return;
       }
       setAiLoading(true);
-      setAiStep(t('editor.aiModal.steps.keywords'));
 
       try {
         const input = {
-          baseCvId: cv.id,
+          baseCvId,
           jobTitle: identity.jobTitle,
           company: identity.company,
           url: aiFormData.url,
@@ -755,6 +775,8 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 max-w-full">
+            {!readOnly && <Button ref={repeatButtonRef} variant="secondary" disabled={isStreaming || aiLoading || variantBusy || photoControl.busy}
+              onClick={() => { setAiError(null); setIsAiOpen(true); }}>{t('editor.repeatOffer.title')}</Button>}
             <PdfDownloadLink
               cvId={cv.id}
               isGuest={isGuest}
@@ -981,183 +1003,36 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       />
       {replacement && <CvReplacementDialog choices={replacement.choices} onClose={() => setReplacement(null)} onReplace={cvId => { const retry = replacement.retry; setReplacement(null); retry(cvId); }} />}
 
-      {isAiOpen && (
-        <ModalScrim>
-          <div role="dialog" aria-modal="true" aria-labelledby="ai-optimize-title" className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90vh] p-6 md:p-8 flex flex-col justify-between shadow-dialog relative overflow-hidden">
-
-            {/* Adornos visuales de fondo */}
-            <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-ai/3 dark:bg-ai/5 rounded-full filter blur-3xl pointer-events-none" />
-
-            <div className="flex justify-between items-start mb-6 shrink-0 relative z-10">
-              <div>
-                <h3 id="ai-optimize-title" className="text-lg font-bold text-text flex items-center gap-2 font-display">
-                  <Sparkles className="w-5 h-5 text-ai animate-pulse stroke-[1.75]" />
-                  {t('editor.aiModal.title')}
-                </h3>
-                <p className="text-xs text-text-muted mt-1 font-sans">
-                  {t('editor.aiModal.subtitle')}
-                </p>
-              </div>
-              <button
-                onClick={() => !aiLoading && setIsAiOpen(false)}
-                className="text-text-muted hover:text-text dark:hover:text-white p-1 rounded-[8px] hover:bg-canvas dark:hover:bg-canvas/45 transition-all disabled:opacity-50"
-                disabled={aiLoading}
-              >
-                <X className="w-5 h-5 stroke-[1.75]" />
-              </button>
+      {/* Keep import state mounted so closing the dialog preserves incomplete drafts. */}
+      <ModalScrim style={isAiOpen ? undefined : { display: 'none' }}>
+          <div ref={repeatDialogRef} role="dialog" aria-modal="true" aria-labelledby="repeat-offer-title" tabIndex={-1}
+            className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl max-h-[90dvh] p-5 sm:p-6 flex flex-col shadow-dialog">
+            <div className="flex justify-between items-start gap-3 mb-4">
+              <div><h2 id="repeat-offer-title" className="text-lg font-semibold text-text">{t('editor.repeatOffer.title')}</h2>
+                <p className="mt-2 text-sm text-text-muted">{t('editor.repeatOffer.help')}</p></div>
+              <Button variant="ghost" aria-label={t('editor.aiModal.close')} disabled={aiLoading} onClick={() => setIsAiOpen(false)}><X className="h-4 w-4" aria-hidden /></Button>
             </div>
-
-            {aiLoading ? (
-              /* Loader Premium en Proceso */
-              <div className="flex-1 flex flex-col items-center justify-center relative z-10 text-center px-4">
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-full border border-ai/20 flex items-center justify-center bg-ai/5 shadow-sm">
-                    <RefreshCw className="w-8 h-8 text-ai animate-spin stroke-[1.75]" />
-                  </div>
-                  <div className="absolute inset-0 w-20 h-20 rounded-full border-t border-ai animate-ping opacity-30" />
-                </div>
-                <h4 className="text-sm font-bold text-text mb-2 font-display">{t('editor.aiModal.building')}</h4>
-                <p className="text-xs text-text-muted font-light max-w-sm h-12 flex items-center justify-center animate-pulse font-sans">
-                  {aiStep}
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto pr-1 relative z-10 space-y-4 py-2 scrollbar-custom">
-                {aiError && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-[8px] font-medium font-sans">
-                    {aiError}
-                  </div>
-                )}
-
-                <UsagePanel compact />
-                {!isPremium && <UpgradePaywall source="editor-adapt-dialog" compact />}
-
-                <form onSubmit={handleAiOptimize} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('editor.aiModal.jobTitle')}
-                      </label>
-                      <input
-                        type="text"
-                        value={aiFormData.jobTitle}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, jobTitle: e.target.value }))}
-                        placeholder={t('editor.aiModal.jobTitlePlaceholder')}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <Building2 className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('editor.aiModal.company')}
-                      </label>
-                      <input
-                        type="text"
-                        value={aiFormData.company}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, company: e.target.value }))}
-                        placeholder={t('editor.aiModal.companyPlaceholder')}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                        <Link className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('editor.aiModal.link')}
-                      </label>
-                      <input
-                        type="url"
-                        value={aiFormData.url}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, url: e.target.value }))}
-                        placeholder="https://..."
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-text-muted dark:text-text font-display">{t('editor.aiModal.platform')}</label>
-                      <select
-                        value={aiFormData.platform}
-                        onChange={(e) => setAiFormData(prev => ({ ...prev, platform: e.target.value }))}
-                        className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text focus:outline-none focus:border-ai dark:focus:border-ai transition-all cursor-pointer font-sans"
-                      >
-                        <option value="linkedin">LinkedIn</option>
-                        <option value="infojobs">InfoJobs</option>
-                        <option value="indeed">Indeed</option>
-                        <option value="other">{t('editor.aiModal.platformOther')}</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 bg-canvas/30 p-4 rounded-[8px] border border-subtle">
-                    <input
-                      type="checkbox"
-                      id="addToApplications"
-                      checked={aiFormData.addToApplications === 'true'}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, addToApplications: e.target.checked ? 'true' : 'false' }))}
-                      className="rounded bg-canvas border-control dark:border-white/20 text-ai focus:ring-ai/20 w-4 h-4 cursor-pointer accent-ai"
-                    />
-                    <div className="flex flex-col">
-                      <label htmlFor="addToApplications" className="text-xs font-bold text-text-muted dark:text-text cursor-pointer select-none flex items-center gap-1.5 font-display">
-                        <Briefcase className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                        {t('editor.aiModal.applications')}
-                      </label>
-                      <span className="text-[10px] text-text-muted font-light mt-0.5 font-sans">
-                        {t('editor.aiModal.applicationsDesc')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-sm text-text-muted">{t('variants.generationHelp')}</p>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-text-muted dark:text-text flex items-center gap-1.5 font-display">
-                      <FileText className="w-3.5 h-3.5 text-text-muted stroke-[1.75]" />
-                      {t('editor.aiModal.descLabel')}
-                    </label>
-                    <textarea
-                      required
-                      rows={8}
-                      value={aiFormData.jobDescription}
-                      onChange={(e) => setAiFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
-                      placeholder={t('editor.aiModal.descPlaceholder')}
-                      className="w-full bg-canvas border border-control rounded-[8px] px-3.5 py-2.5 text-sm text-text placeholder-text-muted focus:outline-none focus:border-ai dark:focus:border-ai transition-all resize-none font-sans"
-                    />
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-subtle shrink-0 relative z-10 font-display">
-              <button
-                type="button"
-                onClick={() => setIsAiOpen(false)}
-                className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text dark:hover:text-white transition-colors disabled:opacity-50"
-                disabled={aiLoading}
-              >
-                {t('editor.aiModal.close')}
-              </button>
-              {!aiLoading && (
-                <Button
-                  type="submit"
-                  variant="ai"
-                  onClick={handleAiOptimize}
-                  disabled={aiLoading}
-                >
-                  <Sparkles className="w-4 h-4 stroke-[1.75]" />
-                  {t('editor.aiModal.start')}
-                </Button>
-              )}
+            <div className="min-h-0 overflow-y-auto space-y-4">
+              {!baseCvId ? <p role="alert" className="text-sm text-danger-text">{t('editor.repeatOffer.missingBase')} <LinkNext href="/dashboard" className="underline">{t('editor.header.backToDashboard')}</LinkNext></p> :
+                <OfferUrlImport value={nextOffer} disabled={aiLoading} onChange={offer => {
+                  setNextOffer(offer); setAiError(null);
+                  setAiFormData(prev => ({ ...prev, jobTitle: offer?.jobTitle || '', company: offer?.company || '', url: offer?.url || '', platform: offer?.platform || 'other', jobDescription: offer?.jobDescription || '' }));
+                }} />}
+              <label className="flex min-h-11 items-center gap-3 text-sm text-text">
+                <input type="checkbox" checked={aiFormData.addToApplications === 'true'} disabled={aiLoading}
+                  onChange={event => setAiFormData(prev => ({ ...prev, addToApplications: event.target.checked ? 'true' : 'false' }))} />
+                {t('editor.aiModal.applications')}
+              </label>
+              {aiError && <p role="alert" className="text-sm text-danger-text">{aiError}</p>}
+            </div>
+            <div className="flex flex-wrap justify-end gap-3 border-t border-subtle mt-4 pt-4">
+              <Button variant="secondary" disabled={aiLoading} onClick={() => setIsAiOpen(false)}>{t('editor.aiModal.close')}</Button>
+              <Button variant="ai" loading={aiLoading} disabled={aiLoading || !nextOffer || !baseCvId} onClick={handleAiOptimize}>
+                <Sparkles className="h-4 w-4" aria-hidden />{t('editor.header.adapt')}
+              </Button>
             </div>
           </div>
-        </ModalScrim>
-      )}
+      </ModalScrim>
 
       {(surface === 'source' || surface === 'diff') && (
       <footer className="w-full h-9 bg-white/95 dark:bg-canvas/90 border-t border-subtle px-6 flex items-center justify-between shrink-0 relative z-30 text-[10px] text-text-muted font-medium transition-colors">
