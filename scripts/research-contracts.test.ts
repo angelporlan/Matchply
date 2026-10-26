@@ -92,8 +92,12 @@ test('research rejects redirects, oversized responses and stalled DNS with a bou
     request:response({'content-type':'text/plain','content-length':String(MAX_PAGE_BYTES+1)},200)}),/OFFER_PAGE_TOO_LARGE/);
   await assert.rejects(downloadPublicText('https://public.example/',undefined,{resolveHost,
     request:response({'content-type':'text/html','content-encoding':'gzip'},200)}),/OFFER_PAGE_UNAVAILABLE/);
-  const pending = downloadPublicText('https://public.example/',AbortSignal.timeout(40),{resolveHost:()=>new Promise(()=>{})});
-  await assert.rejects(pending);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('Synthetic DNS deadline')), 40);
+  try {
+    const pending = downloadPublicText('https://public.example/',controller.signal,{resolveHost:()=>new Promise(()=>{})});
+    await assert.rejects(pending, /Synthetic DNS deadline/);
+  } finally { clearTimeout(timer); }
 });
 
 test('a stalled response is aborted while streaming, including the underlying socket', async () => {
