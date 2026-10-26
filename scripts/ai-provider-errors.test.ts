@@ -1,3 +1,4 @@
+import { userError } from '@/lib/user-errors';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AIService } from '@/lib/ai-service';
@@ -33,7 +34,7 @@ test('an arbitrary SDK status cannot bypass the private-error boundary, while qu
   assert.equal(aiUsageErrorResponse(sdkError), null);
   const response = aiUsageErrorResponse(new UsageError(429, 'QUOTA_EXCEEDED', 'Has alcanzado tu límite mensual.', { limit: 10 }));
   assert.equal(response?.status, 429);
-  assert.deepEqual(await response?.json(), { error: 'Has alcanzado tu límite mensual.', code: 'QUOTA_EXCEEDED', limit: 10 });
+  assert.deepEqual(await response?.json(), { ...userError('QUOTA_EXCEEDED'), limit: 10 });
 });
 
 test('legacy persisted errors are hidden without touching successful CV content', () => {

@@ -1,4 +1,5 @@
 "use client";
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -30,7 +31,7 @@ export default function EditorCvMenu({
   onTitleChange: (title: string) => void;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -81,9 +82,7 @@ export default function EditorCvMenu({
     const result = await renameCv(cvId, draft);
     setPending(null);
     if (!result.success || !result.title) {
-      setRenameError(result.error === 'INVALID_TITLE' || result.error === 'TITLE_TOO_LONG'
-        ? t('editor.menu.invalidTitle')
-        : (result.error || t('editor.menu.invalidTitle')));
+      setRenameError(userErrorMessage(result, language, 'INVALID_TITLE'));
       return;
     }
     onTitleChange(result.title);

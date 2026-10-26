@@ -1,5 +1,6 @@
+import { userErrorMessage } from '@/lib/user-errors';
 /** Technical reasons stay on the server; the message is safe at every public boundary. */
-export const AI_PUBLIC_ERROR = 'No se pudo completar la acción con IA. Inténtalo de nuevo.';
+export const AI_PUBLIC_ERROR = userErrorMessage('AI_UNAVAILABLE');
 
 export class AiProviderError extends Error {
   readonly retryable: boolean;

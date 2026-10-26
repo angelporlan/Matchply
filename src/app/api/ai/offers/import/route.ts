@@ -1,3 +1,4 @@
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextResponse } from 'next/server';
 import { getActor, type RequestActor } from '@/lib/actor';
 import { assertPublicOfferUrl } from '@/lib/offer-import/public-page';
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
   } catch (error) {
     const usageError = aiUsageErrorResponse(error); if (usageError) return usageError;
     if (error instanceof RateLimitError) return NextResponse.json({ error: 'OFFER_RATE_LIMITED' }, { status: 429 });
-    if (error instanceof Error && error.message === 'OFFER_REQUEST_CONFLICT') return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error instanceof Error && error.message === 'OFFER_REQUEST_CONFLICT') return NextResponse.json(publicErrorBody(error), { status: 409 });
     log({ event: 'offer_import_enqueue_failed', level: 'error', userId: actor.userId });
     return NextResponse.json({ error: 'OFFER_IMPORT_UNAVAILABLE' }, { status: 503 });
   }

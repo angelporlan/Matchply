@@ -1,4 +1,6 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-errors';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { createContext, useContext, useEffect, useRef } from 'react';
 import { saveCvContent } from '@/app/dashboard/actions';
 import type { VariantSaveContext } from '@/lib/cv-optimization/types';
@@ -9,6 +11,7 @@ export const useManagedEditorSave = () => useContext(EditorPersistenceContext);
 /** One serialized writer for sheet, Markdown and section forms. */
 export function useEditorPersistence(cvId: string, initial: string, context: VariantSaveContext | undefined,
   status: (state: 'saved' | 'saving' | 'error') => void, error: (message: string) => void) {
+  const { language } = useLanguage();
   const draft = useRef(initial);
   const saved = useRef(initial);
   const ctx = useRef(context);
@@ -28,12 +31,12 @@ export function useEditorPersistence(cvId: string, initial: string, context: Var
     inflight.current = (async () => {
       try {
         const result = await saveCvContent(cvId, content, captured);
-        if (!result.success) { callbacks.current.status('error'); callbacks.current.error(result.error || 'No se pudo guardar.'); return false; }
+        if (!result.success) { callbacks.current.status('error'); callbacks.current.error(userErrorMessage(result, language, 'SAVE_FAILED')); return false; }
         saved.current = content;
         if (captured && result.revision !== undefined) ctx.current = { ...captured, revision: result.revision };
         callbacks.current.status(draft.current === content ? 'saved' : 'saving');
         return true;
-      } catch { callbacks.current.status('error'); callbacks.current.error('No se pudo guardar. Conserva tu borrador y reintenta.'); return false; }
+      } catch (error) { callbacks.current.status('error'); callbacks.current.error(userErrorMessage(error, language, 'SAVE_FAILED')); return false; }
     })();
     return inflight.current.then(ok => { inflight.current = null; return ok && draft.current !== saved.current ? flush() : ok; });
   };

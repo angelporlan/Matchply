@@ -1,3 +1,4 @@
+import { publicErrorBody } from '@/lib/public-errors';
 import { storePdfExport } from '@/lib/cv-export';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
       consumeRateLimit(`pdf:${actor.userId}`, 60, 60_000);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        return new NextResponse(error.message, { status: 429 });
+        return NextResponse.json(publicErrorBody(error), { status: 429 });
       }
       throw error;
     }
@@ -211,7 +212,7 @@ export async function GET(req: NextRequest) {
     }
     log({ event: 'pdf_render', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
     if (error instanceof UsageError) return NextResponse.json(error.toJSON(), { status: error.status });
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+    return NextResponse.json(publicErrorBody(error), { status: 500 });
   }
 }
 
@@ -227,7 +228,7 @@ export async function POST(req: NextRequest) {
       consumeRateLimit(`pdf:${actor.userId}`, 60, 60_000);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        return new NextResponse(error.message, { status: 429 });
+        return NextResponse.json(publicErrorBody(error), { status: 429 });
       }
       throw error;
     }
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     log({ event: 'pdf_preview', level: 'error', route: '/api/pdf', error, durationMs: Date.now() - started });
     if (error instanceof UsageError) return NextResponse.json(error.toJSON(), { status: error.status });
-    return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+    return NextResponse.json(publicErrorBody(error), { status: 500 });
   }
 }
 export const dynamic = 'force-dynamic';

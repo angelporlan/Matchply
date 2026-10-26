@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccountContext } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
@@ -22,7 +24,7 @@ function errorResponse(error: unknown) {
   if (error instanceof ExtensionAuthError || error instanceof SubscriptionAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+  return NextResponse.json({ ...publicErrorBody(error) }, { status: 500 });
 }
 
 export async function GET() {
@@ -32,6 +34,7 @@ export async function GET() {
     const installations = await listExtensionInstallations(user.id);
     return NextResponse.json({ installations: installations.map(publicExtensionInstallation) });
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     return errorResponse(error);
   }
 }
@@ -53,6 +56,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     return errorResponse(error);
   }
 }

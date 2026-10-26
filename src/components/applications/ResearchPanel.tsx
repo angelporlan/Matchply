@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
@@ -42,7 +43,7 @@ function dateLabel(value: string | Date | null) {
 }
 
 export default function ResearchPanel({ offerId, initialResearch }: { offerId: string; initialResearch: ResearchData | null }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: planUsage } = usePlanUsage();
   const requestId = useRef<string | null>(null);
   const [research, setResearch] = useState<ResearchData | null>(initialResearch);
@@ -73,7 +74,7 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
       body: JSON.stringify({ retry: true, requestId: requestId.current ||= crypto.randomUUID() }),
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { if (shouldResetAiOperation(body)) requestId.current = null; reportPlanRestriction(body, 'research'); setError(body.error || 'No se pudo reintentar la investigación'); }
+    if (!response.ok) { if (shouldResetAiOperation(body)) requestId.current = null; reportPlanRestriction(body, 'research'); setError(userErrorMessage(body, language, 'AI_UNAVAILABLE')); }
     else { requestId.current = null; refreshPlanUsage(); await load(); }
     setLoading(false);
   }
@@ -127,7 +128,7 @@ export default function ResearchPanel({ offerId, initialResearch }: { offerId: s
 
           <div className="space-y-2"><h4 className="text-xs font-bold uppercase tracking-wider text-text">Fuentes utilizadas ({sourceList.length})</h4>{sourceList.length ? <div className="space-y-2">{sourceList.map((source: any, index: number) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-3 rounded-lg border border-subtle hover:border-ai/40 transition-colors"><ExternalLink className="w-3.5 h-3.5 text-ai mt-0.5 shrink-0" /><span className="text-xs text-text truncate">{source.title || source.domain || source.url}</span></a>)}</div> : <p className="text-xs text-slate-500">No se han encontrado fuentes públicas accesibles.</p>}</div>
 
-          {research.lastError && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500">{research.lastError}</div>}
+          {research.lastError && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500">{userErrorMessage(research.lastError, language, 'AI_UNAVAILABLE')}</div>}
           {['failed', 'partial'].includes(research.status) && <button type="button" onClick={() => void retry()} disabled={loading} className="inline-flex items-center gap-2 border border-ai/30 text-ai font-bold text-xs px-4 py-2.5 rounded-lg disabled:opacity-50">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Reintentar investigación</button>}
         </>
       )}

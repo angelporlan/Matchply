@@ -1,4 +1,6 @@
 'use server';
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -26,7 +28,8 @@ export async function loadSettingsTabAction(tab: 'profile' | 'integrations' | 'a
     const data = await loadProfileSettings(ctx.effectiveUser!.id);
     return { success: true, data };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'FAILED_TO_LOAD_SETTINGS' };
+    log({ event: 'product_read_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -44,6 +47,7 @@ export async function getOwnedCvContentAction(cvId: string): Promise<
     if (!row) return { error: 'NOT_FOUND' };
     return { success: true, content: row.content };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'FAILED_TO_LOAD_CV' };
+    log({ event: 'product_read_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }

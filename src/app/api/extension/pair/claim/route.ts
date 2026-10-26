@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextRequest } from 'next/server';
 import { createAuditLog } from '@/lib/audit';
 import { claimExtensionPairingCode, ExtensionAuthError } from '@/lib/extension-auth';
@@ -21,7 +23,8 @@ export async function POST(req: NextRequest) {
       installation: result.installation,
     });
   } catch (error) {
+    log({ event: 'extension_request_failed', level: 'error', error });
     if (error instanceof ExtensionAuthError) return extensionJson({ error: error.message }, { status: error.status });
-    return extensionJson({ error: error instanceof Error ? error.message : 'Invalid pairing request' }, { status: 400 });
+    return extensionJson({ ...publicErrorBody(error) }, { status: 400 });
   }
 }

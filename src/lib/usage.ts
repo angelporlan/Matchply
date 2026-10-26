@@ -1,3 +1,4 @@
+import { userError, publicUsageDetails } from '@/lib/user-errors';
 import { createHash } from 'crypto';
 import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
@@ -20,7 +21,7 @@ export async function getUsageAllowance(userId: string, bucket: UsageBucket, tx:
 export type UsageOperation = typeof usageOperations.$inferSelect;
 export class UsageError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly details: Record<string, unknown> = {}) { super(message); this.name = 'UsageError'; }
-  toJSON() { return { error: this.message, code: this.code, ...this.details }; }
+  toJSON(): ReturnType<typeof userError> & Record<string, unknown> { return { ...publicUsageDetails(this.details), ...userError(this.code, 'es', this.status < 500 ? 'INVALID_INPUT' : 'UNEXPECTED_ERROR') }; }
 }
 export function utcUsageMonth(now = new Date()) { return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)); }
 export function nextUsageMonth(start: Date) { return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)); }

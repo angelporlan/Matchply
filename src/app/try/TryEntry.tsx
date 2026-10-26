@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -23,7 +24,7 @@ import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 
 export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreUrl?: string | null }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [interactive, setInteractive] = useState(false);
   useEffect(() => { setInteractive(true); }, []);
@@ -155,7 +156,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
       }));
       router.push(`/editor/${base.cvId}?optimize=true`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('try.entry.errors.generic'));
+      setError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       processPending.current = false;
       setLoading(false);
     }

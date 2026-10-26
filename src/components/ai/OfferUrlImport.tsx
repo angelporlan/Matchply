@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 import { reportPlanRestriction, refreshPlanUsage } from '@/lib/plan-presentation';
@@ -25,7 +26,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
   disabled?: boolean;
   extensionStoreUrl?: string | null;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const id = useId();
   const [url, setUrl] = useState(value?.url || '');
   const [stage, setStage] = useState<OfferImportStage | null>(null);
@@ -92,7 +93,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false, exte
     } catch (failure) {
       if (signal.aborted) return;
       const code = failure instanceof Error && ['invalid', 'rateLimited', 'blocked', 'planLimit'].includes(failure.message) ? failure.message : 'failed';
-      setError(code === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setStage(null);
+      setError(code === 'planLimit' ? t('plans.quotaBody') : userErrorMessage(({ invalid: 'OFFER_URL_INVALID', rateLimited: 'RATE_LIMITED', blocked: 'OFFER_PORTAL_BLOCKED', failed: 'OFFER_IMPORT_FAILED' } as Record<string, string>)[code], language, 'OFFER_IMPORT_FAILED')); setStage(null);
       if (['blocked', 'failed', 'rateLimited'].includes(code)) {
         setManual(true);
         onChange(manualOffer(draft, url));

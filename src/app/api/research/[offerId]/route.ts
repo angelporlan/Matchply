@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+import { publicErrorBody } from '@/lib/public-errors';
 import { NextResponse } from 'next/server';
 import { requireProductContext, auditActorFields } from '@/lib/request-context';
 import { createAuditLog } from '@/lib/audit';
@@ -8,16 +10,17 @@ import { AccountSuspendedError, ImpersonationEndedError, SupportActionBlockedErr
 import { aiUsageErrorResponse } from '@/lib/ai-usage-http';
 
 function errorResponse(error: unknown) {
+  log({ event: 'research_request_failed', level: 'error', error });
   const response = aiUsageErrorResponse(error); if (response) return response;
-  if (error instanceof SubscriptionAccessError) return NextResponse.json({ error: error.message }, { status: error.status });
-  if (error instanceof ApplicationNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
+  if (error instanceof SubscriptionAccessError) return NextResponse.json(publicErrorBody(error), { status: error.status });
+  if (error instanceof ApplicationNotFoundError) return NextResponse.json(publicErrorBody('OFFER_NOT_FOUND'), { status: 404 });
   if (error instanceof AccountSuspendedError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) {
-    return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    return NextResponse.json(publicErrorBody(error), { status: error.status });
   }
   if (error instanceof Error && error.message === 'Unauthorized') {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return NextResponse.json(publicErrorBody('AUTH_REQUIRED'), { status: 401 });
   }
-  return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 });
+  return NextResponse.json({ ...publicErrorBody(error) }, { status: 500 });
 }
 
 async function currentUser() {
@@ -28,7 +31,7 @@ async function currentUser() {
 export async function GET(_req: Request, { params }: { params: { offerId: string } }) {
   try {
     const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    if (!user) return NextResponse.json(publicErrorBody('AUTH_REQUIRED'), { status: 401 });
     const [research, quota] = await Promise.all([
       getResearchRunForUser(user.id, params.offerId),
       getResearchQuota(user.id),
@@ -43,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: { offerId: string
 export async function POST(req: Request, { params }: { params: { offerId: string } }) {
   try {
     const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    if (!user) return NextResponse.json(publicErrorBody('AUTH_REQUIRED'), { status: 401 });
     const body = await req.json().catch(() => ({}));
     const research = await enqueueResearchForOffer(user.id, params.offerId, {
       trigger: 'dashboard',

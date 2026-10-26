@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,7 +10,7 @@ import { PROFILE_PHOTO_LIMITS } from '@/lib/avatar/profile-limits';
 import UserAvatar from './UserAvatar';
 
 export default function ProfilePhoto({ image, name, email }: { image?: string | null; name: string; email: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const uploadInProgress = useRef(false);
@@ -31,13 +32,11 @@ export default function ProfilePhoto({ image, name, email }: { image?: string | 
         body: JSON.stringify({ avatar }), signal: AbortSignal.timeout(30_000),
       });
       const result = await response.json();
-      if (!response.ok || typeof result.image !== 'string') throw new Error(result.error || 'PHOTO_SAVE_FAILED');
+      if (!response.ok || typeof result.image !== 'string') throw new Error(result.code || result.error || 'PHOTO_SAVE_FAILED');
       setUploadedImage(result.image); setSaved(true);
       router.refresh();
     } catch (e) {
-      const code = e instanceof Error ? e.message : '';
-      const key = ({ PHOTO_FORMAT: 'formatError', PHOTO_SIZE: 'sizeError', PHOTO_DIMENSIONS: 'dimensionsError', PHOTO_INVALID: 'invalidError', PHOTO_RATE_LIMIT: 'rateLimitError' } as Record<string, string>)[code] || 'saveError';
-      setError(t(`accountPhoto.${key}`));
+      setError(userErrorMessage(e, language, 'PHOTO_SAVE_FAILED'));
     } finally { uploadInProgress.current = false; setBusy(false); }
   }
 

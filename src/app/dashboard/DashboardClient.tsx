@@ -1,4 +1,5 @@
 "use client";
+import { userErrorMessage } from '@/lib/user-errors';
 
 import { fetchOptimizationResponse } from '@/lib/cv-optimization/client';
 
@@ -260,7 +261,7 @@ export default function DashboardClient({
       router.push(returnOfferId ? `/dashboard/applications/offer/${returnOfferId}?continue=1` : `/editor/${result.cvId}`);
 
     } catch (err: any) {
-      setImportError(err.message || t('dashboard.errors.unexpected'));
+      setImportError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       setImportLoading(false);
     }
   };
@@ -280,7 +281,7 @@ export default function DashboardClient({
         setIsCreateOpen(false);
         router.push(`/editor/${res.cvId}`);
       } else {
-        if (!reportPlanRestriction(res, 'cv-create')) alert(res.error || t('dashboard.errors.createFail'));
+        if (!reportPlanRestriction(res, 'cv-create')) alert(userErrorMessage(res, language));
       }
     } catch (err) {
       console.error(err);
@@ -298,7 +299,7 @@ export default function DashboardClient({
       const res = await renameCv(cvId, title);
       if (res.error) {
         setUserCvs(prev => prev.map(cv => (cv.id === cvId && previousTitle ? { ...cv, title: previousTitle } : cv)));
-        if (!reportPlanRestriction(res, 'cv-rename')) alert(res.error);
+        if (!reportPlanRestriction(res, 'cv-rename')) alert(userErrorMessage(res, language));
       }
     });
   };
@@ -307,7 +308,7 @@ export default function DashboardClient({
     startTransition(async () => {
       const res = await duplicateCv(cvId);
       if (res.error) {
-        if (!reportPlanRestriction(res, 'cv-duplicate')) alert(res.error);
+        if (!reportPlanRestriction(res, 'cv-duplicate')) alert(userErrorMessage(res, language));
         return;
       }
       router.refresh();
@@ -343,7 +344,7 @@ export default function DashboardClient({
       if (res.error) {
         // Revertir si falla
         setUserCvs(initialCvs);
-        alert(res.error);
+        alert(userErrorMessage(res, language));
       }
     });
   };
@@ -368,7 +369,7 @@ export default function DashboardClient({
       const res = await deleteCv(targetId);
       if (res.error) {
         setUserCvs(initialCvs);
-        alert(res.error);
+        alert(userErrorMessage(res, language));
       }
     });
   };
@@ -448,7 +449,7 @@ export default function DashboardClient({
         router.push(`/editor/${admission.cvId}`);
 
       } catch (err: any) {
-        setAiError(err.message || t('dashboard.errors.unexpected'));
+        setAiError(userErrorMessage(err, language, 'AI_UNAVAILABLE'));
         setAiLoading(false);
       }
     } finally { adaptPending.current = false; setAiLoading(false); }

@@ -1,6 +1,7 @@
 'use server';
+import { publicErrorBody } from '@/lib/public-errors';
 
-import { timed } from '@/lib/logger';
+import { timed, log } from '@/lib/logger';
 import {
   loadApplicationsWorkspace,
   listApplicationIds,
@@ -36,7 +37,8 @@ export async function queryApplicationsAction(
     );
     return { success: true, data };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'FAILED_TO_QUERY_APPLICATIONS' };
+    log({ event: 'product_read_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -52,7 +54,8 @@ export async function queryApplicationIdsAction(
     });
     return { success: true, ids, truncated: ids.length >= 10_000 };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'FAILED_TO_QUERY_APPLICATION_IDS' };
+    log({ event: 'product_read_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -71,6 +74,7 @@ export async function querySelectedApplicationsAction(
     }
     return { offers: await listSelectedApplications(ctx.effectiveUser!.id, ids) };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'No se pudieron cargar las ofertas seleccionadas.' };
+    log({ event: 'product_read_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }

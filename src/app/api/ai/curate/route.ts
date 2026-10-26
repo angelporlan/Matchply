@@ -1,3 +1,5 @@
+import { publicErrorBody } from '@/lib/public-errors';
+import { userErrorMessage } from '@/lib/user-errors';
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { and, desc, eq, inArray } from 'drizzle-orm';
@@ -46,7 +48,7 @@ export async function POST(req: Request) {
   try {
     consumeRateLimit(`ai:curate:${userId}`, 10, 10 * 60_000);
   } catch (error) {
-    if (error instanceof RateLimitError) return new NextResponse(error.message, { status: 429 });
+    if (error instanceof RateLimitError) return NextResponse.json(publicErrorBody(error), { status: 429 });
     throw error;
   }
 
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
           }
           for (const error of result.errors) {
             if (deliveredErrors.get(error.id) !== error.message) {
-              send({ type: 'offer_error', ...error });
+              send({ type: 'offer_error', ...error, message: userErrorMessage(error.code === 'lookup' ? 'OFFER_IMPORT_FAILED' : error.code === 'outdated' ? 'STALE_OPTIMIZATION' : 'AI_UNAVAILABLE') });
               if (error.code === 'outdated') delivered.delete(error.id);
               deliveredErrors.set(error.id, error.message);
             }

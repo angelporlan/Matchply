@@ -1,4 +1,5 @@
 "use server";
+import { publicErrorBody } from '@/lib/public-errors';
 import { profileEvidence } from '@/db/schema';
 
 import { db } from "@/db";
@@ -34,8 +35,7 @@ export async function createTryBaseCv(input: { id: string; title: string; conten
     return { success: true, cvId };
   } catch (error) {
     log({ event: 'try_source_cv_failed', level: 'error', error });
-    return { error: error instanceof Error ? error.message : 'Failed to save resume',
-      ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -74,8 +74,8 @@ export async function setPrincipalCv(cvId: string): Promise<ActionResult> {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error setting principal CV:", error);
-    return { error: error.message || "Failed to set principal CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -101,8 +101,8 @@ export async function createBaseCv(title: string): Promise<ActionResult> {
     revalidatePath("/dashboard");
     return { success: true, cvId: newCv.id };
   } catch (error: any) {
-    console.error("Error creating CV:", error);
-    return { error: error.message || "Failed to create CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -158,8 +158,8 @@ export async function deleteCv(cvId: string): Promise<ActionResult> {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error deleting CV:", error);
-    return { error: error.message || "Failed to delete CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -201,8 +201,8 @@ export async function updateCvStyling(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Error updating CV styling:", error);
-    return { error: error.message || "Failed to update CV styling", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -227,7 +227,7 @@ export async function saveCvContent(cvId: string, content: string, context?: Var
     return { success: true };
   } catch (error: any) {
     log({ event: 'cv_content_save_failed', level: 'error', error });
-    return { error: error.message || "Failed to save CV content", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -240,7 +240,7 @@ export async function selectCvVariant(cvId: string, optimizationId: string, mode
     return { success: true, ...selected };
   } catch (error) {
     log({ event: 'cv_variant_select_failed', level: 'error', error });
-    return { error: error instanceof Error ? error.message : 'No se pudo cambiar de versión.', ...(error instanceof UsageError ? { code: error.code } : {}) };
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -281,8 +281,8 @@ export async function renameCv(cvId: string, title: string): Promise<ActionResul
     revalidatePath("/dashboard");
     return { success: true, title: cleanTitle };
   } catch (error: any) {
-    console.error("Error renaming CV:", error);
-    return { error: error.message || "Failed to rename CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -317,8 +317,8 @@ export async function duplicateCv(cvId: string): Promise<ActionResult> {
     revalidatePath("/dashboard");
     return { success: true, cvId: newCv.id };
   } catch (error: any) {
-    console.error("Error duplicating CV:", error);
-    return { error: error.message || "Failed to duplicate CV", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -353,8 +353,8 @@ export async function saveUserCareerProfileAction(profileData: any): Promise<Act
 
     return { success: true };
   } catch (error: any) {
-    console.error("Error saving career profile:", error);
-    return { error: error.message || "Failed to save career profile", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
 
@@ -365,7 +365,7 @@ export async function updateUserNameAction(name: string): Promise<ActionResult> 
 
     const sanitized = sanitizeDisplayName(name);
     if (!sanitized) {
-      return { error: "INVALID_NAME" };
+      return publicErrorBody(new Error('INVALID_NAME'));
     }
 
     const [currentUser] = await db
@@ -375,7 +375,7 @@ export async function updateUserNameAction(name: string): Promise<ActionResult> 
       .limit(1);
 
     if (!currentUser) {
-      return { error: "User not found" };
+      return publicErrorBody(new Error('NOT_FOUND'));
     }
 
     if (currentUser.name === sanitized) {
@@ -404,7 +404,7 @@ export async function updateUserNameAction(name: string): Promise<ActionResult> 
 
     return { success: true, name: sanitized };
   } catch (error: any) {
-    console.error("Error updating user name:", error);
-    return { error: error.message || "Failed to update name", ...(error instanceof UsageError ? { code: error.code, ...error.details } : {}) };
+    log({ event: 'product_action_failed', level: 'error', error });
+    return { ...publicErrorBody(error) };
   }
 }
