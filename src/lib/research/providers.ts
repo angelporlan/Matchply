@@ -1,6 +1,5 @@
 import { createHash } from 'crypto';
-import { isIP } from 'net';
-import { lookup } from 'node:dns/promises';
+import { assertPublicWebUrl, downloadPublicText, type DownloadDependencies } from '@/lib/offer-import/public-page';
 import { resolveRouteModel } from '@/lib/ai-runtime-store';
 import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER } from '@/lib/models';
 import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
@@ -24,50 +23,8 @@ export type PublicSource = WebSearchResult & {
   sourceType: string;
 };
 
-function isPrivateIpv4(hostname: string) {
-  const parts = hostname.split('.').map(Number);
-  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  const [a, b] = parts;
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-}
-
-function isPrivateIpv6(hostname: string) {
-  const normalized = hostname.toLowerCase();
-  if (normalized.startsWith('::ffff:')) return isPrivateIpv4(normalized.slice(7));
-  return normalized === '::1' || normalized.startsWith('fe80:') || normalized.startsWith('fc') || normalized.startsWith('fd');
-}
-
 export function assertPublicHttpUrl(rawUrl: string) {
-  let url: URL;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw new Error('SOURCE_URL_INVALID');
-  }
-  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  const ipType = isIP(hostname);
-  if (!(url.protocol === 'http:' || url.protocol === 'https:')) throw new Error('SOURCE_URL_SCHEME_BLOCKED');
-  if (url.username || url.password) throw new Error('SOURCE_URL_CREDENTIALS_BLOCKED');
-  if (url.port && !['80', '443'].includes(url.port)) throw new Error('SOURCE_URL_PORT_BLOCKED');
-  if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local') ||
-      hostname === 'metadata.google.internal' || hostname === '169.254.169.254' ||
-      (ipType === 4 && isPrivateIpv4(hostname)) || (ipType === 6 && isPrivateIpv6(hostname))) {
-    throw new Error('SOURCE_URL_PRIVATE_NETWORK_BLOCKED');
-  }
-  url.hash = '';
-  return url;
-}
-
-async function assertPublicResolvedHost(hostname: string) {
-  if (isIP(hostname)) return;
-  const records = await lookup(hostname, { all: true });
-  if (!records.length || records.some(record => {
-    const type = isIP(record.address);
-    return (type === 4 && isPrivateIpv4(record.address)) || (type === 6 && isPrivateIpv6(record.address));
-  })) {
-    throw new Error('SOURCE_DNS_PRIVATE_NETWORK_BLOCKED');
-  }
+  return assertPublicWebUrl(rawUrl);
 }
 
 function sourceTypeForDomain(domain: string) {
@@ -122,41 +79,21 @@ export async function searchWeb(query: string, maxResults = 5, signal?: AbortSig
   }
 }
 
-export async function fetchPublicSource(result: WebSearchResult, signal?: AbortSignal): Promise<PublicSource | null> {
-  let url: URL;
+export async function fetchPublicSource(result: WebSearchResult, signal?: AbortSignal, dependencies: DownloadDependencies = {}): Promise<PublicSource | null> {
   try {
-    url = assertPublicHttpUrl(result.url);
-  } catch {
-    return null;
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    await assertPublicResolvedHost(url.hostname);
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'MatchplyResearchBot/1.0 (+https://matchply.com)' },
-      redirect: 'error',
-      signal: AbortSignal.any([controller.signal, ...(signal ? [signal] : [])]),
-    });
-    if (!response.ok) return null;
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('text/') && !contentType.includes('json')) return null;
-    const raw = (await response.text()).slice(0, MAX_FETCHED_TEXT);
+    const page = await downloadPublicText(result.url, signal, dependencies);
+    const raw = page.html.slice(0, MAX_FETCHED_TEXT);
     const excerpt = stripHtml(raw).slice(0, MAX_SOURCE_EXCERPT);
     if (!excerpt) return null;
-    const canonicalUrl = url.toString();
+    const canonicalUrl = page.url;
+    const domain = new URL(canonicalUrl).hostname;
     return {
-      ...result,
-      canonicalUrl,
-      domain: url.hostname,
-      excerpt,
+      ...result, canonicalUrl, domain, excerpt,
       contentHash: createHash('sha256').update(`${canonicalUrl}\n${excerpt}`).digest('hex'),
-      sourceType: sourceTypeForDomain(url.hostname),
+      sourceType: sourceTypeForDomain(domain),
     };
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
