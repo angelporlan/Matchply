@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -25,6 +25,8 @@ import { InlineAllowance } from '@/components/subscription/InlineAllowance';
 export default function TryEntry() {
   const { t } = useLanguage();
   const router = useRouter();
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => { setInteractive(true); }, []);
 
   // Wizard step state (1: CV, 2: Offer)
   const [step, setStep] = useState<1 | 2>(1);
@@ -158,7 +160,7 @@ export default function TryEntry() {
 
   return (
     <div className="relative min-h-screen bg-canvas flex items-center justify-center p-4 py-8">
-      <div className="w-full max-w-xl mx-auto">
+      <fieldset disabled={!interactive} aria-busy={!interactive} className="w-full max-w-xl min-w-0 mx-auto border-0 p-0">
         {/* Cabecera superior y Progreso del Asistente */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2 mb-3">
@@ -224,7 +226,8 @@ export default function TryEntry() {
             {!file ? (
               <div
                 role="button"
-                tabIndex={0}
+                tabIndex={interactive ? 0 : -1}
+                aria-disabled={!interactive}
                 aria-label={t('try.entry.upload')}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); } }}
                 onClick={() => fileInputRef.current?.click()}
@@ -474,7 +477,7 @@ export default function TryEntry() {
             {t('auth.register.logInHere')}
           </Link>
         </p>
-      </div>
+      </fieldset>
     </div>
   );
 }

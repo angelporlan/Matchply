@@ -7,8 +7,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link as LinkIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { resolveOfferIdentity } from '@/lib/offer-fields';
-import { normalizeOfferUrl, offerPlatform, usableOfferDescription, type ImportedOffer, type OfferImportStage } from '@/lib/offer-import/types';
+import { normalizeOfferUrl, usableOfferDescription, type ImportedOffer, type OfferImportStage } from '@/lib/offer-import/types';
+import { manualOffer } from '@/lib/offer-import/manual';
 
 const wait = (signal: AbortSignal) => new Promise<void>((resolve, reject) => {
   const done = () => { signal.removeEventListener('abort', abort); resolve(); };
@@ -28,7 +28,6 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
   const [url, setUrl] = useState(value?.url || '');
   const [stage, setStage] = useState<OfferImportStage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [manualAvailable, setManualAvailable] = useState(false);
   const [manual, setManual] = useState(false);
   const [manualText, setManualText] = useState('');
   const active = useRef<AbortController | null>(null);
@@ -41,8 +40,8 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     active.current?.abort();
     active.current = null;
     request.current = null;
-    setUrl(next); setStage(null); setError(null); setManualAvailable(false); setManual(false); setManualText('');
-    onChange(null);
+    setUrl(next); setStage(null); setError(null);
+    onChange(manual ? manualOffer(manualText, next) : null);
   };
 
   const start = async () => {
@@ -54,7 +53,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     active.current = controller;
     const signal = controller.signal;
     if (!request.current || request.current.url !== normalized) request.current = { url: normalized, id: crypto.randomUUID() };
-    setStage('reading'); setError(null); setManual(false); setManualAvailable(false); onChange(null);
+    setStage('reading'); setError(null); setManual(false); onChange(null);
     try {
       const response = await fetch('/api/ai/offers/import', {
         method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
@@ -88,17 +87,16 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     } catch (failure) {
       if (signal.aborted) return;
       const code = failure instanceof Error && ['invalid', 'rateLimited'].includes(failure.message) ? failure.message : 'failed';
-      setError(failure instanceof Error && failure.message === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setManualAvailable(code !== 'invalid'); setStage(null);
+      setError(failure instanceof Error && failure.message === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setStage(null);
     }
   };
 
   const changeManual = (description: string) => {
     setManualText(description);
-    if (!usableOfferDescription(description)) { onChange(null); return; }
+    const offer = manualOffer(description, url);
+    if (!offer) { onChange(null); return; }
     setError(null);
-    const identity = resolveOfferIdentity({ jobDescription: description });
-    onChange({ ...identity, jobDescription: description.trim(), url: normalizeOfferUrl(url),
-      platform: offerPlatform(url), sourceMethod: 'manual', sources: [] });
+    onChange(offer);
   };
 
   return <section className="space-y-4" aria-busy={observing}>
@@ -120,7 +118,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     {error && <div role="alert" className="rounded-xl border border-danger-text bg-danger-surface p-3 text-sm text-danger-text">
       <span className="flex items-start gap-2"><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{error}</span>
     </div>}
-    {manualAvailable && !manual && <Button type="button" variant="ghost" onClick={() => setManual(true)} disabled={disabled}>
+    {!manual && <Button type="button" variant="ghost" onClick={() => { setManualText(value?.jobDescription || manualText); setManual(true); }} disabled={disabled || observing}>
       {t('offerImport.manual')}
     </Button>}
     {manual && <div className="space-y-2">

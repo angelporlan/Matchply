@@ -140,3 +140,63 @@ for (const width of [1440, 390]) test(`optimization retry recovers the same admi
   expect(admissions).toBe(0);
   expect(polls).toBe(4);
 });
+
+for (const guest of [true, false]) for (const width of [1440, 390]) test(`pasted offer without URL: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context }) => {
+  await page.setViewportSize({ width, height: 900 });
+  if (!guest) await login(context);
+  const content = '# QA Candidate\n\n## Perfil Profesional\nDesarrollo APIs con Python y pruebas automatizadas.';
+  const description = 'Buscamos una desarrolladora Python para crear APIs con pruebas automatizadas. Trabajo en equipo y experiencia con bases de datos.';
+  let admission: { baseCvId: string; jobDescription: string; url: string; requestId: string } | null = null;
+  let imports = 0;
+  await page.route('**/api/ai/offers/import', async route => { imports++; await route.abort(); });
+  await page.route('**/api/ai/optimize', async route => {
+    admission = route.request().postDataJSON();
+    await route.fulfill({ status: 202, json: { jobId: 'pasted-offer-job', cvId: admission!.baseCvId, requestId: admission!.requestId } });
+  });
+  await page.route('**/api/ai/jobs/pasted-offer-job', route => route.fulfill({ json: {
+    status: 'completed', result: { stage: 'completed', optimizationId: 'pasted-offer-optimization', variants: [] },
+  } }));
+  await page.route('**/api/cv/*/optimization', route => route.fulfill({ json: { optimization: {
+    id: 'pasted-offer-optimization', sourceMarkdown: content, analysis: null,
+    variants: [{ modeId: 'optimize_adapted', status: 'ready', content, revision: 0, error: null }],
+  } } }));
+  if (guest) {
+    await page.goto('/try');
+    await page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Tu CV', exact: true }).fill(content);
+    await page.getByRole('button', { name: 'Continuar al paso 2 (añadir oferta)', exact: true }).click();
+  } else {
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: 'Generar con IA', exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Pegar descripción manualmente', exact: true }).click();
+  const textarea = page.getByRole('textbox', { name: 'Descripción y requisitos', exact: true });
+  await textarea.fill(description);
+  await expect(page.getByRole('textbox', { name: 'Enlace a la oferta', exact: true })).toHaveValue('');
+  const submit = page.getByRole('button', { name: guest ? 'Adaptar mi CV' : 'Iniciar Optimización por IA', exact: true });
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect.poll(() => admission?.jobDescription).toBe(description);
+  expect(admission!.url).toBe('');
+  expect(imports).toBe(0);
+  await expect(page).toHaveURL(/\/editor\//);
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
+});
+
+test('guest text entry waits for JavaScript readiness instead of losing an early click', async ({ page, context }) => {
+  await context.request.get('/api/guest?redirect=/try');
+  let release!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/_next/static/chunks/app/try/page*.js', async route => {
+    await scriptsReady; await route.continue();
+  });
+  try {
+    await page.goto('/try', { waitUntil: 'commit' });
+    const paste = page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true });
+    await expect(paste).toBeDisabled();
+    release();
+    await expect(paste).toBeEnabled();
+    await paste.click();
+    await expect(page.getByRole('textbox', { name: 'Tu CV', exact: true })).toBeVisible();
+  } finally { release(); }
+});
