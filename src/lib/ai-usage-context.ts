@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-export type AiUsageContext = { userId?: string; jobId?: string; functionKey: string };
+export type AiUsageContext = { userId?: string; jobId?: string; requestId?: string; functionKey: string };
 const context = new AsyncLocalStorage<AiUsageContext>();
 
 export function getAiUsageContext() { return context.getStore(); }

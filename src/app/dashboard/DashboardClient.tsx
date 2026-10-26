@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchOptimizationResponse } from '@/lib/cv-optimization/client';
+
 import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -420,8 +422,8 @@ export default function DashboardClient({
       const requestId = requestForCv(params);
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({ ...params, requestId, origin: 'dashboard' }));
       trackUmamiConversion('offer_pasted');
-      const response = await fetch('/api/ai/optimize', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetchOptimizationResponse('/api/ai/optimize', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestId },
         body: JSON.stringify({ ...params, requestId }),
       });
       if (!response.ok) {

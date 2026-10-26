@@ -12,7 +12,7 @@ import EditorFormatBar from './EditorFormatBar';
 import EditorReviewRail, { type AdaptDraft, type LinkedOffer } from './EditorReviewRail';
 import EditorCvMenu, { type EditorCvChoice } from './EditorCvMenu';
 import { updateCvStyling, saveCvContent, selectCvVariant } from '@/app/dashboard/actions';
-import { consumeCvOptimization } from '@/lib/cv-optimization/client';
+import { consumeCvOptimization, CvOptimizationClientError, fetchOptimizationResponse } from '@/lib/cv-optimization/client';
 import { isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
 import type { CvOptimizationView, OptimizeProgress } from '@/lib/cv-optimization/types';
 import { EditorPersistenceContext, useEditorPersistence } from './EditorPersistence';
@@ -168,6 +168,8 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
   const [streamingError, setStreamingError] = useState<string | null>(null);
+  const [streamingRetry, setStreamingRetry] = useState<(() => void) | null>(null);
+  const [streamingRequestId, setStreamingRequestId] = useState<string | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
@@ -182,7 +184,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   };
   const switchVariant = async (mode: OptimizeModeId) => {
     if (!optimization || mode === activeMode || variantSwitchLock.current) return;
-    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null); setStreamingRetry(null);
     try {
       if (!await persistence.flush()) return;
       const selected = await selectCvVariant(cv.id, optimization.id, mode);
@@ -196,13 +198,13 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   };
   const generateVariant = async (mode: OptimizeModeId, retry = false) => {
     if (!optimization || variantSwitchLock.current) return;
-    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null);
+    variantSwitchLock.current = true; setVariantBusy(true); setStreamingError(null); setStreamingRetry(null);
     try {
       if (!await persistence.flush()) return;
       setIsStreaming(true); setLiveGeneration({modeId:mode,content:''});
       setStreamingStep(t('variants.stages.queued'));
       if (retryRequest.current?.mode !== mode) retryRequest.current = { mode, id: crypto.randomUUID() };
-      const response = await fetch(`/api/ai/optimize/${optimization.id}/${retry ? 'retry' : 'generate'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(retry ? {modes:[mode]} : {mode}), requestId: retryRequest.current.id }) });
+      const response = await fetchOptimizationResponse(`/api/ai/optimize/${optimization.id}/${retry ? 'retry' : 'generate'}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': retryRequest.current.id }, body: JSON.stringify({ ...(retry ? {modes:[mode]} : {mode}), requestId: retryRequest.current.id }) });
       if (!response.ok) { const problem = await response.json(); if (shouldResetAiOperation(problem)) retryRequest.current = null; throw new Error(problem.error || t('variants.retryError')); }
       await consumeCvOptimization(response, receiveProgress);
       const refreshed = await fetch(`/api/cv/${cv.id}/optimization`, { cache: 'no-store' });
@@ -343,13 +345,15 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
     setIsStreaming(true);
     setLiveGeneration({modeId:isOptimizeModeId(params.resumeMode || '') ? params.resumeMode : 'optimize_adapted',content:''});
     setStreamingError(null);
+    setStreamingRetry(null);
+    setStreamingRequestId(params.requestId);
     setSaveStatus('saving');
     setStreamingStep(t('editor.aiModal.steps.keywords'));
 
     try {
-      const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id }), { status: 202 }) : await fetch('/api/ai/optimize', {
+      const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id, requestId: params.requestId }), { status: 202 }) : await fetchOptimizationResponse('/api/ai/optimize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': params.requestId },
         body: JSON.stringify(params)
       });
 
@@ -363,14 +367,14 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
           sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
         }
         reportPlanRestriction(problem, 'editor-ai');
-        throw new Error(text || 'Error en la optimización.');
+        throw new Error(typeof problem === 'object' && problem && 'error' in problem && typeof problem.error === 'string' ? problem.error : t('variants.retryError'));
       }
 
       const admission = await response.clone().json();
       params.jobId = admission.jobId; params.resultCvId = admission.cvId;
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
       const result = await consumeCvOptimization(response, receiveProgress);
-      const refreshed = await fetch(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
+      const refreshed = await fetchOptimizationResponse(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
       const view = (await refreshed.json()).optimization as CvOptimizationView;
       if (!refreshed.ok || !view) throw new Error(t('variants.retryError'));
       const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
@@ -396,9 +400,14 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       }, 2000);
 
     } catch (err: any) {
-      console.error(err);
-      setStreamingError(err.message || 'Ocurrió un error al optimizar el currículum.');
-      if (params.jobId) { const status = await fetch(`/api/ai/jobs/${params.jobId}`).then(r => r.json()).catch(() => null); if (status?.status === 'failed') { delete params.jobId; delete params.resultCvId; delete params.requestId; sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params)); } }
+      setStreamingError(err instanceof CvOptimizationClientError && language === 'en' ? 'The connection or generation was interrupted. Your CV and job offer are safe. Retry to continue.' : err.message || t('variants.retryError'));
+      // Ambiguous delivery must retain the same admission/job IDs. Only an explicit terminal
+      // failure permits a fresh generation; a recovered request must never consume quota twice.
+      if (err instanceof CvOptimizationClientError && err.terminal) {
+        delete params.jobId; delete params.resultCvId; delete params.requestId;
+        sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      }
+      setStreamingRetry(() => () => { void runOptimizeStream(params); });
       setSaveStatus('error');
       setIsStreaming(false);
       setLiveGeneration(null);
@@ -811,15 +820,19 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       )}
 
       {streamingError && (
-        <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-xl flex items-center justify-between z-15">
+        <div role="alert" className="mx-4 sm:mx-6 mt-4 p-3 bg-danger-surface border border-control text-danger-text text-xs rounded-xl flex flex-wrap items-center justify-between gap-3 z-15">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-500" />
             <span className="font-bold uppercase tracking-wider font-display text-[10px]">Error</span>
             <span className="text-slate-400">|</span>
             <span className="font-medium">{streamingError}</span>
           </div>
+          {streamingRetry && <div className="flex flex-wrap items-center gap-3">
+            {streamingRequestId && <span className="text-text-muted break-all">ID: {streamingRequestId}</span>}
+            <Button type="button" variant="secondary" disabled={isStreaming} onClick={streamingRetry}>{language === 'es' ? 'Reintentar' : 'Retry'}</Button>
+          </div>}
           <button 
-            onClick={() => setStreamingError(null)}
+            onClick={() => { setStreamingError(null); setStreamingRetry(null); }}
             className="text-slate-400 hover:text-slate-600 font-bold text-xs"
           >
             Cerrar

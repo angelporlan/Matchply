@@ -104,3 +104,39 @@ test('user isolation and mobile/English/dark navigation', async ({ browser }) =>
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await context.close();
 });
+
+for (const width of [1440, 390]) test(`optimization retry recovers the same admitted job at ${width}px`, async ({ page, context }) => {
+  await login(context);
+  await page.setViewportSize({ width, height: 900 });
+  const cvId = fixtureId('medium:cv:1');
+  let recovered = false, polls = 0, admissions = 0;
+  const content = '# Performance Candidate\n\n## Perfil Profesional\nRecovered after interruption.';
+  await page.addInitScript(({ cvId }) => {
+    sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
+      baseCvId: cvId, resultCvId: cvId, jobId: 'recovery-job', requestId: 'recovery-request-one',
+      jobDescription: 'Pasted offer for Python APIs', resumeMode: 'optimize_adapted',
+    }));
+  }, { cvId });
+  await page.route('**/api/ai/optimize', async route => { admissions++; await route.abort(); });
+  await page.route('**/api/ai/jobs/recovery-job', async route => {
+    polls++;
+    if (!recovered) { await route.abort('failed'); return; }
+    await route.fulfill({ json: { status: 'completed', result: { stage: 'completed', optimizationId: 'recovery-optimization', variants: [] } } });
+  });
+  await page.route(`**/api/cv/${cvId}/optimization`, route => route.fulfill({ json: { optimization: {
+    id: 'recovery-optimization', sourceMarkdown: content, analysis: null,
+    variants: [{ modeId: 'optimize_adapted', status: 'ready', content, error: null, revision: 0 }],
+  } } }));
+  await page.goto(`/editor/${cvId}?optimize=true`);
+  const retry = page.getByRole('button', { name: 'Reintentar', exact: true });
+  await expect(retry).toBeVisible();
+  expect(polls).toBe(3);
+  await expect(page.getByText('ID: recovery-request-one')).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('matchply_optimize_params')!).jobDescription)).toBe('Pasted offer for Python APIs');
+  recovered = true;
+  await retry.click();
+  await expect(retry).toBeHidden();
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
+  expect(admissions).toBe(0);
+  expect(polls).toBe(4);
+});
