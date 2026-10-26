@@ -1,0 +1,2 @@
+export const cv = '# Ana Pérez\n\n**Email:** ana@example.test\n\n## Perfil Profesional\nDesarrollo APIs con Python.\n\n## Experiencia Profesional\n### Desarrolladora\n**Acme** | *2022 – Presente*\n- Desarrollo APIs con Python.\n\n## Habilidades\n- **Backend:** Python\n';
+export const analysis = { rol_objetivo:'Backend', idioma_oferta:'es', top5:['Python'], keywords:[{termino:'Python',tipo:'imprescindible',evidencia:'fuerte',cita_cv:'Desarrollo APIs con Python',sinonimos_reales:[]}], gaps:[],titular_sugerido:'Desarrolladora',contenido_a_priorizar:[],sugerencias_metricas:[] };

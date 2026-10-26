@@ -2,24 +2,22 @@ import { test, expect } from '@playwright/test';
 import { randomUUID, createHash } from 'node:crypto';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { cv } from './full-flow-fixture';
+const execFileAsync = promisify(execFile);
 
-const cv = '# Ana Pérez\n\n**Email:** ana@example.test\n\n## Perfil Profesional\nDesarrollo APIs con Python.\n\n## Experiencia Profesional\n### Desarrolladora\n**Acme** | *2022 – Presente*\n- Desarrollo APIs con Python.\n\n## Habilidades\n- **Backend:** Python\n';
-const analysis = { rol_objetivo:'Backend', idioma_oferta:'es', top5:['Python'], keywords:[{termino:'Python',tipo:'imprescindible',evidencia:'fuerte',cita_cv:'Desarrollo APIs con Python',sinonimos_reales:[]}], gaps:[],titular_sugerido:'Desarrolladora',contenido_a_priorizar:[],sugerencias_metricas:[] };
 const first='Buscamos una desarrolladora Python para crear APIs con pruebas automatizadas y bases de datos SQL. Trabajo en equipo y experiencia demostrable.';
 const second='Buscamos una ingeniera Python para mantener APIs, mejorar calidad del software y colaborar con equipos multidisciplinares.';
 const testDb=process.env.INTEGRATION_TEST_DATABASE_URL!;
 if (!testDb || !['localhost','127.0.0.1','[::1]'].includes(new URL(testDb).hostname) || !new URL(testDb).pathname.includes('test')) throw new Error('Isolated database required');
-process.env.DATABASE_URL=testDb;
-let sharedPool: {end:()=>Promise<void>} | undefined;
-test.afterAll(async()=>{ if(sharedPool) await sharedPool.end(); });
 for(const guest of [true,false]) for(const width of [390,1440]) for(const blocked of [true,false]) test(`real workflow ${guest?'guest':'account'} ${width} ${blocked?'blocked':'pasted'}`, async({page,context,baseURL})=>{
  const client=new pg.Client({connectionString:testDb}); await client.connect();
- const {pool}=await import('@/db'); sharedPool=pool; const queue=await import('@/lib/ai-jobs/queue'); const service=await import('@/lib/cv-optimization/service');
  let userId:string|undefined; const guestHashes:string[]=[]; const email=`e2e-${randomUUID()}@example.test`,password=randomUUID();
  const jobs:string[]=[], errors:string[]=[]; const executions:Promise<void>[]=[];
  page.on('response', response=>{if(response.request().method()==='POST'&&response.url().endsWith('/api/ai/optimize')&&response.status()===202){
-  const task=(async()=>{const {jobId}=await response.json();jobs.push(jobId);const job=await queue.claimAiJobById(jobId);if(!job)throw new Error('Could not claim synthetic job');
-   await service.processCvOptimization(job,new AbortController().signal,async(_ref,_system,_user,_temp,_signal,mode)=>mode.startsWith('analysis')?JSON.stringify(analysis):cv);
+  const task=(async()=>{const {jobId}=await response.json();jobs.push(jobId);
+   await execFileAsync(process.execPath, ['--import', 'tsx', 'e2e/synthetic-worker.ts', jobId], { env: { ...process.env, DATABASE_URL: testDb }, timeout: 30000 });
   })().catch(error=>{errors.push(String(error));});executions.push(task);
  }});
  try {
