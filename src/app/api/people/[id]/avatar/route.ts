@@ -1,8 +1,9 @@
+import { checkProductIp, consumeProductSession, rateLimitResponse } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProductContext, assertMutableActor, auditActorFields } from '@/lib/request-context';
 import { getPersonAvatar, saveManualAvatar } from '@/lib/people/avatar';
 import { PeopleError } from '@/lib/people/types';
-import { consumeRateLimit, RateLimitError } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
 import { SubscriptionAccessError } from '@/lib/permissions';
 import { createAuditLog } from '@/lib/audit';
 import { log } from '@/lib/logger';
@@ -43,6 +44,7 @@ async function readUpload(request: Request) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const limited = checkProductIp(req, 'personPhoto'); if (limited) return limited;
   const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
   try {
     const ctx = await requireProductContext({ allowGuest: true, feature: 'networking' }); assertMutableActor(ctx);
@@ -52,14 +54,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     try { expectedOrigin = new URL(`${protocol}://${host}`).origin; } catch { return json({ error: 'Forbidden' }, 403); }
     if (req.headers.get('origin') !== expectedOrigin || !req.headers.get('content-type')?.startsWith('application/json')) return json({ error: 'Forbidden' }, 403);
     const userId = ctx.effectiveUser!.id;
-    consumeRateLimit(`person-photo:${userId}`, 12, 60000);
+    consumeProductSession(userId, 'personPhoto');
     const body = await readUpload(req);
     const result = await saveManualAvatar(userId, params.id, body?.avatar);
     void createAuditLog('person_avatar_upload', userId, null, { personId: result.personId }, auditActorFields(ctx));
     return json(result);
   } catch (error) {
     if (error instanceof AccountSuspendedError || error instanceof ActorEpochMismatchError || error instanceof ImpersonationEndedError || error instanceof SupportActionBlockedError) return json({ error: error.code }, error.status);
-    if (error instanceof PeopleError || error instanceof RateLimitError || error instanceof SubscriptionAccessError) return json({ error: error.message }, error.status);
+    if (error instanceof RateLimitError) return rateLimitResponse(error);
+    if (error instanceof PeopleError || error instanceof SubscriptionAccessError) return json({ error: error.message }, error.status);
     if (error instanceof SyntaxError) return json({ error: 'PEOPLE_INVALID_AVATAR' }, 400);
     if (error instanceof Error && error.message === 'Unauthorized') return json({ error: 'Unauthorized' }, 401);
     log({ event: 'person_avatar_upload_failed', level: 'error' });

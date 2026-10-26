@@ -1,3 +1,5 @@
+import { clientIpKey } from '@/lib/client-ip';
+import { checkProductIp, consumeProductSession, rateLimitResponse } from '@/lib/product-rate-limit';
 import { publicErrorBody } from '@/lib/public-errors';
 import { NextResponse } from 'next/server';
 import { getActor, type RequestActor } from '@/lib/actor';
@@ -12,6 +14,7 @@ export const runtime = 'nodejs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
+  const limited = checkProductIp(req, 'offerImport'); if (limited) return limited;
   let actor: RequestActor | null;
   try { actor = await getActor({ allowGuest: true }); }
   catch (error) {
@@ -23,6 +26,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'OFFER_IMPORT_UNAVAILABLE' }, { status: 503 });
   }
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try { consumeProductSession(actor.userId, 'offerImport'); }
+  catch (error) { if (error instanceof RateLimitError) return rateLimitResponse(error); throw error; }
   // Cookie-authenticated requests must originate from this site.
   const origin = req.headers.get('origin');
   const requestUrl = new URL(req.url);
@@ -42,10 +47,9 @@ export async function POST(req: Request) {
   try { url = assertPublicOfferUrl(body.url).toString(); }
   catch { return NextResponse.json({ error: 'OFFER_URL_INVALID' }, { status: 400 }); }
   try {
-    consumeRateLimit(`ai:offer-import:${actor.userId}`, 8, 10 * 60_000);
     if (actor.kind === 'guest') {
       // The edge proxy supplies real-ip or appends the connecting client to the chain.
-      const ip = (req.headers.get('x-real-ip')?.trim() || req.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'unknown').slice(0, 64);
+      const ip = clientIpKey(req);
       consumeRateLimit(`ai:offer-import-ip:${ip}`, 8, 10 * 60_000);
     }
     const job = await enqueueImportOfferJob(actor.userId, { url, requestId: body.requestId }, actor.realUserId);

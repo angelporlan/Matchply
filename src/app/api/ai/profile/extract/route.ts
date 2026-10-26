@@ -1,3 +1,4 @@
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
@@ -10,12 +11,14 @@ import { log } from '@/lib/logger';
 import pdf from 'pdf-parse';
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'profileExtract'); if (limited) return limited;
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    consumeProductSession(actor.userId, 'profileExtract');
     let rawText = '';
     let requestId: unknown;
 

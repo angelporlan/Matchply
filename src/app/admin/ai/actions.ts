@@ -1,4 +1,8 @@
 'use server';
+import { headers } from 'next/headers';
+import { consumeProductIp, consumeProductSession } from '@/lib/product-rate-limit';
+import { RateLimitError } from '@/lib/rate-limit';
+import { userError } from '@/lib/user-errors';
 
 import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
 
@@ -47,6 +51,8 @@ export async function testAiModelAction(provider: string, model: string) {
   const { admin } = await requireAdminContext();
   const started = Date.now();
   try {
+    consumeProductIp({ headers: headers() }, 'adminProbe');
+    consumeProductSession(admin.id, 'adminProbe');
     const text = await withAiUsageContext({ userId: admin.id, functionKey: 'admin_model_test' }, () => AIService.probeModel(provider, model));
     return {
       success: true,
@@ -58,6 +64,7 @@ export async function testAiModelAction(provider: string, model: string) {
       model,
     };
   } catch (error: any) {
+    if (error instanceof RateLimitError) return { success: false, ...userError('RATE_LIMITED'), latencyMs: Date.now() - started };
     return { success: false, error: AI_PUBLIC_ERROR, latencyMs: Date.now() - started };
   }
 }

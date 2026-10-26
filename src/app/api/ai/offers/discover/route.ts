@@ -1,3 +1,5 @@
+import { clientIpKey } from '@/lib/client-ip';
+import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
@@ -32,10 +34,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = checkProductIp(req, 'discovery'); if (limited) return limited;
   try {
     const actor = await getActor({ allowGuest: true });
     if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
     await requireUserFeature(actor.userId, 'applications');
+    consumeProductSession(actor.userId, 'discovery');
     const origin = req.headers.get('origin');
     const requestUrl = new URL(req.url);
     const forwardedProtocol = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
@@ -46,9 +50,8 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body.requestId !== 'string' || !UUID.test(body.requestId) || Object.keys(body).some(key => key !== 'requestId')) {
       return NextResponse.json({ error: 'INVALID_REQUEST_ID', code: 'INVALID_REQUEST_ID' }, { status: 400, headers });
     }
-    consumeRateLimit(`ai:discovery:${actor.userId}`, 3, 10 * 60_000);
     if (actor.kind === 'guest') {
-      const ip = (req.headers.get('x-real-ip')?.trim() || req.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'unknown').slice(0, 64);
+      const ip = clientIpKey(req);
       consumeRateLimit(`ai:discovery-ip:${ip}`, 3, 10 * 60_000);
     }
     const job = await enqueueDiscovery(actor.userId, { requestId: body.requestId }, actor.realUserId);
