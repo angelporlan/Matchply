@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 """Root-owned Matchply operations. SSH gateways expose named operations, never a shell."""
+import base64
+import binascii
 import datetime as dt
 import fcntl
 import json
@@ -9,6 +11,7 @@ import re
 import shutil
 import socket
 import ssl
+import stat
 import subprocess
 import sys
 import tempfile
@@ -22,6 +25,11 @@ SERVICES = ['web', 'ai_worker', 'research_worker']
 CONTAINERS = {s: f'nextprof_{s}_prod' for s in SERVICES}
 SHA = re.compile(r'^[a-f0-9]{40}$')
 KEY = re.compile(r'^[A-Z][A-Z0-9_]{0,127}$')
+SECURE_MARKER = INSTALL / 'secure-storage-required'
+SECURE_DEVICE = Path('/dev/mapper/matchply_secure')
+POSTGRES_DATA = Path('/var/lib/docker/volumes/matchply_postgres_prod_data/_data')
+SECURE_IMAGE = Path('/var/lib/matchply-secure.img')
+SECURE_ROOT = Path('/mnt/matchply-secure')
 
 
 def run(args, *, input=None, timeout=300, env=None):
@@ -78,7 +86,23 @@ def point_to(name, release):
     temporary.replace(ROOT / name)
 
 
+def require_secure_storage():
+    """Fail closed after encrypted storage is enabled, including on every backup or deploy."""
+    if not SECURE_MARKER.exists():
+        return
+    try:
+        device = SECURE_DEVICE.stat()
+        if not stat.S_ISBLK(device.st_mode):
+            raise RuntimeError('Encrypted device is unavailable')
+        for path in (POSTGRES_DATA, BACKUPS):
+            if not os.path.ismount(path) or path.stat().st_dev != device.st_rdev:
+                raise RuntimeError('Encrypted storage is locked or incorrectly mounted')
+    except OSError as error:
+        raise RuntimeError('Encrypted storage is locked or unavailable') from error
+
+
 def backup():
+    require_secure_storage()
     folder = BACKUPS / f'backup-{stamp()}'
     folder.mkdir(mode=0o700, parents=True)
     dump = folder / 'database.dump'
@@ -152,6 +176,7 @@ def healthy(release, *, timeout=180):
 
 
 def activate(release):
+    require_secure_storage()
     legacy = metadata(release).get('legacy', False)
     if legacy:
         compose(release, 'stop', 'ai_worker', 'research_worker')
@@ -188,6 +213,7 @@ def audit(event, **fields):
 
 
 def deploy(payload):
+    require_secure_storage()
     validate_release(payload)
     if not (ROOT / 'enabled').exists():
         raise RuntimeError('Automatic deployment is not enabled: complete the migration rehearsal first')
@@ -338,6 +364,50 @@ def logs(payload):
             print('[unstructured log omitted; inspect on server if needed]')
 
 
+def unlock_storage(payload):
+    """Unlock an already provisioned volume; the binary key is never written to disk on the VPS."""
+    if not SECURE_MARKER.is_file() or not SECURE_IMAGE.is_file():
+        raise RuntimeError('Encrypted storage has not been provisioned')
+    try:
+        key = base64.b64decode(payload.get('key', ''), validate=True)
+    except (ValueError, TypeError, binascii.Error) as error:
+        raise ValueError('Invalid storage key') from error
+    if len(key) != 64:
+        raise ValueError('Invalid storage key')
+    run(['cryptsetup', 'open', '--test-passphrase', '--key-file', '-', str(SECURE_IMAGE)], input=key, timeout=90)
+    if not SECURE_DEVICE.exists():
+        run(['cryptsetup', 'open', '--type', 'luks', '--key-file', '-', str(SECURE_IMAGE), 'matchply_secure'], input=key, timeout=90)
+    SECURE_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not os.path.ismount(SECURE_ROOT):
+        run(['mount', str(SECURE_DEVICE), str(SECURE_ROOT)])
+    if SECURE_ROOT.stat().st_dev != SECURE_DEVICE.stat().st_rdev:
+        raise RuntimeError('Wrong encrypted storage mounted')
+    for source, target in [(SECURE_ROOT / 'postgres', POSTGRES_DATA), (SECURE_ROOT / 'backups', BACKUPS)]:
+        if not source.is_dir() or not target.is_dir():
+            raise RuntimeError('Encrypted storage layout is incomplete')
+        if not os.path.ismount(target):
+            run(['mount', '--bind', str(source), str(target)])
+    require_secure_storage()
+    run(['docker', 'start', 'nextprof_postgres_prod'])
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        health = run(['docker', 'inspect', '--format', '{{.State.Health.Status}}', 'nextprof_postgres_prod']).decode().strip()
+        if health == 'healthy':
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError('PostgreSQL did not become healthy after unlock')
+    run(['docker', 'start', *[CONTAINERS[name] for name in SERVICES]])
+    active = current()
+    if not active:
+        raise RuntimeError('No active release')
+    healthy(active)
+    with urllib.request.urlopen('https://matchply.com/api/health', timeout=15) as response:
+        if response.status != 200 or json.load(response).get('ok') is not True:
+            raise RuntimeError('Public health check failed after unlock')
+    audit('encrypted_storage_unlocked')
+
+
 def dispatch(operation, payload):
     if operation == 'status':
         status()
@@ -352,9 +422,12 @@ def dispatch(operation, payload):
         deploy(payload)
     elif operation == 'backup':
         backup()
+    elif operation == 'unlock':
+        unlock_storage(payload)
     elif operation == 'env-update':
         env_change(payload)
     elif operation == 'restart':
+        require_secure_storage()
         active = current()
         service = payload.get('service', 'web')
         if not active or service not in SERVICES:

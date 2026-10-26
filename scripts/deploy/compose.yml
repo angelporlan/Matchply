@@ -12,7 +12,7 @@ services:
     ports:
       - '127.0.0.1:3000:3000'
     networks: [database]
-    restart: always
+    restart: on-failure
     mem_limit: 1g
     stop_grace_period: 30s
     logging: &logging
@@ -34,7 +34,7 @@ services:
       NODE_ENV: production
       DATABASE_STATEMENT_TIMEOUT_MS: 180000
     networks: [database]
-    restart: always
+    restart: on-failure
     stop_grace_period: 5m
     mem_limit: 768m
     logging: *logging
@@ -48,7 +48,7 @@ services:
       NODE_ENV: production
       DATABASE_STATEMENT_TIMEOUT_MS: 180000
     networks: [database]
-    restart: always
+    restart: on-failure
     stop_grace_period: 5m
     mem_limit: 512m
     logging: *logging
