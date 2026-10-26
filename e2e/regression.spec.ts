@@ -373,17 +373,19 @@ test('browser diagnostics correlate API errors without leaking bodies or recursi
   expect(reports).toHaveLength(2);
 });
 
-test('administrator can find an error reference on desktop and mobile', async ({ page, context, baseURL }) => {
+test('administrator can find error references and explicit reports on desktop and mobile', async ({ page, context, baseURL }) => {
   const database = process.env.INTEGRATION_TEST_DATABASE_URL;
   if (!database || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('Admin browser fixture requires an isolated local test database');
   const { randomUUID } = await import('node:crypto');
   const { default: pg } = await import('pg');
   const { default: bcrypt } = await import('bcryptjs');
   const client = new pg.Client({ connectionString: database }); await client.connect();
-  const userId = randomUUID(), requestId = randomUUID(), email = `diagnostics-browser-${userId}@example.test`, password = randomUUID();
+  const userId = randomUUID(), requestId = randomUUID(), reportId = randomUUID(), email = `diagnostics-browser-${userId}@example.test`, password = randomUUID();
+  const comment = '<img src=x onerror=alert(1)> El archivo no se abrió.';
   try {
     await client.query('insert into "user" (id, email, "passwordHash", role) values ($1, $2, $3, $4)', [userId, email, bcrypt.hashSync(password, 4), 'admin']);
     await client.query('insert into operational_error ("requestId", event, code, route, source) values ($1, $2, $3, $4, $5)', [requestId, 'browser_optimization_failed', 'NETWORK_ERROR', '/editor/:cvId', 'browser']);
+    await client.query('insert into problem_report (id, \"requestId\", step, route, comment) values ($1,$2,$3,$4,$5)', [reportId, requestId, 'cv-import', '/try', comment]);
     const csrf = await (await context.request.get(`${baseURL}/api/auth/csrf`)).json();
     await context.request.post(`${baseURL}/api/auth/callback/credentials`, { form: { csrfToken: csrf.csrfToken, email, password, callbackUrl: `${baseURL}/dashboard` } });
     expect((await (await context.request.get(`${baseURL}/api/auth/session`)).json()).user.id).toBe(userId);
@@ -395,8 +397,17 @@ test('administrator can find an error reference on desktop and mobile', async ({
       await expect(page.getByRole('cell', { name: /NETWORK_ERROR/ })).toContainText('Comprueba tu conexión');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: test.info().outputPath(`error-index-${width}.png`), fullPage: true });
+      await page.goto(`/admin/reports?requestId=${requestId}`);
+      await expect(page.getByRole('heading', { name: 'Avisos de usuarios', exact: true })).toBeVisible();
+      await expect(page.getByRole('article')).toContainText(comment);
+      await expect(page.getByRole('article').locator('img')).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`report-inbox-${width}.png`), fullPage: true });
+      await page.getByRole('link', { name: 'Buscar errores relacionados', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Errores operativos', exact: true })).toBeVisible();
     }
   } finally {
+    await client.query('delete from problem_report where id = $1', [reportId]);
     await client.query('delete from operational_error where "requestId" = $1', [requestId]);
     await client.query('delete from "user" where id = $1', [userId]); await client.end();
   }
@@ -465,4 +476,65 @@ for (const guest of [true, false]) for (const width of [1440, 390]) test(`anothe
     expect((await client.query('select content from cv where id=$1', [baseId])).rows[0].content).toBe(original);
     expect((await client.query('select content from cv where id=$1', [adaptedId])).rows[0].content).toBe(tailored);
   } finally { await client.query('delete from "user" where id=$1', [userId]); await client.end(); }
+});
+
+for (const guest of [true, false]) for (const width of [1440, 390]) test(`explicit problem report retries safely: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context }) => {
+  const database = process.env.INTEGRATION_TEST_DATABASE_URL;
+  if (!database || !['localhost','127.0.0.1','[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('Reports require an isolated local test database');
+  const { randomUUID } = await import('node:crypto'); const { default: pg } = await import('pg');
+  const client = new pg.Client({ connectionString: database }); await client.connect();
+  let requestId = randomUUID();
+  const comment = 'El control dejó de responder después de añadir el archivo.';
+  const diagnosticIds: string[] = [];
+  const submissions: Array<{ id:string;requestId:string;step:string;route:string;comment:string }> = [];
+  let fail = true;
+  try {
+    if (guest) await context.request.get('/api/guest?redirect=/try'); else await login(context,'small');
+    await page.setExtraHTTPHeaders({ 'x-real-ip': `reports-browser-${requestId}` });
+    await page.setViewportSize({ width, height:900 });
+    await page.route('**/api/diagnostics/errors', route => { diagnosticIds.push(route.request().postDataJSON().requestId); return route.fulfill({status:202,json:{accepted:true}}); });
+    await page.route('**/api/cv/parse-pdf', route => route.fulfill({status:500,headers:{'x-request-id':requestId},json:{code:'PDF_PARSE_FAILED',error:'PRIVATE_EXCEPTION_CANARY'}}));
+    await page.route('**/api/diagnostics/reports', async route => {
+      submissions.push(route.request().postDataJSON());
+      if(fail) await route.fulfill({status:503,json:{error:'PRIVATE_REPORT_ERROR'}}); else await route.continue();
+    });
+    const path = guest ? '/try' : `/editor/${fixtureId('small:cv:0')}`;
+    await page.goto(path);
+    await page.evaluate(async () => { await fetch('/api/cv/parse-pdf',{method:'POST'}); });
+    // Successful background requests must not replace the reference to the failed operation.
+    await page.route('**/api/pdf', route => route.fulfill({status:200,headers:{'x-request-id':'unrelated-success-request'},body:'synthetic'}));
+    await page.evaluate(async () => { await fetch('/api/pdf',{method:'POST'}); });
+    const trigger = page.getByRole('button',{name:'¿Algo falló?',exact:true}); await expect(trigger).toBeVisible(); await trigger.click();
+    const dialog = page.getByRole('dialog',{name:'¿Algo falló?',exact:true});
+    await expect(dialog).toContainText(requestId);
+    await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+    requestId = randomUUID();
+    await page.evaluate(async () => { await fetch('/api/cv/parse-pdf',{method:'POST'}); });
+    await expect.poll(() => diagnosticIds).toContain(requestId);
+    await trigger.click(); await expect(dialog).toContainText(requestId);
+    await expect(dialog.getByRole('combobox',{name:'Paso en el que ocurrió',exact:true})).toHaveValue('cv-import');
+    const text = dialog.getByRole('textbox',{name:'¿Qué pasó? (opcional)',exact:true}); await text.fill(comment);
+    await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(trigger).toBeFocused(); await trigger.click();
+    await expect(text).toHaveValue(comment);
+    await page.screenshot({path:test.info().outputPath(`problem-report-${guest}-${width}.png`),fullPage:true});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await dialog.getByRole('button',{name:'Enviar aviso',exact:true}).dblclick();
+    await expect(dialog.getByRole('alert')).toContainText('Conservamos tu borrador');
+    expect(submissions).toHaveLength(1); await expect(text).toHaveValue(comment);
+    expect(await page.locator('body').innerText()).not.toMatch(/PRIVATE_REPORT_ERROR|PRIVATE_EXCEPTION_CANARY/);
+    fail=false; await dialog.getByRole('button',{name:'Enviar aviso',exact:true}).click();
+    await expect(dialog.getByRole('status')).toContainText('Aviso recibido');
+    expect(submissions).toHaveLength(2); expect(submissions[1]).toEqual(submissions[0]);
+    expect(submissions[0]).toMatchObject({requestId,step:'cv-import',route:guest?'/try':'/editor/:cvId',comment});
+    const records = await client.query('select * from problem_report where id=$1',[submissions[0].id]);
+    expect(records.rows).toHaveLength(1); expect(records.rows[0].comment).toBe(comment); expect(records.rows[0].requestId).toBe(requestId);
+    await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    // English entry and keyboard focus remain available in the same app location.
+    await context.addCookies([{name:'lang',value:'en',url:process.env.INTEGRATION_TEST_APP_URL || 'http://127.0.0.1:3100'}]);
+    await page.reload(); await page.getByRole('button',{name:'Did something go wrong?',exact:true}).click();
+    await expect(page.getByRole('dialog',{name:'Did something go wrong?',exact:true})).toContainText('Your comment is optional');
+  } finally {
+    for (const id of Array.from(new Set(submissions.map(value=>value.id)))) await client.query('delete from problem_report where id=$1',[id]);
+    await client.end();
+  }
 });

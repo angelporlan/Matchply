@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, AlertTriangle, Bot, CreditCard, FolderOpen, LayoutDashboard, ScrollText, Users } from 'lucide-react';
+import { Activity, AlertTriangle, Bot, CreditCard, FolderOpen, MessageSquare, LayoutDashboard, ScrollText, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -13,6 +13,7 @@ const ITEMS = [
   { href: '/admin/plans', label: 'Planes', labelEn: 'Plans', icon: CreditCard, match: (path: string) => path.startsWith('/admin/plans') },
   { href: '/admin/traffic', label: 'Tráfico', labelEn: 'Traffic', icon: Activity, match: (path: string) => path.startsWith('/admin/traffic') },
   { href: '/admin/audit', label: 'Auditoría', labelEn: 'Audit', icon: ScrollText, match: (path: string) => path.startsWith('/admin/audit') },
+  { href: '/admin/reports', label: 'Avisos', labelEn: 'Reports', icon: MessageSquare, match: (path: string) => path.startsWith('/admin/reports') },
   { href: '/admin/errors', label: 'Errores', labelEn: 'Errors', icon: AlertTriangle, match: (path: string) => path.startsWith('/admin/errors') },
 ];
 

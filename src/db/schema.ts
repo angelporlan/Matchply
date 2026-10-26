@@ -574,6 +574,19 @@ export const operationalErrors = pgTable('operational_error', {
   createdIdx: index('operational_error_created_idx').on(table.createdAt),
 }));
 
+// Explicit user reports. Free text is private support data, never telemetry or logs.
+export const problemReports = pgTable('problem_report', {
+  id: uuid('id').primaryKey(),
+  requestId: text('requestId'),
+  step: text('step').notNull(),
+  route: text('route').notNull(),
+  comment: text('comment').notNull().default(''),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  requestIdx: index('problem_report_request_idx').on(table.requestId),
+  createdIdx: index('problem_report_created_idx').on(table.createdAt),
+}));
+
 export const supportSessions = pgTable('support_session', {
   id: uuid('id').defaultRandom().primaryKey(),
   actorUserId: uuid('actorUserId').references(() => users.id, { onDelete: 'cascade' }).notNull(),
