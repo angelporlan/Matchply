@@ -1,3 +1,4 @@
+import './full-flow-check';
 import { test, expect } from '@playwright/test';
 import { fixtureId, login, profiles, routes } from './support';
 
@@ -236,6 +237,30 @@ for (const blocked of [false, true]) for (const guest of [true, false]) for (con
     expect(analytics.some(event => event.name === 'cv_imported' && event.data?.method === 'text')).toBe(true);
   }
   expect(JSON.stringify(analytics)).not.toMatch(/QA Candidate|Desarrollo APIs|Buscamos una|jobs\/example|baseCvId|jobDescription|requestId/);
+});
+
+for (const width of [390, 1440]) test(`cold anonymous trial entry hydrates cleanly at ${width}px`, async ({ page, context, baseURL }) => {
+  const database = process.env.INTEGRATION_TEST_DATABASE_URL;
+  if (!database || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('An isolated test database is required');
+  const { createHash } = await import('node:crypto');
+  const { default: pg } = await import('pg');
+  const client = new pg.Client({ connectionString: database }); await client.connect();
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  try {
+    await page.route('**/__analytics-test.js', route => route.fulfill({ contentType: 'application/javascript', body: '/* synthetic analytics */' }));
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/try');
+    const paste = page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true });
+    await expect(paste).toBeEnabled(); await paste.click();
+    await expect(page.getByRole('textbox', { name: 'Tu CV', exact: true })).toBeVisible();
+    expect(errors.filter(error => /hydration|Minified React error #4/i.test(error))).toEqual([]);
+  } finally {
+    const cookie = (await context.cookies(baseURL)).find(item => item.name === 'matchply_guest');
+    if (cookie) await client.query('delete from "user" where "guestTokenHash"=$1', [createHash('sha256').update(cookie.value).digest('hex')]);
+    await client.end();
+  }
 });
 
 test('guest text entry waits for JavaScript readiness instead of losing an early click', async ({ page, context }) => {
