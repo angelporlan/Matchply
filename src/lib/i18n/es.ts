@@ -1,7 +1,7 @@
 import { planTranslations } from './plans';
 
 const es = {
-    cvPhoto: { include: 'Foto en el CV', change: 'Cambiar foto', upload: 'Subir foto', select: 'Seleccionar foto para este CV', portrait: 'Foto del currículum', useAccount: 'Usar foto de la cuenta', missing: 'Tu cuenta no tiene una foto disponible. Sube una para este CV.', saving: 'Guardando foto…', saveError: 'No se pudo guardar el cambio de foto. Vuelve a intentarlo.' },
+    cvPhoto: { readOnly: 'Este CV está en modo lectura. Selecciona un CV activo para cambiar su foto.', inProgress: 'El CV se está generando. Espera a que termine antes de cambiar la foto.', sessionEnded: 'Tu sesión ha terminado. Vuelve a entrar para guardar la foto.', accessError: 'No pudimos validar esta petición. Recarga la página y vuelve a intentarlo.', guestHelp: 'Como invitado puedes añadir una foto a este CV. La foto de cuenta requiere registro.', include: 'Foto en el CV', change: 'Cambiar foto', upload: 'Subir foto', select: 'Seleccionar foto para este CV', portrait: 'Foto del currículum', useAccount: 'Usar foto de la cuenta', missing: 'Tu cuenta no tiene una foto disponible. Sube una para este CV.', saving: 'Guardando foto…', saveError: 'No se pudo guardar el cambio de foto. Vuelve a intentarlo.' },
     accountPhoto: {
       title: 'Foto de perfil',
       upload: 'Subir foto de perfil',

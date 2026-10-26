@@ -1,7 +1,7 @@
 import { planTranslations } from './plans';
 
 const en = {
-    cvPhoto: { include: 'Photo on CV', change: 'Change photo', upload: 'Upload photo', select: 'Select a photo for this CV', portrait: 'CV photo', useAccount: 'Use account photo', missing: 'Your account has no available photo. Upload one for this CV.', saving: 'Saving photo…', saveError: 'Could not save the photo change. Please try again.' },
+    cvPhoto: { readOnly: 'This resume is read-only. Select an active resume to change its photo.', inProgress: 'This resume is being generated. Wait for it to finish before changing the photo.', sessionEnded: 'Your session has ended. Sign in again to save the photo.', accessError: 'We could not verify this request. Reload the page and try again.', guestHelp: 'Guests can add a photo to this resume. An account photo requires registration.', include: 'Photo on CV', change: 'Change photo', upload: 'Upload photo', select: 'Select a photo for this CV', portrait: 'CV photo', useAccount: 'Use account photo', missing: 'Your account has no available photo. Upload one for this CV.', saving: 'Saving photo…', saveError: 'Could not save the photo change. Please try again.' },
     accountPhoto: {
       title: 'Profile photo',
       upload: 'Upload profile photo',

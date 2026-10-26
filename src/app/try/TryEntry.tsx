@@ -33,6 +33,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
   const [showRawText, setShowRawText] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processPending = useRef(false);
   const sourceDraft = useRef<{ id: string; title: string; content: string } | null>(null);
 
   // Form fields state
@@ -94,7 +95,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
 
   /** Procesa la creación del CV. Si skipOffer es true, no adapta con IA y va directo al editor con su CV */
   const handleProcess = async (skipOffer = false) => {
-    if (loading) return;
+    if (loading || processPending.current) return;
     setError(null);
 
     if (!file && !cvText.trim()) {
@@ -105,6 +106,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
 
     const description = skipOffer ? '' : importedOffer?.jobDescription.trim() || '';
 
+    processPending.current = true;
     setLoading(true);
     setLoadingMode(skipOffer || !description ? 'create' : 'adapt');
 
@@ -154,6 +156,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
       router.push(`/editor/${base.cvId}?optimize=true`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('try.entry.errors.generic'));
+      processPending.current = false;
       setLoading(false);
     }
   };

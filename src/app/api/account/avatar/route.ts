@@ -12,6 +12,7 @@ import { AccountSuspendedError, ActorEpochMismatchError, ImpersonationEndedError
 export const dynamic = 'force-dynamic';
 
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+const accountRequired = () => json({ error: 'Inicia sesión o regístrate para cambiar la foto de tu cuenta. Puedes añadir una foto a tu CV como invitado.', code: 'ACCOUNT_REQUIRED' }, 401);
 
 export async function GET(request: Request) {
   try {
@@ -50,7 +51,7 @@ async function readUpload(request: Request) {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAccountContext();
-    if (ctx.realUser.isGuest) return json({ error: 'Unauthorized' }, 401);
+    if (ctx.realUser.isGuest) return accountRequired();
     const protocol = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || request.nextUrl.protocol.slice(0, -1);
     const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || request.nextUrl.host;
     if (request.headers.get('origin') !== new URL(`${protocol}://${host}`).origin || !request.headers.get('content-type')?.startsWith('application/json')) return json({ error: 'Forbidden' }, 403);
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof RateLimitError) return json({ error: 'PHOTO_RATE_LIMIT' }, error.status);
     if (error instanceof SyntaxError || (error instanceof Error && error.message === 'PHOTO_INVALID')) return json({ error: 'PHOTO_INVALID' }, 400);
     if (error instanceof Error && error.message === 'PHOTO_SIZE') return json({ error: 'PHOTO_SIZE' }, 413);
-    if (error instanceof Error && error.message === 'Unauthorized') return json({ error: 'Unauthorized' }, 401);
+    if (error instanceof Error && error.message === 'Unauthorized') return accountRequired();
     log({ event: 'profile_photo_upload_failed', level: 'error' });
     return json({ error: 'PHOTO_SAVE_FAILED' }, 500);
   }

@@ -164,6 +164,8 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   const [aiStep, setAiStep] = useState<string>('');
   const [aiStreamContent, setAiStreamContent] = useState('');
   const [cvContent, setCvContent] = useState(cv.content);
+  const adaptPending = useRef(false);
+  const optimizationRunning = useRef(false);
   const pendingCvRequest = useRef<{ signature: string; id: string } | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStep, setStreamingStep] = useState('');
@@ -173,7 +175,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   const [tipIndex, setTipIndex] = useState(0);
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   const currentVariant = optimization?.variants.find(v => v.modeId === activeMode);
-  const photoControl = useCvPhoto(cv.id, initialPhoto ?? { enabled: false, url: null, source: null }, readOnly || isStreaming || variantBusy);
+  const photoControl = useCvPhoto(cv.id, initialPhoto ?? { enabled: false, url: null, source: null }, readOnly || aiLoading || isStreaming || variantBusy);
   const persistence = useEditorPersistence(cv.id, cv.content, optimization && currentVariant ? { optimizationId: optimization.id, modeId: activeMode, revision: currentVariant.revision } : undefined, setSaveStatus, setStreamingError);
   const onEditorContent = (content: string) => { setReviewContent(content); setCvContent(content); persistence.changed(content); };
   const displayContent = liveGeneration?.content ?? reviewContent;
@@ -324,94 +326,98 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- Recover once per CV mount; changes must not re-admit a job.
 
   const runOptimizeStream = async (params: any) => {
-    params = { ...params, requestId: typeof params.requestId === 'string' ? params.requestId : crypto.randomUUID() };
-    sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-    const proceed = params.jobId ? true : await inspectOrExecutePrompt({
-      action: 'optimize_cv',
-      title: 'Optimización de CV con IA',
-      data: {
-        baseCvMarkdown: params.baseCvMarkdown || cvContent || cv.content,
-        jobDescription: params.jobDescription,
-        promptId: params.promptId,
-        candidateName: params.candidateName,
-        careerProfileContext: params.careerProfileContext,
-      },
-    });
-    if (!proceed) {
-      setSaveStatus('saved');
-      return;
-    }
-
-    setIsStreaming(true);
-    setLiveGeneration({modeId:isOptimizeModeId(params.resumeMode || '') ? params.resumeMode : 'optimize_adapted',content:''});
-    setStreamingError(null);
-    setStreamingRetry(null);
-    setStreamingRequestId(params.requestId);
-    setSaveStatus('saving');
-    setStreamingStep(t('editor.aiModal.steps.keywords'));
-
+    if (optimizationRunning.current) return;
+    optimizationRunning.current = true;
     try {
-      const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id, requestId: params.requestId }), { status: 202 }) : await fetchOptimizationResponse('/api/ai/optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': params.requestId },
-        body: JSON.stringify(params)
+      params = { ...params, requestId: typeof params.requestId === 'string' ? params.requestId : crypto.randomUUID() };
+      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+      const proceed = params.jobId ? true : await inspectOrExecutePrompt({
+        action: 'optimize_cv',
+        title: 'Optimización de CV con IA',
+        data: {
+          baseCvMarkdown: params.baseCvMarkdown || cvContent || cv.content,
+          jobDescription: params.jobDescription,
+          promptId: params.promptId,
+          candidateName: params.candidateName,
+          careerProfileContext: params.careerProfileContext,
+        },
       });
+      if (!proceed) {
+        setSaveStatus('saved');
+        return;
+      }
 
-      if (!response.ok) {
-        const text = await response.text();
-        let problem: unknown = text;
-        try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
-        if (shouldResetAiOperation(problem)) {
-          pendingCvRequest.current = null;
-          delete params.requestId;
+      setIsStreaming(true);
+      setLiveGeneration({modeId:isOptimizeModeId(params.resumeMode || '') ? params.resumeMode : 'optimize_adapted',content:''});
+      setStreamingError(null);
+      setStreamingRetry(null);
+      setStreamingRequestId(params.requestId);
+      setSaveStatus('saving');
+      setStreamingStep(t('editor.aiModal.steps.keywords'));
+
+      try {
+        const response = params.jobId ? new Response(JSON.stringify({ jobId: params.jobId, cvId: params.resultCvId || params.targetCvId || cv.id, requestId: params.requestId }), { status: 202 }) : await fetchOptimizationResponse('/api/ai/optimize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': params.requestId },
+          body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          let problem: unknown = text;
+          try { problem = JSON.parse(text); } catch { /* Legacy errors may be plain text. */ }
+          if (shouldResetAiOperation(problem)) {
+            pendingCvRequest.current = null;
+            delete params.requestId;
+            sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+          }
+          reportPlanRestriction(problem, 'editor-ai');
+          throw new Error(typeof problem === 'object' && problem && 'error' in problem && typeof problem.error === 'string' ? problem.error : t('variants.retryError'));
+        }
+
+        const admission = await response.clone().json();
+        params.jobId = admission.jobId; params.resultCvId = admission.cvId;
+        sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+        const result = await consumeCvOptimization(response, receiveProgress);
+        const refreshed = await fetchOptimizationResponse(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
+        const view = (await refreshed.json()).optimization as CvOptimizationView;
+        if (!refreshed.ok || !view) throw new Error(t('variants.retryError'));
+        const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
+        await finishPreview({modeId:selected.modeId,content:selected.content});
+        if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
+        else {
+          setOptimization(view); setActiveMode(selected.modeId); setCvContent(selected.content); setReviewContent(selected.content);
+          persistence.reset(selected.content, { optimizationId: view.id, modeId: selected.modeId, revision: selected.revision });
+          setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1);
+        }
+        setLiveGeneration(null);
+        setOptimizeProgress(null);
+        setStreamingStep(t('editor.aiModal.steps.success'));
+        setSaveStatus('saved');
+        trackUmamiConversion('cv_optimized');
+        sessionStorage.removeItem('matchply_optimize_params');
+        pendingCvRequest.current = null;
+        // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
+        refreshPlanUsage();
+        router.refresh();
+        setTimeout(() => {
+          setIsStreaming(false);
+        }, 2000);
+
+      } catch (err: any) {
+        setStreamingError(err instanceof CvOptimizationClientError && language === 'en' ? 'The connection or generation was interrupted. Your CV and job offer are safe. Retry to continue.' : err.message || t('variants.retryError'));
+        // Ambiguous delivery must retain the same admission/job IDs. Only an explicit terminal
+        // failure permits a fresh generation; a recovered request must never consume quota twice.
+        if (err instanceof CvOptimizationClientError && err.terminal) {
+          delete params.jobId; delete params.resultCvId; delete params.requestId;
           sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
         }
-        reportPlanRestriction(problem, 'editor-ai');
-        throw new Error(typeof problem === 'object' && problem && 'error' in problem && typeof problem.error === 'string' ? problem.error : t('variants.retryError'));
-      }
-
-      const admission = await response.clone().json();
-      params.jobId = admission.jobId; params.resultCvId = admission.cvId;
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-      const result = await consumeCvOptimization(response, receiveProgress);
-      const refreshed = await fetchOptimizationResponse(`/api/cv/${result.cvId}/optimization`, { cache: 'no-store' });
-      const view = (await refreshed.json()).optimization as CvOptimizationView;
-      if (!refreshed.ok || !view) throw new Error(t('variants.retryError'));
-      const selected = [params.resumeMode, 'optimize_adapted', 'optimize_honest', 'optimize_aggressive'].map(mode => view.variants.find(v => v.modeId === mode && v.status === 'ready')).find(Boolean)!;
-      await finishPreview({modeId:selected.modeId,content:selected.content});
-      if (result.cvId !== cv.id) router.push(`/editor/${result.cvId}`);
-      else {
-        setOptimization(view); setActiveMode(selected.modeId); setCvContent(selected.content); setReviewContent(selected.content);
-        persistence.reset(selected.content, { optimizationId: view.id, modeId: selected.modeId, revision: selected.revision });
-        setPageCount(null); setPageBreaks(null); setContentVersion(v=>v+1);
-      }
-      setLiveGeneration(null);
-      setOptimizeProgress(null);
-      setStreamingStep(t('editor.aiModal.steps.success'));
-      setSaveStatus('saved');
-      trackUmamiConversion('cv_optimized');
-      sessionStorage.removeItem('matchply_optimize_params');
-      pendingCvRequest.current = null;
-      // La API ya revalidó /dashboard en servidor; purgar la caché del router del cliente una sola vez.
-      refreshPlanUsage();
-      router.refresh();
-      setTimeout(() => {
+        setStreamingRetry(() => () => { void runOptimizeStream(params); });
+        setSaveStatus('error');
         setIsStreaming(false);
-      }, 2000);
-
-    } catch (err: any) {
-      setStreamingError(err instanceof CvOptimizationClientError && language === 'en' ? 'The connection or generation was interrupted. Your CV and job offer are safe. Retry to continue.' : err.message || t('variants.retryError'));
-      // Ambiguous delivery must retain the same admission/job IDs. Only an explicit terminal
-      // failure permits a fresh generation; a recovered request must never consume quota twice.
-      if (err instanceof CvOptimizationClientError && err.terminal) {
-        delete params.jobId; delete params.resultCvId; delete params.requestId;
-        sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+        setLiveGeneration(null);
       }
-      setStreamingRetry(() => () => { void runOptimizeStream(params); });
-      setSaveStatus('error');
-      setIsStreaming(false);
-      setLiveGeneration(null);
-    }
+    } finally { optimizationRunning.current = false; }
   };
 
   const runImportStream = async (rawText: string) => {
@@ -593,57 +599,61 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
   // La API reserva y crea el destino antes de generar la nueva versión.
   const handleAiOptimize = async (e?: React.FormEvent, confirmed = false, replacementCvId?: string) => {
     e?.preventDefault();
-    setAiError(null);
-    if (!aiFormData.jobDescription.trim()) {
-      setAiError(t('editor.aiModal.requiredError'));
-      return;
-    }
-    const identity = resolveOfferIdentity({
-      jobTitle: aiFormData.jobTitle,
-      company: aiFormData.company,
-      jobDescription: aiFormData.jobDescription,
-    });
-
-    if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
-    if (!await persistence.flush()) return;
-    if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
-    const allCvs = planUsage?.cv.cvs || cvChoices;
-    const adaptedCount = allCvs.filter(item => !item.isBase).length;
-    if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
-      const choices = allCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
-      if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
-      else reportPlanRestriction({ code: 'CV_LIMIT' }, 'editor-adapt');
-      return;
-    }
-    setAiLoading(true);
-    setAiStep(t('editor.aiModal.steps.keywords'));
-
+    if (adaptPending.current || optimizationRunning.current) return;
+    adaptPending.current = true; setAiLoading(true);
     try {
-      const input = {
-        baseCvId: cv.id,
-        jobTitle: identity.jobTitle,
-        company: identity.company,
-        url: aiFormData.url,
-        platform: aiFormData.platform,
+      setAiError(null);
+      if (!aiFormData.jobDescription.trim()) {
+        setAiError(t('editor.aiModal.requiredError'));
+        return;
+      }
+      const identity = resolveOfferIdentity({
+        jobTitle: aiFormData.jobTitle,
+        company: aiFormData.company,
         jobDescription: aiFormData.jobDescription,
-        promptId: aiFormData.promptId,
-        addToApplications: aiFormData.addToApplications === 'true',
-        ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
-        confirmOverwrite: confirmed,
-      };
-      const signature = JSON.stringify(input);
-      if (pendingCvRequest.current?.signature !== signature) pendingCvRequest.current = { signature, id: crypto.randomUUID() };
-      const params = { ...input, requestId: pendingCvRequest.current.id };
-      trackUmamiConversion('offer_pasted');
-      sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
-      setIsAiOpen(false);
-      await runOptimizeStream(params);
-      setAiLoading(false);
+      });
 
-    } catch (err: any) {
-      setAiError(err.message || t('dashboard.errors.unexpected'));
-      setAiLoading(false);
-    }
+      if (readOnly) { reportPlanRestriction({ code: 'CV_READ_ONLY' }, 'editor-adapt'); return; }
+      if (!await persistence.flush()) return;
+      if (isQuotaExhausted(planUsage?.usage.general)) { reportPlanRestriction({ code: 'QUOTA_EXCEEDED', bucket: 'general' }, 'editor-adapt'); return; }
+      const allCvs = planUsage?.cv.cvs || cvChoices;
+      const adaptedCount = allCvs.filter(item => !item.isBase).length;
+      if (!replacementCvId && planUsage && ((planUsage.limits.maxAdaptedCvs !== null && adaptedCount >= planUsage.limits.maxAdaptedCvs) || (planUsage.limits.maxCvs !== null && planUsage.cv.total >= planUsage.limits.maxCvs))) {
+        const choices = allCvs.filter(item => !item.isBase && planUsage.cv.activeIds.includes(item.id));
+        if (choices.length) setReplacement({ choices, retry: id => { void handleAiOptimize(undefined, true, id); } });
+        else reportPlanRestriction({ code: 'CV_LIMIT' }, 'editor-adapt');
+        return;
+      }
+      setAiLoading(true);
+      setAiStep(t('editor.aiModal.steps.keywords'));
+
+      try {
+        const input = {
+          baseCvId: cv.id,
+          jobTitle: identity.jobTitle,
+          company: identity.company,
+          url: aiFormData.url,
+          platform: aiFormData.platform,
+          jobDescription: aiFormData.jobDescription,
+          promptId: aiFormData.promptId,
+          addToApplications: aiFormData.addToApplications === 'true',
+          ...(replacementCvId ? { targetCvId: replacementCvId } : {}),
+          confirmOverwrite: confirmed,
+        };
+        const signature = JSON.stringify(input);
+        if (pendingCvRequest.current?.signature !== signature) pendingCvRequest.current = { signature, id: crypto.randomUUID() };
+        const params = { ...input, requestId: pendingCvRequest.current.id };
+        trackUmamiConversion('offer_pasted');
+        sessionStorage.setItem('matchply_optimize_params', JSON.stringify(params));
+        setIsAiOpen(false);
+        await runOptimizeStream(params);
+        setAiLoading(false);
+
+      } catch (err: any) {
+        setAiError(err.message || t('dashboard.errors.unexpected'));
+        setAiLoading(false);
+      }
+    } finally { adaptPending.current = false; setAiLoading(false); }
   };
 
   const showDocument = (isLg || mobilePane === 'document') && surface === 'document';
@@ -765,7 +775,7 @@ function EditorContent({ cv, initialPhoto, isPremium, availablePrompts, baseCvCo
       </header>
 
       {!readOnly && <EditorFormatBar
-        photoControl={<CvPhotoControl control={photoControl} />}
+        photoControl={<CvPhotoControl control={photoControl} isGuest={isGuest} />}
         fontFamily={fontFamily}
         pageMargin={pageMargin}
         scale={scale}
