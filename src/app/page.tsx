@@ -63,7 +63,6 @@ export default async function LandingPage() {
               <LandingCtaLink href={freeHref} className={ctaClass}>{freeLabel}<ArrowRight className="h-5 w-5 shrink-0" aria-hidden="true" /></LandingCtaLink>
               <p className="mt-4 text-sm leading-6 text-text-muted">{isLoggedIn ? copy.hero.accountReassurance : copy.hero.reassurance}</p>
             </div>
-            <p className="mt-7 flex flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-subtle pt-5 text-sm text-text-muted"><span>{copy.hero.priceStart} {copy.hero.pricePro}</span><strong className="font-display text-2xl font-semibold text-text">{language === 'es' ? '10 €' : '€10'}<span className="text-base font-medium">{copy.hero.pricePeriod}</span></strong></p>
           </div>
           <div className="min-w-0"><LandingDemo language={language} /></div>
         </section>
