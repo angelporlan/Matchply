@@ -229,8 +229,8 @@ test('guest text entry waits for JavaScript readiness instead of losing an early
 });
 
 test('editor disables adaptation during save preflight and admits a double submission once', async ({ page, context }) => {
-  await login(context);
-  const cvId = fixtureId('medium:cv:1');
+  await login(context, 'small');
+  const cvId = fixtureId('small:cv:0');
   await page.goto(`/editor/${cvId}`);
   await page.getByTitle('Ver editor Markdown', { exact: true }).click();
   const source = page.locator('textarea').first();
