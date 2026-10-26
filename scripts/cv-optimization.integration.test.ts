@@ -84,6 +84,35 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       assert.equal(source.content, cv);
       assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used, 1);
     });
+    await t.test('another offer resolves the owned original through legacy adaptations and stops on missing sources', async () => {
+      const u = await user();
+      await db.update(users).set({ subscriptionStatus: 'active' }).where(eq(users.id, u.id));
+      const first = await service.enqueueCvOptimization(u.id, { ...input(u.source.id), addToApplications: false });
+      const job = await queue.claimAiJobById(first.jobId); assert.ok(job);
+      await service.processCvOptimization(job, new AbortController().signal, call);
+      await db.update(cvs).set({ content: cv + '\nOnly for the first offer.' }).where(eq(cvs.id, first.cvId));
+      // Older editor versions admitted the already tailored CV as the next source.
+      const second = await service.enqueueCvOptimization(u.id, { ...input(first.cvId), addToApplications: false });
+      const secondJob = await queue.claimAiJobById(second.jobId); assert.ok(secondJob);
+      await service.processCvOptimization(secondJob, new AbortController().signal, call);
+      assert.deepEqual(await service.getOriginalCvSource(u.id, second.cvId), { id: u.source.id, content: cv });
+      const stranger = await user();
+      assert.equal(await service.getOriginalCvSource(stranger.id, second.cvId), null);
+      const source = (await service.getOriginalCvSource(u.id, second.cvId))!;
+      const third = await service.enqueueCvOptimization(u.id, { ...input(source.id), addToApplications: false });
+      const thirdJob = await queue.claimAiJobById(third.jobId); assert.ok(thirdJob);
+      await service.processCvOptimization(thirdJob, new AbortController().signal, call);
+      assert.equal((await service.getCvOptimizationView(u.id, third.cvId))?.sourceMarkdown, cv);
+      assert.equal((await db.select({ content: cvs.content }).from(cvs).where(eq(cvs.id, first.cvId)))[0].content, cv + '\nOnly for the first offer.');
+      const [run] = await db.select({ optimizationId: cvs.optimizationId }).from(cvs).where(eq(cvs.id, second.cvId));
+      await db.update(cvOptimizations).set({ sourceCvId: stranger.source.id }).where(eq(cvOptimizations.id, run.optimizationId!));
+      assert.equal(await service.getOriginalCvSource(u.id, second.cvId), null);
+      await db.update(cvOptimizations).set({ sourceCvId: second.cvId }).where(eq(cvOptimizations.id, run.optimizationId!));
+      assert.equal(await service.getOriginalCvSource(u.id, second.cvId), null);
+      await db.update(cvOptimizations).set({ sourceCvId: first.cvId }).where(eq(cvOptimizations.id, run.optimizationId!));
+      await db.delete(cvs).where(eq(cvs.id, u.source.id));
+      assert.equal(await service.getOriginalCvSource(u.id, second.cvId), null);
+    });
     await t.test('Balanced first; one on-demand mode reuses analysis, quota and sources; revisions isolate saves', async () => {
       const u = await user(); const params = input(u.source.id);
       const [a,b] = await Promise.all([service.enqueueCvOptimization(u.id,params), service.enqueueCvOptimization(u.id,params)]); assert.deepEqual(a,b);

@@ -1323,6 +1323,7 @@ const en = {
         saving: 'Saving changes...',
         error: 'Connection error',
       },
+      repeatOffer: { title: 'Tailor to another job', help: 'We will reuse your original resume. Add the link or paste the new job description.', missingBase: 'The original resume is no longer available. Choose or import a base resume in your dashboard.' },
       aiModal: {
         title: 'Smart AI Optimization',
         subtitle: 'We will adapt a copy of this resume to match the exact requirements of the job offer.',

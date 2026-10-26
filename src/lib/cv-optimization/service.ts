@@ -242,6 +242,29 @@ export async function failCvOptimization(tx: PlanDb, job: AiJob) {
   await releaseUsage(tx, job.usageOperationId!);
 }
 
+/** Follow owned optimization sources, including CVs adapted by older editor versions.
+ * A deleted source or corrupt/cyclic lineage must not silently become the tailored CV. */
+export async function getOriginalCvSource(userId: string, cvId: string): Promise<{ id: string; content: string } | null> {
+  const seen = new Set<string>();
+  let currentId = cvId;
+  for (let depth = 0; depth < 16 && !seen.has(currentId); depth++) {
+    seen.add(currentId);
+    const [current] = await db.select({ id: cvs.id, optimizationId: cvs.optimizationId }).from(cvs)
+      .where(and(eq(cvs.id, currentId), eq(cvs.userId, userId))).limit(1);
+    if (!current) return null;
+    if (!current.optimizationId) {
+      const [source] = await db.select({ id: cvs.id, content: cvs.content }).from(cvs)
+        .where(and(eq(cvs.id, currentId), eq(cvs.userId, userId))).limit(1);
+      return source || null;
+    }
+    const [run] = await db.select({ sourceCvId: cvOptimizations.sourceCvId }).from(cvOptimizations)
+      .where(and(eq(cvOptimizations.id, current.optimizationId), eq(cvOptimizations.userId, userId), eq(cvOptimizations.cvId, currentId))).limit(1);
+    if (!run?.sourceCvId) return null;
+    currentId = run.sourceCvId;
+  }
+  return null;
+}
+
 export async function getCvOptimizationView(userId: string, cvId: string): Promise<CvOptimizationView | null> {
   const [cv] = await db.select({ optimizationId: cvs.optimizationId }).from(cvs).where(and(eq(cvs.id, cvId), eq(cvs.userId, userId))).limit(1);
   if (!cv?.optimizationId) return null;

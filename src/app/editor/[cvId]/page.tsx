@@ -9,7 +9,7 @@ import { getActor } from '@/lib/actor';
 import { AccountSuspendedError } from '@/lib/request-errors';
 import { guestHasPdfDownloadRemaining } from '@/lib/guest-pdf';
 import { publicOptimizeModes } from '@/lib/optimize-modes';
-import { getCvOptimizationView } from '@/lib/cv-optimization/service';
+import { getCvOptimizationView, getOriginalCvSource } from '@/lib/cv-optimization/service';
 import type { OptimizeJobPayload } from '@/lib/cv-optimization/types';
 import { getCvPhotoState } from '@/lib/cv-photo';
 
@@ -50,14 +50,20 @@ export default async function EditorPage({ params, searchParams }: EditorPagePro
     .where(and(eq(aiJobs.userId, userId), eq(aiJobs.kind, 'optimize_cv_variants'), or(eq(aiJobs.status,'queued'),eq(aiJobs.status,'running')),
       cv.pendingUsageOperationId ? eq(aiJobs.usageOperationId,cv.pendingUsageOperationId) : sql`${aiJobs.payload}->>'optimizationId' = ${cv.optimizationId}`)).orderBy(desc(aiJobs.createdAt)).limit(1) : [];
 
+  let baseCvId: string | null = cv.isBase ? cv.id : null;
   let baseCvContent: string | null = null;
-  if (!cv.isBase) {
+  if (optimization) {
+    const source = await getOriginalCvSource(userId, cvId);
+    baseCvId = source?.id || null;
+    baseCvContent = source?.content || null;
+  } else if (!cv.isBase) {
     const [baseCv] = await db
-      .select({ content: cvs.content })
+      .select({ id: cvs.id, content: cvs.content })
       .from(cvs)
       .where(and(eq(cvs.userId, userId), eq(cvs.isBase, true)))
       .orderBy(desc(cvs.isPrincipal), desc(cvs.createdAt))
       .limit(1);
+    baseCvId = baseCv?.id || null;
     baseCvContent = baseCv?.content || null;
   }
 
@@ -102,6 +108,7 @@ export default async function EditorPage({ params, searchParams }: EditorPagePro
       isPremium={isPremium}
       availablePrompts={availablePrompts || []}
       baseCvContent={baseCvContent}
+      baseCvId={baseCvId}
       user={user}
       isGuest={isGuest}
       guestCanDownloadPdf={guestCanDownloadPdf}
