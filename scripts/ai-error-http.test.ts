@@ -60,7 +60,7 @@ test('job HTTP responses hide legacy provider details for authenticated and gues
       assert.equal(blockedBody.errorCode, 'OFFER_PORTAL_BLOCKED');
       assert.doesNotMatch(blockedBody.lastError, /API_KEY|403|401|Forbidden/);
       const form = new FormData();
-      form.append('file', new Blob(['not a PDF'], { type: 'application/pdf' }), 'unreadable.pdf');
+      form.append('file', new Blob(['%PDF-1.7\ncorrupted'], { type: 'application/pdf' }), 'unreadable.pdf');
       const invalidPdf = await request('/api/cv/parse-pdf', { method: 'POST', body: form });
       assert.equal(invalidPdf.status, 500);
       const problem = await invalidPdf.json();

@@ -1,5 +1,6 @@
 "use client";
 
+import { renderSafeMarkdownLink } from '@/lib/safe-html';
 import { useState, useEffect, useRef, useDeferredValue, useMemo } from 'react';
 import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
@@ -171,7 +172,7 @@ function parseInline(text: string): string {
     .replace(/>/g, '&gt;');
 
   // Markdown links: [text](url)
-  escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-subtle hover:text-ai">$1</a>');
+  escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => renderSafeMarkdownLink(label, href));
 
   // Bold-Italic: ***text***
   escaped = escaped.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');

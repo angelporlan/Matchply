@@ -1,3 +1,4 @@
+import { cleanInputText, inputSafetyResponse, readPdfFile, readSafeForm } from '@/lib/input-safety';
 import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { AI_PUBLIC_ERROR, publicAiFailure } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
@@ -34,18 +35,19 @@ export async function POST(req: NextRequest) {
     if (!actor) return new NextResponse('Unauthorized', { status: 401 });
     userId = actor.userId;
     consumeProductSession(userId, 'cvImport');
-    const form = await req.formData();
+    const form = await readSafeForm(req);
     const file = form.get('file') as File | null;
     const rawText = form.get('text');
     const targetCvId = typeof form.get('targetCvId') === 'string' ? form.get('targetCvId') as string : undefined;
     const confirmOverwrite = form.get('confirmOverwrite') === 'true';
     let text = '', title = 'Mi Currículum Base';
     if (file) {
-      if (typeof file.arrayBuffer !== 'function' || file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'El PDF debe ocupar como máximo 10 MB.' }, { status: 413 });
-      title = file.name.replace(/\.[^/.]+$/, '');
-      try { text = (await pdf(Buffer.from(await file.arrayBuffer()))).text || ''; }
+      const bytes = await readPdfFile(file);
+      title = file.name.replace(/\.[^/.]+$/, '').slice(0, 200);
+      try { text = (await pdf(bytes)).text || ''; }
       catch { return NextResponse.json({ error: 'No se pudo leer el archivo PDF. Intenta pegar el texto.' }, { status: 400 }); }
     } else if (typeof rawText === 'string') text = rawText;
+    text = cleanInputText(text);
     if (!text.trim()) return NextResponse.json({ error: 'Añade un PDF o el texto de tu currículum.' }, { status: 400 });
     const operation = await beginUsage(userId, { bucket: 'general', action: 'import_cv', requestId: aiRequestId(req, form.get('requestId')),
       input: { textHash: usageInputHash(text), title, targetCvId: targetCvId || null, confirmOverwrite },
@@ -99,6 +101,7 @@ export async function POST(req: NextRequest) {
     return new Response(response, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no' } });
   } catch (error) {
     await cleanup();
+    const inputResponse = inputSafetyResponse(error); if (inputResponse) return inputResponse;
     const response = aiUsageErrorResponse(error); if (response) return response;
     log({ event: 'cv_import_failed', level: 'error', userId: userId || undefined, error });
     return NextResponse.json(publicAiFailure(), { status: 500 });

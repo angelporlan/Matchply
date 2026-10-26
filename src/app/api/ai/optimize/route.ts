@@ -1,3 +1,4 @@
+import { cleanInputText, inputSafetyResponse, readSafeJson } from '@/lib/input-safety';
 import { RateLimitError } from '@/lib/rate-limit';
 import { checkProductIp, consumeProductSession } from '@/lib/product-rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,9 +16,9 @@ export async function POST(req: NextRequest) {
     const actor = await getActor({ allowGuest: true });
     if (!actor) throw new AiUsageHttpError(401, 'AUTH_REQUIRED', 'Tu sesión ha terminado. Vuelve a entrar para continuar.');
     consumeProductSession(actor.userId, 'optimize');
-    const body = await req.json();
+    const body = await readSafeJson(req);
     requestId = aiRequestId(req, body.requestId);
-    const description = typeof body.jobDescription === 'string' ? body.jobDescription.trim() : '';
+    const description = typeof body.jobDescription === 'string' ? cleanInputText(body.jobDescription) : '';
     const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
     if (typeof body.baseCvId !== 'string' || !uuid.test(body.baseCvId) || !description || description.length > 120_000 || (body.targetCvId && !uuid.test(body.targetCvId)) || (body.jobOfferId && !uuid.test(body.jobOfferId))) throw new AiUsageHttpError(400, 'INVALID_OPTIMIZE_INPUT', 'Selecciona un CV y una oferta válidos.');
     const identity = resolveOfferIdentity({ jobTitle: typeof body.jobTitle === 'string' ? body.jobTitle : '', company: typeof body.company === 'string' ? body.company : '', jobDescription: description });
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     log({ event: 'cv_optimize_admitted', requestId, jobId: result.jobId, userId: actor.userId, route: '/api/ai/optimize' });
     return NextResponse.json({ ...result, requestId }, { status: 202, headers: { 'Cache-Control': 'no-store', 'x-request-id': requestId } });
   } catch (error) {
+    const inputResponse = inputSafetyResponse(error); if (inputResponse) { inputResponse.headers.set('x-request-id', requestId); return inputResponse; }
     if (!(error instanceof RateLimitError)) log({ event: 'cv_optimize_admission_failed', requestId, route: '/api/ai/optimize', level: 'error', error });
     const response = aiUsageErrorResponse(error);
     if (response) { response.headers.set('x-request-id', requestId); return response; }
