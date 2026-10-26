@@ -1,5 +1,5 @@
 'use client';
-import { userErrorMessage } from '@/lib/user-errors';
+import { userError, userErrorMessage } from '@/lib/user-errors';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -133,6 +133,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
       }
       const base = await createTryBaseCv(sourceDraft.current);
       if (!base.success || !base.cvId) throw new Error(base.error || t('try.entry.errors.generic'));
+      trackUmamiConversion('cv_imported', { method: file ? 'pdf' : 'text' }, sourceDraft.current.id);
 
       // Si se salta la oferta: va directo al editor con su CV base
       if (skipOffer || !description) {
@@ -143,7 +144,6 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
 
       // Si hay oferta: adapta el CV con la IA
       const identity = importedOffer!;
-      trackUmamiConversion('offer_pasted');
       sessionStorage.setItem('matchply_optimize_params', JSON.stringify({
         baseCvId: base.cvId,
         requestId: crypto.randomUUID(),
@@ -156,6 +156,7 @@ export default function TryEntry({ extensionStoreUrl = null }: { extensionStoreU
       }));
       router.push(`/editor/${base.cvId}?optimize=true`);
     } catch (err: unknown) {
+      trackUmamiConversion('cv_import_failed', { method: file ? 'pdf' : 'text', error_code: userError(err, language, 'CV_IMPORT_FAILED').code });
       setError(userErrorMessage(err, language, 'CV_IMPORT_FAILED'));
       processPending.current = false;
       setLoading(false);

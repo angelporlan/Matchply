@@ -1,6 +1,19 @@
 import { test, expect } from '@playwright/test';
 import { fixtureId, login, profiles, routes } from './support';
 
+async function captureFunnel(page: import('@playwright/test').Page) {
+  const events: Array<{ name?: string; data?: Record<string, unknown>; url?: string }> = [];
+  await page.exposeFunction('captureSyntheticFunnel', (event: typeof events[number]) => { events.push(event); });
+  await page.addInitScript(() => {
+    Object.assign(window, { umami: { track: (transform: (base: Record<string, unknown>) => unknown) => {
+      const capture = (window as unknown as { captureSyntheticFunnel: (event: unknown) => void }).captureSyntheticFunnel;
+      capture(transform({ website: '11111111-2222-4333-a444-555555555555', hostname: '127.0.0.1' }));
+    } } });
+  });
+  await page.route('**/__analytics-test.js', route => route.fulfill({ contentType: 'application/javascript', body: '/* isolated synthetic analytics */' }));
+  return events;
+}
+
 for (const profile of profiles) test(`authenticated lightweight pages: ${profile}`, async ({ page, context }) => {
   await login(context, profile);
   const hydration: string[] = [];
@@ -106,6 +119,7 @@ test('user isolation and mobile/English/dark navigation', async ({ browser }) =>
 });
 
 for (const width of [1440, 390]) test(`optimization retry recovers the same admitted job at ${width}px`, async ({ page, context }) => {
+  const analytics = await captureFunnel(page);
   await login(context);
   await page.setViewportSize({ width, height: 900 });
   const cvId = fixtureId('medium:cv:1');
@@ -139,9 +153,13 @@ for (const width of [1440, 390]) test(`optimization retry recovers the same admi
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
   expect(admissions).toBe(0);
   expect(polls).toBe(4);
+  await expect.poll(() => analytics.filter(event => event.name === 'cv_optimized').length).toBe(1);
+  expect(analytics.filter(event => event.name === 'cv_optimization_started')).toHaveLength(1);
+  expect(analytics).toContainEqual(expect.objectContaining({ name: 'cv_optimization_failed', data: { mode: 'optimize_adapted', error_code: 'OPTIMIZATION_CONNECTION_LOST' } }));
 });
 
 for (const blocked of [false, true]) for (const guest of [true, false]) for (const width of [1440, 390]) test(`${blocked ? 'blocked portal to pasted offer' : 'pasted offer without URL'}: ${guest ? 'guest' : 'registered'} at ${width}px`, async ({ page, context }) => {
+  const analytics = await captureFunnel(page);
   await page.setViewportSize({ width, height: 900 });
   if (!guest) await login(context);
   const content = '# QA Candidate\n\n## Perfil Profesional\nDesarrollo APIs con Python y pruebas automatizadas.';
@@ -208,6 +226,16 @@ for (const blocked of [false, true]) for (const guest of [true, false]) for (con
   expect(imports).toBe(blocked ? 1 : 0);
   await expect(page).toHaveURL(/\/editor\//);
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('matchply_optimize_params'))).toBeNull();
+  await expect.poll(() => analytics.filter(event => event.name === 'cv_optimized').length).toBe(1);
+  expect(analytics.filter(event => event.name === 'cv_optimization_started')).toHaveLength(1);
+  expect(analytics.some(event => event.name === 'offer_pasted' && event.data?.method === 'paste')).toBe(true);
+  expect(analytics.some(event => event.name === 'offer_imported')).toBe(false);
+  if (blocked) expect(analytics).toContainEqual(expect.objectContaining({ name: 'offer_import_failed', data: { method: 'url', domain: 'jobs.hiringroom.com', error_code: 'OFFER_PORTAL_BLOCKED' } }));
+  if (guest) {
+    expect(analytics.some(event => event.name === 'trial_started')).toBe(true);
+    expect(analytics.some(event => event.name === 'cv_imported' && event.data?.method === 'text')).toBe(true);
+  }
+  expect(JSON.stringify(analytics)).not.toMatch(/QA Candidate|Desarrollo APIs|Buscamos una|jobs\/example|baseCvId|jobDescription|requestId/);
 });
 
 test('guest text entry waits for JavaScript readiness instead of losing an early click', async ({ page, context }) => {
@@ -270,6 +298,7 @@ test('editor disables adaptation during save preflight and admits a double submi
 });
 
 test('a failed PDF download shows a safe retry action and a later attempt succeeds', async ({ page, context }) => {
+  const analytics = await captureFunnel(page);
   await login(context, 'large');
   await page.goto(`/editor/${fixtureId('large:cv:0')}`);
   let attempts = 0;
@@ -283,9 +312,32 @@ test('a failed PDF download shows a safe retry action and a later attempt succee
   await expect(error).toContainText('vuelve a pulsar Descargar PDF');
   await expect(page.locator('body')).not.toContainText('sk-client-canary');
   await expect(page.locator('body')).not.toContainText('RAW_PROVIDER_RESPONSE');
+  expect(analytics.some(event => event.name === 'cv_downloaded')).toBe(false);
   const download = page.waitForEvent('download');
   await button.click();
   expect((await download).suggestedFilename()).toMatch(/\.pdf$/i);
   await expect(error).toBeHidden();
   expect(attempts).toBe(2);
+  await expect.poll(() => analytics.filter(event => event.name === 'cv_downloaded').length).toBe(1);
+});
+
+test('landing and successful URL import emit safe funnel events with the actual method', async ({ page }) => {
+  const analytics = await captureFunnel(page);
+  await page.goto('/');
+  await expect.poll(() => analytics.filter(event => event.name === 'landing_viewed').length).toBe(1);
+  await page.goto('/try');
+  await page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Tu CV', exact: true }).fill('# Synthetic candidate\n\nAPI development with Python and automated tests.');
+  await page.getByRole('button', { name: 'Continuar al paso 2 (añadir oferta)', exact: true }).click();
+  await page.route('**/api/ai/offers/import', route => route.fulfill({ status: 202, json: { jobId: 'funnel-url-job' } }));
+  await page.route('**/api/ai/jobs/funnel-url-job', route => route.fulfill({ json: { status: 'completed', result: {
+    jobTitle: 'Synthetic role', company: 'Synthetic company', platform: 'linkedin', url: 'https://www.linkedin.com/jobs/view/123?token=private-canary',
+    jobDescription: 'Buscamos una desarrolladora de APIs con Python y pruebas automatizadas, experiencia en bases de datos y colaboración en equipo.', sources: [],
+  } } }));
+  await page.getByRole('textbox', { name: 'Enlace a la oferta', exact: true }).fill('https://www.linkedin.com/jobs/view/123?token=private-canary');
+  await page.getByRole('button', { name: 'Importar oferta', exact: true }).click();
+  await expect.poll(() => analytics.filter(event => event.name === 'offer_imported').length).toBe(1);
+  expect(analytics).toContainEqual(expect.objectContaining({ name: 'offer_imported', data: { method: 'url', domain: 'linkedin.com' } }));
+  expect(analytics.some(event => event.name === 'offer_pasted')).toBe(false);
+  expect(JSON.stringify(analytics)).not.toMatch(/private-canary|Synthetic candidate|Synthetic role|Synthetic company|jobs\/view/);
 });
