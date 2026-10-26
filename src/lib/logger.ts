@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { getAiUsageContext } from './ai-usage-context';
 
 export type LogLevel = 'info' | 'warn' | 'error';
 
@@ -39,8 +40,8 @@ export function log(fields: LogFields) {
   const payload = {
     ts: new Date().toISOString(),
     level,
-    requestId: rest.requestId || readRequestId(),
     ...rest,
+    requestId: rest.requestId || getAiUsageContext()?.requestId || readRequestId(),
     ...(error !== undefined ? { error: serializeError(error) } : {}),
   };
   const line = JSON.stringify(payload, replacer);

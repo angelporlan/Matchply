@@ -3,6 +3,7 @@ import { recordAiRunStat } from '@/lib/ai-run-stats';
 import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
 import { CvOptimizationError } from './validation';
 import { readCvAiStream } from './stream';
+import { log } from '@/lib/logger';
 
 /** Shared transport for analysis, generation and repair. Timeout covers the body too. */
 export async function callCvAi(ref: AiModelRef, system: string, user: string, temperature: number, signal: AbortSignal, mode: string, plan: string, onContent?: (content: string) => Promise<void>): Promise<string> {
@@ -57,7 +58,9 @@ export async function callCvAi(ref: AiModelRef, system: string, user: string, te
     void recordAiRunStat({ functionKey: `optimize_cv:${mode}`, ...ref, plan, success: true, latencyMs: Date.now()-started, inputTokens, outputTokens });
     return result.trim();
   } catch (error) {
-    const failure = error instanceof CvOptimizationError ? error : new CvOptimizationError(signal.aborted ? 'AI_CANCELLED' : 'AI_UNAVAILABLE', !signal.aborted);
+    const failure = error instanceof CvOptimizationError ? error : new CvOptimizationError(signal.aborted ? 'AI_CANCELLED' : controller.signal.aborted ? 'AI_TIMEOUT' : error instanceof SyntaxError ? 'AI_INVALID_RESPONSE' : 'AI_NETWORK_ERROR', !signal.aborted);
+    log({ event: 'cv_ai_request_failed', level: 'warn', provider: ref.provider, model: ref.model, phase: mode,
+      errorCode: failure.code, retryable: failure.retryable, durationMs: Date.now() - started });
     void recordAiRunStat({ functionKey: `optimize_cv:${mode}`, ...ref, plan, success: false, latencyMs: Date.now()-started, errorCode: failure.code });
     throw failure;
   } finally { clearTimeout(timeout); signal.removeEventListener('abort', abort); }

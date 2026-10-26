@@ -184,7 +184,7 @@ export async function processCvOptimization(job: AiJob, signal: AbortSignal, cal
       log({event:'cv_variant_generation_completed',jobId:job.id,modeId:mode,durationMs:Date.now()-started});
     } catch (error) {
       const failure = error instanceof CvOptimizationError ? error : new CvOptimizationError('AI_UNAVAILABLE', true);
-      log({event:'cv_variant_generation_failed',level:'warn',jobId:job.id,modeId:mode,durationMs:Date.now()-started,errorCode:failure.code});
+      log({event:'cv_variant_generation_failed',level:'warn',requestId:payload.requestId,jobId:job.id,modeId:mode,attempt:job.attempt,durationMs:Date.now()-started,errorCode:failure.code});
       if (failure.code === 'OPTIMIZATION_LEASE_LOST' || failure.code === 'STALE_OPTIMIZATION' || signal.aborted) throw failure;
       if (failure.retryable && job.attempt < 3) transient = failure;
       await checkpoint(job, async tx => { await tx.update(cvVariants).set({ content: '', status: failure.retryable && job.attempt < 3 ? 'pending' : 'error', error: failure.code, updatedAt: new Date() }).where(modeFilter(run.id, mode)); });

@@ -39,7 +39,8 @@ export async function processAiJob(job: AiJob) {
   const snapshot = job.resolvedAiConfig
     ? parseAiRuntimeConfig(job.resolvedAiConfig)
     : await getResolvedAiRuntime();
-  return withAiUsageContext({ userId: job.userId, jobId: job.id, functionKey: job.kind }, () => bindAiRuntime(snapshot, async () => {
+  const requestId = job.payload && typeof job.payload === 'object' && 'requestId' in job.payload && typeof job.payload.requestId === 'string' ? job.payload.requestId : job.id;
+  return withAiUsageContext({ userId: job.userId, jobId: job.id, requestId, functionKey: job.kind }, () => bindAiRuntime(snapshot, async () => {
   let renewing = false;
   const importController = new AbortController();
   const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(job.kind) ? setInterval(() => {
