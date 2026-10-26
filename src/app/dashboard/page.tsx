@@ -1,3 +1,4 @@
+import { chromeExtensionStoreUrl } from '@/lib/chrome-extension-store';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { cvs, jobOffers } from '@/db/schema';
@@ -48,6 +49,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
 
         {/* Sección de Currículums */}
         <DashboardClient
+          extensionStoreUrl={chromeExtensionStoreUrl(process.env.CHROME_EXTENSION_STORE_URL)}
           initialCvs={userCvs}
           returnOfferId={returnOffer?.id}
           importOfferMissing={searchParams?.importReturn === 'missing' || (searchParams?.importCv === '1' && !returnOffer)}

@@ -82,7 +82,7 @@ function GuideDialog({ onClose, storeUrl }: { onClose: () => void; storeUrl: str
   );
 }
 
-export default function LinkedInExtensionGuide({ storeUrl = null }: { storeUrl?: string | null }) {
+export default function LinkedInExtensionGuide({ storeUrl = null, label }: { storeUrl?: string | null; label?: string }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useLanguage();
@@ -97,7 +97,7 @@ export default function LinkedInExtensionGuide({ storeUrl = null }: { storeUrl?:
       <Button ref={trigger} type="button" variant="ghost" onClick={() => setOpen(true)}
         aria-label={t('applications.extensionGuide.trigger')} title={t('applications.extensionGuide.trigger')}
         aria-haspopup="dialog" className="min-w-11 shrink-0 px-2">
-        <Puzzle className="h-5 w-5" aria-hidden="true" />
+        <Puzzle className="h-5 w-5" aria-hidden="true" />{label}
       </Button>
       {open && <GuideDialog onClose={close} storeUrl={storeUrl} />}
     </>

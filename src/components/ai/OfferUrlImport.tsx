@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { normalizeOfferUrl, usableOfferDescription, type ImportedOffer, type OfferImportStage } from '@/lib/offer-import/types';
 import { manualOffer } from '@/lib/offer-import/manual';
+import LinkedInExtensionGuide from '@/components/applications/LinkedInExtensionGuide';
 
 const wait = (signal: AbortSignal) => new Promise<void>((resolve, reject) => {
   const done = () => { signal.removeEventListener('abort', abort); resolve(); };
@@ -18,10 +19,11 @@ const wait = (signal: AbortSignal) => new Promise<void>((resolve, reject) => {
   if (signal.aborted) abort();
 });
 
-export default function OfferUrlImport({ value, onChange, disabled = false }: {
+export default function OfferUrlImport({ value, onChange, disabled = false, extensionStoreUrl = null }: {
   value: ImportedOffer | null;
   onChange: (offer: ImportedOffer | null) => void;
   disabled?: boolean;
+  extensionStoreUrl?: string | null;
 }) {
   const { t } = useLanguage();
   const id = useId();
@@ -30,11 +32,13 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const [manualText, setManualText] = useState('');
+  const manualInput = useRef<HTMLTextAreaElement>(null);
   const active = useRef<AbortController | null>(null);
   const request = useRef<{ url: string; id: string } | null>(null);
   const observing = stage !== null;
 
   useEffect(() => () => { active.current?.abort(); }, []);
+  useEffect(() => { if (manual) manualInput.current?.focus(); }, [manual]);
 
   const changeUrl = (next: string) => {
     active.current?.abort();
@@ -53,6 +57,8 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
     active.current = controller;
     const signal = controller.signal;
     if (!request.current || request.current.url !== normalized) request.current = { url: normalized, id: crypto.randomUUID() };
+    const draft = manualText || value?.jobDescription || '';
+    setManualText(draft);
     setStage('reading'); setError(null); setManual(false); onChange(null);
     try {
       const response = await fetch('/api/ai/offers/import', {
@@ -73,7 +79,7 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
         if (!status.ok) throw new Error('failed');
         const job = await status.json();
         signal.throwIfAborted();
-        if (job.status === 'failed') { request.current = null; throw new Error('failed'); }
+        if (job.status === 'failed') { request.current = null; throw new Error(job.errorCode === 'OFFER_PORTAL_BLOCKED' ? 'blocked' : 'failed'); }
         if (job.status === 'completed') {
           const offer = job.result as ImportedOffer;
           if (!usableOfferDescription(offer?.jobDescription)) throw new Error('failed');
@@ -86,8 +92,12 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
       if (!signal.aborted) throw new Error('failed');
     } catch (failure) {
       if (signal.aborted) return;
-      const code = failure instanceof Error && ['invalid', 'rateLimited'].includes(failure.message) ? failure.message : 'failed';
-      setError(failure instanceof Error && failure.message === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setStage(null);
+      const code = failure instanceof Error && ['invalid', 'rateLimited', 'blocked', 'planLimit'].includes(failure.message) ? failure.message : 'failed';
+      setError(code === 'planLimit' ? t('plans.quotaBody') : t(`offerImport.${code}`)); setStage(null);
+      if (['blocked', 'failed', 'rateLimited'].includes(code)) {
+        setManual(true);
+        onChange(manualOffer(draft, url));
+      }
     }
   };
 
@@ -113,20 +123,27 @@ export default function OfferUrlImport({ value, onChange, disabled = false }: {
         </Button>
       </div>
       <p id={`${id}-help`} className="text-sm text-text-muted">{t('offerImport.help')}</p>
+      <details className="text-sm text-text-muted">
+        <summary className="min-h-11 cursor-pointer py-3 font-semibold text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">{t('offerImport.portalGuide')}</summary>
+        <p className="mb-2 leading-relaxed">{t('offerImport.publicPages')}</p>
+        <p className="mb-2 leading-relaxed">{t('offerImport.restrictedPages')}</p>
+        <p className="leading-relaxed">{t('offerImport.linkedinHelp')}</p>
+        <LinkedInExtensionGuide storeUrl={extensionStoreUrl} label={t('offerImport.extensionGuide')} />
+      </details>
     </div>
     {stage && <p role="status" className="text-sm text-info-text">{t(`offerImport.${stage}`)}</p>}
     {error && <div role="alert" className="rounded-xl border border-danger-text bg-danger-surface p-3 text-sm text-danger-text">
       <span className="flex items-start gap-2"><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{error}</span>
     </div>}
-    {!manual && <Button type="button" variant="ghost" onClick={() => { setManualText(value?.jobDescription || manualText); setManual(true); }} disabled={disabled || observing}>
+    {!manual && <Button type="button" variant="ghost" onClick={() => { const text = value?.jobDescription || manualText; setManualText(text); setManual(true); onChange(manualOffer(text, url)); }} disabled={disabled || observing}>
       {t('offerImport.manual')}
     </Button>}
     {manual && <div className="space-y-2">
       <label htmlFor={`${id}-manual`} className="text-sm font-semibold text-text">{t('offerImport.description')}</label>
-      <textarea id={`${id}-manual`} rows={6} maxLength={120_000} value={manualText} disabled={disabled}
+      <textarea ref={manualInput} id={`${id}-manual`} aria-describedby={`${id}-manual-help`} rows={6} maxLength={120_000} value={manualText} disabled={disabled}
         onChange={event => changeManual(event.target.value)} placeholder={t('offerImport.manualHelp')}
         className="w-full rounded-lg border border-control bg-canvas p-3 text-base text-text focus:outline-none focus:ring-2 focus:ring-focus" />
-      <p className="text-sm text-text-muted">{t('offerImport.manualHelp')}</p>
+      <p id={`${id}-manual-help`} className="text-sm text-text-muted">{t('offerImport.manualHelp')}</p>
     </div>}
     {value && <div className="space-y-3 rounded-xl border border-subtle bg-surface-muted p-4">
       <p role="status" className="flex items-center gap-2 text-sm font-semibold text-success-text">

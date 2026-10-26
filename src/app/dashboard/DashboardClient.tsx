@@ -33,6 +33,7 @@ import { trackUmamiConversion } from '@/components/analytics/UmamiTracker';
 const CvQuickPreviewModal = dynamic(() => import('@/components/dashboard/CvQuickPreviewModal'), { ssr: false });
 
 interface DashboardClientProps {
+  extensionStoreUrl?: string | null;
   returnOfferId?: string;
   importOfferMissing?: boolean;
   initialCvs: CvListItem[];
@@ -53,6 +54,7 @@ interface DashboardClientProps {
 
 export default function DashboardClient({
   initialCvs,
+  extensionStoreUrl,
   returnOfferId,
   importOfferMissing = false,
   cvTargets,
@@ -894,7 +896,7 @@ export default function DashboardClient({
                 {!isPremium && <UpgradePaywall source="adapt-dialog" compact />}
 
                 <form onSubmit={handleAiOptimize} className="space-y-4">
-                  <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={aiLoading} />
+                  <OfferUrlImport value={importedOffer} onChange={setImportedOffer} disabled={aiLoading} extensionStoreUrl={extensionStoreUrl} />
 
                   <p className="text-sm text-text-muted">{t('variants.generationHelp')}</p>
 
