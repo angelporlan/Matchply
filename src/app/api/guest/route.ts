@@ -5,8 +5,8 @@ import { getOrCreateGuestActor } from '@/lib/actor';
 
 export async function GET(request: Request) {
   const limited = checkProductIp(request, 'guest'); if (limited) return limited;
-  const { searchParams } = new URL(request.url);
-  const redirectTo = searchParams.get('redirect') || '/try';
+  // Guest initialization always returns to the trial. Do not accept an external redirect.
+  const redirectTo = '/try';
 
   // Esto crea el actor y setea la cookie correctamente en un Route Handler
   const actor = await getOrCreateGuestActor();
