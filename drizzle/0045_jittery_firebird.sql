@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "operational_error_digest_idx" ON "operational_error" ("digest");

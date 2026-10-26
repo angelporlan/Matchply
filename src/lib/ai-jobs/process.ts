@@ -109,6 +109,7 @@ export async function processAiJob(job: AiJob) {
     log({
       event: 'ai_job_failed',
       level: 'error',
+      errorSource: 'worker',
       userId: job.userId,
       initiatedByUserId: job.initiatedByUserId,
       jobId: job.id,

@@ -3,8 +3,10 @@
 import { useNavigationPending } from '@/components/navigation/NavigationPendingProvider';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useEffect } from 'react';
+import { reportClientError } from '@/lib/client-diagnostics';
 
 export default function DashboardError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -15,7 +17,8 @@ export default function DashboardError({
 
   useEffect(() => {
     clearPending();
-  }, [clearPending]);
+    reportClientError(error, 'page');
+  }, [clearPending, error]);
 
   return (
     <div className="max-w-xl mx-auto px-6 py-16 space-y-4">

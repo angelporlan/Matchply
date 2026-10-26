@@ -1,4 +1,5 @@
 import ActorEpochGuard from '@/components/session/ActorEpochGuard';
+import ErrorObserver from '@/components/analytics/ErrorObserver';
 import ImpersonationBanner from '@/components/session/ImpersonationBanner';
 import UmamiTracker from '@/components/analytics/UmamiTracker';
 import { SignupConversionBeacon } from '@/components/analytics/SignupConversionBeacon';
@@ -14,6 +15,7 @@ export default async function SessionChrome({ children }: { children: React.Reac
   return (
     <>
       <ActorEpochGuard epoch={ctx.actorEpoch} />
+      <ErrorObserver requestId={headers().get('x-request-id') || undefined} />
       {ctx.impersonation && ctx.effectiveUser && (
         <ImpersonationBanner
           targetName={ctx.effectiveUser.name}

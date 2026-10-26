@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { validRequestId } from '@/lib/request-id';
+import { diagnosticRoute } from '@/lib/diagnostics-schema';
 import { isUmamiCollectionEnabled } from '@/lib/flags';
 import { isUmamiDoNotTrack } from '@/lib/umami';
 import {
@@ -14,9 +16,10 @@ import {
 } from '@/lib/landing-experiment';
 
 export function middleware(request: NextRequest) {
-  const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+  const requestId = validRequestId(request.headers.get('x-request-id')) || crypto.randomUUID();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', requestId);
+  requestHeaders.set('x-matchply-route', diagnosticRoute(request.nextUrl.pathname));
   requestHeaders.delete('x-matchply-blog-language');
   const blogLocale = request.nextUrl.pathname.match(/^\/blog\/(es|en)(?:\/|$)/)?.[1];
   if (blogLocale) requestHeaders.set('x-matchply-blog-language', blogLocale);
