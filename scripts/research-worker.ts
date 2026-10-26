@@ -17,7 +17,7 @@ async function processRun(run: ResearchRun) {
       .finally(() => { renewing = false; });
   }, 30_000);
   try { await runResearch(run.id, { attempt: run.attempt, signal: controller.signal }); }
-  catch (error) { await failResearchRun(run, error); }
+  catch (error) { log({ event: 'research_run_failed', level: 'error', errorSource: 'worker', requestId: run.id, error }); await failResearchRun(run, error); }
   finally { clearTimeout(timeout); clearInterval(heartbeat); }
 }
 const shutdown = createWorkerShutdown();

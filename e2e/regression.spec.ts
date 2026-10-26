@@ -341,3 +341,63 @@ test('landing and successful URL import emit safe funnel events with the actual 
   expect(analytics.some(event => event.name === 'offer_pasted')).toBe(false);
   expect(JSON.stringify(analytics)).not.toMatch(/private-canary|Synthetic candidate|Synthetic role|Synthetic company|jobs\/view/);
 });
+
+test('browser diagnostics correlate API errors without leaking bodies or recursively reporting collector failures', async ({ page, context }) => {
+  const reports: Array<Record<string, unknown>> = [];
+  let requestId = '';
+  // Initialize the guest via HTTP so this test isolates API failures from React's recoverable initial redirect.
+  await context.request.get('/api/guest?redirect=/try');
+  await page.route('**/__analytics-test.js', route => route.fulfill({ contentType: 'application/javascript', body: '/* isolated synthetic analytics */' }));
+  await page.route('**/api/diagnostics/errors', async route => {
+    reports.push(route.request().postDataJSON());
+    await route.fulfill({ status: 503 });
+  });
+  await page.route('**/api/cv/parse-pdf', async route => {
+    requestId = route.request().headers()['x-request-id'];
+    await route.fulfill({ status: 500, headers: { 'x-request-id': requestId }, json: { code: 'PDF_PARSE_FAILED', error: 'PRIVATE_SQL_CANARY SELECT sk-private' } });
+  });
+  await page.goto('/try');
+  await expect(page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true })).toBeEnabled();
+  const received = await page.evaluate(async () => (await fetch('/api/cv/parse-pdf', { method: 'POST' })).json());
+  expect(received.error).toContain('PRIVATE_SQL_CANARY'); // The observer must not consume or rewrite the caller response.
+  await expect.poll(() => reports).toEqual([expect.objectContaining({ requestId, code: 'PDF_PARSE_FAILED', step: 'cv-import', route: '/try' })]);
+  await page.evaluate(() => {
+    window.dispatchEvent(new ErrorEvent('error', { error: new Error('PRIVATE_BROWSER_STACK'), message: 'PRIVATE_BROWSER_STACK' }));
+    window.dispatchEvent(new ErrorEvent('error', { error: new Error('PRIVATE_BROWSER_STACK'), message: 'PRIVATE_BROWSER_STACK' }));
+  });
+  await expect.poll(() => reports.length).toBe(2);
+  expect(reports[1]).toMatchObject({ requestId, code: 'UNEXPECTED_ERROR', step: 'page' });
+  expect(JSON.stringify(reports)).not.toMatch(/PRIVATE_|SELECT|sk-private|stack|message/);
+  await page.getByRole('button', { name: '¿No tienes PDF? Pega el texto', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Tu CV', exact: true })).toBeEditable();
+  expect(reports).toHaveLength(2);
+});
+
+test('administrator can find an error reference on desktop and mobile', async ({ page, context, baseURL }) => {
+  const database = process.env.INTEGRATION_TEST_DATABASE_URL;
+  if (!database || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('Admin browser fixture requires an isolated local test database');
+  const { randomUUID } = await import('node:crypto');
+  const { default: pg } = await import('pg');
+  const { default: bcrypt } = await import('bcryptjs');
+  const client = new pg.Client({ connectionString: database }); await client.connect();
+  const userId = randomUUID(), requestId = randomUUID(), email = `diagnostics-browser-${userId}@example.test`, password = randomUUID();
+  try {
+    await client.query('insert into "user" (id, email, "passwordHash", role) values ($1, $2, $3, $4)', [userId, email, bcrypt.hashSync(password, 4), 'admin']);
+    await client.query('insert into operational_error ("requestId", event, code, route, source) values ($1, $2, $3, $4, $5)', [requestId, 'browser_optimization_failed', 'NETWORK_ERROR', '/editor/:cvId', 'browser']);
+    const csrf = await (await context.request.get(`${baseURL}/api/auth/csrf`)).json();
+    await context.request.post(`${baseURL}/api/auth/callback/credentials`, { form: { csrfToken: csrf.csrfToken, email, password, callbackUrl: `${baseURL}/dashboard` } });
+    expect((await (await context.request.get(`${baseURL}/api/auth/session`)).json()).user.id).toBe(userId);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/admin/errors?requestId=${requestId}`);
+      await expect(page.getByRole('heading', { name: 'Errores operativos', exact: true })).toBeVisible();
+      await expect(page.getByRole('cell', { name: /requestId:/ })).toContainText(requestId);
+      await expect(page.getByRole('cell', { name: /NETWORK_ERROR/ })).toContainText('Comprueba tu conexión');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`error-index-${width}.png`), fullPage: true });
+    }
+  } finally {
+    await client.query('delete from operational_error where "requestId" = $1', [requestId]);
+    await client.query('delete from "user" where id = $1', [userId]); await client.end();
+  }
+});

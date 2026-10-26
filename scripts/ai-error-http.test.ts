@@ -7,10 +7,11 @@ test('job HTTP responses hide legacy provider details for authenticated and gues
   assert.ok([database!, baseUrl!].every(value => ['localhost', '127.0.0.1', '[::1]'].includes(new URL(value).hostname)) && new URL(database!).pathname.includes('test'));
   process.env.DATABASE_URL = database;
   const { db, pool } = await import('@/db');
-  const { users, aiJobs } = await import('@/db/schema');
-  const { inArray } = await import('drizzle-orm');
+  const { users, aiJobs, operationalErrors } = await import('@/db/schema');
+  const { inArray, eq } = await import('drizzle-orm');
   const { default: bcrypt } = await import('bcryptjs');
   const ids: string[] = [], password = randomUUID();
+  const requestIds: string[] = [];
   try {
     for (const guest of [false, true]) {
       const cookies = new Map<string, string>();
@@ -66,10 +67,24 @@ test('job HTTP responses hide legacy provider details for authenticated and gues
       assert.equal(problem.code, 'PDF_PARSE_FAILED'); assert.equal(problem.action, 'paste');
       assert.match(problem.error, /pega el texto/);
       assert.doesNotMatch(problem.error, /Invalid PDF|stack|pdf-parse|FormatError|SELECT/);
+      assert.equal(problem.requestId, invalidPdf.headers.get('x-request-id'));
+      assert.match(problem.requestId, /^[a-zA-Z0-9_-]{8,128}$/);
+      requestIds.push(problem.requestId);
+      let records: Array<typeof operationalErrors.$inferSelect> = [];
+      for (let attempt = 0; attempt < 30; attempt++) {
+        records = await db.select().from(operationalErrors).where(eq(operationalErrors.requestId, problem.requestId));
+        if (records.length) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      assert.equal(records[0]?.event, 'cv_pdf_parse_failed');
+      assert.equal(records[0]?.code, 'PDF_PARSE_FAILED');
+      assert.equal(records[0]?.route, '/api/cv/parse-pdf');
+      assert.doesNotMatch(JSON.stringify(records), /Invalid PDF|stack|pdf-parse|FormatError|SELECT/);
 
 
     }
   } finally {
+    if (requestIds.length) await db.delete(operationalErrors).where(inArray(operationalErrors.requestId, requestIds));
     if (ids.length) await db.delete(users).where(inArray(users.id, ids));
     await pool.end();
   }

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       text: parsed.text || ''
     });
   } catch (error: any) {
-    log({ event: 'cv_pdf_parse_failed', level: 'error', error });
+    log({ event: 'cv_pdf_parse_failed', level: 'error', code: 'PDF_PARSE_FAILED', error });
     return NextResponse.json({ success: false, ...publicErrorBody(error, 'PDF_PARSE_FAILED') }, { status: 500 });
   }
 }

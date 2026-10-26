@@ -556,6 +556,24 @@ export const auditLogs = pgTable('audit_log', {
   categoryCreatedIdx: index('audit_log_category_created_idx').on(table.category, table.createdAt),
 }));
 
+// Operational error index. Technical exception details remain in server logs.
+export const operationalErrors = pgTable('operational_error', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  requestId: text('requestId').notNull(),
+  traceId: text('traceId'),
+  event: text('event').notNull(),
+  code: text('code').notNull(),
+  route: text('route').notNull(),
+  source: text('source').notNull(),
+  digest: text('digest'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+}, table => ({
+  requestIdx: index('operational_error_request_idx').on(table.requestId),
+  traceIdx: index('operational_error_trace_idx').on(table.traceId),
+  digestIdx: index('operational_error_digest_idx').on(table.digest),
+  createdIdx: index('operational_error_created_idx').on(table.createdAt),
+}));
+
 export const supportSessions = pgTable('support_session', {
   id: uuid('id').defaultRandom().primaryKey(),
   actorUserId: uuid('actorUserId').references(() => users.id, { onDelete: 'cascade' }).notNull(),

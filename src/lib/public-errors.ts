@@ -5,9 +5,17 @@ import { SubscriptionAccessError } from '@/lib/permissions';
 import * as RequestErrors from '@/lib/request-errors';
 import { userError } from '@/lib/user-errors';
 import { AiProviderError } from '@/lib/ai-provider-errors';
+import { headers } from 'next/headers';
+import { validRequestId } from '@/lib/request-id';
 
 /** Server boundaries use trusted product errors only; arbitrary SDK status/details are private. */
 export function publicErrorBody(error: unknown, fallback = 'UNEXPECTED_ERROR') {
+  let requestId: string | undefined;
+  try { requestId = validRequestId(headers().get('x-request-id')); } catch { /* outside HTTP */ }
+  return { ...classify(error, fallback), ...(requestId ? { requestId } : {}) };
+}
+
+function classify(error: unknown, fallback: string) {
   if (error instanceof UsageError) return error.toJSON();
   if (error instanceof AiProviderError) return userError('AI_UNAVAILABLE');
   if (error instanceof RateLimitError) return userError('RATE_LIMITED');
