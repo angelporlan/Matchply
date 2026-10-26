@@ -27,6 +27,24 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
     return created;
   };
   try {
+    for (const isGuest of [true, false]) await t.test(`pasted offer without a URL completes for ${isGuest ? 'guest' : 'registered'} users`, async () => {
+      const u = await user();
+      await db.update(users).set({ isGuest }).where(eq(users.id, u.id));
+      const description = 'Buscamos una desarrolladora Python para crear APIs con pruebas automatizadas. Trabajo en equipo y experiencia con bases de datos.';
+      const params = { ...input(u.source.id), url: '', jobDescription: description, addToApplications: false };
+      const created = await service.enqueueCvOptimization(u.id, params);
+      const job = await queue.claimAiJobById(created.jobId); assert.ok(job);
+      const prompts: string[] = [];
+      await service.processCvOptimization(job, new AbortController().signal, async (...args) => {
+        prompts.push(args[2]); return call(...args);
+      });
+      assert.ok(prompts.length >= 2); assert.ok(prompts.every(prompt => prompt.includes(description)));
+      const view = await service.getCvOptimizationView(u.id, created.cvId); assert.ok(view);
+      assert.equal(view.variants.find(v => v.modeId === 'optimize_adapted')?.status, 'ready');
+      const [source] = await db.select({ content: cvs.content }).from(cvs).where(eq(cvs.id, u.source.id));
+      assert.equal(source.content, cv);
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used, 1);
+    });
     await t.test('Balanced first; one on-demand mode reuses analysis, quota and sources; revisions isolate saves', async () => {
       const u = await user(); const params = input(u.source.id);
       const [a,b] = await Promise.all([service.enqueueCvOptimization(u.id,params), service.enqueueCvOptimization(u.id,params)]); assert.deepEqual(a,b);

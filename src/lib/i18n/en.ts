@@ -72,7 +72,7 @@ const en = {
       unknownCompany: "Company not identified",
       stepTitle: "Step 2: Which role are you applying for?",
       optional: "Optional",
-      tryHelp: "Import the job offer from its link to tailor your resume, or continue without an offer to create your base document.",
+      tryHelp: "Import a link or paste the description directly to tailor your resume. You can also continue without a job to create your base document.",
       creating: "Creating your resume…",
       createWithout: "Create my resume without an offer",
       skip: "Skip the offer and create my base resume",

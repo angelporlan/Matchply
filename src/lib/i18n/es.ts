@@ -72,7 +72,7 @@ const es = {
       unknownCompany: "Empresa no identificada",
       stepTitle: "Paso 2: ¿A qué oferta aspiras?",
       optional: "Opcional",
-      tryHelp: "Importa la oferta desde su enlace para adaptar tu CV, o continúa sin oferta para crear tu documento base.",
+      tryHelp: "Importa un enlace o pega directamente la descripción para adaptar tu CV. También puedes continuar sin oferta para crear tu documento base.",
       creating: "Creando tu CV…",
       createWithout: "Crear mi CV sin oferta",
       skip: "Saltar oferta y crear solo mi CV base",
