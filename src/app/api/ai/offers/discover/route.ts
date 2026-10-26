@@ -1,3 +1,4 @@
+import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/lib/actor';
 import { requireUserFeature } from '@/lib/permissions';
@@ -25,7 +26,8 @@ export async function GET() {
     const actor = await getActor({ allowGuest: true });
     if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
     await requireUserFeature(actor.userId, 'applications');
-    return NextResponse.json({ job: await latestDiscovery(actor.userId) }, { headers });
+    const job = await latestDiscovery(actor.userId);
+    return NextResponse.json({ job: job ? { ...job, lastError: job.lastError ? AI_PUBLIC_ERROR : null } : null }, { headers });
   } catch (error) { return failure(error); }
 }
 

@@ -1,5 +1,7 @@
 'use server';
 
+import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
+
 import { eq, gte, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
@@ -56,7 +58,7 @@ export async function testAiModelAction(provider: string, model: string) {
       model,
     };
   } catch (error: any) {
-    return { success: false, error: error.message || 'La prueba falló', latencyMs: Date.now() - started };
+    return { success: false, error: AI_PUBLIC_ERROR, latencyMs: Date.now() - started };
   }
 }
 

@@ -1,3 +1,7 @@
+import { UsageError } from '@/lib/usage';
+import { RateLimitError } from '@/lib/rate-limit';
+import { SubscriptionAccessError } from '@/lib/permissions';
+import * as RequestErrors from '@/lib/request-errors';
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
@@ -19,7 +23,8 @@ export function aiRequestId(request: Request | null, value?: unknown): string {
 
 /** Quota and plan errors are returned before opening an AI stream. */
 export function aiUsageErrorResponse(error: unknown): NextResponse | null {
-  if (!(error instanceof Error) || !('status' in error) || typeof error.status !== 'number') return null;
+  const known = error instanceof AiUsageHttpError || error instanceof UsageError || error instanceof RateLimitError || error instanceof SubscriptionAccessError || Object.values(RequestErrors).some(Type => error instanceof Type);
+  if (!known || !(error instanceof Error) || !('status' in error) || typeof error.status !== 'number') return null;
   if (error.status < 400 || error.status >= 500) return null;
   const detail = error as Error & { status: number; code?: string; details?: Record<string, unknown>; bucket?: string; used?: number; reserved?: number; limit?: number; resetsAt?: unknown; resetAt?: unknown };
   return NextResponse.json({

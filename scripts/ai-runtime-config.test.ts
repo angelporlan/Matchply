@@ -37,3 +37,12 @@ test('new combinations require a successful probe before activation', () => {
   assert.equal(hasSuccessfulModelTest(next, activated[0]), true);
   assert.equal(hasSuccessfulModelTest(previous, activated[0]), false);
 });
+
+test('a secondary model is preserved in snapshots and needs the same activation test as primary models', () => {
+  const previous = defaultAiRuntimeConfig();
+  const config = parseAiRuntimeConfig({ ...previous, cvOptimizationFallback: { provider: 'openrouter', model: 'secondary-model' } });
+  assert.deepEqual(config.cvOptimizationFallback, { provider: 'openrouter', model: 'secondary-model' });
+  assert.deepEqual(newlyActivatedRefs(previous, config), [config.cvOptimizationFallback]);
+  assert.equal(hasSuccessfulModelTest(config, config.cvOptimizationFallback!), false);
+  assert.equal(parseAiRuntimeConfig({ ...previous, cvOptimizationFallback: { provider: 'unknown', model: 'x' } }).cvOptimizationFallback, undefined);
+});

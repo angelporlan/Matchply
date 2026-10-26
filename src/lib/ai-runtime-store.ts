@@ -5,6 +5,7 @@ import { aiRuntimeConfigs, settings } from '@/db/schema';
 import {
   defaultAiRuntimeConfig,
   parseAiRuntimeConfig,
+  parseCvOptimizationFallback,
   resolveModelForFunction,
   type AiFunctionKey,
   type AiPlan,
@@ -63,8 +64,12 @@ export async function getResolvedAiRuntime(force = false): Promise<AiRuntimeConf
   const now = Date.now();
   if (!force && memory && memory.expiresAt > now) return memory.value;
   const loaded = await loadFromDb();
-  memory = { value: loaded.config, rowVersion: loaded.rowVersion, expiresAt: now + TTL_MS };
-  return loaded.config;
+  // Capture the operational fallback in each admission snapshot, rather than changing
+  // the model of a queued job when configuration changes later.
+  const operationalFallback = parseCvOptimizationFallback({ provider: process.env.AI_OPTIMIZE_FALLBACK_PROVIDER, model: process.env.AI_OPTIMIZE_FALLBACK_MODEL });
+  const value = loaded.config.cvOptimizationFallback || !operationalFallback ? loaded.config : { ...loaded.config, cvOptimizationFallback: operationalFallback };
+  memory = { value, rowVersion: loaded.rowVersion, expiresAt: now + TTL_MS };
+  return value;
 }
 
 export function getCachedAiRuntimeVersion() {
