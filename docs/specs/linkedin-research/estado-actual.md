@@ -56,3 +56,8 @@ Pruebas existentes relacionadas (pueden cubrir solo una parte de esta área; **n
 - [spec.md](spec.md)
 
 La documentación previa recoge decisiones y evidencia de otra revisión. Ante diferencias, esta ficha indica el comportamiento encontrado ahora; la propuesta queda pendiente de tu definición.
+
+
+### Descarga de fuentes públicas
+
+El worker valida que las URLs sean HTTP(S), sin credenciales ni puertos no admitidos, y bloquea nombres locales y direcciones privadas o reservadas. Resuelve todas las direcciones DNS antes de conectar: si alguna no es pública rechaza la fuente y, si todas son públicas, fija la dirección validada al socket para evitar una segunda resolución. Investigación no sigue redirecciones. La descarga limita la respuesta a 2 MiB y el plazo total a 12 segundos, incluidos DNS y lectura. Se piden respuestas sin compresión y se rechazan las comprimidas para mantener el límite de bytes. El importador de ofertas usa la misma protección, con hasta tres redirecciones validadas individualmente y 15 segundos de plazo.

@@ -13,21 +13,32 @@ export function isPublicAddress(address: string): boolean {
   } catch { return false; }
 }
 
-export function assertPublicOfferUrl(rawUrl: string): URL {
-  const url = new URL(normalizeOfferUrl(rawUrl));
-  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+/** Validate any public HTTP(S) source, without applying offer-specific LinkedIn rules. */
+export function assertPublicWebUrl(rawUrl: string): URL {
+  if (typeof rawUrl !== 'string' || rawUrl.length > 8192) throw new Error('OFFER_URL_INVALID');
+  let url: URL;
+  try { url = new URL(rawUrl); } catch { throw new Error('OFFER_URL_INVALID'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+      (url.port && !['80', '443'].includes(url.port))) throw new Error('OFFER_URL_INVALID');
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '');
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') ||
       host === 'metadata.google.internal' || (ipaddr.isValid(host) && !isPublicAddress(host))) {
     throw new Error('OFFER_URL_BLOCKED');
   }
+  url.hash = '';
   return url;
 }
 
-export async function resolvePublicHost(hostname: string) {
+export function assertPublicOfferUrl(rawUrl: string): URL {
+  if (typeof rawUrl !== 'string' || rawUrl.length > 8192) throw new Error('OFFER_URL_INVALID');
+  return assertPublicWebUrl(normalizeOfferUrl(rawUrl));
+}
+
+export async function resolvePublicHost(hostname: string, resolveAll = (host: string) => lookup(host, { all: true })) {
   const host = hostname.replace(/^\[|\]$/g, '');
   const records = ipaddr.isValid(host)
     ? [{ address: host, family: ipaddr.parse(host).kind() === 'ipv4' ? 4 : 6 }]
-    : await lookup(host, { all: true });
+    : await resolveAll(host);
   if (!records.length || records.some(record => !isPublicAddress(record.address))) {
     throw new Error('OFFER_URL_BLOCKED');
   }
@@ -45,20 +56,23 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-type DownloadDependencies = {
+export type DownloadDependencies = {
   resolveHost?: typeof resolvePublicHost;
   request?: typeof httpRequest;
 };
 
-/** DNS is checked once per hop and the socket uses that exact address. */
-export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, dependencies: DownloadDependencies = {}): Promise<PublicPage> {
-  let url = assertPublicOfferUrl(rawUrl);
+type DownloadPolicy = { kind: 'offer' | 'research'; timeoutMs: number; maxRedirects: number };
+
+/** Resolve and validate every address, then pin the checked address to the socket. */
+async function download(rawUrl: string, signal: AbortSignal | undefined, dependencies: DownloadDependencies, policy: DownloadPolicy): Promise<PublicPage> {
+  const checkUrl = policy.kind === 'offer' ? assertPublicOfferUrl : assertPublicWebUrl;
+  let url = checkUrl(rawUrl);
   const visitedUrls: string[] = [];
-  const boundedSignal = AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]);
-  for (let hop = 0; hop <= 3; hop++) {
+  const boundedSignal = AbortSignal.any([AbortSignal.timeout(policy.timeoutMs), ...(signal ? [signal] : [])]);
+  for (let hop = 0; hop <= policy.maxRedirects; hop++) {
     boundedSignal.throwIfAborted();
-    // Do not normalize redirects back to the original LinkedIn URL.
-    assertPublicOfferUrl(url.toString());
+    // Validate each redirect without replacing the actual URL with LinkedIn's canonical job URL.
+    checkUrl(url.toString());
     const address = await abortable((dependencies.resolveHost || resolvePublicHost)(url.hostname), boundedSignal);
     if (!isPublicAddress(address.address)) throw new Error('OFFER_URL_BLOCKED');
     boundedSignal.throwIfAborted();
@@ -67,7 +81,8 @@ export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, d
       const request = (dependencies.request || (url.protocol === 'https:' ? httpsRequest : httpRequest))(url, {
         agent: false,
         signal: boundedSignal,
-        headers: { 'User-Agent': 'MatchplyResearchBot/1.0 (+https://matchply.com)', 'Accept-Encoding': 'identity', Accept: 'text/html,application/xhtml+xml' },
+        headers: { 'User-Agent': 'MatchplyResearchBot/1.0 (+https://matchply.com)', 'Accept-Encoding': 'identity',
+          Accept: policy.kind === 'offer' ? 'text/html,application/xhtml+xml' : 'text/*,application/json,application/xhtml+xml' },
         lookup: (_hostname, options, callback) => {
           if (options.all) callback(null, [address]);
           else callback(null, address.address, address.family);
@@ -84,11 +99,17 @@ export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, d
           reject(new Error('OFFER_PORTAL_BLOCKED'));
           return;
         }
-        if (status < 200 || status >= 300 || !/text\/html|application\/xhtml\+xml/i.test(res.headers['content-type'] || '') ||
-            (res.headers['content-encoding'] && res.headers['content-encoding'] !== 'identity')) {
+        const mediaType = (res.headers['content-type'] || '').split(';', 1)[0].trim();
+        const allowed = policy.kind === 'offer' ? /^(?:text\/html|application\/xhtml\+xml)$/i.test(mediaType)
+          : /^(?:text\/[a-z0-9.+-]+|application\/(?:json|[a-z0-9.+-]+\+json|xhtml\+xml))$/i.test(mediaType);
+        const encoding = res.headers['content-encoding']?.trim().toLowerCase();
+        if (status < 200 || status >= 300 || !allowed || (encoding && encoding !== 'identity')) {
           res.destroy();
           reject(new Error('OFFER_PAGE_UNAVAILABLE'));
           return;
+        }
+        if (Number(res.headers['content-length']) > MAX_PAGE_BYTES) {
+          res.destroy(); reject(new Error('OFFER_PAGE_TOO_LARGE')); return;
         }
         let bytes = 0;
         const chunks: Buffer[] = [];
@@ -97,6 +118,7 @@ export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, d
           if (bytes > MAX_PAGE_BYTES) { res.destroy(new Error('OFFER_PAGE_TOO_LARGE')); return; }
           chunks.push(chunk);
         });
+        res.on('aborted', () => reject(new Error('OFFER_PAGE_UNAVAILABLE')));
         res.on('error', reject);
         res.on('end', () => resolve({ html: Buffer.concat(chunks).toString('utf8') }));
       });
@@ -107,4 +129,14 @@ export async function downloadPublicPage(rawUrl: string, signal?: AbortSignal, d
     url = new URL(response.redirect, url);
   }
   throw new Error('OFFER_REDIRECT_LIMIT');
+}
+
+/** Offer imports allow up to three separately validated redirects and fifteen seconds total. */
+export function downloadPublicPage(rawUrl: string, signal?: AbortSignal, dependencies: DownloadDependencies = {}): Promise<PublicPage> {
+  return download(rawUrl, signal, dependencies, { kind: 'offer', timeoutMs: 15_000, maxRedirects: 3 });
+}
+
+/** Research sources keep their no-redirect policy and a twelve-second total deadline. */
+export function downloadPublicText(rawUrl: string, signal?: AbortSignal, dependencies: DownloadDependencies = {}): Promise<PublicPage> {
+  return download(rawUrl, signal, dependencies, { kind: 'research', timeoutMs: 12_000, maxRedirects: 0 });
 }
