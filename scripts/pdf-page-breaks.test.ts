@@ -4,7 +4,7 @@ import PDFDocument from 'pdfkit';
 import { generatePdfBuffer } from '@/lib/pdf-engine';
 import { countPdfPages } from '@/lib/pdf-pages';
 import { planPagePushes } from '@/lib/pdf-page-breaks';
-import { A4_HEIGHT_PT } from '@/lib/cv-layout';
+import { A4_HEIGHT_PT, CV_METRICS, fontLine } from '@/lib/cv-layout';
 
 test('page pushes land each broken line at the top of the next sheet', () => {
   const pagePx = 100;
@@ -144,6 +144,54 @@ test('an entry date stays in its own column when both header fields are long', a
     assert.ok(heading.x + heading.width < date.x, 'title and date columns must not overlap');
   } finally {
     prototype.text = original;
+  }
+});
+
+test('a wrapped entry title has clear vertical separation from its subtitle', async () => {
+  const markdown = `# Synthetic Candidate
+
+## Education
+
+### Employment Workshop 2026 - Programa de empleabilidad y carrera profesional
+SUBTITLE-TOKEN Programa de empleabilidad y carrera profesional | En curso
+`;
+  const titleLines: Array<{ page: number; y: number }> = [];
+  let inTitle = false;
+  let subtitle: { page: number; y: number } | undefined;
+  const original = PDFDocument.prototype._line;
+  (PDFDocument.prototype as unknown as { _line: (text: string, options: unknown, wrapper: unknown) => unknown })._line = function (
+    this: PDFKit.PDFDocument,
+    text: string,
+    options: unknown,
+    wrapper: unknown,
+  ) {
+    const value = String(text);
+    const range = this.bufferedPageRange();
+    const line = { page: range.start + range.count, y: this.y };
+    if (value.includes('Employment Workshop')) inTitle = true;
+    const fontName = (this as PDFKit.PDFDocument & { _font?: { name?: string } })._font?.name;
+    if (inTitle && fontName === 'LiberationSans-Bold') titleLines.push(line);
+    else if (inTitle) inTitle = false;
+    if (value.includes('SUBTITLE-TOKEN')) subtitle = line;
+    return original.call(this, text, options, wrapper);
+  };
+
+  try {
+    await generatePdfBuffer(markdown, {
+      fontFamily: 'helvetica',
+      pageMargin: 36,
+      fontSize: 12.5,
+      showIcons: false,
+    });
+    assert.equal(titleLines.length, 2, 'the synthetic title must wrap onto two lines');
+    assert.ok(subtitle);
+    assert.equal(subtitle.page, titleLines[1].page);
+    assert.ok(
+      subtitle.y - titleLines[1].y >= fontLine(10, 'helvetica') + CV_METRICS.entryDateNudge - 0.1,
+      'the subtitle must start after the complete final title line and its vertical gap',
+    );
+  } finally {
+    PDFDocument.prototype._line = original;
   }
 });
 
