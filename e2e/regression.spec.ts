@@ -73,9 +73,9 @@ test('source edits persist across reload and comparison preserves the draft', as
 });
 
 for (const width of [1440, 390]) test(`entry title and date stay in separate columns at ${width}px`, async ({ page, context }) => {
-  await login(context);
+  await login(context, 'large');
   await page.setViewportSize({ width, height: 900 });
-  await page.goto(`/editor/${fixtureId('medium:cv:1')}`);
+  await page.goto(`/editor/${fixtureId('large:cv:0')}`);
   await page.getByTitle('Ver editor Markdown', { exact: true }).click();
   const textarea = page.locator('textarea').first();
   const original = await textarea.inputValue();
