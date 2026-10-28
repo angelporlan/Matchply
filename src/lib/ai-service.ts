@@ -97,21 +97,28 @@ Debes devolver el currículum formateado estrictamente bajo las siguientes espec
 3. SECCIONES PRINCIPALES:
    - Deben empezar siempre con '## ' (ejemplo: ## Experiencia Profesional, ## Educación, ## Habilidades Técnicas, ## Perfil Profesional).
 
-4. ENTRADAS DE EXPERIENCIA, EDUCACIÓN O PROYECTOS (ESTRUCTURA OBLIGATORIA EN DOS LÍNEAS):
-   - Cada puesto de trabajo, titulación académica o proyecto DEBE estar estructurado en exactamente DOS líneas consecutivas e independientes (sin líneas en blanco entre ellas):
-     - LÍNEA 1 (Título/Puesto): Debe comenzar exactamente con '### ' seguido ÚNICAMENTE del nombre del puesto o título (ejemplo: ### Desarrollador Full Stack). NO incluyas nombres de empresas, de instituciones, fechas, separadores '|' ni formato adicional en la línea que empieza por '### '.
-     - LÍNEA 2 (Empresa y Fecha - Línea inmediatamente posterior): Debe contener el nombre de la Empresa o Institución en negrita, seguido exactamente del separador ' | ' (espacio, barra vertical, espacio), seguido del rango de fechas en cursiva.
-       Ejemplo exacto:
-       ### Desarrollador Full Stack
-       **Tech Solutions Inc.** | *Enero 2024 – Presente*
-       
-       Ejemplo exacto:
-       ### Grado en Ingeniería Informática
-       **Universidad Tecnológica** | *2020 – 2024*
+4. ENTRADAS DE EXPERIENCIA, EDUCACIÓN O PROYECTOS:
+   - Cada puesto, titulación o proyecto empieza con una línea '### ' seguida ÚNICAMENTE de su título o nombre. No incluyas institución, empresa, fecha ni detalles en esa línea.
+   - Si la fuente incluye empresa o institución y/o fechas, colócalas en la línea inmediatamente siguiente: empresa/institución en negrita, fechas en cursiva y separadas por ' | ' cuando ambas estén disponibles. Omite cualquier dato que no aparezca en la fuente. Si no hay metadatos, empieza los detalles en la línea siguiente sin inventar una línea vacía.
+     Ejemplo:
+     ### Desarrollador Full Stack
+     **Tech Solutions Inc.** | *Enero 2024 – Presente*
 
-   ¡NUNCA mezcles el puesto/título y la empresa/fecha en la misma línea del '### '! Deben estar estrictamente en líneas separadas.
+     Ejemplo:
+     ### Grado en Ingeniería Informática
+     **Universidad Tecnológica** | *2020 – 2024*
 
-5. SECCIÓN DE HABILIDADES:
+   ¡NUNCA mezcles el puesto/título con la empresa, institución o fecha en la línea del '### '! Mantén los detalles, funciones y prácticas debajo de la entrada a la que pertenecen.
+
+5. ASOCIACIÓN DE CAMPOS, EN ESPECIAL EN FORMACIÓN:
+   - Cada entrada describe una sola titulación, puesto o proyecto. Mantén juntos únicamente los datos que pertenecen a ese mismo bloque de la fuente.
+   - En formación, el texto de la titulación o curso va en su propia línea encabezada con '### '; el centro educativo va en negrita en la línea siguiente y las fechas en cursiva a continuación del centro, separadas por la barra vertical. Nunca intercambies titulación y centro ni uses texto de la entrada anterior o siguiente.
+   - Ejemplo de asociación correcta:
+     ### Grado Superior para la Creación y Gestión de Aplicaciones Web
+     **IES Font de Sant Lluís** | *2021 - 2023*
+   - Las funciones, prácticas, notas y otros detalles van debajo de esa entrada como párrafo o viñeta, nunca en el campo de fechas. Si el centro o las fechas no aparecen en la fuente, omítelos; no inventes valores ni escribas “Institución no indicada”. Si una línea es ambigua, consérvala como detalle de la misma entrada.
+
+6. SECCIÓN DE HABILIDADES:
    - El título de la sección debe contener la palabra 'habilidades' o 'skills' (ejemplo: ## Habilidades Técnicas).
    - Los elementos dentro de esta sección deben presentarse como viñetas con '-' (o líneas simples) con la categoría en negrita seguida de dos puntos (':') y la lista de tecnologías.
    - Ejemplo exacto:

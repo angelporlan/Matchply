@@ -36,7 +36,7 @@ ${bullets}
 ## Educación
 
 ### HEADING-TOKEN
-School Token | DATE-TOKEN
+School Token | 2018 - 2020
 
 - Honor mention
 `;
@@ -70,7 +70,7 @@ School Token | DATE-TOKEN
     assert.ok(pageBreaks.every((value, index) => value > 0 && (index === 0 || value > pageBreaks[index - 1])));
 
     const heading = lines.find((line) => line.text.includes('HEADING-TOKEN'));
-    const date = lines.find((line) => line.text.includes('DATE-TOKEN'));
+    const date = lines.find((line) => line.text.includes('2018 - 2020'));
     assert.ok(heading);
     assert.ok(date);
     assert.equal(date.page, heading.page);
@@ -82,7 +82,7 @@ School Token | DATE-TOKEN
 
 test('an entry date stays in its own column when both header fields are long', async () => {
   const headingText = 'TITLE-TOKEN Técnico superior en instalaciones electrotécnicas industriales';
-  const dateText = 'DATE-TOKEN 2020 - 2024, prácticas y formación complementaria';
+  const dateText = '2020 - 2024 (DATE-TOKEN), prácticas y formación complementaria';
   const markdown = `# Synthetic Candidate\n\n## Educación\n\n### ${headingText}\nSchool | ${dateText}\n`;
   const fields: { text: string; x: number; width: number }[] = [];
   const prototype = PDFDocument.prototype as unknown as {
@@ -91,7 +91,7 @@ test('an entry date stays in its own column when both header fields are long', a
   const original = prototype.text;
   prototype.text = function (this: PDFKit.PDFDocument, text, x, y, options) {
     const value = String(text);
-    if (value.includes('TITLE-TOKEN') || value.includes('DATE-TOKEN')) {
+    if (value.includes('TITLE-TOKEN') || value.includes('2020 - 2024')) {
       fields.push({ text: value, x: Number(x), width: Number(options?.width) });
     }
     return original.call(this, text, x, y, options);
@@ -100,7 +100,7 @@ test('an entry date stays in its own column when both header fields are long', a
   try {
     await generatePdfBuffer(markdown, { fontFamily: 'helvetica', pageMargin: 36, fontSize: 12.5, showIcons: false });
     const heading = fields.find((field) => field.text.includes('TITLE-TOKEN'));
-    const date = fields.find((field) => field.text.includes('DATE-TOKEN'));
+    const date = fields.find((field) => field.text.includes('2020 - 2024'));
     assert.ok(heading);
     assert.ok(date);
     assert.ok(heading.x + heading.width < date.x, 'title and date columns must not overlap');
@@ -122,7 +122,7 @@ ${filler}
 ## EDUCATION-TOKEN
 
 ### HEADING-TOKEN
-SCHOOL-TOKEN | DATE-TOKEN
+**SCHOOL-TOKEN** | *2015 - 2019*
 `;
   const lines: { page: number; text: string }[] = [];
   const original = PDFDocument.prototype._line;
@@ -150,6 +150,7 @@ SCHOOL-TOKEN | DATE-TOKEN
     assert.ok(pageOf('SCHOOL-TOKEN'));
     assert.equal(pageOf('EDUCATION-TOKEN'), pageOf('HEADING-TOKEN'));
     assert.equal(pageOf('HEADING-TOKEN'), pageOf('SCHOOL-TOKEN'));
+    assert.equal(pageOf('HEADING-TOKEN'), pageOf('2015 - 2019'));
   } finally {
     PDFDocument.prototype._line = original;
   }
