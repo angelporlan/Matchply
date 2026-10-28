@@ -24,6 +24,7 @@ export function planPagePushes(
   breakPts: number[],
   pagePx: number,
   gapPx: number,
+  topMarginPx = 0,
 ): PagePush[] {
   const pushes: PagePush[] = [];
   const shifted = (index: number) => lineTopsPx[index] + pushes.reduce((sum, push) => (
@@ -43,7 +44,7 @@ export function planPagePushes(
       }
     });
     if (lineIndex < 0) return;
-    const destination = (pageIndex + 1) * (pagePx + gapPx);
+    const destination = (pageIndex + 1) * (pagePx + gapPx) + topMarginPx;
     const pushPx = destination - shifted(lineIndex);
     if (pushPx > 0.5) pushes.push({ lineIndex, pushPx });
   });

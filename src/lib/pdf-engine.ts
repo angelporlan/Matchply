@@ -632,14 +632,19 @@ export type PdfBufferResult = {
 function trackPageBreaks(doc: PDFKit.PDFDocument): number[] {
   const breaks: number[] = [];
   let origin = 0;
+  let pageIndex = 0;
   const target = doc as PDFKit.PDFDocument & {
     continueOnNewPage: (options?: PDFKit.PDFDocumentOptions) => PDFKit.PDFDocument;
   };
   const original = target.continueOnNewPage.bind(target);
   target.continueOnNewPage = (options) => {
-    const at = origin + doc.y;
+    // The continuous editor flow contains the top margin only once. PDFKit
+    // reapplies it on every page, so remove it from later pages' local y values.
+    const localY = doc.y - (pageIndex > 0 ? doc.page.margins.top : 0);
+    const at = origin + localY;
     if (at > origin) breaks.push(at);
-    origin += doc.y;
+    origin += localY;
+    pageIndex += 1;
     return original(options);
   };
   return breaks;
@@ -652,12 +657,13 @@ export function generatePdfBuffer(markdown: string, options: any = {}): Promise<
       const fontScale = getFontScale(options.fontSize || 12.5);
       const layout = scaleLayout(fontScale);
       const customize = buildCustomize(options);
+      const margin = customize.pageMargin;
 
       const doc = new PDFDocument({
         size: 'A4',
         margins: {
-          top: 0,
-          bottom: 0,
+          top: margin,
+          bottom: margin,
           left: 0,
           right: 0
         },
