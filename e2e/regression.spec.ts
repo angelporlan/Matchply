@@ -122,6 +122,45 @@ for (const width of [1440, 390]) test(`entry title and date stay in separate col
   }
 });
 
+test('typing the first paragraph keeps the same editable field focused', async ({ page, context }) => {
+  await login(context, 'large');
+  await page.goto(`/editor/${fixtureId('large:cv:0')}`);
+  await page.getByTitle('Ver editor Markdown', { exact: true }).click();
+  const textarea = page.locator('textarea').first();
+  const original = await textarea.inputValue();
+  const content = '# Focus Candidate\n\n## Perfil\n\nTexto existente.\n\n## Enfoque';
+  const save = async (value: string) => {
+    const saved = page.waitForResponse((response) => response.request().method() === 'POST' && Boolean(response.request().headers()['next-action']));
+    await textarea.fill(value);
+    expect((await saved).status()).toBe(200);
+    await expect(page.getByText(/Guardado en la nube|Saved to cloud/).first()).toBeVisible();
+  };
+
+  try {
+    await save(content);
+    await page.getByTitle('Volver al diseño del documento', { exact: true }).click();
+    const paragraph = page.getByRole('textbox', { name: /Texto|Text|Párrafo|Paragraph/i }).last();
+    await paragraph.locator('xpath=ancestor::section[1]').hover();
+    await expect(paragraph).toBeVisible();
+    await paragraph.click();
+    const initialField = await paragraph.elementHandle();
+    expect(initialField).not.toBeNull();
+    const typed = 'La escritura continua conserva el foco.';
+    for (const character of typed) {
+      await page.keyboard.insertText(character);
+      expect(await initialField!.evaluate((element) => element.isConnected)).toBe(true);
+      await expect(paragraph).toBeFocused();
+    }
+    await expect(paragraph).toHaveText(typed);
+  } finally {
+    if (!page.isClosed()) {
+      const markdownToggle = page.getByTitle('Ver editor Markdown', { exact: true });
+      if (await markdownToggle.isVisible()) await markdownToggle.click();
+      if (await textarea.isVisible()) await save(original);
+    }
+  }
+});
+
 test('one, three and ten page documents save and export without losing source text', async ({ page, context, baseURL }) => {
   await login(context);
   await page.goto(`/editor/${fixtureId('medium:cv:1')}`);
