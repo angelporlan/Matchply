@@ -146,6 +146,7 @@ test('AIService.buildDebugPrompt resolves outreach and import_cv prompts', async
   });
 
   assert.equal(importCv.actionTitle, 'Importar y Formatear CV con IA');
-  assert.match(importCv.systemPrompt, /Elena Gómez/);
+  assert.match(importCv.systemPrompt, /ENTRADAS DE EXPERIENCIA, EDUCACIÓN O PROYECTOS/);
+  assert.match(importCv.systemPrompt, /Nunca intercambies titulación y centro/);
   assert.match(importCv.userPrompt, /Elena Gómez/);
 });

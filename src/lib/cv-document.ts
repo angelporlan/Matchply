@@ -37,6 +37,20 @@ function normalizeLine(line: string): string {
   return line.replace(/\r/g, '').trimEnd();
 }
 
+function extractDatePrefix(value: string): { date: string; detail: string } | null {
+  const cleaned = cleanMarkdownInline(value);
+  const month = '(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december)';
+  const yearOrMonthYear = `(?:${month}\\.?\\s+)?(?:\\d{1,2}[./]\\d{4}|\\d{4})`;
+  const end = `(?:${yearOrMonthYear}|actualidad|actual|actualmente|presente|present|current|en curso|ongoing)`;
+  const dateMatch = cleaned.match(new RegExp(`^(?:${yearOrMonthYear})(?:(?:\\s*[-–—]\\s*|\\s+(?:a|hasta|to)\\s+)${end})?(?=$|[\\s,;.)\\]])`, 'i'))
+    ?? cleaned.match(/^(?:actualidad|actual|actualmente|presente|present|current|en curso|ongoing)(?=$|[\s,;.)\]])/i);
+  if (!dateMatch) return null;
+
+  const date = dateMatch[0].replace(/[\s,;]+$/, '').trim();
+  const detail = cleaned.slice(dateMatch[0].length).replace(/^[\s,;|]+/, '').replace(/^\((.*)\)$/, '$1').trim();
+  return { date, detail };
+}
+
 function normalizeMarkdownLabel(text: string): string {
   if (/^\*\*([^*]+)\*\*/.test(text)) {
     const match = text.match(/^\*\*([^*]+)\*\*(.*)$/);
@@ -145,10 +159,21 @@ export function parseCvDocument(content: string): CVContent {
     }
 
     if (currentEntry && !currentEntry.subheading && line.includes('|')) {
-      const parts = line.split('|');
-      currentEntry.subheading = cleanMarkdownInline(parts[0]);
-      currentEntry.date = cleanMarkdownInline(parts.slice(1).join('|'));
-      continue;
+      const separator = line.indexOf('|');
+      const organization = line.slice(0, separator).trim();
+      const dateAndDetail = extractDatePrefix(line.slice(separator + 1));
+      if (dateAndDetail) {
+        currentEntry.subheading = cleanMarkdownInline(organization);
+        currentEntry.date = dateAndDetail.date;
+        if (dateAndDetail.detail) currentParagraphs.push(dateAndDetail.detail);
+        continue;
+      }
+      if (organization.startsWith('**') && organization.endsWith('**')) {
+        currentEntry.subheading = cleanMarkdownInline(organization);
+        const detail = cleanMarkdownInline(line.slice(separator + 1));
+        if (detail) currentParagraphs.push(detail);
+        continue;
+      }
     }
 
     if (line.startsWith('**') && line.endsWith('**') && currentEntry && !currentEntry.subheading) {
@@ -156,9 +181,13 @@ export function parseCvDocument(content: string): CVContent {
       continue;
     }
 
-    if (currentEntry && !currentEntry.date && !line.startsWith('**')) {
-      currentEntry.date = cleanMarkdownInline(line);
-      continue;
+    if (currentEntry && !currentEntry.date) {
+      const dateAndDetail = extractDatePrefix(line);
+      if (dateAndDetail) {
+        currentEntry.date = dateAndDetail.date;
+        if (dateAndDetail.detail) currentParagraphs.push(dateAndDetail.detail);
+        continue;
+      }
     }
 
     currentParagraphs.push(line);
