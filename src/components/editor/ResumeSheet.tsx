@@ -452,7 +452,7 @@ export default function ResumeSheet({
     </Fragment>
   );
 
-  const renderSkill = (item: string, itemId: string, onCommit: (next: string) => void) => {
+  const renderSkill = (item: string, itemId: string, onCommit: (next: string) => void, className?: string) => {
     const parts = splitSkillItem(item);
     const rowStyle: CSSProperties = {
       display: 'flow-root',
@@ -464,7 +464,7 @@ export default function ResumeSheet({
       return (
         <Fragment key={itemId}>
           <PageGap id={itemId} pushes={pushes} />
-          <div data-flow={itemId} style={rowStyle}>
+          <div data-flow={itemId} className={className} style={rowStyle}>
             <Field id={itemId} flowId={`${itemId}-text`} rich value={item} placeholder={t('editor.sheet.bullet')} onCommit={onCommit} />
           </div>
         </Fragment>
@@ -695,6 +695,17 @@ export default function ResumeSheet({
 
           {doc.sections.map((section, sectionIndex) => {
             const skills = isSkillsSection(section.title);
+            const emptyParagraphStarter = section.paragraphs.length === 0
+              && section.entries.length === 0
+              && section.bullets.length === 0;
+            const paragraphItems = section.paragraphs.length > 0
+              ? section.paragraphs
+              : emptyParagraphStarter ? [''] : [];
+            const commitParagraph = (paragraphIndex: number, next: string) => edit((draft) => {
+              const paragraphs = draft.sections[sectionIndex].paragraphs;
+              if (paragraphIndex < paragraphs.length) paragraphs[paragraphIndex] = next;
+              else if (next) paragraphs.push(next);
+            });
             return (
               <section
                 key={`section-${sectionIndex}`}
@@ -755,10 +766,11 @@ export default function ResumeSheet({
 
                 {skills ? (
                   <>
-                    {section.paragraphs.map((paragraph, paragraphIndex) => renderSkill(
+                    {paragraphItems.map((paragraph, paragraphIndex) => renderSkill(
                       paragraph,
                       `cv-skill-p-${sectionIndex}-${paragraphIndex}`,
-                      (next) => edit((draft) => { draft.sections[sectionIndex].paragraphs[paragraphIndex] = next; }),
+                      (next) => commitParagraph(paragraphIndex, next),
+                      emptyParagraphStarter ? 'cv-collapse' : undefined,
                     ))}
                     {section.bullets.map((bullet, bulletIndex) => renderSkill(
                       bullet,
@@ -768,7 +780,7 @@ export default function ResumeSheet({
                   </>
                 ) : (
                   <>
-                    {section.paragraphs.map((paragraph, paragraphIndex) => {
+                    {paragraphItems.map((paragraph, paragraphIndex) => {
                       const flowId = `p-${sectionIndex}-${paragraphIndex}`;
                       return (
                         <Fragment key={flowId}>
@@ -778,24 +790,14 @@ export default function ResumeSheet({
                             rich
                             value={paragraph}
                             placeholder={t('editor.sheet.paragraph')}
-                            onCommit={(next) => edit((draft) => { draft.sections[sectionIndex].paragraphs[paragraphIndex] = next; })}
+                            onCommit={(next) => commitParagraph(paragraphIndex, next)}
+                            className={emptyParagraphStarter ? 'cv-collapse' : undefined}
                             style={paragraphStyle}
                           />
                         </Fragment>
                       );
                     })}
                   </>
-                )}
-
-                {section.paragraphs.length === 0 && section.entries.length === 0 && section.bullets.length === 0 && (
-                  <Field
-                    rich
-                    value=""
-                    placeholder={t('editor.sheet.paragraph')}
-                    className="cv-collapse"
-                    onCommit={(next) => { if (next) edit((draft) => { draft.sections[sectionIndex].paragraphs.push(next); }); }}
-                    style={paragraphStyle}
-                  />
                 )}
 
                 {section.entries.map((entry, entryIndex) => {
