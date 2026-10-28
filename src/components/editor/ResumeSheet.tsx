@@ -22,6 +22,7 @@ import {
   SVG_ICONS,
   contentWidthPt,
   cvFontFamily,
+  entryHeaderColumns,
   fontLine,
   fontLineRatio,
   getIconType,
@@ -416,6 +417,7 @@ export default function ResumeSheet({
 
   const fallbackHeight = A4_HEIGHT_PT * CSS_PX_PER_PT;
   const iconSize = layout.contactSize * CV_METRICS.contactIconScale;
+  const entryColumns = entryHeaderColumns(contentWidthPt(pageMargin));
 
   const bodyStyle: CSSProperties = {
     fontSize: pt(layout.bodySize),
@@ -802,7 +804,6 @@ export default function ResumeSheet({
                   const hasCompany = entry.subheading.trim().length > 0;
                   const preSize = hasCompany || hasDate ? layout.metaSize : layout.headingSize;
                   const preBullet = CV_METRICS.entryPreBullet * fontLine(preSize, family);
-                  const headHeight = hasDate ? fontLine(layout.metaSize, family) + CV_METRICS.entryDateNudge : undefined;
                   return (
                     <Fragment key={entryFlow}>
                     <PageGap id={entryFlow} pushes={pushes} />
@@ -818,18 +819,25 @@ export default function ResumeSheet({
                           {t('editor.sheet.addBullet')}
                         </button>
                       </div>
-                      <div className="cv-head" style={{ position: 'relative', height: headHeight !== undefined ? pt(headHeight) : undefined }}>
+                      <div className="cv-head" style={{
+                        display: 'grid',
+                        gridTemplateColumns: `minmax(0, ${entryColumns.headingWidth}fr) minmax(0, ${entryColumns.dateWidth}fr)`,
+                        columnGap: pt(CV_METRICS.entryDateGap),
+                        alignItems: 'start',
+                      }}>
                         <Field
                           id={`cv-entry-${sectionIndex}-${entryIndex}`}
                           value={entry.heading}
                           placeholder={t('editor.sheet.role')}
                           onCommit={(heading) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].heading = heading; })}
                           style={{
-                            width: `${CV_METRICS.entryHeadingRatio * 100}%`,
+                            width: '100%',
+                            minWidth: 0,
                             fontSize: pt(layout.headingSize),
                             lineHeight: em,
                             fontWeight: 700,
                             color: PDF_COLORS.text,
+                            overflowWrap: 'anywhere',
                           }}
                         />
                         <Field
@@ -838,16 +846,16 @@ export default function ResumeSheet({
                           className={hasDate ? undefined : 'cv-date-empty'}
                           onCommit={(date) => edit((draft) => { draft.sections[sectionIndex].entries[entryIndex].date = date; })}
                           style={{
-                            position: 'absolute',
-                            top: 0,
-                            right: 0,
-                            width: 'max-content',
+                            width: '100%',
+                            minWidth: 0,
+                            maxWidth: '100%',
                             fontSize: pt(layout.metaSize),
                             lineHeight: em,
                             fontWeight: 400,
                             color: PDF_COLORS.muted,
                             textAlign: 'right',
-                            whiteSpace: 'nowrap',
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
                           }}
                         />
                       </div>

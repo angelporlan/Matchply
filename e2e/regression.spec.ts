@@ -72,6 +72,56 @@ test('source edits persist across reload and comparison preserves the draft', as
   await expect(page.getByText(/Guardado en la nube|Saved to cloud/).first()).toBeVisible();
 });
 
+for (const width of [1440, 390]) test(`entry title and date stay in separate columns at ${width}px`, async ({ page, context }) => {
+  await login(context);
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(`/editor/${fixtureId('medium:cv:1')}`);
+  await page.getByTitle('Ver editor Markdown', { exact: true }).click();
+  const textarea = page.locator('textarea').first();
+  const original = await textarea.inputValue();
+  const content = `# Synthetic Candidate\n\n## Formación\n\n### Técnico superior en instalaciones electrotécnicas de media y baja tensión\nCentro de Formación | 2020 - 2024, prácticas profesionales y programa de formación complementaria`;
+  const save = async (value: string) => {
+    const saved = page.waitForResponse((response) => response.request().method() === 'POST' && Boolean(response.request().headers()['next-action']));
+    await textarea.fill(value);
+    expect((await saved).status()).toBe(200);
+    await expect(page.getByText(/Guardado en la nube|Saved to cloud/).first()).toBeVisible();
+  };
+
+  try {
+    await save(content);
+    await page.getByTitle('Volver al diseño del documento', { exact: true }).click();
+    const row = page.locator('.cv-head');
+    await expect(row).toHaveCount(1);
+    const geometry = await row.evaluate((element) => {
+      const title = element.children[0].getBoundingClientRect();
+      const date = element.children[1].getBoundingClientRect();
+      const company = element.parentElement?.querySelector('[data-flow="company-0-0"]')?.getBoundingClientRect();
+      const bounds = element.getBoundingClientRect();
+      return {
+        titleRight: title.right,
+        titleBottom: title.bottom,
+        dateLeft: date.left,
+        dateRight: date.right,
+        dateBottom: date.bottom,
+        rowBottom: bounds.bottom,
+        companyTop: company?.top ?? null,
+      };
+    });
+    expect(geometry.titleRight).toBeLessThanOrEqual(geometry.dateLeft);
+    expect(geometry.dateRight).toBeLessThanOrEqual(await row.evaluate((element) => element.getBoundingClientRect().right));
+    expect(geometry.titleBottom).toBeLessThanOrEqual(geometry.rowBottom);
+    expect(geometry.dateBottom).toBeLessThanOrEqual(geometry.rowBottom);
+    expect(geometry.companyTop).not.toBeNull();
+    expect(geometry.companyTop!).toBeGreaterThanOrEqual(geometry.rowBottom);
+    await page.screenshot({ path: test.info().outputPath('entry-header-columns.png') });
+  } finally {
+    const markdownToggle = page.getByTitle('Ver editor Markdown', { exact: true });
+    if (await markdownToggle.isVisible()) await markdownToggle.click();
+    const source = page.locator('textarea').first();
+    if (await source.isVisible()) await save(original);
+  }
+});
+
 test('one, three and ten page documents save and export without losing source text', async ({ page, context, baseURL }) => {
   await login(context);
   await page.goto(`/editor/${fixtureId('medium:cv:1')}`);

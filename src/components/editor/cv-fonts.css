@@ -98,11 +98,11 @@
 .cv-chrome button:hover { color: #111; }
 .cv-chrome button:disabled { opacity: 0.35; }
 .cv-date-empty { width: 0 !important; max-width: 0 !important; overflow: hidden; opacity: 0; }
-.cv-group:hover > .cv-head .cv-date-empty, .cv-group:focus-within > .cv-head .cv-date-empty { width: max-content !important; max-width: 48% !important; overflow: visible; opacity: 1; }
+.cv-group:hover > .cv-head .cv-date-empty, .cv-group:focus-within > .cv-head .cv-date-empty { width: 100% !important; max-width: 100% !important; overflow: visible; opacity: 1; }
 .cv-collapse { height: 0 !important; min-height: 0 !important; margin: 0 !important; overflow: hidden; opacity: 0; }
 .cv-group:hover > .cv-collapse, .cv-group:focus-within > .cv-collapse { height: auto !important; overflow: visible; opacity: 1; }
 @media (hover: none) {
   .cv-chrome { opacity: 1; pointer-events: auto; }
-  .cv-date-empty { width: max-content !important; max-width: 48% !important; overflow: visible; opacity: 1; }
+  .cv-date-empty { width: 100% !important; max-width: 100% !important; overflow: visible; opacity: 1; }
   .cv-collapse { height: auto !important; overflow: visible; opacity: 1; }
 }

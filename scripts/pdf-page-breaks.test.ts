@@ -80,6 +80,35 @@ School Token | DATE-TOKEN
   }
 });
 
+test('an entry date stays in its own column when both header fields are long', async () => {
+  const headingText = 'TITLE-TOKEN Técnico superior en instalaciones electrotécnicas industriales';
+  const dateText = 'DATE-TOKEN 2020 - 2024, prácticas y formación complementaria';
+  const markdown = `# Synthetic Candidate\n\n## Educación\n\n### ${headingText}\nSchool | ${dateText}\n`;
+  const fields: { text: string; x: number; width: number }[] = [];
+  const prototype = PDFDocument.prototype as unknown as {
+    text: (this: PDFKit.PDFDocument, text: string | Buffer, x?: number, y?: number, options?: { width?: number }) => unknown;
+  };
+  const original = prototype.text;
+  prototype.text = function (this: PDFKit.PDFDocument, text, x, y, options) {
+    const value = String(text);
+    if (value.includes('TITLE-TOKEN') || value.includes('DATE-TOKEN')) {
+      fields.push({ text: value, x: Number(x), width: Number(options?.width) });
+    }
+    return original.call(this, text, x, y, options);
+  };
+
+  try {
+    await generatePdfBuffer(markdown, { fontFamily: 'helvetica', pageMargin: 36, fontSize: 12.5, showIcons: false });
+    const heading = fields.find((field) => field.text.includes('TITLE-TOKEN'));
+    const date = fields.find((field) => field.text.includes('DATE-TOKEN'));
+    assert.ok(heading);
+    assert.ok(date);
+    assert.ok(heading.x + heading.width < date.x, 'title and date columns must not overlap');
+  } finally {
+    prototype.text = original;
+  }
+});
+
 test('a section heading stays with its first entry when the page is nearly full', async () => {
   const filler = Array.from({ length: 51 }, (_, index) => `- Synthetic bullet ${index + 1}`).join('\n');
   const markdown = `# Synthetic Candidate
