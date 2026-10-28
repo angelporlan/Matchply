@@ -78,7 +78,7 @@ export const CV_METRICS = {
   skillIndent: 6,
   entryHeadingRatio: 0.7,
   entryDateGap: 6,
-  entryDateNudge: 1,
+  entryDateNudge: 3,
   entryPreBullet: 0.15,
   skillMoveDown: 0.08,
 } as const;

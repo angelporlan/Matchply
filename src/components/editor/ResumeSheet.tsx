@@ -875,6 +875,7 @@ export default function ResumeSheet({
                               fontStyle: 'italic',
                               fontWeight: 400,
                               color: PDF_COLORS.text,
+                              marginTop: pt(CV_METRICS.entryDateNudge),
                               marginBottom: pt(preBullet),
                             }}
                           />
