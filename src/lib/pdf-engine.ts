@@ -7,6 +7,7 @@ import {
   CV_PHOTO,
   SVG_ICONS,
   contentWidthPt,
+  entryHeaderColumns,
   getFontScale,
   getIconType,
   isSkillsSection,
@@ -232,21 +233,30 @@ function lineHeightFor(doc: any, font: string, size: number): number {
   return height;
 }
 
-function entryHeaderHeight(doc: any, entry: Entry, layout: any, cust: CustomizeOptions): number {
+function entryTitleRowHeight(doc: any, entry: Entry, layout: any, cust: CustomizeOptions): number {
   const previous = fontState(doc);
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const cWidth = contentWidthPt(cust.pageMargin || PAGE_MARGIN);
+  const columns = entryHeaderColumns(cWidth);
   doc.font(ff.bold).fontSize(layout.headingSize);
   const headingHeight = doc.heightOfString(entry.heading || ' ', {
-    width: cWidth * CV_METRICS.entryHeadingRatio,
+    width: columns.headingWidth,
   });
   let dateHeight = 0;
   if (entry.date) {
     doc.font(ff.regular).fontSize(layout.metaSize);
-    dateHeight = doc.heightOfString(entry.date, { width: cWidth });
+    dateHeight = doc.heightOfString(entry.date, { width: columns.dateWidth });
   }
-  let height = Math.max(headingHeight, dateHeight);
+  restoreFontState(doc, previous);
+  return Math.max(headingHeight, dateHeight);
+}
+
+function entryHeaderHeight(doc: any, entry: Entry, layout: any, cust: CustomizeOptions): number {
+  const previous = fontState(doc);
+  let height = entryTitleRowHeight(doc, entry, layout, cust);
   if (entry.subheading) {
+    const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
+    const cWidth = contentWidthPt(cust.pageMargin || PAGE_MARGIN);
     doc.font(ff.italic).fontSize(layout.metaSize);
     height += CV_METRICS.entryDateNudge + doc.heightOfString(entry.subheading, { width: cWidth });
   }
@@ -340,6 +350,8 @@ function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) 
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const margin = cust.pageMargin || PAGE_MARGIN;
   const cWidth = contentWidthPt(margin);
+  const columns = entryHeaderColumns(cWidth);
+  const titleRowHeight = entryTitleRowHeight(doc, entry, layout, cust);
 
   ensurePageRoom(doc, entryHeaderHeight(doc, entry, layout, cust));
   const startY = doc.y;
@@ -350,22 +362,24 @@ function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) 
   // PDFKit moves the heading when it does not fit. Reusing startY for the date
   // then draws the date past the bottom of the new page and opens a blank one.
   const headingStartsOnNextPage = startY > doc.page.maxY()
-    || startY + doc.currentLineHeight(true) > doc.page.maxY();
+    || startY + titleRowHeight > doc.page.maxY();
+  const headingY = headingStartsOnNextPage ? doc.page.margins.top : startY;
 
-  doc.text(entry.heading, margin, startY, {
-    width: cWidth * CV_METRICS.entryHeadingRatio
+  doc.text(entry.heading, margin, headingY, {
+    width: columns.headingWidth,
   });
 
   if (entry.date) {
-    const dateY = headingStartsOnNextPage ? doc.page.margins.top : startY;
     doc.font(ff.regular)
       .fontSize(layout.metaSize)
       .fillColor(COLORS.muted)
-      .text(entry.date, margin, dateY, {
-        width: cWidth,
+      .text(entry.date, margin + columns.dateX, headingY, {
+        width: columns.dateWidth,
         align: 'right'
       });
   }
+
+  doc.y = Math.max(doc.y, headingY + titleRowHeight);
 
   if (entry.subheading) {
     doc.y += CV_METRICS.entryDateNudge;

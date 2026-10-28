@@ -77,6 +77,7 @@ export const CV_METRICS = {
   bulletText: 18,
   skillIndent: 6,
   entryHeadingRatio: 0.7,
+  entryDateGap: 6,
   entryDateNudge: 1,
   entryPreBullet: 0.15,
   skillMoveDown: 0.08,
@@ -140,6 +141,19 @@ export function layoutForScale(scale: number): CvLayout {
 
 export function contentWidthPt(pageMargin: number): number {
   return A4_WIDTH_PT - 2 * pageMargin;
+}
+
+/** Horizontal columns used by the editable sheet and PDF entry heading. */
+export function entryHeaderColumns(contentWidth: number) {
+  const width = Math.max(0, contentWidth);
+  const gap = Math.min(CV_METRICS.entryDateGap, width);
+  const columnsWidth = width - gap;
+  const headingWidth = columnsWidth * CV_METRICS.entryHeadingRatio;
+  return {
+    headingWidth,
+    dateX: headingWidth + gap,
+    dateWidth: columnsWidth - headingWidth,
+  };
 }
 
 export function isSkillsSection(title: string): boolean {

@@ -5,6 +5,7 @@ import {
   CV_METRICS,
   FONT_LINE_RATIO,
   contentWidthPt,
+  entryHeaderColumns,
   getFontScale,
   getIconType,
   isSkillsSection,
@@ -30,6 +31,15 @@ test('print scale matches the PDF route and clamps', () => {
   assert.equal(layoutForScale(0.1).bodySize, BASE_LAYOUT.bodySize * 0.75);
   assert.equal(CV_METRICS.headerRuleGap, 12);
   assert.equal(contentWidthPt(30), 595.28 - 60);
+});
+
+test('entry heading and date receive separate columns with a visible gap', () => {
+  const width = contentWidthPt(36);
+  const columns = entryHeaderColumns(width);
+  assert.ok(columns.headingWidth > 0);
+  assert.ok(columns.dateX > columns.headingWidth);
+  assert.equal(columns.dateX - columns.headingWidth, CV_METRICS.entryDateGap);
+  assert.ok(columns.dateX + columns.dateWidth <= width);
 });
 
 test('contact icons follow the PDF label order', () => {
