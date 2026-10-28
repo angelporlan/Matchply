@@ -208,11 +208,73 @@ function drawSmallCapsText(doc: any, text: string, x: number, y: number, baseSiz
   doc.y = y + baseSize + CV_METRICS.sectionTitleExtra;
 }
 
-function drawSectionHeading(doc: any, title: string, layout: any, cust: CustomizeOptions) {
+function ensurePageRoom(doc: any, height: number) {
+  const availablePageHeight = doc.page.maxY() - doc.page.margins.top;
+  if (height > 0 && height <= availablePageHeight && doc.y + height > doc.page.maxY()) {
+    doc.continueOnNewPage();
+  }
+}
+
+function fontState(doc: any) {
+  return { name: doc._font?.name as string | undefined, size: doc._fontSize as number | undefined };
+}
+
+function restoreFontState(doc: any, state: ReturnType<typeof fontState>) {
+  if (state.name) doc.font(state.name);
+  if (state.size) doc.fontSize(state.size);
+}
+
+function lineHeightFor(doc: any, font: string, size: number): number {
+  const previous = fontState(doc);
+  doc.font(font).fontSize(size);
+  const height = doc.currentLineHeight(true);
+  restoreFontState(doc, previous);
+  return height;
+}
+
+function entryHeaderHeight(doc: any, entry: Entry, layout: any, cust: CustomizeOptions): number {
+  const previous = fontState(doc);
+  const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
+  const cWidth = contentWidthPt(cust.pageMargin || PAGE_MARGIN);
+  doc.font(ff.bold).fontSize(layout.headingSize);
+  const headingHeight = doc.heightOfString(entry.heading || ' ', {
+    width: cWidth * CV_METRICS.entryHeadingRatio,
+  });
+  let dateHeight = 0;
+  if (entry.date) {
+    doc.font(ff.regular).fontSize(layout.metaSize);
+    dateHeight = doc.heightOfString(entry.date, { width: cWidth });
+  }
+  let height = Math.max(headingHeight, dateHeight);
+  if (entry.subheading) {
+    doc.font(ff.italic).fontSize(layout.metaSize);
+    height += CV_METRICS.entryDateNudge + doc.heightOfString(entry.subheading, { width: cWidth });
+  }
+  restoreFontState(doc, previous);
+  return height;
+}
+
+function sectionLeadHeight(doc: any, section: Section, layout: any, cust: CustomizeOptions): number {
+  const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
+  if (isSkillsSection(section.title)) {
+    const first = section.paragraphs?.[0] ?? section.bullets?.[0];
+    return first === undefined ? 0 : lineHeightFor(doc, ff.regular, layout.bodySize);
+  }
+  if (section.paragraphs?.length) return lineHeightFor(doc, ff.regular, layout.bodySize);
+  if (section.entries?.length) return entryHeaderHeight(doc, section.entries[0], layout, cust);
+  if (section.bullets?.length) return lineHeightFor(doc, ff.regular, layout.bodySize);
+  return 0;
+}
+
+function drawSectionHeading(doc: any, title: string, layout: any, cust: CustomizeOptions, keepWithNext = 0) {
   const margin = cust.pageMargin || PAGE_MARGIN;
   const cWidth = contentWidthPt(margin);
   const ff = cust.fontFamily || FONT_FAMILIES.helvetica;
   const accent = cust.accentColor || COLORS.accent;
+  const sectionGapHeight = doc.currentLineHeight(true) * layout.sectionGap;
+  const headingHeight = layout.sectionSize + CV_METRICS.sectionTitleExtra
+    + CV_METRICS.sectionRuleGap + CV_METRICS.afterSectionRule;
+  ensurePageRoom(doc, sectionGapHeight + headingHeight + keepWithNext);
 
   doc.moveDown(layout.sectionGap);
 
@@ -279,6 +341,7 @@ function drawEntry(doc: any, entry: Entry, layout: any, cust: CustomizeOptions) 
   const margin = cust.pageMargin || PAGE_MARGIN;
   const cWidth = contentWidthPt(margin);
 
+  ensurePageRoom(doc, entryHeaderHeight(doc, entry, layout, cust));
   const startY = doc.y;
 
   doc.font(ff.bold)
@@ -412,9 +475,9 @@ function drawSkillsSection(doc: any, section: Section, layout: any, cust: Custom
   const cWidth = contentWidthPt(margin);
   const accent = cust.accentColor || COLORS.accent;
 
-  drawSectionHeading(doc, section.title, layout, cust);
-
   const items = [...(section.paragraphs || []), ...(section.bullets || [])];
+  const firstLineHeight = items.length ? lineHeightFor(doc, ff.regular, layout.bodySize) : 0;
+  drawSectionHeading(doc, section.title, layout, cust, firstLineHeight);
   if (!items.length) return;
 
   for (const item of items) {
@@ -520,7 +583,7 @@ function renderCvPdf(doc: any, cv: CVContent, layout: any, showIcons: boolean, c
     if (isSkillsSection(section.title)) {
       drawSkillsSection(doc, section, layout, cust);
     } else {
-      drawSectionHeading(doc, section.title, layout, cust);
+      drawSectionHeading(doc, section.title, layout, cust, sectionLeadHeight(doc, section, layout, cust));
 
       for (const paragraph of section.paragraphs || []) {
         drawParagraph(doc, paragraph, layout, {}, cust);

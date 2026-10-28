@@ -79,3 +79,49 @@ School Token | DATE-TOKEN
     PDFDocument.prototype._line = original;
   }
 });
+
+test('a section heading stays with its first entry when the page is nearly full', async () => {
+  const filler = Array.from({ length: 51 }, (_, index) => `- Synthetic bullet ${index + 1}`).join('\n');
+  const markdown = `# Synthetic Candidate
+
+**Email:** candidate@example.test | **Phone:** +34 600 000 000
+
+## Experience
+
+${filler}
+
+## EDUCATION-TOKEN
+
+### HEADING-TOKEN
+SCHOOL-TOKEN | DATE-TOKEN
+`;
+  const lines: { page: number; text: string }[] = [];
+  const original = PDFDocument.prototype._line;
+  (PDFDocument.prototype as unknown as { _line: (text: string, options: unknown, wrapper: unknown) => unknown })._line = function (
+    this: PDFKit.PDFDocument,
+    text: unknown,
+    options: unknown,
+    wrapper: unknown,
+  ) {
+    const range = this.bufferedPageRange();
+    lines.push({ page: range.start + range.count, text: String(text) });
+    return original.call(this, text, options, wrapper);
+  };
+
+  try {
+    await generatePdfBuffer(markdown, {
+      fontFamily: 'helvetica',
+      pageMargin: 36,
+      fontSize: 12.5,
+      showIcons: false,
+    });
+    const pageOf = (token: string) => lines.find((line) => line.text.includes(token))?.page;
+    assert.ok(pageOf('EDUCATION-TOKEN'));
+    assert.ok(pageOf('HEADING-TOKEN'));
+    assert.ok(pageOf('SCHOOL-TOKEN'));
+    assert.equal(pageOf('EDUCATION-TOKEN'), pageOf('HEADING-TOKEN'));
+    assert.equal(pageOf('HEADING-TOKEN'), pageOf('SCHOOL-TOKEN'));
+  } finally {
+    PDFDocument.prototype._line = original;
+  }
+});
