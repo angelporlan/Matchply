@@ -405,7 +405,7 @@ export default function ResumeSheet({
       setPlanKey(measureKey);
       return;
     }
-    setPagePlan(measureSheetPages(article, factor, pageBreaks));
+    setPagePlan(measureSheetPages(article, factor, pageBreaks, pageMargin));
     setPlanKey(measureKey);
   }, [measureKey]);
 
@@ -558,7 +558,7 @@ export default function ResumeSheet({
             width: '210mm',
             minHeight: framed ? undefined : '297mm',
             boxSizing: 'border-box',
-            padding: `${pt(pageMargin)} ${pt(pageMargin)} 0`,
+            padding: pt(pageMargin),
             background: framed ? 'transparent' : '#ffffff',
             color: PDF_COLORS.text,
             fontFamily: CV_FONT_STACK[family],

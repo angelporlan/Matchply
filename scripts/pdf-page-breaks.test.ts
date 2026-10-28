@@ -4,6 +4,7 @@ import PDFDocument from 'pdfkit';
 import { generatePdfBuffer } from '@/lib/pdf-engine';
 import { countPdfPages } from '@/lib/pdf-pages';
 import { planPagePushes } from '@/lib/pdf-page-breaks';
+import { A4_HEIGHT_PT } from '@/lib/cv-layout';
 
 test('page pushes land each broken line at the top of the next sheet', () => {
   const pagePx = 100;
@@ -17,6 +18,43 @@ test('page pushes land each broken line at the top of the next sheet', () => {
     { lineIndex: 1, pushPx: 20 },
     { lineIndex: 2, pushPx: 50 },
   ]);
+
+  const withTopMargin = planPagePushes([10, 90, 150], [pt(88), pt(140)], pagePx, gapPx, 12);
+  assert.deepEqual(withTopMargin, [
+    { lineIndex: 1, pushPx: 32 },
+    { lineIndex: 2, pushPx: 50 },
+  ]);
+});
+
+test('PDF pages preserve the selected top and bottom margins', async () => {
+  const margins: Array<{ top: number; bottom: number }> = [];
+  const original = PDFDocument.prototype.addPage;
+  PDFDocument.prototype.addPage = function (this: PDFKit.PDFDocument, options: any) {
+    const page = original.call(this, options);
+    margins.push({ top: this.page.margins.top, bottom: this.page.margins.bottom });
+    return page;
+  };
+
+  try {
+    const markdown = `# Synthetic Candidate\n\n## Experience\n\n${'- Detailed accomplishment with measurable results and cross-functional collaboration.\n'.repeat(100)}`;
+    const { buffer, pageBreaks } = await generatePdfBuffer(markdown, {
+      fontFamily: 'helvetica',
+      pageMargin: 72,
+      fontSize: 12.5,
+      showIcons: false,
+    });
+    const pageCount = countPdfPages(buffer);
+    assert.ok(pageCount > 1);
+    assert.equal(pageCount, pageBreaks.length + 1);
+    const contentHeight = A4_HEIGHT_PT - 2 * 72;
+    assert.ok(pageBreaks.every((value, index) => (
+      index === 0 || value - pageBreaks[index - 1] <= contentHeight + 5
+    )), 'continuous-flow page breaks must not count each repeated top margin twice');
+    assert.equal(margins.length, pageCount);
+    assert.ok(margins.every(({ top, bottom }) => top === 72 && bottom === 72));
+  } finally {
+    PDFDocument.prototype.addPage = original;
+  }
 });
 
 test('an entry date stays on the heading page when the heading starts a new PDF page', async () => {

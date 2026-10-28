@@ -1,4 +1,4 @@
-import { planPagePushes, SHEET_PAGE_GAP_PX, sheetPagePx } from '@/lib/pdf-page-breaks';
+import { cssPxFromPt, planPagePushes, SHEET_PAGE_GAP_PX, sheetPagePx } from '@/lib/pdf-page-breaks';
 
 export type FlowPushMap = Record<string, number>;
 
@@ -122,13 +122,14 @@ export function clearPageSpans(article: HTMLElement) {
   article.querySelectorAll('[data-page-break]').forEach((node) => node.remove());
 }
 
-export function measureSheetPages(article: HTMLElement, factor: number, breakPts: number[]): SheetPagePlan {
+export function measureSheetPages(article: HTMLElement, factor: number, breakPts: number[], pageMargin: number): SheetPagePlan {
   const lines = collectLines(article, factor);
   const planned = planPagePushes(
     lines.map((line) => line.top),
     breakPts,
     sheetPagePx(),
     SHEET_PAGE_GAP_PX,
+    cssPxFromPt(pageMargin),
   );
   const flows: FlowPushMap = {};
   const spans: LineSpan[] = [];
