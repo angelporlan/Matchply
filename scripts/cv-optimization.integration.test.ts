@@ -181,6 +181,18 @@ test('three variants preserve quota, ownership, revisions, sources and partial r
       await service.processCvOptimization(next,new AbortController().signal,async (...args) => { calls.push(args[5]); return call(...args); });
       assert.deepEqual(calls,['optimize_aggressive']); assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
     });
+    await t.test('unclassified infrastructure errors retry the same optimization job and keep its reservation', async () => {
+      const u = await user(); const c = await service.enqueueCvOptimization(u.id,input(u.source.id)); const job = await queue.claimAiJobById(c.jobId); assert.ok(job);
+      await queue.failAiJob(job,new Error('synthetic database connection interruption'));
+      const queued = await queue.getAiJob(job.id); assert.equal(queued?.status,'queued');
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.reserved,1);
+      await db.update(aiJobs).set({ nextAttemptAt:new Date(0) }).where(eq(aiJobs.id,job.id));
+      const retry = await queue.claimAiJobById(job.id); assert.ok(retry); assert.equal(retry.id,job.id);
+      await service.processCvOptimization(retry,new AbortController().signal,call);
+      assert.equal((await queue.getAiJob(job.id))?.status,'completed');
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.used,1);
+      assert.equal((await usage.getUsageSnapshot(u.id)).usage.general.reserved,0);
+    });
     await t.test('an in-flight guest job survives account claim and is owned by the account', async () => {
       const guest = await user(); const account = await user(); await db.update(users).set({ isGuest:true }).where(eq(users.id,guest.id));
       const c = await service.enqueueCvOptimization(guest.id,input(guest.source.id)); const j = await queue.claimAiJobById(c.jobId); assert.ok(j);

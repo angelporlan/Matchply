@@ -234,7 +234,14 @@ export async function completeAiJob(jobId: string, result: Record<string, unknow
 export async function failAiJob(job: AiJob, error: unknown) {
   const retryableImport = error instanceof Error && 'retryable' in error && error.retryable === true;
   const rejected = error instanceof Error && 'status' in error && typeof error.status === 'number' && error.status >= 400 && error.status < 500 && error.status !== 429;
-  const terminal = rejected || job.attempt >= MAX_ATTEMPTS || (['import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(job.kind) && !retryableImport);
+  // CV optimization has explicit retryability for known AI failures. Unclassified
+  // errors there are usually infrastructure failures (for example a database
+  // connection drop during a checkpoint), so retry the same durable job. Keep
+  // validation/provider errors terminal when they explicitly opt out.
+  const hasRetryabilityDecision = error instanceof Error && 'retryable' in error && typeof error.retryable === 'boolean';
+  const retryableOptimization = (error instanceof Error && 'retryable' in error && error.retryable === true) || (!hasRetryabilityDecision && !rejected);
+  const retryable = job.kind === 'optimize_cv_variants' ? retryableOptimization : retryableImport;
+  const terminal = rejected || job.attempt >= MAX_ATTEMPTS || (['import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(job.kind) && !retryable);
   const now = new Date();
   return db.transaction(async tx => {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`usage:${job.userId}`}))`);
