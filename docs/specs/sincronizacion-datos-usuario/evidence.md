@@ -35,3 +35,10 @@ El paquete no contenía campos prohibidos ni trabajos pendientes. La importació
 - `MATCHPLY_USER_IMPORT_TOKEN` fue eliminado; `env-list` confirmó que ya no figura entre las variables activas.
 - Una petición sin token al endpoint devuelve `404`, por lo que el canal queda cerrado tras la operación.
 - Los ficheros locales que contenían el paquete, la respuesta y el token fueron eliminados después de verificar la operación.
+
+## Ajuste de límites de transporte (2026-10-31)
+
+- Separación de límites preparada: cuerpo gzip de hasta 8 MiB y cuerpo descomprimido de hasta 16 MiB, con salida de `gunzip` acotada. El cliente privado aplica los mismos límites antes de enviar.
+- Las nueve pruebas focalizadas pasan; `npm run typecheck` pasa; `npm run lint` pasa con avisos preexistentes en componentes del editor.
+- El cliente privado también pasó una prueba de transporte local con un paquete sintético de 12.140.099 bytes; envió gzip de 11.840 bytes y recibió éxito del stub local.
+- El preflight del canal público con 4.270.148 bytes aleatorios y un token inválido respondió `413`. La petición no contenía datos de cuenta ni podía autorizar la importación. No se creó token ni backup y no se importaron datos. La sincronización completa queda pendiente de un ajuste autorizado del proxy.

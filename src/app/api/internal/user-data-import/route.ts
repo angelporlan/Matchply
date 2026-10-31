@@ -7,7 +7,8 @@ import { log } from '@/lib/logger';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_COMPRESSED_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_UNCOMPRESSED_BODY_BYTES = 16 * 1024 * 1024;
 
 function hasValidToken(request: Request) {
   const expected = process.env.MATCHPLY_USER_IMPORT_TOKEN || '';
@@ -18,15 +19,13 @@ function hasValidToken(request: Request) {
   return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);
 }
 
+function isBufferTooLarge(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ERR_BUFFER_TOO_LARGE';
+}
+
 export async function POST(request: Request) {
   if (!hasValidToken(request)) {
     return NextResponse.json({ error: 'Not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
-  }
-
-  const compressed = Buffer.from(await request.arrayBuffer());
-  const declaredLength = Number(request.headers.get('content-length') || 0);
-  if (declaredLength > MAX_BODY_BYTES || compressed.byteLength > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
   }
 
   const encoding = (request.headers.get('content-encoding') || 'identity').toLowerCase();
@@ -34,13 +33,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unsupported content encoding' }, { status: 415, headers: { 'Cache-Control': 'no-store' } });
   }
 
+  const bodyLimit = encoding === 'gzip' ? MAX_COMPRESSED_BODY_BYTES : MAX_UNCOMPRESSED_BODY_BYTES;
+  const compressed = Buffer.from(await request.arrayBuffer());
+  const declaredLength = Number(request.headers.get('content-length') || 0);
+  if (declaredLength > bodyLimit || compressed.byteLength > bodyLimit) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
+  }
+
   let body: Buffer;
   try {
-    body = encoding === 'gzip' ? gunzipSync(compressed) : compressed;
-  } catch {
+    body = encoding === 'gzip'
+      ? gunzipSync(compressed, { maxOutputLength: MAX_UNCOMPRESSED_BODY_BYTES })
+      : compressed;
+  } catch (error) {
+    if (isBufferTooLarge(error)) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
+    }
     return NextResponse.json({ error: 'Invalid compressed payload' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
-  if (body.byteLength > MAX_BODY_BYTES) {
+  if (body.byteLength > MAX_UNCOMPRESSED_BODY_BYTES) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
   }
   const raw = body.toString('utf8');

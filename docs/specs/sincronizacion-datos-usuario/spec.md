@@ -17,7 +17,8 @@ Quedan fuera las credenciales, Stripe, roles y suspensión, actividad de login, 
 
 - La petición es `POST /api/internal/user-data-import` con JSON versionado (se envía gzip para atravesar el proxy) y el encabezado temporal `x-matchply-import-token`.
 - El token solo existe durante una importación, se compara en tiempo constante y se elimina al terminar.
-- El cuerpo está limitado a 8 MiB. El paquete incluye un hash y recuentos; el servidor valida referencias, propiedad y estados antes de abrir la transacción.
+- El cliente limita el paquete JSON a 16 MiB y el cuerpo gzip a 8 MiB. El endpoint permite hasta 8 MiB comprimidos y 16 MiB descomprimidos; las peticiones sin compresión tienen un tope de 16 MiB y gzip debe descomprimirse con ese mismo límite de salida. Un proxy anterior puede imponer un límite menor y debe admitir el paquete antes de iniciar una importación.
+- El paquete incluye un hash y recuentos; el servidor valida referencias, propiedad y estados antes de abrir la transacción.
 - La cuenta destino se resuelve por email. Si el UUID local colisiona con otra cuenta o una referencia no se puede mapear, la transacción falla completa.
 - La importación escribe un único evento de auditoría con email, hash y recuentos, sin contenido personal ni secretos.
 
@@ -25,6 +26,7 @@ Quedan fuera las credenciales, Stripe, roles y suspensión, actividad de login, 
 
 - **DEC-001:** merge idempotente es el comportamiento por defecto; no se borran datos de producción.
 - **DEC-002:** el gateway de producción sigue siendo el canal operativo; el endpoint se habilita solo con una variable efímera y no queda accesible sin token.
+- **DEC-003:** el límite descomprimido sube a 16 MiB y el comprimido se mantiene en 8 MiB, para aceptar paquetes JSON válidos de hasta 16 MiB sin ampliar el cuerpo gzip más allá de 8 MiB. La descompresión debe estar acotada a 16 MiB. Esto no modifica el límite del proxy público.
 - **INV-001:** ninguna importación puede modificar `passwordHash`, Stripe, rol, estado de cuenta, tokens, sesiones, auditoría histórica, configuración global o trabajos pendientes.
 - **INV-002:** una importación devuelve éxito solo después de confirmar la transacción completa.
 - **INV-003:** dos importaciones concurrentes de la misma cuenta se serializan.

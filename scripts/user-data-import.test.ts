@@ -1,7 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { normalizeUserDataPackage } from '@/lib/user-data-import';
+import { POST as importUserDataRoute } from '@/app/api/internal/user-data-import/route';
+
+const IMPORT_TOKEN = 'local-test-import-token';
+const MAX_COMPRESSED_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_UNCOMPRESSED_BODY_BYTES = 16 * 1024 * 1024;
+
+function importRequest(body: Buffer, encoding: 'gzip' | 'identity') {
+  const requestBody = new ArrayBuffer(body.byteLength);
+  new Uint8Array(requestBody).set(body);
+  return new Request('http://localhost/api/internal/user-data-import', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-encoding': encoding,
+      'x-matchply-import-token': IMPORT_TOKEN,
+    },
+    body: requestBody,
+  });
+}
 
 function basePackage(overrides: Record<string, unknown> = {}) {
   const data: Record<string, unknown> = {
@@ -57,5 +77,71 @@ test('rejects a tampered package hash', () => {
   const payload = basePackage();
   (payload.manifest as any).payloadSha256 = '0'.repeat(64);
   assert.throws(() => normalizeUserDataPackage(payload), /hash.*coincide/i);
+});
+
+test('accepts an identity body at the 16 MiB boundary before JSON validation', async () => {
+  const previousToken = process.env.MATCHPLY_USER_IMPORT_TOKEN;
+  process.env.MATCHPLY_USER_IMPORT_TOKEN = IMPORT_TOKEN;
+  try {
+    const body = Buffer.alloc(MAX_UNCOMPRESSED_BODY_BYTES, 0x20);
+    const response = await importUserDataRoute(importRequest(body, 'identity'));
+    assert.equal(response.status, 400);
+  } finally {
+    if (previousToken === undefined) delete process.env.MATCHPLY_USER_IMPORT_TOKEN;
+    else process.env.MATCHPLY_USER_IMPORT_TOKEN = previousToken;
+  }
+});
+
+test('rejects an identity body above 16 MiB', async () => {
+  const previousToken = process.env.MATCHPLY_USER_IMPORT_TOKEN;
+  process.env.MATCHPLY_USER_IMPORT_TOKEN = IMPORT_TOKEN;
+  try {
+    const body = Buffer.alloc(MAX_UNCOMPRESSED_BODY_BYTES + 1, 0x20);
+    const response = await importUserDataRoute(importRequest(body, 'identity'));
+    assert.equal(response.status, 413);
+  } finally {
+    if (previousToken === undefined) delete process.env.MATCHPLY_USER_IMPORT_TOKEN;
+    else process.env.MATCHPLY_USER_IMPORT_TOKEN = previousToken;
+  }
+});
+
+test('rejects a gzip body that expands beyond 16 MiB', async () => {
+  const previousToken = process.env.MATCHPLY_USER_IMPORT_TOKEN;
+  process.env.MATCHPLY_USER_IMPORT_TOKEN = IMPORT_TOKEN;
+  try {
+    const body = gzipSync(Buffer.alloc(MAX_UNCOMPRESSED_BODY_BYTES + 1, 0x20));
+    const response = await importUserDataRoute(importRequest(body, 'gzip'));
+    assert.equal(response.status, 413);
+  } finally {
+    if (previousToken === undefined) delete process.env.MATCHPLY_USER_IMPORT_TOKEN;
+    else process.env.MATCHPLY_USER_IMPORT_TOKEN = previousToken;
+  }
+});
+
+test('passes a 12 MiB gzip body through size checks before JSON validation', async () => {
+  const previousToken = process.env.MATCHPLY_USER_IMPORT_TOKEN;
+  process.env.MATCHPLY_USER_IMPORT_TOKEN = IMPORT_TOKEN;
+  try {
+    const body = gzipSync(Buffer.alloc(12_140_099, 0x20));
+    assert.ok(body.byteLength <= MAX_COMPRESSED_BODY_BYTES);
+    const response = await importUserDataRoute(importRequest(body, 'gzip'));
+    assert.equal(response.status, 400);
+  } finally {
+    if (previousToken === undefined) delete process.env.MATCHPLY_USER_IMPORT_TOKEN;
+    else process.env.MATCHPLY_USER_IMPORT_TOKEN = previousToken;
+  }
+});
+
+test('rejects a gzip request body above the 8 MiB compressed limit', async () => {
+  const previousToken = process.env.MATCHPLY_USER_IMPORT_TOKEN;
+  process.env.MATCHPLY_USER_IMPORT_TOKEN = IMPORT_TOKEN;
+  try {
+    const body = Buffer.alloc(MAX_COMPRESSED_BODY_BYTES + 1, 0x01);
+    const response = await importUserDataRoute(importRequest(body, 'gzip'));
+    assert.equal(response.status, 413);
+  } finally {
+    if (previousToken === undefined) delete process.env.MATCHPLY_USER_IMPORT_TOKEN;
+    else process.env.MATCHPLY_USER_IMPORT_TOKEN = previousToken;
+  }
 });
 
