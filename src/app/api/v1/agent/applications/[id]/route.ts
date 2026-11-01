@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getAgentApplication, updateAgentApplication } from '@/lib/agent-api/applications';
+import { deleteAgentApplication, getAgentApplication, updateAgentApplication } from '@/lib/agent-api/applications';
 import { handleAgent, readAgentBody } from '@/lib/agent-api/http';
 import { createAuditLog } from '@/lib/audit';
 
@@ -26,6 +26,17 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       apiKeyId: auth.tokenId,
     });
     return { data: result.data };
+  });
+}
+
+export async function DELETE(req: NextRequest, { params }: Context) {
+  return handleAgent(req, 'applications:write', async (auth) => {
+    const result = await deleteAgentApplication(auth.userId, params.id);
+    await createAuditLog('agent_application_deleted', auth.userId, auth.email, {
+      offerId: params.id,
+      apiKeyId: auth.tokenId,
+    });
+    return { data: result };
   });
 }
 

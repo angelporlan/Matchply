@@ -25,6 +25,12 @@ const SCOPE_KEYS: Record<AgentScope, string> = {
   'cv:write': 'subscription.integrations.apiKeys.scopeCvWrite',
   'applications:read': 'subscription.integrations.apiKeys.scopeApplicationsRead',
   'applications:write': 'subscription.integrations.apiKeys.scopeApplicationsWrite',
+  'views:read': 'subscription.integrations.apiKeys.scopeViewsRead',
+  'views:write': 'subscription.integrations.apiKeys.scopeViewsWrite',
+  'companies:read': 'subscription.integrations.apiKeys.scopeCompaniesRead',
+  'companies:write': 'subscription.integrations.apiKeys.scopeCompaniesWrite',
+  'people:read': 'subscription.integrations.apiKeys.scopePeopleRead',
+  'people:write': 'subscription.integrations.apiKeys.scopePeopleWrite',
 };
 
 function DialogFrame({ title, onClose, children }: {

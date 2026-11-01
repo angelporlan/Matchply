@@ -29,10 +29,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "npx tsx scripts/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "mcp:build": "tsc -p mcp/tsconfig.json"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.1.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "bcryptjs": "^2.4.3",
     "cheerio": "1.0.0",
     "clsx": "^2.1.1",

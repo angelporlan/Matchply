@@ -5,6 +5,12 @@ export const AGENT_SCOPES = [
   'cv:write',
   'applications:read',
   'applications:write',
+  'views:read',
+  'views:write',
+  'companies:read',
+  'companies:write',
+  'people:read',
+  'people:write',
 ] as const;
 
 export type AgentScope = (typeof AGENT_SCOPES)[number];

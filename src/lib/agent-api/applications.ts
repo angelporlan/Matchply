@@ -1,4 +1,4 @@
-import { applyApplicationCommand } from '@/lib/application-continuity';
+import { applyApplicationCommand, deleteOwnedApplication } from '@/lib/application-continuity';
 import { and, desc, eq, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
@@ -14,10 +14,14 @@ import {
   type AgentMatchScoreWrite,
   parseBatchEvaluationsBody,
   parseCreateApplicationBody,
+  parseFavoritesBody,
   parsePatchApplicationBody,
+  parseStatusBatchBody,
   type CreateApplicationInput,
   type PatchApplicationInput,
 } from '@/lib/agent-api/validate';
+import { setRowsFavorite } from '@/lib/crm-service';
+import type { CrmEntity } from '@/lib/crm-views';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { applicationSummaryColumns, currentMatchScore, type ApplicationSummary } from '@/lib/job-offer-queries';
 
@@ -25,6 +29,7 @@ const AGENT_SOURCE = 'agent_api';
 
 const detailColumns = {
   id: jobOffers.id,
+  isFavorite: jobOffers.isFavorite,
   cvId: jobOffers.cvId,
   title: jobOffers.title,
   company: jobOffers.company,
@@ -50,6 +55,7 @@ function publicStatus(status: string) {
 function toSummary(row: ApplicationSummary) {
   return {
     id: row.id,
+    isFavorite: row.isFavorite ?? false,
     cvId: row.cvId,
     title: row.title,
     company: row.company,
@@ -398,4 +404,64 @@ export async function batchEvaluateAgentApplications(userId: string, body: unkno
 
   revalidatePath('/dashboard/applications');
   return { updatedCount };
+}
+
+function revalidateFavorite(entity: CrmEntity) {
+  revalidatePath(entity === 'applications' ? '/dashboard/applications' : `/dashboard/applications/${entity}`);
+}
+
+export async function batchSetApplicationStatus(userId: string, body: unknown) {
+  const { ids, status } = parseStatusBatchBody(body);
+  try {
+    await db.transaction(async (tx) => {
+      const owned = await tx
+        .select({ id: jobOffers.id })
+        .from(jobOffers)
+        .where(and(eq(jobOffers.userId, userId), inArray(jobOffers.id, ids)))
+        .for('update');
+      if (owned.length !== ids.length) {
+        throw new AgentApiError(404, 'not_found', 'Alguna candidatura no existe o no pertenece a esta cuenta.');
+      }
+      for (const id of ids) {
+        await applyApplicationCommand(tx, userId, id, { status, source: AGENT_SOURCE });
+      }
+    });
+  } catch (error) {
+    if (error instanceof AgentApiError) throw error;
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      throw new AgentApiError(404, 'not_found', 'Alguna candidatura no existe o no pertenece a esta cuenta.');
+    }
+    throw error;
+  }
+  revalidatePath('/dashboard/applications');
+  return { updatedCount: ids.length, status };
+}
+
+export async function deleteAgentApplication(userId: string, offerId: string) {
+  assertResourceId(offerId, 'No se ha encontrado la candidatura.');
+  try {
+    await deleteOwnedApplication(userId, offerId);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      throw new AgentApiError(404, 'not_found', 'No se ha encontrado la candidatura.');
+    }
+    throw error;
+  }
+  revalidateApplication();
+  return { id: offerId, deleted: true };
+}
+
+export async function setAgentFavorites(userId: string, body: unknown) {
+  const input = parseFavoritesBody(body);
+  let rows: { id: string; isFavorite: boolean }[];
+  try {
+    rows = await setRowsFavorite(userId, input.entity, input.ids, input.isFavorite);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      throw new AgentApiError(404, 'not_found', 'Algún identificador no existe o no pertenece a esta cuenta.');
+    }
+    throw error;
+  }
+  revalidateFavorite(input.entity);
+  return { updatedCount: rows.length, isFavorite: input.isFavorite };
 }

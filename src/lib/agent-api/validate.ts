@@ -2,6 +2,8 @@ import { PIPELINE_STATUSES, type PipelineStatus } from '@/lib/application-servic
 import { AgentApiError } from '@/lib/agent-api/errors';
 import { normalizeCareerProfileFields } from '@/lib/career-profile';
 import { COMPANY_NOTE_MAX, normalizeCompanyName } from '@/lib/company-service';
+import { isCrmEntity, normalizeCrmViewName, type CrmEntity } from '@/lib/crm-views';
+import { COMPANY_RELATIONS, PERSON_STATUSES, type PersonInput } from '@/lib/people/types';
 import { sha256Hex } from '@/lib/crypto-hash';
 import { parseMatchConstraints } from '@/lib/curation-constraints';
 import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
@@ -496,4 +498,95 @@ export function parseCreateCvBody(value: unknown): CreateCvInput {
     throw new AgentApiError(400, 'invalid_title', 'El título del currículum no es válido.');
   }
   return input;
+}
+
+export function parseViewName(value: unknown) {
+  try {
+    return normalizeCrmViewName(value);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_NAME') {
+      throw new AgentApiError(400, 'invalid_name', 'El nombre de la vista no es válido.');
+    }
+    throw error;
+  }
+}
+
+export function parseCrmEntity(value: unknown): CrmEntity {
+  if (!isCrmEntity(value)) throw new AgentApiError(400, 'invalid_entity', 'La entidad no es válida.');
+  return value;
+}
+
+export function parsePageValue(value: unknown) {
+  if (value == null || value === '') return 1;
+  const page = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  if (!Number.isInteger(page) || page < 1) throw new AgentApiError(400, 'invalid_page', 'La página no es válida.');
+  return page;
+}
+
+export function parseIdBatch(value: unknown, max = EVALUATION_BATCH_MAX) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > max) {
+    throw new AgentApiError(400, 'invalid_ids', 'La lista de identificadores no es válida.');
+  }
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const id of value) {
+    if (typeof id !== 'string' || !isUuid(id) || seen.has(id)) {
+      throw new AgentApiError(400, 'invalid_ids', 'La lista de identificadores no es válida.');
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+export function parseStatusBatchBody(value: unknown) {
+  const record = asRecord(value);
+  return { ids: parseIdBatch(record.ids), status: parseAgentStatus(record.status) };
+}
+
+export function parseFavoritesBody(value: unknown) {
+  const record = asRecord(value);
+  if (typeof record.isFavorite !== 'boolean') {
+    throw new AgentApiError(400, 'invalid_body', 'Indica si la fila queda como favorita.');
+  }
+  return { entity: parseCrmEntity(record.entity), ids: parseIdBatch(record.ids), isFavorite: record.isFavorite };
+}
+
+export function parsePeopleStatusBody(value: unknown) {
+  const record = asRecord(value);
+  if (typeof record.status !== 'string' || !(PERSON_STATUSES as readonly string[]).includes(record.status)) {
+    throw new AgentApiError(400, 'invalid_status', 'El estado no es válido.');
+  }
+  return { ids: parseIdBatch(record.ids), status: record.status };
+}
+
+export function parseCompanyRelation(value: unknown) {
+  if (typeof value !== 'string' || !(COMPANY_RELATIONS as readonly string[]).includes(value)) {
+    throw new AgentApiError(400, 'invalid_body', 'La relación no es válida.');
+  }
+  return value;
+}
+
+const PERSON_FIELDS = ['name', 'linkedinUrl', 'email', 'role', 'headline', 'location', 'kind', 'status', 'origin', 'objective', 'topics', 'notes', 'nextAction', 'nextFollowupAt', 'language', 'tone', 'connectionDegree'] as const;
+
+export function parsePersonBody(value: unknown): PersonInput {
+  const record = asRecord(value);
+  const input: Record<string, unknown> = {};
+  for (const key of PERSON_FIELDS) {
+    if (key in record) input[key] = record[key];
+  }
+  if (typeof input.name !== 'string') throw new AgentApiError(400, 'invalid_body', 'La persona necesita un nombre.');
+  return input as PersonInput;
+}
+
+export function parseCompanyWrite(value: unknown) {
+  const record = asRecord(value);
+  if (typeof record.name !== 'string') throw new AgentApiError(400, 'invalid_name', 'La empresa necesita un nombre.');
+  const text = (key: string) => (typeof record[key] === 'string' ? record[key] as string : null);
+  return {
+    name: record.name,
+    website: 'website' in record ? text('website') : undefined,
+    location: 'location' in record ? text('location') : undefined,
+    sector: 'sector' in record ? text('sector') : undefined,
+  };
 }
