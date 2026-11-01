@@ -485,7 +485,6 @@ export default function JobOfferDetailsPage({
             </select>
           </div>
 
-          <div className="flex flex-col items-end gap-1 max-w-sm">
           <Button
             type="button"
             variant="ai"
@@ -497,8 +496,6 @@ export default function JobOfferDetailsPage({
             {!optimizingCv && <Sparkles className="w-3.5 h-3.5 stroke-[1.75]" />}
             <span>{offer.cvId ? 'Re-optimizar CV con IA' : 'Optimizar CV con IA'}</span>
           </Button>
-          <p className="text-[11px] text-text-muted text-right">{t('variants.generationHelp')}</p>
-          </div>
 
           <Button
             type="button"
