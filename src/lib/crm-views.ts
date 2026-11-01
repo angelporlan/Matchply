@@ -50,6 +50,11 @@ export const PEOPLE_COLUMNS: CrmColumn[] = [
   { id: 'createdAt', label: ['Creado', 'Created'], kind: 'date' },
 ];
 export function isCrmEntity(value: unknown): value is CrmEntity { return CRM_ENTITIES.includes(value as CrmEntity); }
+export function normalizeCrmViewName(value: unknown): string {
+  const clean = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 60) : '';
+  if (!clean) throw new Error('INVALID_NAME');
+  return clean;
+}
 export function crmColumns(entity: ListEntity) { return entity === 'companies' ? COMPANY_COLUMNS : PEOPLE_COLUMNS; }
 export function defaultCrmConfig(entity: ListEntity): CrmConfig {
   return { columns: crmColumns(entity).slice(0, 7).map(c => c.id), filters: {}, sort: { key: entity === 'companies' ? 'name' : 'updatedAt', direction: entity === 'companies' ? 'asc' : 'desc' }, pageSize: 25, grouping: null, columnWidths: {}, actionsIndex: null };

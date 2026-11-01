@@ -8,7 +8,8 @@ import {
   type AgentPrincipal,
 } from '@/lib/api-key-auth';
 import { log } from '@/lib/logger';
-import { CompanyValidationError } from '@/lib/company-service';
+import { CompanyHasApplicationsError, CompanyNameConflictError, CompanyNotFoundError, CompanyValidationError } from '@/lib/company-service';
+import { PeopleError } from '@/lib/people/types';
 import { UsageError } from '@/lib/usage';
 
 const READ_AUDIT_MS = 15 * 60_000;
@@ -37,6 +38,10 @@ const VALIDATION_CODES = new Set([
   'invalid_external_id',
   'empty_patch',
   'note_requires_company',
+  'invalid_entity',
+  'invalid_view',
+  'invalid_ids',
+  'invalid_page',
 ]);
 
 export function agentJson(body: unknown, status = 200, retryAfterSeconds?: number) {
@@ -79,6 +84,30 @@ export function agentErrorResponse(error: unknown) {
   }
   if (error instanceof CompanyValidationError) {
     return agentJson({ error: { code: 'validation', message: 'Los datos de la empresa o la nota no son válidos.' } }, 400);
+  }
+  if (error instanceof CompanyNameConflictError) {
+    return agentJson({ error: { code: 'conflict', message: 'Ya existe una empresa con ese nombre.' } }, 409);
+  }
+  if (error instanceof CompanyHasApplicationsError) {
+    return agentJson({ error: { code: 'conflict', message: 'La empresa tiene candidaturas y no se puede borrar.' } }, 409);
+  }
+  if (error instanceof CompanyNotFoundError) {
+    return agentJson({ error: { code: 'not_found', message: 'No se ha encontrado la empresa.' } }, 404);
+  }
+  if (error instanceof PeopleError) {
+    if (error.message === 'PEOPLE_PROFILE_EXISTS') {
+      return agentJson({ error: { code: 'conflict', message: 'Ya existe una persona con ese perfil de LinkedIn.' } }, 409);
+    }
+    if (error.status === 404) {
+      const message = error.message === 'PEOPLE_OFFER_NOT_FOUND'
+        ? 'No se ha encontrado la candidatura.'
+        : 'No se ha encontrado la persona.';
+      return agentJson({ error: { code: 'not_found', message } }, 404);
+    }
+    return agentJson({ error: { code: 'validation', message: 'Los datos de la persona no son válidos.' } }, 400);
+  }
+  if (error instanceof Error && error.message === 'NOT_FOUND') {
+    return agentJson({ error: { code: 'not_found', message: 'No se ha encontrado el recurso.' } }, 404);
   }
   log({ event: 'agent_api_error', level: 'error', error });
   return agentJson({ error: { code: 'internal', message: 'No se pudo completar la operación.' } }, 500);
