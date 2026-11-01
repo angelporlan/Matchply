@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuditLog } from '@/lib/audit';
-import { AgentApiError } from '@/lib/agent-api/errors';
+import { AgentApiError, ResearchQuotaError } from '@/lib/agent-api/errors';
 import type { AgentScope } from '@/lib/agent-api/scopes';
 import {
   authenticateAgentRequest,
@@ -8,8 +8,10 @@ import {
   type AgentPrincipal,
 } from '@/lib/api-key-auth';
 import { log } from '@/lib/logger';
+import { ApplicationNotFoundError } from '@/lib/application-service';
 import { CompanyHasApplicationsError, CompanyNameConflictError, CompanyNotFoundError, CompanyValidationError } from '@/lib/company-service';
 import { PeopleError } from '@/lib/people/types';
+import { SubscriptionAccessError } from '@/lib/permissions';
 import { UsageError } from '@/lib/usage';
 
 const READ_AUDIT_MS = 15 * 60_000;
@@ -42,6 +44,10 @@ const VALIDATION_CODES = new Set([
   'invalid_view',
   'invalid_ids',
   'invalid_page',
+  'invalid_score_breakdown',
+  'invalid_match',
+  'invalid_outreach',
+  'invalid_questions',
 ]);
 
 export function agentJson(body: unknown, status = 200, retryAfterSeconds?: number) {
@@ -81,6 +87,18 @@ export function agentErrorResponse(error: unknown) {
       error.status,
       error.retryAfterSeconds,
     );
+  }
+  if (error instanceof ResearchQuotaError) {
+    return agentJson({
+      error: { code: 'QUOTA_EXCEEDED', message: 'Has agotado las acciones de IA de este mes.' },
+      quota: error.quota,
+    }, 429);
+  }
+  if (error instanceof ApplicationNotFoundError) {
+    return agentJson({ error: { code: 'not_found', message: 'No se ha encontrado la candidatura.' } }, 404);
+  }
+  if (error instanceof SubscriptionAccessError) {
+    return agentJson({ error: { code: 'plan_required', message: 'El plan no incluye la investigación profunda.' } }, 403);
   }
   if (error instanceof CompanyValidationError) {
     return agentJson({ error: { code: 'validation', message: 'Los datos de la empresa o la nota no son válidos.' } }, 400);

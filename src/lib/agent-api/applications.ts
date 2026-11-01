@@ -9,8 +9,10 @@ import {
   decodeApplicationCursor,
   encodeApplicationCursor,
   assertResourceId,
+  buildAgentMatchCard,
   buildAgentMatchScore,
   parseAgentStatus,
+  type AgentMatchCardWrite,
   type AgentMatchScoreWrite,
   parseBatchEvaluationsBody,
   parseCreateApplicationBody,
@@ -18,6 +20,7 @@ import {
   parsePatchApplicationBody,
   parseStatusBatchBody,
   type CreateApplicationInput,
+  type ParsedMatchCard,
   type PatchApplicationInput,
 } from '@/lib/agent-api/validate';
 import { setRowsFavorite } from '@/lib/crm-service';
@@ -40,6 +43,15 @@ const detailColumns = {
   description: jobOffers.description,
   source: jobOffers.source,
   scoreOverall: currentMatchScore,
+  scoreBreakdown: jobOffers.scoreBreakdown,
+  matchInputHash: jobOffers.matchInputHash,
+  matchKind: jobOffers.matchKind,
+  matchEvidence: jobOffers.matchEvidence,
+  matchDetails: jobOffers.matchDetails,
+  matchEvaluatedAt: jobOffers.matchEvaluatedAt,
+  coverLetter: jobOffers.coverLetter,
+  outreachMessage: jobOffers.outreachMessage,
+  interviewQuestions: jobOffers.interviewQuestions,
   tldr: jobOffers.tldr,
   nextFollowupDate: jobOffers.nextFollowupDate,
   nextAction: jobOffers.nextAction,
@@ -99,6 +111,48 @@ async function assertOwnedCv(userId: string, cvId: string | null | undefined) {
     .where(and(eq(cvs.id, cvId), eq(cvs.userId, userId)))
     .limit(1);
   if (!cv) throw new AgentApiError(400, 'invalid_cv', 'El currículum indicado no pertenece a esta cuenta.');
+}
+
+function agentMatchColumns(
+  userId: string,
+  offerId: string,
+  input: { matchCard?: ParsedMatchCard; scoreOverall?: number | null },
+  now: Date,
+) {
+  if (input.matchCard) {
+    const scored: AgentMatchCardWrite = buildAgentMatchCard(userId, offerId, input.matchCard);
+    return {
+      scoreOverall: scored.scoreOverall,
+      scoreBreakdown: scored.scoreBreakdown,
+      matchInputHash: scored.matchInputHash,
+      matchEvidence: scored.matchEvidence,
+      matchDetails: scored.matchDetails,
+      matchKind: scored.matchKind,
+      matchEvaluatedAt: now,
+    };
+  }
+  if (typeof input.scoreOverall === 'number') {
+    const scored = buildAgentMatchScore(userId, offerId, input.scoreOverall);
+    return {
+      scoreOverall: scored.scoreOverall,
+      matchInputHash: scored.matchInputHash,
+      matchEvidence: scored.matchEvidence,
+      matchKind: scored.matchKind,
+      matchEvaluatedAt: now,
+    };
+  }
+  if (input.scoreOverall === null) {
+    return {
+      scoreOverall: null,
+      scoreBreakdown: null,
+      matchInputHash: null,
+      matchEvidence: null,
+      matchDetails: null,
+      matchKind: null,
+      matchEvaluatedAt: null,
+    };
+  }
+  return null;
 }
 
 function revalidateApplication(companyId?: string | null, cvId?: string | null) {
@@ -197,10 +251,21 @@ async function insertApplication(userId: string, input: CreateApplicationInput, 
         cvId: input.cvId,
         nextFollowupDate: input.nextFollowupDate,
         livenessStatus: 'active',
+        ...(input.tldr !== undefined ? { tldr: input.tldr } : {}),
+        ...(input.outreachMessage !== undefined ? { outreachMessage: input.outreachMessage } : {}),
+        ...(input.coverLetter !== undefined ? { coverLetter: input.coverLetter } : {}),
+        ...(input.interviewQuestions !== undefined ? { interviewQuestions: input.interviewQuestions } : {}),
       })
       .returning({ id: jobOffers.id });
 
     await applyApplicationCommand(tx, userId, created.id, { status: input.status, nextAction: input.nextAction, ...(input.followupProvided ? { nextFollowupDate: input.nextFollowupDate } : {}), source: 'agent_api' });
+    // The card hash includes the offer id, so the score is written after the insert.
+    const scored = agentMatchColumns(userId, created.id, input, new Date());
+    if (scored && (input.matchCard || typeof input.scoreOverall === 'number')) {
+      await tx.update(jobOffers)
+        .set({ ...scored, updatedAt: new Date() })
+        .where(and(eq(jobOffers.id, created.id), eq(jobOffers.userId, userId)));
+    }
     if (input.note) {
       await tx.insert(companyNotes).values({
         userId,
@@ -286,11 +351,16 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
     externalSource?: string | null;
     externalId?: string | null;
     scoreOverall?: number | null;
+    scoreBreakdown?: AgentMatchCardWrite['scoreBreakdown'] | null;
     matchInputHash?: string | null;
-    matchEvidence?: AgentMatchScoreWrite['matchEvidence'] | null;
+    matchEvidence?: AgentMatchScoreWrite['matchEvidence'] | AgentMatchCardWrite['matchEvidence'] | null;
+    matchDetails?: AgentMatchCardWrite['matchDetails'] | null;
     matchKind?: string | null;
     matchEvaluatedAt?: Date | null;
     tldr?: string | null;
+    outreachMessage?: string | null;
+    coverLetter?: string | null;
+    interviewQuestions?: CreateApplicationInput['interviewQuestions'];
   } = { updatedAt: new Date() };
   const changed: string[] = [];
   if (input.title !== undefined) { fields.title = input.title; changed.push('title'); }
@@ -311,23 +381,15 @@ export async function updateAgentApplication(userId: string, offerId: string, bo
     fields.externalId = input.externalId;
     changed.push('externalId');
   }
-  if (input.scoreOverall !== undefined) {
-    if (input.scoreOverall === null) {
-      fields.scoreOverall = null;
-      fields.matchInputHash = null;
-      fields.matchEvidence = null;
-      fields.matchKind = null;
-      fields.matchEvaluatedAt = null;
-    } else {
-      const scored = buildAgentMatchScore(userId, current.id, input.scoreOverall);
-      fields.scoreOverall = scored.scoreOverall;
-      fields.matchInputHash = scored.matchInputHash;
-      fields.matchEvidence = scored.matchEvidence;
-      fields.matchKind = scored.matchKind;
-      fields.matchEvaluatedAt = new Date();
-    }
-    changed.push('scoreOverall');
+  const scored = agentMatchColumns(userId, current.id, input, new Date());
+  if (scored) {
+    Object.assign(fields, scored);
+    if (input.matchCard) changed.push('scoreOverall', 'scoreBreakdown', 'matchEvidence', 'matchDetails');
+    else changed.push('scoreOverall');
   }
+  if (input.outreachMessage !== undefined) { fields.outreachMessage = input.outreachMessage; changed.push('outreachMessage'); }
+  if (input.coverLetter !== undefined) { fields.coverLetter = input.coverLetter; changed.push('coverLetter'); }
+  if (input.interviewQuestions !== undefined) { fields.interviewQuestions = input.interviewQuestions; changed.push('interviewQuestions'); }
   if (input.tldr !== undefined) {
     fields.tldr = input.tldr;
     changed.push('tldr');
@@ -383,15 +445,11 @@ export async function batchEvaluateAgentApplications(userId: string, body: unkno
   const updatedCount = await db.transaction(async (tx) => {
     let count = 0;
     for (const item of evaluations) {
-      const scored = buildAgentMatchScore(userId, item.id, item.scoreOverall);
+      const scored = agentMatchColumns(userId, item.id, item, now);
       const [updated] = await tx
         .update(jobOffers)
         .set({
-          scoreOverall: scored.scoreOverall,
-          matchInputHash: scored.matchInputHash,
-          matchEvidence: scored.matchEvidence,
-          matchKind: scored.matchKind,
-          matchEvaluatedAt: now,
+          ...scored,
           updatedAt: now,
           ...(item.tldr !== undefined ? { tldr: item.tldr } : {}),
         })

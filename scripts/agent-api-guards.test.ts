@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AgentApiError } from '@/lib/agent-api/errors';
-import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
+import { MATCH_EXPLANATION_VERSION, MATCH_PROMPT_VERSION } from '@/lib/matching/types';
+import { computeOverall, isCanonicalMatchBreakdown } from '@/lib/matching/rubric';
+import { currentMatchDetails, currentMatchEvidence } from '@/lib/match-display';
 import { publicErrorCode } from '@/lib/agent-api/http';
 import {
   CV_CONTENT_MAX,
@@ -10,6 +12,7 @@ import {
   encodeApplicationCursor,
   mergeCareerProfile,
   parseAgentStatus,
+  buildAgentMatchCard,
   buildAgentMatchScore,
   currentMatchScoreValue,
   parseBatchEvaluationsBody,
@@ -20,6 +23,46 @@ import {
   parseTldr,
   sanitizeCareerProfilePatch,
 } from '@/lib/agent-api/validate';
+
+const OFFER_ID = '88d9fa60-677e-48d0-93be-5c2fdd88a468';
+const USER_ID = '6d9f1c2a-4b7e-4d11-8a55-0c1e2f3a4b5c';
+
+function matchCardBody(patch: Record<string, unknown> = {}) {
+  return {
+    scoreOverall: 80,
+    scoreBreakdown: {
+      tech_stack: 80,
+      experience_fit: 80,
+      work_mode: 80,
+      salary_fit: 80,
+      career_alignment: 80,
+    },
+    requirements: [{
+      id: 'react',
+      name: 'React',
+      kind: 'skill',
+      importance: 'required',
+      core: true,
+      status: 'met',
+      offerEvidence: { sourceId: 'offer', quote: 'Experiencia con React.' },
+      candidateEvidence: [{ sourceId: 'cv', quote: 'React en el currículum.' }],
+      alternatives: ['Next.js'],
+    }],
+    matchDetails: {
+      summary: 'Encaja en el stack principal.',
+      dimensions: [
+        { key: 'tech_stack', explanation: 'El stack encaja.', requirementIds: ['react'] },
+        { key: 'experience_fit', explanation: 'La experiencia encaja.', requirementIds: [] },
+        { key: 'work_mode', explanation: 'La modalidad es una estimación: la oferta no la indica.', requirementIds: [] },
+        { key: 'salary_fit', explanation: 'El salario es una estimación: la oferta no lo publica.', requirementIds: [] },
+        { key: 'career_alignment', explanation: 'Alineado con el objetivo.', requirementIds: [] },
+      ],
+      requirements: [{ requirementId: 'react', explanation: 'Queda cubierto por el currículum.' }],
+      nextSteps: ['Confirmar la modalidad y el salario.'],
+    },
+    ...patch,
+  };
+}
 
 test('application writes return the existing row instead of overwriting it', () => {
   assert.equal(applicationWritePlan({
@@ -82,6 +125,7 @@ test('an agent score is stored so the board expression can show it', () => {
   });
   assert.equal(patch.scoreOverall, 95);
   assert.equal(patch.tldr, 'Excelente match en React y TypeScript.');
+  assert.equal(patch.matchCard, undefined);
 
   const scored = buildAgentMatchScore(userId, offerId, patch.scoreOverall!);
   assert.equal(scored.matchKind, 'triage');
@@ -109,6 +153,93 @@ test('an agent score is stored so the board expression can show it', () => {
     matchInputHash: null,
     matchEvidence: null,
   }), null);
+});
+
+test('an agent match card is stored so the offer page can render it', () => {
+  const parsed = parsePatchApplicationBody(matchCardBody());
+  assert.ok(parsed.matchCard);
+  const card = buildAgentMatchCard(USER_ID, OFFER_ID, parsed.matchCard);
+  const evidence = currentMatchEvidence({
+    scoreOverall: card.scoreOverall,
+    matchInputHash: card.matchInputHash,
+    matchEvidence: card.matchEvidence,
+  });
+  assert.ok(evidence);
+  assert.ok(currentMatchDetails(card.matchDetails, evidence));
+  assert.equal(isCanonicalMatchBreakdown(card.scoreBreakdown), true);
+  assert.equal(isCanonicalMatchBreakdown(card.matchEvidence.scoreBreakdown), true);
+  assert.equal(card.scoreOverall, computeOverall(card.scoreBreakdown));
+  assert.equal(card.scoreOverall, 80);
+  assert.equal(card.matchKind, 'triage');
+  assert.equal(card.matchEvidence.version, MATCH_PROMPT_VERSION);
+  assert.equal(card.matchEvidence.inputHash, card.matchInputHash);
+  assert.equal(card.matchEvidence.sourceHash, card.matchInputHash);
+  assert.equal(card.matchEvidence.candidateComplete, false);
+  assert.equal(card.matchEvidence.offerComplete, false);
+  assert.equal(card.matchDetails.version, MATCH_EXPLANATION_VERSION);
+  assert.equal(card.matchDetails.inputHash, card.matchInputHash);
+  assert.equal(card.matchDetails.summary, 'Encaja en el stack principal.');
+  assert.equal(card.matchDetails.requirements.length >= 1, true);
+  assert.equal(publicErrorCode('invalid_score_breakdown'), 'validation');
+  assert.equal(publicErrorCode('invalid_match'), 'validation');
+  assert.equal(publicErrorCode('invalid_outreach'), 'validation');
+  assert.equal(publicErrorCode('invalid_questions'), 'validation');
+
+  const missingSalary = matchCardBody();
+  delete (missingSalary.scoreBreakdown as { salary_fit?: number }).salary_fit;
+  assert.throws(() => parsePatchApplicationBody(missingSalary), (error: unknown) => {
+    return error instanceof AgentApiError && error.code === 'invalid_score_breakdown';
+  });
+  const missingQuote = matchCardBody();
+  delete (missingQuote.requirements as Array<{ offerEvidence: { quote?: string } }>)[0].offerEvidence.quote;
+  assert.throws(() => parsePatchApplicationBody(missingQuote), (error: unknown) => error instanceof AgentApiError);
+  assert.throws(() => parsePatchApplicationBody(matchCardBody({ scoreOverall: 79 })), (error: unknown) => {
+    return error instanceof AgentApiError && error.code === 'invalid_score';
+  });
+  const shortDetails = matchCardBody();
+  (shortDetails.matchDetails as { dimensions: unknown[] }).dimensions = (shortDetails.matchDetails as { dimensions: unknown[] }).dimensions.slice(0, 4);
+  assert.throws(() => parsePatchApplicationBody(shortDetails), (error: unknown) => error instanceof AgentApiError);
+  assert.throws(() => parsePatchApplicationBody({ interviewQuestions: [{ question: '¿Por qué tú?' }] }), (error: unknown) => error instanceof AgentApiError);
+  assert.throws(() => parsePatchApplicationBody({
+    scoreOverall: null,
+    scoreBreakdown: matchCardBody().scoreBreakdown,
+  }), (error: unknown) => error instanceof AgentApiError);
+});
+
+test('outreach fields can be saved one at a time', () => {
+  const message = parsePatchApplicationBody({ outreachMessage: 'Hola\nequipo' });
+  assert.equal(message.outreachMessage, 'Hola\nequipo');
+  assert.equal(message.coverLetter, undefined);
+  assert.throws(() => parsePatchApplicationBody({ outreachMessage: 'a'.repeat(4001) }), (error: unknown) => {
+    return error instanceof AgentApiError && error.code === 'invalid_outreach';
+  });
+  const questions = parsePatchApplicationBody({
+    interviewQuestions: [{ question: '¿Por qué tú?', tip: 'Usa un ejemplo concreto.' }],
+  });
+  assert.deepEqual(questions.interviewQuestions, [{ question: '¿Por qué tú?', tip: 'Usa un ejemplo concreto.' }]);
+});
+
+test('a batch accepts a match card and still rejects a bad list', () => {
+  const secondId = '11d9fa60-677e-48d0-93be-5c2fdd88a469';
+  const accepted = parseBatchEvaluationsBody({
+    evaluations: [{ id: OFFER_ID, ...matchCardBody() }, { id: secondId, scoreOverall: 40 }],
+  });
+  assert.equal(accepted[0].matchCard?.scoreOverall, 80);
+  assert.equal(accepted[0].scoreOverall, computeOverall(accepted[0].matchCard!.scoreBreakdown));
+  assert.equal(accepted[1].matchCard, undefined);
+  assert.equal(buildAgentMatchCard(USER_ID, OFFER_ID, accepted[0].matchCard!).scoreOverall, 80);
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: [{ id: OFFER_ID, scoreOverall: -1 }],
+  }), (error: unknown) => error instanceof AgentApiError && error.code === 'invalid_score');
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: [{ id: OFFER_ID, scoreOverall: 10 }, { id: OFFER_ID, scoreOverall: 11 }],
+  }), (error: unknown) => error instanceof AgentApiError);
+  assert.throws(() => parseBatchEvaluationsBody({
+    evaluations: Array.from({ length: 201 }, (_, index) => ({
+      id: `88d9fa60-677e-48d0-93be-${String(index).padStart(12, '0')}`,
+      scoreOverall: 10,
+    })),
+  }), (error: unknown) => error instanceof AgentApiError);
 });
 
 test('scores outside 0-100 and oversized summaries are rejected', () => {
