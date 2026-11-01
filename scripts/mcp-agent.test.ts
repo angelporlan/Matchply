@@ -57,6 +57,31 @@ test('create view posts the Matching Hoy body and turns 409 into a tool error', 
   assert.equal(result.content[0].text.includes('mp_live_testtoken'), false);
 });
 
+test('research tools call the application research route', async () => {
+  const offerId = '88d9fa60-677e-48d0-93be-5c2fdd88a468';
+  const seen: Array<{ url: string; init: RequestInit }> = [];
+  const fetchImpl: typeof fetch = async (url, init) => {
+    seen.push({ url: String(url), init: init || {} });
+    return new Response(JSON.stringify({ data: { research: null } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const options = { token: 'mp_live_testtoken', baseUrl: 'https://matchply.com', fetch: fetchImpl };
+  const triggered = await runMatchplyTool('matchply_trigger_research', { id: offerId, retry: true }, options);
+  const loaded = await runMatchplyTool('matchply_get_research', { id: offerId }, options);
+  assert.equal(triggered.isError, undefined);
+  assert.equal(loaded.isError, undefined);
+  assert.equal(seen[0]?.url, `https://matchply.com/api/v1/agent/applications/${offerId}/research`);
+  assert.equal(seen[0]?.init.method, 'POST');
+  assert.equal(header(seen[0]?.init, 'authorization'), 'Bearer mp_live_testtoken');
+  assert.deepEqual(JSON.parse(String(seen[0]?.init.body)), { retry: true });
+  assert.equal(seen[1]?.url, `https://matchply.com/api/v1/agent/applications/${offerId}/research`);
+  assert.equal(seen[1]?.init.method, 'GET');
+  assert.equal(seen[1]?.init.body, undefined);
+  assert.equal(header(seen[1]?.init, 'authorization'), 'Bearer mp_live_testtoken');
+});
+
 test('a missing API token message does not include a token', () => {
   const result = requireMatchplyToken({} as NodeJS.ProcessEnv);
   assert.equal(result.ok, false);

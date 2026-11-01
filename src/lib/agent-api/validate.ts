@@ -6,7 +6,18 @@ import { isCrmEntity, normalizeCrmViewName, type CrmEntity } from '@/lib/crm-vie
 import { COMPANY_RELATIONS, PERSON_STATUSES, type PersonInput } from '@/lib/people/types';
 import { sha256Hex } from '@/lib/crypto-hash';
 import { parseMatchConstraints } from '@/lib/curation-constraints';
-import { MATCH_PROMPT_VERSION } from '@/lib/matching/types';
+import { computeOverall } from '@/lib/matching/rubric';
+import {
+  MATCH_DIMENSION_KEYS,
+  MATCH_EXPLANATION_VERSION,
+  MATCH_PROMPT_VERSION,
+  type MatchAdjustment,
+  type MatchBreakdown,
+  type MatchDetails,
+  type MatchDimensionKey,
+  type MatchEvidenceSnapshot,
+  type MatchRequirement,
+} from '@/lib/matching/types';
 
 export const CV_CONTENT_MAX = 400_000;
 export const CV_TITLE_MAX = 120;
@@ -368,6 +379,387 @@ export function currentMatchScoreValue(row: {
   return row.scoreOverall;
 }
 
+const MATCH_CARD_KEYS = ['scoreBreakdown', 'matchEvidence', 'requirements', 'adjustments', 'matchDetails'] as const;
+const REQUIREMENT_KINDS = ['skill', 'experience', 'seniority', 'language', 'other'] as const;
+const REQUIREMENT_IMPORTANCE = ['required', 'preferred'] as const;
+const REQUIREMENT_STATUSES = ['met', 'missing', 'partial', 'unknown'] as const;
+const ADJUSTMENT_CODES = ['experience_gap', 'core_skill_gap', 'seniority_gap', 'user_preference'] as const;
+const OUTREACH_MAX = 4_000;
+const COVER_LETTER_MAX = 8_000;
+
+export type AgentInterviewQuestion = { question: string; tip: string };
+
+export type ParsedMatchCard = {
+  scoreOverall: number;
+  scoreBreakdown: MatchBreakdown;
+  requirements: MatchRequirement[];
+  adjustments: MatchAdjustment[];
+  details: {
+    summary: string;
+    dimensions: MatchDetails['dimensions'];
+    requirements: MatchDetails['requirements'];
+    nextSteps: string[];
+  };
+};
+
+export type AgentMatchCardWrite = {
+  scoreOverall: number;
+  scoreBreakdown: MatchBreakdown;
+  matchInputHash: string;
+  matchEvidence: MatchEvidenceSnapshot;
+  matchDetails: MatchDetails;
+  matchKind: 'triage';
+};
+
+export function buildAgentMatchCard(userId: string, offerId: string, card: ParsedMatchCard): AgentMatchCardWrite {
+  const { tech_stack, experience_fit, work_mode, salary_fit, career_alignment } = card.scoreBreakdown;
+  const inputHash = sha256Hex(`agent_api:${userId}:${offerId}:${card.scoreOverall}:${tech_stack},${experience_fit},${work_mode},${salary_fit},${career_alignment}:${MATCH_PROMPT_VERSION}`);
+  const scoreBreakdown = { ...card.scoreBreakdown };
+  return {
+    scoreOverall: card.scoreOverall,
+    scoreBreakdown,
+    matchInputHash: inputHash,
+    matchKind: 'triage',
+    matchEvidence: {
+      version: MATCH_PROMPT_VERSION,
+      sourceHash: inputHash,
+      inputHash,
+      score: card.scoreOverall,
+      baseScore: card.scoreOverall,
+      baseBreakdown: { ...scoreBreakdown },
+      scoreBreakdown: { ...scoreBreakdown },
+      requirements: card.requirements,
+      adjustments: card.adjustments,
+      candidateComplete: false,
+      offerComplete: false,
+    },
+    matchDetails: {
+      version: MATCH_EXPLANATION_VERSION,
+      inputHash,
+      summary: card.details.summary,
+      dimensions: card.details.dimensions,
+      requirements: card.details.requirements,
+      nextSteps: card.details.nextSteps,
+    },
+  };
+}
+
+function cleanPreservedText(value: string) {
+  return value.replace(/[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim();
+}
+
+function parseOutreachText(value: unknown, max: number, invalidMessage: string, longMessage: string) {
+  if (value === null) return null;
+  if (typeof value !== 'string') throw new AgentApiError(400, 'invalid_outreach', invalidMessage);
+  const text = cleanPreservedText(value);
+  if (!text) return null;
+  if (text.length > max) throw new AgentApiError(400, 'invalid_outreach', longMessage);
+  return text;
+}
+
+function parseInterviewQuestions(value: unknown): AgentInterviewQuestion[] | null {
+  if (value === null) return null;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 8) {
+    throw new AgentApiError(400, 'invalid_questions', 'Las preguntas de entrevista no son válidas.');
+  }
+  return value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new AgentApiError(400, 'invalid_questions', 'Las preguntas de entrevista no son válidas.');
+    }
+    const row = item as Record<string, unknown>;
+    if (typeof row.question !== 'string' || typeof row.tip !== 'string') {
+      throw new AgentApiError(400, 'invalid_questions', 'Las preguntas de entrevista no son válidas.');
+    }
+    const question = cleanPreservedText(row.question);
+    const tip = cleanPreservedText(row.tip);
+    if (question.length < 1 || question.length > 1_000 || tip.length < 1 || tip.length > 2_000) {
+      throw new AgentApiError(400, 'invalid_questions', 'Las preguntas de entrevista no son válidas.');
+    }
+    return { question, tip };
+  });
+}
+
+function parseContactFields(record: Record<string, unknown>) {
+  const contact: {
+    outreachMessage?: string | null;
+    coverLetter?: string | null;
+    interviewQuestions?: AgentInterviewQuestion[] | null;
+  } = {};
+  if ('outreachMessage' in record) {
+    contact.outreachMessage = parseOutreachText(
+      record.outreachMessage,
+      OUTREACH_MAX,
+      'El mensaje de contacto no es válido.',
+      'El mensaje de contacto supera los 4000 caracteres.',
+    );
+  }
+  if ('coverLetter' in record) {
+    contact.coverLetter = parseOutreachText(
+      record.coverLetter,
+      COVER_LETTER_MAX,
+      'La carta no es válida.',
+      'La carta supera los 8000 caracteres.',
+    );
+  }
+  if ('interviewQuestions' in record) contact.interviewQuestions = parseInterviewQuestions(record.interviewQuestions);
+  return contact;
+}
+
+function invalidMatch(message: string): never {
+  throw new AgentApiError(400, 'invalid_match', message);
+}
+
+function boundedText(value: unknown, min: number, max: number, message: string) {
+  if (typeof value !== 'string') invalidMatch(message);
+  const text = value.trim();
+  if (text.length < min || text.length > max) invalidMatch(message);
+  return text;
+}
+
+function parseBreakdownValue(value: unknown): MatchBreakdown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new AgentApiError(400, 'invalid_score_breakdown', 'El desglose tiene que incluir las cinco dimensiones.');
+  }
+  const record = value as Record<string, unknown>;
+  const extra = Object.keys(record).filter((key) => !MATCH_DIMENSION_KEYS.includes(key as MatchDimensionKey));
+  if (extra.length || MATCH_DIMENSION_KEYS.some((key) => !(key in record))) {
+    throw new AgentApiError(400, 'invalid_score_breakdown', 'El desglose tiene que incluir las cinco dimensiones.');
+  }
+  const breakdown = {} as MatchBreakdown;
+  for (const key of MATCH_DIMENSION_KEYS) {
+    const score = record[key];
+    if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 100) {
+      throw new AgentApiError(400, 'invalid_score_breakdown', 'Cada dimensión tiene que ser un entero entre 0 y 100.');
+    }
+    breakdown[key] = score;
+  }
+  return breakdown;
+}
+
+function sameBreakdown(left: MatchBreakdown, right: MatchBreakdown) {
+  return MATCH_DIMENSION_KEYS.every((key) => left[key] === right[key]);
+}
+
+function parseEvidenceQuote(value: unknown, candidate: boolean) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalidMatch('La evidencia del requisito no es válida.');
+  const record = value as Record<string, unknown>;
+  const sourceId = typeof record.sourceId === 'string' ? record.sourceId.trim() : '';
+  const quote = typeof record.quote === 'string' ? record.quote.trim() : '';
+  if (candidate) {
+    if (sourceId !== 'cv' && sourceId !== 'profile') invalidMatch('La evidencia del candidato tiene que citar el currículum o el perfil.');
+  } else if (sourceId.length < 1 || sourceId.length > 40) {
+    invalidMatch('La cita de la oferta no es válida.');
+  }
+  if (quote.length < 1 || quote.length > 600) invalidMatch('La cita del requisito no es válida.');
+  return { sourceId, quote };
+}
+
+function parseOptionalYears(record: Record<string, unknown>, key: string) {
+  if (!(key in record) || record[key] == null) return undefined;
+  const value = record[key];
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 60) {
+    invalidMatch('Los años del requisito no son válidos.');
+  }
+  return value;
+}
+
+function parseOptionalScope(record: Record<string, unknown>, key: string) {
+  if (!(key in record) || record[key] == null) return undefined;
+  return boundedText(record[key], 1, 80, 'El ámbito de la experiencia no es válido.');
+}
+
+function parseRequirements(value: unknown): MatchRequirement[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 30) {
+    invalidMatch('Hace falta entre 1 y 30 requisitos.');
+  }
+  const seen = new Set<string>();
+  return value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) invalidMatch('Hay un requisito que no es válido.');
+    const record = item as Record<string, unknown>;
+    const id = boundedText(record.id, 1, 80, 'El identificador del requisito no es válido.');
+    if (seen.has(id)) invalidMatch('Hay un requisito repetido.');
+    seen.add(id);
+    if (typeof record.kind !== 'string' || !(REQUIREMENT_KINDS as readonly string[]).includes(record.kind)) {
+      invalidMatch('El tipo de requisito no es válido.');
+    }
+    if (typeof record.importance !== 'string' || !(REQUIREMENT_IMPORTANCE as readonly string[]).includes(record.importance)) {
+      invalidMatch('La importancia del requisito no es válida.');
+    }
+    if (typeof record.core !== 'boolean') invalidMatch('El requisito tiene que indicar si es principal.');
+    if (typeof record.status !== 'string' || !(REQUIREMENT_STATUSES as readonly string[]).includes(record.status)) {
+      invalidMatch('El estado del requisito no es válido.');
+    }
+    if (!Array.isArray(record.candidateEvidence) || record.candidateEvidence.length > 8) {
+      invalidMatch('La evidencia del candidato no es válida.');
+    }
+    if (!Array.isArray(record.alternatives) || record.alternatives.length > 8) {
+      invalidMatch('Las alternativas del requisito no son válidas.');
+    }
+    const requirement: MatchRequirement = {
+      id,
+      name: boundedText(record.name, 1, 200, 'El nombre del requisito no es válido.'),
+      kind: record.kind as MatchRequirement['kind'],
+      importance: record.importance as MatchRequirement['importance'],
+      core: record.core,
+      status: record.status as MatchRequirement['status'],
+      offerEvidence: parseEvidenceQuote(record.offerEvidence, false),
+      candidateEvidence: record.candidateEvidence.map((entry) => parseEvidenceQuote(entry, true)),
+      alternatives: record.alternatives.map((entry) => boundedText(entry, 1, 120, 'Las alternativas del requisito no son válidas.')),
+    };
+    const requiredYears = parseOptionalYears(record, 'requiredYears');
+    const candidateYears = parseOptionalYears(record, 'candidateYears');
+    if (requiredYears !== undefined) requirement.requiredYears = requiredYears;
+    if (candidateYears !== undefined) requirement.candidateYears = candidateYears;
+    if ('candidateYearsIsUpperBound' in record && record.candidateYearsIsUpperBound != null) {
+      if (typeof record.candidateYearsIsUpperBound !== 'boolean') invalidMatch('La cota de años del candidato no es válida.');
+      requirement.candidateYearsIsUpperBound = record.candidateYearsIsUpperBound;
+    }
+    const experienceScope = parseOptionalScope(record, 'experienceScope');
+    const candidateExperienceScope = parseOptionalScope(record, 'candidateExperienceScope');
+    if (experienceScope) requirement.experienceScope = experienceScope;
+    if (candidateExperienceScope) requirement.candidateExperienceScope = candidateExperienceScope;
+    return requirement;
+  });
+}
+
+function parseAdjustments(value: unknown, requirementIds: Set<string>): MatchAdjustment[] {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 20) invalidMatch('Los ajustes de la puntuación no son válidos.');
+  return value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) invalidMatch('Los ajustes de la puntuación no son válidos.');
+    const record = item as Record<string, unknown>;
+    if (typeof record.code !== 'string' || !(ADJUSTMENT_CODES as readonly string[]).includes(record.code)) {
+      invalidMatch('El ajuste de puntuación no es válido.');
+    }
+    if (!Array.isArray(record.requirementIds) || record.requirementIds.some((id) => typeof id !== 'string' || !requirementIds.has(id))) {
+      invalidMatch('El ajuste cita un requisito que no existe.');
+    }
+    if (typeof record.overallCap !== 'number' || !Number.isInteger(record.overallCap) || record.overallCap < 0 || record.overallCap > 100) {
+      invalidMatch('El tope del ajuste tiene que ser un entero entre 0 y 100.');
+    }
+    const adjustment: MatchAdjustment = {
+      code: record.code as MatchAdjustment['code'],
+      requirementIds: record.requirementIds as string[],
+      overallCap: record.overallCap,
+      reason: boundedText(record.reason, 1, 500, 'La razón del ajuste no es válida.'),
+    };
+    const hasDimension = 'dimension' in record && record.dimension != null;
+    const hasDimensionCap = 'dimensionCap' in record && record.dimensionCap != null;
+    if (hasDimension || hasDimensionCap) {
+      if (!hasDimension || typeof record.dimension !== 'string' || !MATCH_DIMENSION_KEYS.includes(record.dimension as MatchDimensionKey)) {
+        invalidMatch('La dimensión del ajuste no es válida.');
+      }
+      if (typeof record.dimensionCap !== 'number' || !Number.isInteger(record.dimensionCap) || record.dimensionCap < 0 || record.dimensionCap > 100) {
+        invalidMatch('El tope de la dimensión tiene que ser un entero entre 0 y 100.');
+      }
+      adjustment.dimension = record.dimension as MatchDimensionKey;
+      adjustment.dimensionCap = record.dimensionCap;
+    }
+    return adjustment;
+  });
+}
+
+function parseRequirementIdList(value: unknown, requirementIds: Set<string>, message: string) {
+  if (!Array.isArray(value) || value.some((id) => typeof id !== 'string' || !requirementIds.has(id))) invalidMatch(message);
+  return value as string[];
+}
+
+function parseMatchDetailsInput(value: unknown, requirementIds: Set<string>): ParsedMatchCard['details'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalidMatch('La explicación del encaje no es válida.');
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.dimensions)) invalidMatch('La evaluación tiene que explicar las cinco dimensiones.');
+  const seen = new Set<string>();
+  const dimensions = record.dimensions.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) invalidMatch('La evaluación tiene que explicar las cinco dimensiones.');
+    const row = item as Record<string, unknown>;
+    if (typeof row.key !== 'string' || !MATCH_DIMENSION_KEYS.includes(row.key as MatchDimensionKey) || seen.has(row.key)) {
+      invalidMatch('La evaluación tiene que explicar las cinco dimensiones.');
+    }
+    seen.add(row.key);
+    return {
+      key: row.key as MatchDimensionKey,
+      explanation: boundedText(row.explanation, 1, 1_000, 'La explicación de una dimensión no es válida.'),
+      requirementIds: parseRequirementIdList(row.requirementIds, requirementIds, 'Una dimensión cita un requisito que no existe.'),
+    };
+  });
+  if (MATCH_DIMENSION_KEYS.some((key) => !seen.has(key))) {
+    invalidMatch('La evaluación tiene que explicar las cinco dimensiones.');
+  }
+  if (!Array.isArray(record.requirements) || record.requirements.length > 30) {
+    invalidMatch('La explicación de los requisitos no es válida.');
+  }
+  const requirements = record.requirements.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) invalidMatch('La explicación de los requisitos no es válida.');
+    const row = item as Record<string, unknown>;
+    if (typeof row.requirementId !== 'string' || !requirementIds.has(row.requirementId)) {
+      invalidMatch('La explicación cita un requisito que no existe.');
+    }
+    return {
+      requirementId: row.requirementId,
+      explanation: boundedText(row.explanation, 1, 1_000, 'La explicación de un requisito no es válida.'),
+    };
+  });
+  if (!Array.isArray(record.nextSteps) || record.nextSteps.length < 1 || record.nextSteps.length > 8) {
+    invalidMatch('Hace falta entre 1 y 8 pasos siguientes.');
+  }
+  return {
+    summary: boundedText(record.summary, 1, 2_000, 'El resumen de la evaluación no es válido.'),
+    dimensions,
+    requirements,
+    nextSteps: record.nextSteps.map((item) => boundedText(item, 1, 300, 'Hay un paso siguiente que no es válido.')),
+  };
+}
+
+function matchEvidenceRecord(record: Record<string, unknown>) {
+  if (!('matchEvidence' in record) || record.matchEvidence == null) return null;
+  if (typeof record.matchEvidence !== 'object' || Array.isArray(record.matchEvidence)) {
+    invalidMatch('La evidencia de encaje no es válida.');
+  }
+  return record.matchEvidence as Record<string, unknown>;
+}
+
+/** Returns null when the body is a loose score. A partial card is an error, never a guess. */
+export function parseMatchCard(record: Record<string, unknown>): ParsedMatchCard | null {
+  if (!MATCH_CARD_KEYS.some((key) => key in record)) return null;
+  if (!('scoreOverall' in record) || record.scoreOverall === null) {
+    throw new AgentApiError(
+      400,
+      'invalid_score',
+      record.scoreOverall === null
+        ? 'No se puede borrar la puntuación y enviar el desglose a la vez.'
+        : 'La ficha necesita una puntuación entera entre 0 y 100.',
+    );
+  }
+  const scoreOverall = parseScoreOverall(record.scoreOverall);
+  if (scoreOverall === null) {
+    throw new AgentApiError(400, 'invalid_score', 'La ficha necesita una puntuación entera entre 0 y 100.');
+  }
+  const evidence = matchEvidenceRecord(record);
+  let scoreBreakdown: MatchBreakdown | undefined;
+  if ('scoreBreakdown' in record) scoreBreakdown = parseBreakdownValue(record.scoreBreakdown);
+  if (evidence && 'scoreBreakdown' in evidence) {
+    const nested = parseBreakdownValue(evidence.scoreBreakdown);
+    if (scoreBreakdown && !sameBreakdown(scoreBreakdown, nested)) {
+      throw new AgentApiError(400, 'invalid_score_breakdown', 'El desglose de la raíz y el de la evidencia no coinciden.');
+    }
+    scoreBreakdown = nested;
+  }
+  if (!scoreBreakdown) {
+    throw new AgentApiError(400, 'invalid_score_breakdown', 'El desglose tiene que incluir las cinco dimensiones.');
+  }
+  const requirements = parseRequirements(evidence ? evidence.requirements : record.requirements);
+  const adjustmentSource = evidence && 'adjustments' in evidence
+    ? evidence.adjustments
+    : ('adjustments' in record ? record.adjustments : []);
+  const adjustments = parseAdjustments(adjustmentSource, new Set(requirements.map((item) => item.id)));
+  const details = parseMatchDetailsInput(record.matchDetails, new Set(requirements.map((item) => item.id)));
+  const expected = Math.min(computeOverall(scoreBreakdown), ...adjustments.map((item) => item.overallCap));
+  if (scoreOverall !== expected) {
+    throw new AgentApiError(400, 'invalid_score', 'La puntuación no coincide con el desglose.');
+  }
+  return { scoreOverall, scoreBreakdown, requirements, adjustments, details };
+}
+
 export type CreateApplicationInput = {
   title: string;
   company: string;
@@ -381,6 +773,12 @@ export type CreateApplicationInput = {
   followupProvided?: boolean;
   nextAction?: string | null;
   note?: string;
+  tldr?: string | null;
+  scoreOverall?: number | null;
+  matchCard?: ParsedMatchCard;
+  outreachMessage?: string | null;
+  coverLetter?: string | null;
+  interviewQuestions?: AgentInterviewQuestion[] | null;
 };
 
 function parseNextAction(value: unknown): string | null {
@@ -411,6 +809,9 @@ export function parseCreateApplicationBody(value: unknown): CreateApplicationInp
     followupProvided: 'nextFollowupDate' in record,
     ...('nextAction' in record ? { nextAction: parseNextAction(record.nextAction) } : {}),
     note: parseNoteValue(record.note),
+    ...parseContactFields(record),
+    ...('tldr' in record ? { tldr: parseTldr(record.tldr) } : {}),
+    ...matchWrite(record),
   };
 }
 
@@ -433,8 +834,8 @@ export function parsePatchApplicationBody(value: unknown): PatchApplicationInput
   if ('externalId' in record) patch.externalId = parseExternalIdValue(record.externalId);
   if ('nextAction' in record) patch.nextAction = parseNextAction(record.nextAction);
   if ('nextFollowupDate' in record) patch.nextFollowupDate = parseFollowupValue(record.nextFollowupDate);
-  if ('scoreOverall' in record) patch.scoreOverall = parseScoreOverall(record.scoreOverall);
   if ('tldr' in record) patch.tldr = parseTldr(record.tldr);
+  Object.assign(patch, parseContactFields(record), matchWrite(record));
   if ('note' in record) {
     const note = parseNoteValue(record.note);
     if (note) patch.note = note;
@@ -449,7 +850,15 @@ export type AgentEvaluationInput = {
   id: string;
   scoreOverall: number;
   tldr?: string | null;
+  matchCard?: ParsedMatchCard;
 };
+
+function matchWrite(record: Record<string, unknown>): { matchCard?: ParsedMatchCard; scoreOverall?: number | null } {
+  const matchCard = parseMatchCard(record);
+  if (matchCard) return { matchCard, scoreOverall: matchCard.scoreOverall };
+  if ('scoreOverall' in record) return { scoreOverall: parseScoreOverall(record.scoreOverall) };
+  return {};
+}
 
 export function parseBatchEvaluationsBody(value: unknown): AgentEvaluationInput[] {
   const record = asRecord(value);
@@ -474,7 +883,9 @@ export function parseBatchEvaluationsBody(value: unknown): AgentEvaluationInput[
     if (scoreOverall === null) {
       throw new AgentApiError(400, 'invalid_score', 'La puntuación del lote tiene que ser un entero entre 0 y 100.');
     }
+    const written = matchWrite(entry);
     const evaluation: AgentEvaluationInput = { id: entry.id, scoreOverall };
+    if (written.matchCard) evaluation.matchCard = written.matchCard;
     if ('tldr' in entry) evaluation.tldr = parseTldr(entry.tldr);
     return evaluation;
   });
