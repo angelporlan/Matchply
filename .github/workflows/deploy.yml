@@ -95,7 +95,7 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
           WEB_DIGEST: ${{ needs.images.outputs.web }}
           WORKER_DIGEST: ${{ needs.images.outputs.worker }}
-          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_USER: ${{ github.repository_owner }}
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
