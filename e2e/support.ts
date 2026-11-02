@@ -13,5 +13,6 @@ export async function login(context: BrowserContext, profile = 'medium') {
 export const routes = (profile: string) => [
   '/dashboard', '/dashboard/applications', '/dashboard/applications?view=archived',
   '/dashboard/applications/companies', '/dashboard/applications/people',
+  '/dashboard/agents',
   '/dashboard/profile?tab=account', `/editor/${fixtureId(`${profile}:cv:0`)}`,
 ];

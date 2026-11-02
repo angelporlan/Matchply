@@ -6,6 +6,7 @@ import { readCvAiStream } from './stream';
 import { log } from '@/lib/logger';
 import { providerCredential } from '@/lib/ai-provider-credentials';
 import { getResolvedAiRuntime } from '@/lib/ai-runtime-store';
+import { userLlmKeyForProvider } from '@/lib/user-llm-credential';
 
 type CvAiCall = (ref: AiModelRef, system: string, user: string, temperature: number, signal: AbortSignal, mode: string, plan: string, onContent?: (content: string) => Promise<void>) => Promise<string>;
 type Transport = {
@@ -28,7 +29,7 @@ export function createCvAiCaller(transport: Transport): CvAiCall {
     const timeout = setTimeout(abort, transport.timeoutMs ?? 60_000);
     let inputTokens: number | undefined; let outputTokens: number | undefined;
     try {
-      const key = providerCredential(ref.provider, transport.env);
+      const key = userLlmKeyForProvider(ref.provider) || providerCredential(ref.provider, transport.env);
       if (!key) throw new CvOptimizationError('AI_NOT_CONFIGURED');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       let url: string; let body: Record<string, unknown>;
@@ -86,7 +87,7 @@ export function createCvAiCaller(transport: Transport): CvAiCall {
     catch (error) {
       if (signal.aborted || !(error instanceof CvOptimizationError) || !error.code.startsWith('AI_') || ['AI_CANCELLED', 'AI_RESPONSE_TOO_LARGE'].includes(error.code)) throw error;
       const fallback = await transport.fallback().catch(() => undefined);
-      if (!fallback || fallback.provider === ref.provider || !providerCredential(fallback.provider, transport.env)) throw error;
+      if (!fallback || fallback.provider === ref.provider || !(userLlmKeyForProvider(fallback.provider) || providerCredential(fallback.provider, transport.env))) throw error;
       log({ event: 'cv_ai_fallback_started', fromProvider: ref.provider, provider: fallback.provider, model: fallback.model, phase: mode, errorCode: error.code });
       await onContent?.(''); // Discard the failed provider's preview before any fallback text.
       return attempt(fallback, system, user, temperature, signal, mode, plan, onContent);

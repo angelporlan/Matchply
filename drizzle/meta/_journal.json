@@ -330,6 +330,13 @@
       "when": 1793038718532,
       "tag": "0046_nosy_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1793658576842,
+      "tag": "0047_sudden_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

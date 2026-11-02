@@ -3,6 +3,7 @@ import { assertPublicOfferUrl } from '@/lib/offer-import/public-page';
 import { responseSources, responseText, type ResponsesResult } from '@/lib/offer-import/service';
 import { linkedInJobId, offerPlatform, usableOfferDescription } from '@/lib/offer-import/types';
 import { normalizeCompanyName } from '@/lib/company-service';
+import { resolveUserOrEnvCredential } from '@/lib/user-llm-credential';
 import { DISCOVERY_MAX_CANDIDATES, DISCOVERY_MODEL, DiscoveryError } from './types';
 
 export type DiscoveredOffer = {
@@ -86,9 +87,9 @@ export function parseDiscoveredOffers(text: string, sources: string[], today = n
   return offers;
 }
 
-export function discoveryApiKey(): string {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key || /mock|\.\.\./i.test(key)) throw new DiscoveryError('DISCOVERY_NOT_CONFIGURED');
+export async function discoveryApiKey(userId?: string): Promise<string> {
+  const key = await resolveUserOrEnvCredential('openai', userId);
+  if (!key) throw new DiscoveryError('DISCOVERY_NOT_CONFIGURED');
   return key;
 }
 
@@ -108,7 +109,7 @@ export async function callDiscoveryResponses(body: Record<string, unknown>, sign
 export async function searchMatchingOffers(candidateCard: string, dependencies: {
   signal?: AbortSignal; apiKey?: string; respond?: typeof callDiscoveryResponses;
 } = {}): Promise<DiscoveredOffer[]> {
-  const key = dependencies.apiKey ?? discoveryApiKey();
+  const key = dependencies.apiKey ?? await discoveryApiKey();
   const signal = AbortSignal.any([AbortSignal.timeout(180000), ...(dependencies.signal ? [dependencies.signal] : [])]);
   const respond = dependencies.respond ?? callDiscoveryResponses;
   const today = new Date().toISOString().slice(0, 10);

@@ -49,7 +49,7 @@ export async function enqueueDiscovery(userId: string, payload: DiscoverOffersPa
       inArray(aiJobs.status, ['queued', 'running']),
     )).limit(1);
     if (active) return active;
-    discoveryApiKey();
+    await discoveryApiKey(userId);
     await loadCandidate(userId, tx);
     const id = randomUUID();
     // Admins retain a full search; other accounts reserve only remaining plan slots.
@@ -180,7 +180,9 @@ export async function processDiscovery(job: AiJob, signal: AbortSignal, dependen
     if (!await saveAiJobProgress(job, progress)) throw new DiscoveryError('DISCOVERY_LEASE_LOST');
   };
   await save('searching');
-  const found = await (dependencies.search ?? searchMatchingOffers)(candidate.evidence.card, { signal });
+  const found = dependencies.search
+    ? await dependencies.search(candidate.evidence.card, { signal })
+    : await searchMatchingOffers(candidate.evidence.card, { signal, apiKey: await discoveryApiKey(job.userId) });
   signal.throwIfAborted();
   progress.found = found.length;
   const existing = await existingOfferKeys(job.userId, found);

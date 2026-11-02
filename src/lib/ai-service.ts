@@ -16,6 +16,7 @@ import {
   getDefaultModelForProvider
 } from './models';
 import { canAccessFeature } from './subscription';
+import { userLlmKeyForEnvVar } from '@/lib/user-llm-credential';
 import type { BuiltInPromptKey } from './prompt-defaults';
 import { parseMatchConstraints } from './curation-constraints';
 import { log } from './logger';
@@ -226,6 +227,8 @@ export class AIService {
    * - En cualquier otro caso lanza error claro (evita CVs inventados tipo "Matchply Corp").
    */
   private static resolveProviderApiKey(envVar: string, _providerLabel: string): string | null {
+    const userKey = userLlmKeyForEnvVar(envVar);
+    if (userKey) return userKey;
     const key = (process.env[envVar] || '').trim();
     const isMissingOrMock = !key || /mock|your_api_key|\.\.\./i.test(key);
     if (!isMissingOrMock) return key;
