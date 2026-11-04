@@ -6,6 +6,7 @@ import { aiJobs, cvs, cvOptimizations, cvVariants, jobOffers, users, usageOperat
 import { lockCvUser, requireEditableCv, reserveCvTarget } from '@/lib/cv-access';
 import { reserveUsage, consumeUsage, releaseUsage, usageInputHash, UsageError } from '@/lib/usage';
 import { getResolvedAiRuntime } from '@/lib/ai-runtime-store';
+import { agentModelRef, mergeAgentOverride } from '@/lib/user-llm-credential';
 import { parseAiRuntimeConfig, resolveModelForFunction } from '@/lib/ai-runtime-config';
 import { effectiveSubscriptionStatus, getAllowedCvTemplate, canAccessFeature, userEntitlements } from '@/lib/subscription';
 import { OPTIMIZE_MODE_IDS, isOptimizeModeId, type OptimizeModeId } from '@/lib/optimize-modes';
@@ -24,7 +25,8 @@ const jobPayload = (job: AiJob) => job.payload as OptimizeJobPayload & { inputHa
 const modeFilter = (id: string, mode: string) => and(eq(cvVariants.optimizationId, id), eq(cvVariants.modeId, mode));
 
 export async function enqueueCvOptimization(userId: string, input: Admission) {
-  const config = await getResolvedAiRuntime();
+  const assigned = await agentModelRef(userId, 'cv');
+  const config = mergeAgentOverride(await getResolvedAiRuntime(), 'cv', assigned);
   const inputHash = usageInputHash(input);
   return db.transaction(async tx => {
     await lockCvUser(tx, userId);

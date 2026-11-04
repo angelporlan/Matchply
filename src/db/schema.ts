@@ -393,6 +393,18 @@ export const userApiTokens = pgTable('user_api_token', {
   userIdx: index('user_api_token_user_idx').on(table.userId, table.createdAt),
 }));
 
+export const userLlmCredentials = pgTable('user_llm_credential', {
+  userId: uuid('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  provider: text('provider').$type<'openai' | 'openrouter' | 'deepseek' | 'gemini'>().notNull(),
+  keyCipher: text('keyCipher').notNull(),
+  lastChars: text('lastChars').notNull(),
+  scoutModel: text('scoutModel'),
+  researchModel: text('researchModel'),
+  cvModel: text('cvModel'),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
 // Sesiones de la extensión. La autenticación usa el hash. tokenCipher permite
 // copiar el secreto; no se selecciona en el listado.
 export const extensionInstallations = pgTable('extension_installation', {
@@ -696,7 +708,7 @@ export const aiJobs = pgTable('ai_job', {
 }));
 
 // Definición de Relaciones para Drizzle
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   cvs: many(cvs),
   userCompanies: many(userCompanies),
   companyNotes: many(companyNotes),
@@ -705,6 +717,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   extensionPairingCodes: many(extensionPairingCodes),
   extensionInstallations: many(extensionInstallations),
   apiTokens: many(userApiTokens),
+  llmCredential: one(userLlmCredentials),
   applicationViews: many(applicationViews),
   jobResearchRuns: many(jobResearchRuns),
   researchQuotaPeriods: many(researchQuotaPeriods),
@@ -755,6 +768,10 @@ export const extensionInstallationsRelations = relations(extensionInstallations,
 
 export const userApiTokensRelations = relations(userApiTokens, ({ one }) => ({
   user: one(users, { fields: [userApiTokens.userId], references: [users.id] }),
+}));
+
+export const userLlmCredentialsRelations = relations(userLlmCredentials, ({ one }) => ({
+  user: one(users, { fields: [userLlmCredentials.userId], references: [users.id] }),
 }));
 
 export const applicationViewsRelations = relations(applicationViews, ({ one }) => ({
@@ -864,6 +881,7 @@ export type JobOffer = typeof jobOffers.$inferSelect;
 export type ExtensionPairingCode = typeof extensionPairingCodes.$inferSelect;
 export type ExtensionInstallation = typeof extensionInstallations.$inferSelect;
 export type UserApiToken = typeof userApiTokens.$inferSelect;
+export type UserLlmCredential = typeof userLlmCredentials.$inferSelect;
 export type ApplicationView = typeof applicationViews.$inferSelect;
 export type JobResearchRun = typeof jobResearchRuns.$inferSelect;
 export type JobResearchAgentRun = typeof jobResearchAgentRuns.$inferSelect;

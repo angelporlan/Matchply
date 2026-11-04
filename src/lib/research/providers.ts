@@ -1,8 +1,9 @@
 import { createHash } from 'crypto';
 import { assertPublicWebUrl, downloadPublicText, type DownloadDependencies } from '@/lib/offer-import/public-page';
 import { resolveRouteModel } from '@/lib/ai-runtime-store';
-import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER } from '@/lib/models';
+import { DEFAULT_PRO_MODEL, DEFAULT_PRO_PROVIDER, type AiProvider } from '@/lib/models';
 import { fetchWithAiUsage } from '@/lib/ai-usage-fetch';
+import { agentModelRef, resolveUserOrEnvCredential, userLlmStore } from '@/lib/user-llm-credential';
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_FETCHED_TEXT = 24_000;
@@ -97,7 +98,12 @@ export async function fetchPublicSource(result: WebSearchResult, signal?: AbortS
   }
 }
 
-export async function getProModelConfig() {
+export async function getProModelConfig(userId?: string) {
+  const id = userId || userLlmStore()?.userId;
+  if (id) {
+    const assigned = await agentModelRef(id, 'research');
+    if (assigned) return assigned;
+  }
   const routed = await resolveRouteModel('research', true);
   return { provider: routed.provider, model: routed.model || DEFAULT_PRO_MODEL };
 }
@@ -124,15 +130,16 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
   }
 }
 
-export async function completeJson(systemPrompt: string, userPrompt: string, config?: { provider?: string; model?: string }, signal?: AbortSignal) {
+export async function completeJson(systemPrompt: string, userPrompt: string, config?: { provider?: string; model?: string; userId?: string }, signal?: AbortSignal) {
   const resolved = config || await getProModelConfig();
-  const provider = resolved.provider || DEFAULT_PRO_PROVIDER;
+  const provider = (resolved.provider || DEFAULT_PRO_PROVIDER) as AiProvider;
   const model = resolved.model || DEFAULT_PRO_MODEL;
+  const userId = config?.userId || userLlmStore()?.userId;
+  const key = await resolveUserOrEnvCredential(provider, userId);
+  if (!key) throw new Error('PROVIDER_REQUIRED');
   let text: string;
 
   if (provider === 'gemini') {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: 'POST', signal,
       headers: { 'Content-Type': 'application/json' },
@@ -146,8 +153,6 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     const body = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     text = body.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
   } else if (provider === 'openai') {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const isFixedTemp = /luna|o1|o3/i.test(model);
     const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
       method: 'POST', signal,
@@ -169,8 +174,6 @@ export async function completeJson(systemPrompt: string, userPrompt: string, con
     const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     text = body.choices?.[0]?.message?.content || '';
   } else {
-    const key = provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY : process.env.OPENROUTER_API_KEY;
-    if (!key) throw new Error('LLM_NOT_CONFIGURED');
     const endpoint = provider === 'deepseek' ? 'https://api.deepseek.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
     const response = await fetchWithTimeout(endpoint, {
       method: 'POST', signal,

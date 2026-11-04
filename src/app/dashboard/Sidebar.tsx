@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Users, ChevronDown, Briefcase, FileText, Menu, UserPlus, X } from 'lucide-react';
+import { Building2, Users, ChevronDown, Briefcase, FileText, Menu, UserPlus, X, Bot } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -75,6 +75,11 @@ export default function Sidebar({ user, isPremium, isGuest = false, supportMode 
         },
         { name: language === 'es' ? 'Personas' : 'People', href: '/dashboard/applications/people', icon: Users, isActive: (path: string) => path.startsWith('/dashboard/applications/people') },
       ],
+    },
+    {
+      name: t('sidebar.menu.agents'),
+      href: '/dashboard/agents',
+      icon: Bot,
     },
   ];
 

@@ -17,6 +17,7 @@ import { processCvOptimization } from '@/lib/cv-optimization/service';
 import { withAiUsageContext } from '@/lib/ai-usage-context';
 import { processDiscovery } from '@/lib/offer-discovery/service';
 import { DISCOVERY_MODEL } from '@/lib/offer-discovery/types';
+import { bindUserLlmContext } from '@/lib/user-llm-credential';
 
 export async function processAiJob(job: AiJob) {
   const started = Date.now();
@@ -40,7 +41,7 @@ export async function processAiJob(job: AiJob) {
     ? parseAiRuntimeConfig(job.resolvedAiConfig)
     : await getResolvedAiRuntime();
   const requestId = job.payload && typeof job.payload === 'object' && 'requestId' in job.payload && typeof job.payload.requestId === 'string' ? job.payload.requestId : job.id;
-  return withAiUsageContext({ userId: job.userId, jobId: job.id, requestId, functionKey: job.kind }, () => bindAiRuntime(snapshot, async () => {
+  return withAiUsageContext({ userId: job.userId, jobId: job.id, requestId, functionKey: job.kind }, () => bindAiRuntime(snapshot, () => bindUserLlmContext(job.userId, async () => {
   let renewing = false;
   const importController = new AbortController();
   const heartbeat = ['match_batch', 'import_offer', 'networking', 'optimize_cv_variants', 'discover_offers'].includes(job.kind) ? setInterval(() => {
@@ -131,5 +132,5 @@ export async function processAiJob(job: AiJob) {
     if (heartbeat) clearInterval(heartbeat);
     if (job.kind === 'optimize_cv_variants') importController.abort();
   }
-  }));
+  })));
 }

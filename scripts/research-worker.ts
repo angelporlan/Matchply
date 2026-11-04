@@ -3,6 +3,7 @@ import { claimNextResearchRun, failResearchRun, renewResearchLease, type Researc
 import { reconcileUsage } from '@/lib/usage';
 import { log } from '@/lib/logger';
 import { createIdleBackoff, createWorkerShutdown } from '@/lib/worker-idle';
+import { bindUserLlmContext } from '@/lib/user-llm-credential';
 
 const GLOBAL_CONCURRENCY = Math.max(1, Number(process.env.RESEARCH_GLOBAL_CONCURRENCY || 2));
 const PIPELINE_ENABLED = process.env.RESEARCH_PIPELINE_ENABLED === 'true';
@@ -16,7 +17,7 @@ async function processRun(run: ResearchRun) {
       .catch(error => log({ event: 'research_lease_renew_failed', level: 'warn', runId: run.id, error }))
       .finally(() => { renewing = false; });
   }, 30_000);
-  try { await runResearch(run.id, { attempt: run.attempt, signal: controller.signal }); }
+  try { await bindUserLlmContext(run.userId, () => runResearch(run.id, { attempt: run.attempt, signal: controller.signal })); }
   catch (error) { log({ event: 'research_run_failed', level: 'error', errorSource: 'worker', requestId: run.id, error }); await failResearchRun(run, error); }
   finally { clearTimeout(timeout); clearInterval(heartbeat); }
 }
