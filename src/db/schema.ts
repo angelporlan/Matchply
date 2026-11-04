@@ -398,6 +398,9 @@ export const userLlmCredentials = pgTable('user_llm_credential', {
   provider: text('provider').$type<'openai' | 'openrouter' | 'deepseek' | 'gemini'>().notNull(),
   keyCipher: text('keyCipher').notNull(),
   lastChars: text('lastChars').notNull(),
+  scoutModel: text('scoutModel'),
+  researchModel: text('researchModel'),
+  cvModel: text('cvModel'),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull().$onUpdate(() => new Date()),
 });

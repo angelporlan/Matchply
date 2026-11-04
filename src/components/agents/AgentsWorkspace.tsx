@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bot, Search, Sparkles, FileText } from 'lucide-react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { AI_PUBLIC_ERROR } from '@/lib/ai-provider-errors';
 import { reportPlanRestriction } from '@/lib/plan-presentation';
 import { initialDiscoveryProgress, type DiscoveryProgress } from '@/lib/offer-discovery/types';
 import type { AiProvider } from '@/lib/models';
 import type { PublicLlmCredential } from '@/lib/user-llm-credential';
-import { deleteLlmCredentialAction, saveLlmCredentialAction, startAgentCvAction } from '@/app/dashboard/agents/actions';
+import { userErrorMessage } from '@/lib/user-errors';
+import {
+  deleteLlmCredentialAction,
+  saveAgentModelsAction,
+  saveLlmCredentialAction,
+  startAgentCvAction,
+  startAgentResearchAction,
+} from '@/app/dashboard/agents/actions';
 
-export type AgentOfferOption = { id: string; title: string; company: string };
 export type AgentJobSnapshot = {
   id: string;
   status: string;
@@ -25,15 +30,21 @@ export type AgentJobSnapshot = {
 
 export type AgentsWorkspaceProps = {
   credential: PublicLlmCredential;
+  models: Array<{ id: string; name: string }>;
+  catalogError: string | null;
   isGuest: boolean;
   impersonation: boolean;
   canResearch: boolean;
+  profile: {
+    name: string | null;
+    targetRoles: string[];
+    location: string | null;
+    sufficient: boolean;
+  };
   baseCv: { id: string; title: string } | null;
-  offers: AgentOfferOption[];
   scout: AgentJobSnapshot | null;
   research: AgentJobSnapshot | null;
   cvJob: AgentJobSnapshot | null;
-  jobProviders: { scout: AiProvider; research: AiProvider; cv: AiProvider };
 };
 
 const PROVIDERS: AiProvider[] = ['openai', 'openrouter', 'deepseek', 'gemini'];
@@ -75,8 +86,10 @@ function discoveryResult(result: unknown): DiscoveryProgress {
 }
 
 export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [credential, setCredential] = useState(props.credential);
+  const [models, setModels] = useState(props.models);
+  const [catalogError, setCatalogError] = useState(props.catalogError);
   const [provider, setProvider] = useState<AiProvider>(props.credential.provider ?? 'openai');
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
@@ -84,6 +97,9 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [credentialError, setCredentialError] = useState<string | null>(null);
   const [credentialOk, setCredentialOk] = useState(false);
+  const [scoutModel, setScoutModel] = useState(props.credential.scoutModel ?? '');
+  const [researchModel, setResearchModel] = useState(props.credential.researchModel ?? '');
+  const [cvModel, setCvModel] = useState(props.credential.cvModel ?? '');
 
   const [scout, setScout] = useState(props.scout);
   const [research, setResearch] = useState(props.research);
@@ -91,8 +107,6 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
   const [scoutError, setScoutError] = useState<string | null>(null);
   const [researchError, setResearchError] = useState<string | null>(null);
   const [cvError, setCvError] = useState<string | null>(null);
-  const [researchOfferId, setResearchOfferId] = useState(props.research?.jobOfferId || props.offers[0]?.id || '');
-  const [cvOfferId, setCvOfferId] = useState(props.offers[0]?.id || '');
   const [startingScout, setStartingScout] = useState(false);
   const [startingResearch, setStartingResearch] = useState(false);
   const [startingCv, setStartingCv] = useState(false);
@@ -100,11 +114,9 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
 
   const readOnly = props.impersonation;
   const keyLocked = props.isGuest || readOnly;
-  const mismatch = Boolean(credential.connected && credential.provider && (
-    credential.provider !== props.jobProviders.scout
-    || credential.provider !== props.jobProviders.research
-    || credential.provider !== props.jobProviders.cv
-  ));
+  const profileBlocked = !props.profile.sufficient;
+
+  const publicError = (code: string | null | undefined) => userErrorMessage(code || 'UNEXPECTED_ERROR', language);
 
   const credentialErrorText = (code: string) => {
     const key = `agents.provider.errors.${code}`;
@@ -112,19 +124,30 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
     return message === key ? t('agents.provider.errors.generic') : message;
   };
 
+  const applyCredential = (next: PublicLlmCredential, nextModels?: Array<{ id: string; name: string }>) => {
+    setCredential(next);
+    setScoutModel(next.scoutModel ?? '');
+    setResearchModel(next.researchModel ?? '');
+    setCvModel(next.cvModel ?? '');
+    if (nextModels) setModels(nextModels);
+  };
+
   const saveKey = async () => {
     if (keyLocked || saving) return;
     setSaving(true);
     setCredentialError(null);
     setCredentialOk(false);
+    setCatalogError(null);
     const result = await saveLlmCredentialAction({ provider, apiKey });
     setSaving(false);
     if ('error' in result && result.error) {
       setCredentialError(credentialErrorText(result.error));
+      if ('credential' in result && result.credential) applyCredential(result.credential, []);
+      if (result.error === 'invalid_key' || result.error === 'catalog_unavailable') setCatalogError(result.error);
       return;
     }
     if ('credential' in result) {
-      setCredential(result.credential);
+      applyCredential(result.credential, 'models' in result ? result.models : []);
       setApiKey('');
       setCredentialOk(true);
     }
@@ -146,13 +169,24 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
       return;
     }
     if ('credential' in result) {
-      setCredential(result.credential);
+      applyCredential(result.credential, []);
       setCredentialOk(false);
+      setCatalogError(null);
     }
   };
 
+  const saveModels = async (next: { scout?: string; research?: string; cv?: string }) => {
+    if (keyLocked || !credential.connected) return;
+    const result = await saveAgentModelsAction(next);
+    if ('error' in result && result.error) {
+      setCredentialError(credentialErrorText(result.error));
+      return;
+    }
+    if ('credential' in result) applyCredential(result.credential);
+  };
+
   const startScout = async () => {
-    if (readOnly || startingScout || isBusy(scout?.status)) return;
+    if (readOnly || profileBlocked || startingScout || isBusy(scout?.status)) return;
     setStartingScout(true);
     setScoutError(null);
     scoutRequestId.current ??= crypto.randomUUID();
@@ -179,40 +213,30 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
   };
 
   const startResearch = async () => {
-    if (readOnly || !props.canResearch || startingResearch || isBusy(research?.status) || !researchOfferId) return;
+    if (readOnly || !props.canResearch || profileBlocked || startingResearch || isBusy(research?.status)) return;
     setStartingResearch(true);
     setResearchError(null);
-    try {
-      const retry = research?.jobOfferId === researchOfferId && research.status === 'failed';
-      const response = await fetch(`/api/research/${researchOfferId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(retry ? { retry: true } : {}),
-        signal: AbortSignal.timeout(30000),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        reportPlanRestriction(data, 'research');
-        throw new Error(data.code || 'AI_UNAVAILABLE');
-      }
+    const result = await startAgentResearchAction();
+    setStartingResearch(false);
+    if ('error' in result && result.error) {
+      setResearchError(result.error);
+      return;
+    }
+    if ('runId' in result) {
       setResearch({
-        id: data.runId || data.research?.run?.id || researchOfferId,
-        status: data.status || data.research?.status || 'queued',
+        id: result.runId,
+        status: result.status || 'queued',
         lastError: null,
-        jobOfferId: researchOfferId,
+        jobOfferId: result.jobOfferId,
       });
-    } catch (error) {
-      setResearchError(error instanceof Error ? error.message : 'AI_UNAVAILABLE');
-    } finally {
-      setStartingResearch(false);
     }
   };
 
   const startCv = async () => {
-    if (readOnly || startingCv || isBusy(cvJob?.status) || !cvOfferId || !props.baseCv) return;
+    if (readOnly || profileBlocked || startingCv || isBusy(cvJob?.status) || !props.baseCv) return;
     setStartingCv(true);
     setCvError(null);
-    const result = await startAgentCvAction(cvOfferId);
+    const result = await startAgentCvAction();
     setStartingCv(false);
     if ('error' in result && result.error) {
       setCvError(result.error);
@@ -298,7 +322,7 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
   const scoutProgress = discoveryResult(scout?.result);
   const cvId = cvIdFromResult(cvJob?.result);
   const keyPlaceholder = provider === 'openrouter' ? 'sk-or-…' : 'sk-…';
-  const offerOptions = useMemo(() => props.offers, [props.offers]);
+  const selectClass = 'mt-1 w-full h-11 rounded-[8px] border border-control bg-canvas px-3 text-sm';
 
   const StatusBadge = ({ status }: { status?: string | null }) => {
     const tone = badgeTone(status);
@@ -309,8 +333,27 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
     );
   };
 
+  const scoutAlert = scoutError || (scout?.status === 'failed' ? scout.lastError : null);
+  const researchAlert = researchError || (research?.status === 'failed' ? research.lastError : null);
+  const cvAlert = cvError || (cvJob?.status === 'failed' ? cvJob.lastError : null);
+
   return (
     <div className="space-y-6">
+      <section className="bg-surface border border-subtle rounded-[8px] p-5 sm:p-6 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-text">{t('agents.profile.summary')}</h2>
+            <p className="text-sm text-text mt-1">{props.profile.name || '—'}</p>
+            {props.profile.targetRoles.length > 0 && (
+              <p className="text-sm text-text-muted">{props.profile.targetRoles.join(' · ')}</p>
+            )}
+            {props.profile.location && <p className="text-sm text-text-muted">{props.profile.location}</p>}
+          </div>
+          <ButtonLink variant="ghost" href="/dashboard/profile">{t('agents.profile.edit')}</ButtonLink>
+        </div>
+        {profileBlocked && <p className="text-sm text-warning-text">{t('agents.profile.missing')}</p>}
+      </section>
+
       <section className="bg-surface border border-subtle rounded-[8px] p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
@@ -323,7 +366,6 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
               : t('agents.provider.disconnected')}
           </span>
         </div>
-        {mismatch && <p className="text-sm text-warning-text">{t('agents.provider.mismatch')}</p>}
         {props.isGuest && (
           <p className="text-sm text-text-muted">
             {t('agents.provider.guest')}{' '}
@@ -334,7 +376,7 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
           <label className="block text-sm font-medium text-text">
             {t('agents.provider.providerLabel')}
             <select
-              className="mt-1 w-full min-h-11 rounded-[8px] border border-subtle bg-canvas px-3 text-sm"
+              className={selectClass}
               value={provider}
               disabled={keyLocked}
               onChange={event => setProvider(event.target.value as AiProvider)}
@@ -352,7 +394,7 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
               value={apiKey}
               onChange={event => setApiKey(event.target.value)}
               placeholder={t('agents.provider.keyPlaceholder', { example: keyPlaceholder })}
-              className="mt-1 w-full min-h-11 rounded-[8px] border border-subtle bg-canvas px-3 text-sm"
+              className="mt-1 w-full h-11 rounded-[8px] border border-control bg-canvas px-3 text-sm"
             />
           </label>
         </div>
@@ -372,6 +414,51 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
         {credentialError && <p role="alert" className="text-sm text-danger-text">{credentialError}</p>}
       </section>
 
+      {credential.connected && (
+        <section className="bg-surface border border-subtle rounded-[8px] p-5 sm:p-6 space-y-4">
+          <p className="text-sm text-text-muted">{t('agents.provider.modelsHint')}</p>
+          {catalogError && <p role="alert" className="text-sm text-danger-text">{t('agents.provider.catalogUnavailable')}</p>}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="block text-sm font-medium text-text">
+              {t('agents.provider.modelScout')}
+              <select
+                className={selectClass}
+                value={scoutModel}
+                disabled={keyLocked || models.length === 0}
+                onChange={event => { setScoutModel(event.target.value); void saveModels({ scout: event.target.value }); }}
+              >
+                <option value="">{t('agents.provider.chooseModel')}</option>
+                {models.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-text">
+              {t('agents.provider.modelResearch')}
+              <select
+                className={selectClass}
+                value={researchModel}
+                disabled={keyLocked || models.length === 0}
+                onChange={event => { setResearchModel(event.target.value); void saveModels({ research: event.target.value }); }}
+              >
+                <option value="">{t('agents.provider.chooseModel')}</option>
+                {models.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-text">
+              {t('agents.provider.modelCv')}
+              <select
+                className={selectClass}
+                value={cvModel}
+                disabled={keyLocked || models.length === 0}
+                onChange={event => { setCvModel(event.target.value); void saveModels({ cv: event.target.value }); }}
+              >
+                <option value="">{t('agents.provider.chooseModel')}</option>
+                {models.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+            </label>
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className="bg-surface border border-subtle rounded-[8px] p-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
@@ -389,16 +476,11 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
               {t(scoutProgress.added.length === 1 ? 'agents.scout.completedOne' : 'agents.scout.completed', { count: scoutProgress.added.length })}
             </p>
           )}
-          {(scoutError || scout?.status === 'failed') && (
-            <p role="alert" className="text-sm text-danger-text">
-              {scoutError === 'DISCOVERY_PROFILE_REQUIRED' ? t('agents.scout.needProfile') : (scoutError ? t(`offerDiscovery.errors.${scoutError}`) : AI_PUBLIC_ERROR)}
-            </p>
-          )}
-          {scoutError === 'DISCOVERY_PROFILE_REQUIRED' && (
-            <ButtonLink variant="ghost" href="/dashboard/profile">{t('agents.scout.needProfile')}</ButtonLink>
+          {scoutAlert && (
+            <p role="alert" className="text-sm text-danger-text">{publicError(scoutAlert)}</p>
           )}
           {!readOnly && (
-            <Button variant="ai" onClick={() => void startScout()} loading={startingScout} disabled={isBusy(scout?.status) || startingScout}>
+            <Button variant="ai" onClick={() => void startScout()} loading={startingScout} disabled={profileBlocked || isBusy(scout?.status) || startingScout}>
               <Sparkles className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
               {t('agents.scout.run')}
             </Button>
@@ -417,25 +499,9 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
             </div>
             <StatusBadge status={research?.status} />
           </div>
-          {offerOptions.length ? (
-            <label className="block text-sm font-medium text-text">
-              {t('agents.research.selectOffer')}
-              <select
-                className="mt-1 w-full min-h-11 rounded-[8px] border border-subtle bg-canvas px-3 text-sm"
-                value={researchOfferId}
-                onChange={event => setResearchOfferId(event.target.value)}
-                disabled={readOnly || !props.canResearch}
-              >
-                {offerOptions.map(offer => (
-                  <option key={offer.id} value={offer.id}>{offer.title} · {offer.company}</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <p className="text-sm text-text-muted">{t('agents.research.emptyOffers')}</p>
-          )}
-          {(researchError || research?.status === 'failed') && (
-            <p role="alert" className="text-sm text-danger-text">{researchError || AI_PUBLIC_ERROR}</p>
+          <p className="text-sm text-text-muted">{t('agents.research.needScout')}</p>
+          {researchAlert && (
+            <p role="alert" className="text-sm text-danger-text">{publicError(researchAlert)}</p>
           )}
           {props.isGuest || !props.canResearch ? (
             <p className="text-sm text-text-muted">
@@ -443,7 +509,7 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
               <Link href="/register" className="text-ai underline underline-offset-2">{t('agents.provider.guestCta')}</Link>
             </p>
           ) : !readOnly && (
-            <Button variant="ai" onClick={() => void startResearch()} loading={startingResearch} disabled={!researchOfferId || isBusy(research?.status) || startingResearch}>
+            <Button variant="ai" onClick={() => void startResearch()} loading={startingResearch} disabled={profileBlocked || isBusy(research?.status) || startingResearch}>
               <Sparkles className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
               {t('agents.research.run')}
             </Button>
@@ -470,30 +536,13 @@ export default function AgentsWorkspace(props: AgentsWorkspaceProps) {
               <Link href="/dashboard" className="text-ai underline underline-offset-2">{t('agents.cv.openCv')}</Link>
             </p>
           )}
-          {offerOptions.length ? (
-            <label className="block text-sm font-medium text-text">
-              {t('agents.cv.selectOffer')}
-              <select
-                className="mt-1 w-full min-h-11 rounded-[8px] border border-subtle bg-canvas px-3 text-sm"
-                value={cvOfferId}
-                onChange={event => setCvOfferId(event.target.value)}
-                disabled={readOnly || !props.baseCv}
-              >
-                {offerOptions.map(offer => (
-                  <option key={offer.id} value={offer.id}>{offer.title} · {offer.company}</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <p className="text-sm text-text-muted">{t('agents.cv.emptyOffers')}</p>
-          )}
-          {(cvError || cvJob?.status === 'failed') && (
+          {cvAlert && (
             <p role="alert" className="text-sm text-danger-text">
-              {cvError === 'offer_description_required' ? t('agents.cv.needDescription') : cvError === 'need_cv' ? t('agents.cv.needCv') : (cvError || AI_PUBLIC_ERROR)}
+              {cvAlert === 'need_cv' ? t('agents.cv.needCv') : publicError(cvAlert)}
             </p>
           )}
           {!readOnly && (
-            <Button variant="ai" onClick={() => void startCv()} loading={startingCv} disabled={!props.baseCv || !cvOfferId || isBusy(cvJob?.status) || startingCv}>
+            <Button variant="ai" onClick={() => void startCv()} loading={startingCv} disabled={profileBlocked || !props.baseCv || isBusy(cvJob?.status) || startingCv}>
               <Sparkles className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
               {t('agents.cv.run')}
             </Button>

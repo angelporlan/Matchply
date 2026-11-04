@@ -15,7 +15,10 @@ import { effectiveSubscriptionStatus } from '@/lib/subscription';
 import { saveAiJobProgress } from '@/lib/ai-jobs/queue';
 import { findOrCreateCompany } from '@/lib/company-service';
 import { linkedInJobId } from '@/lib/offer-import/types';
-import { discoveryApiKey, discoveryIdentity, discoveredOfferDescription, offerPlatform, searchMatchingOffers, type DiscoveredOffer } from './search';
+import { parseAiRuntimeConfig } from '@/lib/ai-runtime-config';
+import { scoutSearchQuery } from '@/lib/agent-cv';
+import { agentModelRef, mergeAgentOverride, resolveUserOrEnvCredential } from '@/lib/user-llm-credential';
+import { discoveryApiKey, discoveryIdentity, discoveredOfferDescription, offerPlatform, searchMatchingOffers, searchMatchingOffersFromWeb, type DiscoveredOffer } from './search';
 import { DISCOVERY_MAX_OFFERS, DISCOVERY_MIN_SCORE, DISCOVERY_MODEL, DiscoveryError, initialDiscoveryProgress, type DiscoverOffersPayload, type DiscoveryProgress } from './types';
 
 async function loadCandidate(userId: string, executor: typeof db = db, lock = false) {
@@ -34,6 +37,18 @@ async function loadCandidate(userId: string, executor: typeof db = db, lock = fa
   return { user, cv, evidence };
 }
 
+async function scoutAdmission(userId: string) {
+  const assigned = await agentModelRef(userId, 'scout');
+  if (assigned) {
+    const key = await resolveUserOrEnvCredential(assigned.provider, userId);
+    if (!key) throw new DiscoveryError('PROVIDER_REQUIRED');
+    if (assigned.provider !== 'openai' && !process.env.TAVILY_API_KEY) throw new DiscoveryError('SCOUT_SEARCH_NOT_CONFIGURED');
+    return assigned;
+  }
+  await discoveryApiKey(userId);
+  return { provider: 'openai' as const, model: DISCOVERY_MODEL };
+}
+
 export async function enqueueDiscovery(userId: string, payload: DiscoverOffersPayload, initiatedByUserId: string) {
   await requireUserFeature(userId, 'applications');
   const runtime = await getResolvedAiRuntime();
@@ -49,16 +64,15 @@ export async function enqueueDiscovery(userId: string, payload: DiscoverOffersPa
       inArray(aiJobs.status, ['queued', 'running']),
     )).limit(1);
     if (active) return active;
-    await discoveryApiKey(userId);
+    const ref = await scoutAdmission(userId);
     await loadCandidate(userId, tx);
     const id = randomUUID();
     // Admins retain a full search; other accounts reserve only remaining plan slots.
     const allowance = await getUsageAllowance(userId, 'discovery', tx);
     const units = allowance.unlimited ? DISCOVERY_MAX_OFFERS : Math.max(1, Math.min(DISCOVERY_MAX_OFFERS, allowance.remaining));
     const operation = await reserveUsage(tx, userId, { bucket: 'discovery', requestId: payload.requestId, action: 'discover_offers', input: payload, jobId: id, units });
-    const ref = { provider: 'openai' as const, model: DISCOVERY_MODEL };
     const [job] = await tx.insert(aiJobs).values({ id, userId, initiatedByUserId, kind: 'discover_offers', payload,
-      usageOperationId: operation.id, resolvedAiConfig: { ...runtime, overrides: { ...runtime.overrides, matching: { free: ref, pro: ref } } },
+      usageOperationId: operation.id, resolvedAiConfig: mergeAgentOverride(runtime, 'scout', ref),
       status: 'queued', nextAttemptAt: new Date(), result: initialDiscoveryProgress(),
     }).returning();
     return job;
@@ -182,7 +196,22 @@ export async function processDiscovery(job: AiJob, signal: AbortSignal, dependen
   await save('searching');
   const found = dependencies.search
     ? await dependencies.search(candidate.evidence.card, { signal })
-    : await searchMatchingOffers(candidate.evidence.card, { signal, apiKey: await discoveryApiKey(job.userId) });
+    : await (async () => {
+      const assigned = await agentModelRef(job.userId, 'scout');
+      if (!assigned || assigned.provider === 'openai') {
+        return searchMatchingOffers(candidate.evidence.card, {
+          signal,
+          apiKey: await discoveryApiKey(job.userId),
+          model: assigned?.model,
+        });
+      }
+      return searchMatchingOffersFromWeb(candidate.evidence.card, scoutSearchQuery(candidate.user.careerProfile), {
+        userId: job.userId,
+        provider: assigned.provider,
+        model: assigned.model,
+        signal,
+      });
+    })();
   signal.throwIfAborted();
   progress.found = found.length;
   const existing = await existingOfferKeys(job.userId, found);
@@ -190,9 +219,8 @@ export async function processDiscovery(job: AiJob, signal: AbortSignal, dependen
   const offers = found.filter(offer => !existing.has(discoveryIdentity(offer.url))).map(offer => ({ ...offer, id: randomUUID() }));
   await save('scoring');
   // Share the same rubric, evidence validation and versioned cache as manual matching.
-  const ref = { provider: 'openai' as const, model: DISCOVERY_MODEL };
-  const runtime = await getResolvedAiRuntime();
-  const scoring = await bindAiRuntime({ ...runtime, overrides: { ...runtime.overrides, matching: { free: ref, pro: ref } } }, () =>
+  const runtime = job.resolvedAiConfig ? parseAiRuntimeConfig(job.resolvedAiConfig) : await getResolvedAiRuntime();
+  const scoring = await bindAiRuntime(runtime, () =>
     (dependencies.score ?? AIService.curateOffersBatch.bind(AIService))({
       baseCvMarkdown: candidate.cv?.content || '', userCareerProfile: candidate.user.careerProfile,
       userSubscriptionStatus: effectiveSubscriptionStatus(candidate.user), targetThreshold: DISCOVERY_MIN_SCORE,
