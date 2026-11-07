@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Plus, X, Mail, Phone, MapPin, Linkedin, Globe, User } from 'lucide-react';
+import { CONTACT_FIELD_KEYS, contactFieldLayout, setContactFieldValue, type ContactFieldKey } from '@/lib/cv-contact-fields';
+import { cn } from '@/lib/utils';
 import { useManagedEditorSave } from './EditorPersistence';
 import { saveCvContent } from '@/app/dashboard/actions';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +31,7 @@ function entryLabels(title: string, t: (key: string) => string): { heading: stri
   return { heading: t('editor.form.entryTitle'), place: t('editor.form.organization') };
 }
 
-function Label({ label, children }: { label: string; children: ReactNode }) {
+function Label({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-semibold text-text-muted">{label}</span>
@@ -145,66 +147,60 @@ export default function SectionForm({
   );
 }
 
-function ContactFields({
-  doc,
-  edit,
-  firstField,
-}: {
+const CONTACT_INPUTS = {
+  email: { icon: Mail, type: 'email', inputMode: 'email', autoComplete: 'email' },
+  phone: { icon: Phone, type: 'tel', inputMode: 'tel', autoComplete: 'tel' },
+  location: { icon: MapPin, type: 'text', inputMode: 'text', autoComplete: 'address-level2' },
+  linkedin: { icon: Linkedin, type: 'url', inputMode: 'url', autoComplete: 'off' },
+  website: { icon: Globe, type: 'url', inputMode: 'url', autoComplete: 'url' },
+} as const;
+
+function ContactFields({ doc, edit, firstField }: {
   doc: CVContent;
   edit: (recipe: (draft: CVContent) => void) => void;
   firstField: RefObject<HTMLInputElement>;
 }) {
   const { t } = useLanguage();
-  return (
-    <div className="flex flex-col gap-4 rounded-xl border border-subtle bg-surface p-4">
-      <Label label={t('editor.sheet.name')}>
-        <input
-          ref={firstField}
-          value={doc.name}
-          autoComplete="off"
-          className={fieldClass}
-          onChange={(event) => edit((draft) => { draft.name = event.target.value; })}
-        />
-      </Label>
-      {doc.contact.map((item, index) => (
-        <div key={`contact-${index}`} className="grid gap-3">
-          <Label label={t('editor.sheet.contactLabel')}>
-            <input
-              value={item.label}
-              autoComplete="off"
-              className={fieldClass}
-              onChange={(event) => edit((draft) => { draft.contact[index].label = event.target.value; })}
-            />
-          </Label>
-          <Label label={t('editor.sheet.contactValue')}>
-            <input
-              value={item.value}
-              autoComplete="off"
-              className={fieldClass}
-              onChange={(event) => edit((draft) => { draft.contact[index].value = event.target.value; })}
-            />
-          </Label>
-          <button
-            type="button"
-            className="min-h-11 px-2 text-xs font-semibold text-text-muted hover:text-danger-text"
-            onClick={() => edit((draft) => { draft.contact.splice(index, 1); })}
-          >
-            {t('editor.form.removeContact')}
-          </button>
-        </div>
-      ))}
-      <div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => edit((draft) => { draft.contact.push({ label: '', value: '' }); })}
-        >
-          <Plus className="h-4 w-4 stroke-[1.75]" aria-hidden />
-          {t('editor.sheet.addContact')}
-        </Button>
-      </div>
+  const [newCustomIndex, setNewCustomIndex] = useState<number | null>(null);
+  const { primary, custom } = contactFieldLayout(doc.contact);
+  // Keep a newly added custom row mounted while its label/value is being typed.
+  if (newCustomIndex !== null) for (const key of CONTACT_FIELD_KEYS) {
+    if (primary[key] === newCustomIndex) { delete primary[key]; custom.push(newCustomIndex); }
+  }
+  const inputClass = cn(fieldClass, 'text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus');
+  const updateField = (key: ContactFieldKey, value: string) => {
+    setNewCustomIndex(null);
+    edit(draft => { draft.contact = setContactFieldValue(draft.contact, key, value, t(`editor.contact.${key}`)); });
+  };
+  return <div className="flex flex-col gap-5 rounded-xl border border-subtle bg-surface p-4">
+    <Label label={<span className="inline-flex items-center gap-2"><User className="h-4 w-4" aria-hidden="true" />{t('editor.contact.fullName')}</span>}>
+      <input ref={firstField} value={doc.name} autoComplete="name" className={inputClass} onChange={event => edit(draft => { draft.name = event.target.value; })} />
+    </Label>
+    {CONTACT_FIELD_KEYS.map(key => {
+      const { icon: Icon, ...input } = CONTACT_INPUTS[key];
+      const index = primary[key], label = t(`editor.contact.${key}`);
+      return <div key={key} className="flex min-w-0 items-end gap-2">
+        <div className="min-w-0 flex-1"><Label label={<span className="inline-flex items-center gap-2"><Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />{label}</span>}>
+          <input {...input} value={index === undefined ? '' : doc.contact[index].value} placeholder={t(`editor.contact.${key}Placeholder`)} className={inputClass} onChange={event => updateField(key, event.target.value)} />
+        </Label></div>
+        {index !== undefined && <button type="button" aria-label={t('editor.contact.remove', { label })} title={t('editor.contact.remove', { label })} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-danger-surface hover:text-danger-text focus-visible:ring-2 focus-visible:ring-focus" onClick={() => updateField(key, '')}><X className="h-4 w-4" aria-hidden="true" /></button>}
+      </div>;
+    })}
+    <div className="space-y-4 border-t border-subtle pt-4">
+      <h3 className="text-sm font-semibold text-text">{t('editor.contact.custom')}</h3>
+      {custom.map(index => {
+        const item = doc.contact[index];
+        return <div key={`contact-${index}`} className="grid gap-3 rounded-lg border border-subtle bg-surface-muted p-3">
+          <Label label={t('editor.contact.customLabel')}><input autoFocus={newCustomIndex === index} value={item.label} placeholder={t('editor.contact.customLabelPlaceholder')} autoComplete="off" className={inputClass} onChange={event => edit(draft => { draft.contact[index].label = event.target.value; })} /></Label>
+          <Label label={item.label || t('editor.contact.customValue')}><input value={item.value} autoComplete="off" className={inputClass} onChange={event => edit(draft => { draft.contact[index].value = event.target.value; })} /></Label>
+          <button type="button" className="min-h-11 rounded-lg px-2 text-xs font-semibold text-text-muted hover:text-danger-text focus-visible:ring-2 focus-visible:ring-focus" onClick={() => { setNewCustomIndex(null); edit(draft => { draft.contact.splice(index, 1); }); }}>{t('editor.form.removeContact')}</button>
+        </div>;
+      })}
+      <Button type="button" variant="secondary" onClick={() => { setNewCustomIndex(doc.contact.length); edit(draft => { draft.contact.push({ label: '', value: '' }); }); }}>
+        <Plus className="h-4 w-4" aria-hidden="true" />{t('editor.contact.addCustom')}
+      </Button>
     </div>
-  );
+  </div>;
 }
 
 function SectionFields({
