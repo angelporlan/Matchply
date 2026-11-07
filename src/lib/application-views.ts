@@ -44,6 +44,7 @@ export type ApplicationFollowupFilter = 'all' | 'withDate' | 'overdue';
 
 export const APPLICATION_STATUSES = ['interested', 'applied', 'interview', 'offer', 'rejected', 'archived'] as const;
 export type ApplicationStatus = typeof APPLICATION_STATUSES[number];
+export type ApplicationQuickCounts = Record<Exclude<ApplicationStatus, 'archived'> | 'all' | 'today', number>;
 
 export const DEFAULT_EXCLUDED_STATUSES: ApplicationStatus[] = ['archived'];
 

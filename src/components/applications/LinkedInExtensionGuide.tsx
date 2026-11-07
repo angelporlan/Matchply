@@ -28,6 +28,7 @@ function GuideDialog({ onClose, storeUrl }: { onClose: () => void; storeUrl: str
   return createPortal(
     <dialog
       ref={dialog}
+      id="extension-guide-dialog"
       aria-labelledby="extension-guide-title"
       aria-describedby="extension-guide-description"
       onCancel={(event) => { event.preventDefault(); dismiss(); }}
@@ -96,8 +97,8 @@ export default function LinkedInExtensionGuide({ storeUrl = null, label }: { sto
     <>
       <Button ref={trigger} type="button" variant="ghost" onClick={() => setOpen(true)}
         aria-label={t('applications.extensionGuide.trigger')} title={t('applications.extensionGuide.trigger')}
-        aria-haspopup="dialog" className="min-w-11 shrink-0 px-2">
-        <Puzzle className="h-5 w-5" aria-hidden="true" />{label}
+        aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? 'extension-guide-dialog' : undefined} className="min-w-11 shrink-0 px-2">
+        <Puzzle className="h-5 w-5" aria-hidden="true" />{label && <span className="hidden sm:inline text-sm">{label}</span>}
       </Button>
       {open && <GuideDialog onClose={close} storeUrl={storeUrl} />}
     </>
