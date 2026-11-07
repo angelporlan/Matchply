@@ -1,5 +1,6 @@
 "use client";
 import { InlineAllowance } from '@/components/subscription/InlineAllowance';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -143,6 +144,7 @@ export default function CareerProfileForm({
   userCvs = [],
   baseCvContent = '',
 }: CareerProfileFormProps) {
+  const { language } = useLanguage();
   const cvMarkdown = useMemo(() => baseCvMarkdown(userCvs, baseCvContent), [userCvs, baseCvContent]);
   const initialStructured = useMemo(
     () => loadStructured(initialProfile, cvMarkdown),
@@ -596,13 +598,17 @@ export default function CareerProfileForm({
         ) : (
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="segmented" role="group" aria-label="Secciones del perfil">
-                <button type="button" className="segmented__item" aria-pressed={pane === 'profile'} onClick={() => setPane('profile')}>
-                  Tu perfil
-                </button>
-                <button type="button" className="segmented__item" aria-pressed={pane === 'criteria'} onClick={() => setPane('criteria')}>
-                  Qué busco
-                </button>
+              <div className="segmented self-start" role="tablist" aria-label={language === 'es' ? 'Secciones del perfil' : 'Profile sections'}>
+                {(['profile', 'criteria'] as const).map((key, index) => <button
+                  key={key} id={`career-tab-${key}`} type="button" role="tab" className="segmented__item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  aria-selected={pane === key} aria-controls={`career-panel-${key}`} tabIndex={pane === key ? 0 : -1}
+                  onClick={() => setPane(key)} onKeyDown={event => {
+                    const keys = ['profile', 'criteria'] as const;
+                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : ['ArrowRight', 'ArrowLeft'].includes(event.key) ? 1 - index : null;
+                    if (next === null) return;
+                    event.preventDefault(); setPane(keys[next]); document.getElementById(`career-tab-${keys[next]}`)?.focus();
+                  }}
+                >{key === 'profile' ? language === 'es' ? 'Tu perfil' : 'Your profile' : language === 'es' ? 'Qué busco' : "What I’m looking for"}</button>)}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" variant="secondary" onClick={() => setIsPreviewOpen(true)}>
@@ -622,7 +628,7 @@ export default function CareerProfileForm({
               </div>
             )}
 
-            <div className={pane === 'profile' ? 'space-y-6' : 'hidden'}>
+            <div id="career-panel-profile" role="tabpanel" aria-labelledby="career-tab-profile" hidden={pane !== 'profile'} tabIndex={0} className="space-y-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus">
               <section id="section-master" className="bg-white dark:bg-surface border border-ai/25 rounded-[12px] p-6 shadow-sm space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -729,7 +735,7 @@ export default function CareerProfileForm({
               </section>
             </div>
 
-            <div className={pane === 'criteria' ? 'space-y-6' : 'hidden'}>
+            <div id="career-panel-criteria" role="tabpanel" aria-labelledby="career-tab-criteria" hidden={pane !== 'criteria'} tabIndex={0} className="space-y-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus">
               <section id="section-criteria" className="bg-white dark:bg-surface border border-ai/30 rounded-[12px] p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-subtle">
                   <div className="w-8 h-8 rounded-lg bg-ai/10 text-ai flex items-center justify-center">
