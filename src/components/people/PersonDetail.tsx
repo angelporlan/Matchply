@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { deletePersonAction } from '@/app/dashboard/applications/people/actions';
 import { setPeopleStatusAction } from '@/app/dashboard/applications/crm-actions';
@@ -17,7 +17,8 @@ import { panel, errorLabel, usePeopleText } from './ui';
 
 export default function PersonDetail({ person, threads, links, activeJobId }: { person: Awaited<ReturnType<typeof getPerson>>; threads: Awaited<ReturnType<typeof listThreads>>; links: Awaited<ReturnType<typeof personLinks>>; activeJobId: string | null }) {
   const tx = usePeopleText(), en = tx('es', 'en') === 'en', router = useRouter();
-  const [tab, setTab] = useState('profile'), [threadId, setThread] = useState(threads[0]?.id || ''), [revision, setRevision] = useState(0), [deleting, setDeleting] = useState(false), [error, setError] = useState('');
+  const requestedTab = useSearchParams().get('tab');
+  const [tab, setTab] = useState(requestedTab === 'conversations' ? 'conversations' : 'profile'), [threadId, setThread] = useState(threads[0]?.id || ''), [revision, setRevision] = useState(0), [deleting, setDeleting] = useState(false), [error, setError] = useState('');
   const [currentStatus, setCurrentStatus] = useState(person.status);
   const [statusSaving, setStatusSaving] = useState(false);
   const job = useNetworkingJob(person.id, activeJobId, () => { setRevision(v => v + 1); router.refresh(); });
