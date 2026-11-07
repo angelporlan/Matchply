@@ -4,6 +4,7 @@ import {
   addUniqueSkill,
   attachSkillEvidence,
   profileInformationChecklist,
+  profileInformationProgress,
   detectStructuredProfile,
   entriesOfKind,
   extractProjectsFromMarkdown,
@@ -189,4 +190,16 @@ test('attachSkillEvidence falls back to a matching project title', () => {
     [{ title: 'Matchply', description: 'Pagos con Stripe', impact: 'Usuarios de pago' }],
   );
   assert.equal(skill.evidence, 'Matchply');
+});
+
+
+test('profile progress measures information coverage without penalizing optional preferences', () => {
+  const empty = profileInformationProgress({});
+  assert.equal(empty.completed, 0); assert.equal(empty.total, 2); assert.equal(empty.percent, 0);
+  assert.equal(profileInformationProgress({ bio: 'Mi trayectoria' }).percent, 50);
+  const complete = { masterDocument: 'Formación en enfermería', keyProjects: [{ title: 'Prácticas', description: 'Atención al paciente en prácticas supervisadas' }] };
+  assert.equal(profileInformationProgress(complete).percent, 100);
+  assert.equal(profileInformationProgress({ ...complete, curationCriteria: 'Busco trabajo en equipo' }).percent, 100);
+  assert.equal(profileInformationProgress({ ...complete, companyPreferences: 'Hospitales' }).items.find(item => item.section === 'criteria')?.present, true);
+  assert.equal(profileInformationProgress({ curationCriteria: 'Solo preferencias' }).percent, 0);
 });
