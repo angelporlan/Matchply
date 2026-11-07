@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { aiJobs, companies, jobOffers, people, personAiResults, personCompanies, personImports, personMessages, personOffers, personThreads } from '@/db/schema';
 import { findOrCreateCompany, getOwnedCompany } from '@/lib/company-service';
@@ -88,6 +88,19 @@ export async function personLinks(userId: string, personId: string) {
   return { companies: companyLinks, offers: offerLinks };
 }
 export async function touchPerson(userId: string, personId: string) { await db.update(people).set({ updatedAt: new Date() }).where(owned(userId, personId)); }
+
+/** A partial, idempotent update: never replace an existing follow-up or profile data. */
+export async function schedulePersonFollowup(userId: string, personId: string, now = new Date()) {
+  const nextFollowupAt = new Date(now);
+  nextFollowupAt.setDate(nextFollowupAt.getDate() + 7);
+  const columns = { id: people.id, nextFollowupAt: people.nextFollowupAt, updatedAt: people.updatedAt };
+  const [updated] = await db.update(people).set({ nextFollowupAt, updatedAt: now })
+    .where(and(owned(userId, personId), isNull(people.nextFollowupAt))).returning(columns);
+  if (updated) return updated;
+  const [existing] = await db.select(columns).from(people).where(owned(userId, personId)).limit(1);
+  if (!existing) throw new PeopleError('PEOPLE_NOT_FOUND', 404);
+  return existing;
+}
 export async function getThread(userId: string, personId: string, threadId: string) {
   await getPerson(userId, personId);
   const [thread] = await db.select().from(personThreads).where(and(eq(personThreads.id, id(threadId)), eq(personThreads.userId, userId), eq(personThreads.personId, personId))).limit(1);

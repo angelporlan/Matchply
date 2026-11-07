@@ -47,6 +47,7 @@ export async function savePersonAction(input: PersonInput, personId?: string, li
   }, personId);
 }
 export async function deletePersonAction(personId: string) { return run('delete', u => crm.deletePerson(u, personId), personId); }
+export async function schedulePersonFollowupAction(personId: string) { return run('followup_schedule', u => crm.schedulePersonFollowup(u, personId), personId); }
 export async function linkPersonAction(personId: string, link: { companyId?: string; offerId?: string; relation?: string; companyName?: string }) {
   return run('link', async u => {
     if (link.companyName) await crm.createAndLinkCompany(u, personId, link.companyName, link.relation || 'unconfirmed');

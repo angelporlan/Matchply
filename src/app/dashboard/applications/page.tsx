@@ -101,6 +101,7 @@ export default async function ApplicationsPage({ searchParams }: ApplicationsPag
         <ApplicationsClient
           offers={workspace.items}
           filteredTotal={workspace.total}
+          quickCounts={workspace.quickCounts}
           userCvs={userCvs}
           companies={companies}
           savedViews={savedViews}
