@@ -10,8 +10,10 @@ import {
   type CompanyNoteItem,
 } from '@/lib/job-offer-queries';
 import { assertCompanyIcon, hashIconBytes } from '@/lib/company-icon';
+import { normalizeCompanyName } from '@/lib/company-name';
+import { cleanCompanyName, validCompanyName } from '@/lib/company-name-query';
 
-export const COMPANY_NAME_MAX = 120;
+export { COMPANY_NAME_MAX, normalizeCompanyName } from '@/lib/company-name';
 export const COMPANY_FIELD_MAX = 160;
 export const COMPANY_NOTE_MAX = 4000;
 
@@ -53,13 +55,6 @@ function collapseWhitespace(value: string) {
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-export function normalizeCompanyName(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const name = collapseWhitespace(raw);
-  if (!name || name.length > COMPANY_NAME_MAX) return null;
-  return name;
 }
 
 export function companyNameKey(name: string): string {
@@ -136,10 +131,10 @@ export async function findOrCreateCompany(userId: string, rawName: string, execu
 
 export async function listCompanyLookups(userId: string): Promise<CompanyLookupItem[]> {
   return db
-    .select(companyLookupColumns)
+    .select({ ...companyLookupColumns, name: cleanCompanyName(companies.name) })
     .from(userCompanies)
     .innerJoin(companies, eq(companies.id, userCompanies.companyId))
-    .where(eq(userCompanies.userId, userId))
+    .where(and(eq(userCompanies.userId, userId), validCompanyName(companies.name)))
     .orderBy(asc(companies.name));
 }
 
@@ -166,6 +161,7 @@ export async function listCompaniesForUser(userId: string): Promise<CompanyListR
   const rows = await db
     .select({
       ...companyListColumns,
+      name: cleanCompanyName(companies.name),
       applicationCount: sql<number>`cast(coalesce(${offerCounts.applicationCount}, 0) as int)`,
       noteCount: sql<number>`cast(coalesce(${noteCounts.noteCount}, 0) as int)`,
     })
@@ -173,7 +169,7 @@ export async function listCompaniesForUser(userId: string): Promise<CompanyListR
     .innerJoin(companies, eq(companies.id, userCompanies.companyId))
     .leftJoin(offerCounts, eq(offerCounts.companyId, companies.id))
     .leftJoin(noteCounts, eq(noteCounts.companyId, companies.id))
-    .where(eq(userCompanies.userId, userId))
+    .where(and(eq(userCompanies.userId, userId), validCompanyName(companies.name)))
     .orderBy(asc(companies.name));
 
   return rows.map((row) => ({
@@ -185,10 +181,10 @@ export async function listCompaniesForUser(userId: string): Promise<CompanyListR
 
 export async function getOwnedCompany(userId: string, companyId: string) {
   const [company] = await db
-    .select(companyListColumns)
+    .select({ ...companyListColumns, name: cleanCompanyName(companies.name) })
     .from(userCompanies)
     .innerJoin(companies, eq(companies.id, userCompanies.companyId))
-    .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId)))
+    .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId), validCompanyName(companies.name)))
     .limit(1);
   if (!company) throw new CompanyNotFoundError();
   return company;
