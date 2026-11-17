@@ -1,16 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { fixtureId, login } from './support';
+import { randomUUID } from 'node:crypto';
 
 test('profile sections support keyboard tabs, retain drafts and show optional-safe progress', async ({ page, context }) => {
+  const database = process.env.INTEGRATION_TEST_DATABASE_URL;
+  if (!database || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(database).hostname) || !new URL(database).pathname.includes('test')) throw new Error('Profile browser fixture requires an isolated local test database');
   const { Client } = await import('pg');
-  const client = new Client({ connectionString: process.env.INTEGRATION_TEST_DATABASE_URL });
+  const { default: bcrypt } = await import('bcryptjs');
+  const client = new Client({ connectionString: database });
   await client.connect();
-  const userId = fixtureId('large');
-  const previous = (await client.query('select "careerProfile" from "user" where id=$1', [userId])).rows[0].careerProfile;
+  const userId = randomUUID(), email = `profile-browser-${userId}@example.test`, password = randomUUID();
   const profile = { masterDocument: 'Trayectoria profesional en atención al paciente, formación sanitaria y prácticas supervisadas en un hospital.', skills: [{ name: 'Atención al paciente', category: 'other', proficiency: 'used', evidence: 'Prácticas supervisadas' }] };
   try {
-    await client.query('update "user" set "careerProfile"=$1 where id=$2', [profile, userId]);
-    await login(context, 'large');
+    await client.query('insert into "user" (id, email, "passwordHash", "careerProfile") values ($1, $2, $3, $4)', [userId, email, bcrypt.hashSync(password, 4), profile]);
+    const csrf = await (await context.request.get('/api/auth/csrf')).json();
+    await context.request.post('/api/auth/callback/credentials', { form: { csrfToken: csrf.csrfToken, email, password, callbackUrl: '/dashboard' } });
+    const session = await (await context.request.get('/api/auth/session')).json();
+    expect(session?.user?.id).toBe(userId);
     await page.goto('/dashboard/profile');
     const tabs = page.getByRole('tablist', { name: 'Secciones del perfil', exact: true });
     const yourProfile = tabs.getByRole('tab', { name: 'Tu perfil', exact: true });
@@ -29,5 +34,5 @@ test('profile sections support keyboard tabs, retain drafts and show optional-sa
     await expect(page.getByRole('progressbar', { name: 'Completitud del perfil' })).toHaveAttribute('value', '2');
     await page.setViewportSize({ width: 375, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-  } finally { await client.query('update "user" set "careerProfile"=$1 where id=$2', [previous, userId]); await client.end(); }
+  } finally { await client.query('delete from "user" where id=$1', [userId]); await client.end(); }
 });
