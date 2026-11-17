@@ -7,6 +7,7 @@ import {
   type ApplicationColumnFilter,
   type ApplicationSortState,
   type ApplicationViewFilters,
+  type ApplicationQuickCounts,
 } from '@/lib/application-views';
 import {
   SELECT_ALL_ID_LIMIT,
@@ -278,7 +279,32 @@ export async function listSelectedApplications(userId: string, ids: string[]) {
 }
 
 export async function loadApplicationsWorkspace(query: ApplicationListQuery) {
-  return listApplicationsPage(query);
+  const [page, quickCounts] = await Promise.all([listApplicationsPage(query), listApplicationQuickCounts(query)]);
+  return { ...page, quickCounts };
+}
+
+/** Funnel totals are scoped to the other filters, across every active row. */
+export async function listApplicationQuickCounts(query: Pick<ApplicationListQuery, 'userId' | 'filters' | 'now'>): Promise<ApplicationQuickCounts> {
+  const now = query.now ?? new Date();
+  const today = dateFilterRange({ date: 'today' }, now);
+  const filters: ApplicationViewFilters = {
+    ...query.filters, status: 'all', excludedStatuses: ['archived'], date: 'all', startDate: '', endDate: '',
+    columnFilters: query.filters.columnFilters?.filter(filter => filter.column !== 'status'),
+  };
+  const rows = await db.select({
+    status: jobOffers.status,
+    count: sql<number>`count(*)::int`,
+    today: sql<number>`count(*) filter (where ${jobOffers.createdAt} >= ${today.start} and ${jobOffers.createdAt} < ${today.end})::int`,
+  }).from(jobOffers).where(applicationFilterSql(query.userId, filters, now)).groupBy(jobOffers.status);
+  const counts: ApplicationQuickCounts = { all: 0, today: 0, interested: 0, applied: 0, interview: 0, offer: 0, rejected: 0 };
+  for (const row of rows) {
+    if (row.status in counts && row.status !== 'all' && row.status !== 'today') {
+      counts[row.status as Exclude<keyof ApplicationQuickCounts, 'all' | 'today'>] = Number(row.count);
+      counts.all += Number(row.count);
+      counts.today += Number(row.today);
+    }
+  }
+  return counts;
 }
 
 export type ApplicationWorkspace = Awaited<ReturnType<typeof loadApplicationsWorkspace>>;

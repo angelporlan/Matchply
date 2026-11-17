@@ -28,6 +28,7 @@ import { downloadPdf } from '@/lib/pdf-download';
 import { usePlanUsage } from '@/components/subscription/PlanUsageProvider';
 
 interface CvCardProps {
+  compact?: boolean;
   cv: CvListItem;
   target?: CvTargetSummary;
   isGuest?: boolean;
@@ -42,6 +43,7 @@ interface CvCardProps {
 }
 
 export default function CvCard({
+  compact = false,
   cv,
   target,
   isGuest = false,
@@ -140,6 +142,19 @@ export default function CvCard({
       destructive: true,
     },
   ];
+
+  if (compact) return <>
+    <tr className="border-t border-subtle text-text">
+      <td className="px-4 py-2">
+        {isEditing ? <input autoFocus aria-label={t('dashboard.cvs.card.rename')} value={draft} maxLength={120} onChange={event => setDraft(event.target.value)} onBlur={commitRename} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitRename(); } if (event.key === 'Escape') { setIsEditing(false); setDraft(cv.title); } }} className="min-h-11 w-full rounded-lg border border-control bg-surface px-2 text-base focus-visible:ring-2 focus-visible:ring-focus" /> : <Link href={`/editor/${cv.id}`} className="block truncate font-semibold hover:underline" title={cv.title}>{cv.title}</Link>}
+        <div className="mt-1 flex flex-wrap gap-1 text-xs"><span className="rounded bg-surface-muted px-1.5 py-0.5 text-text-muted">{cv.isBase ? t('dashboard.cvs.card.base') : t('dashboard.cvs.card.copy')}</span>{cv.isPrincipal && <span className="inline-flex items-center gap-1 rounded bg-ai-surface px-1.5 py-0.5 text-ai-text"><Star className="h-3 w-3 fill-current" aria-hidden="true" />{t('dashboard.cvs.card.primary')}</span>}{readOnly && <span>{t('plans.readOnly')}</span>}</div>
+      </td>
+      <td className="px-4 py-2"><span className="block truncate font-medium" title={target?.company}>{target?.company || '—'}</span><span className="block truncate text-xs text-text-muted" title={target?.title}>{target?.title}</span></td>
+      <td className="px-4 py-2 text-text-muted"><time dateTime={new Date(cv.updatedAt).toISOString()} title={new Date(cv.updatedAt).toLocaleString(language)}>{new Date(cv.updatedAt).toLocaleDateString(language)}</time></td>
+      <td className="px-4 py-2"><div className="flex items-center gap-1"><button type="button" onClick={() => onPreview(cv)} aria-label={t('dashboard.cvs.card.quickPreview')} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-focus"><Eye className="h-4 w-4" aria-hidden="true" /></button><DropdownMenu items={menuItems} label={`${t('dashboard.cvs.card.actions')}: ${cv.title}`} triggerClassName="min-h-11 min-w-11 flex items-center justify-center" /></div></td>
+    </tr>
+    <GuestSavePrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} />
+  </>;
 
   return (
     <>

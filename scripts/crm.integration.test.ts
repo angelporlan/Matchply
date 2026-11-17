@@ -86,5 +86,27 @@ test('CRM paginated queries, private favorites, views and import compatibility',
       (packageData.userCompanies as Record<string, unknown>[])[0].isFavorite = false; seal(); await importUserData(packageData);
       const [updated] = await db.select().from(userCompanies).where(and(eq(userCompanies.userId, userIds[0]), eq(userCompanies.companyId, companyIds[0]))); assert.equal(updated.isFavorite, false);
     });
+    await t.test('legacy scraped company names are sanitized before counts, search and pagination', async () => {
+      const { findOrCreateCompany, listCompanyLookups, listCompaniesForUser, getOwnedCompany } = await import('@/lib/company-service');
+      const legacyIds = [randomUUID(), randomUUID()];
+      companyIds.push(...legacyIds);
+      await db.insert(companies).values(legacyIds.map((id, i) => ({ id, name: i ? ',Abalia' : '15 contactos trabajan aquí', nameNormalized: `legacy-${id}` })));
+      await db.insert(userCompanies).values(legacyIds.map(companyId => ({ userId: userIds[0], companyId })));
+      assert.equal(await findOrCreateCompany(userIds[0], '2 contactos trabajan aquí'), null);
+      const page = await listCrmPage(userIds[0], 'companies', normalizeCrmConfig('companies', { pageSize: 10 }), 9);
+      assert.equal(page.total, 3); assert.equal(page.page, 1);
+      assert.equal(page.items.find(row => row.id === legacyIds[1])?.name, 'Abalia');
+      assert.ok(!page.items.some(row => row.id === legacyIds[0]));
+      const search = normalizeCrmConfig('companies', { filters: { columnFilters: [{ column: 'name', operator: 'equals', value: 'Abalia' }] } });
+      assert.deepEqual(await listCrmIds(userIds[0], 'companies', search), [legacyIds[1]]);
+      assert.equal((await listCrmSelected(userIds[0], 'companies', legacyIds)).length, 1);
+      for (const list of [await listCompanyLookups(userIds[0]), await listCompaniesForUser(userIds[0])]) {
+        assert.ok(!list.some(row => row.id === legacyIds[0]));
+        assert.equal(list.find(row => row.id === legacyIds[1])?.name, 'Abalia');
+      }
+      assert.equal((await getOwnedCompany(userIds[0], legacyIds[1])).name, 'Abalia');
+      // Presentation cleanup never deletes shared records or user relationships.
+      assert.equal((await db.select({ id: companies.id }).from(companies).where(inArray(companies.id, legacyIds))).length, 2);
+    });
   } finally { await db.delete(users).where(inArray(users.id, userIds)); await db.delete(companies).where(inArray(companies.id, companyIds)); await pool.end(); }
 });

@@ -16,28 +16,28 @@ export const PERSON_STATUS_STYLES: Record<
   }
 > = {
   pending: {
-    color: 'text-ai-text bg-ai-surface',
-    border: 'border-ai/20',
+    color: 'text-text-muted bg-surface-muted',
+    border: 'border-control',
     icon: 'clock',
   },
   contacted: {
-    color: 'text-blue-600 dark:text-blue-400 bg-blue-500/10',
-    border: 'border-blue-500/20',
+    color: 'text-info-text bg-info-surface',
+    border: 'border-info-text/30',
     icon: 'send',
   },
   conversation: {
-    color: 'text-amber-600 dark:text-amber-400 bg-amber-500/10',
-    border: 'border-amber-500/20',
+    color: 'text-warning-text bg-warning-surface',
+    border: 'border-warning-text/30',
     icon: 'message',
   },
   keep_in_touch: {
-    color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
-    border: 'border-emerald-500/20',
+    color: 'text-success-text bg-success-surface',
+    border: 'border-success-text/30',
     icon: 'sparkles',
   },
   closed: {
-    color: 'text-slate-500 dark:text-slate-400 bg-slate-500/10',
-    border: 'border-slate-500/20',
+    color: 'text-text-muted bg-surface-muted',
+    border: 'border-subtle',
     icon: 'archive',
   },
 };
@@ -78,7 +78,7 @@ export function PersonStatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${config.color} ${config.border} ${className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-bold px-2.5 py-1 rounded-full border ${config.color} ${config.border} ${className}`}
     >
       <PersonStatusIcon status={safeStatus} />
       <span>{label}</span>
@@ -190,7 +190,7 @@ export default function PersonStatusSelect({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel || (en ? 'Change status' : 'Cambiar estado')}
-        className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border transition-all disabled:opacity-60 ${config.color} ${config.border} hover:brightness-110`}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-bold px-2.5 py-1 rounded-full border transition-all disabled:opacity-60 ${config.color} ${config.border} hover:brightness-110`}
       >
         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <PersonStatusIcon status={safeStatus} />}
         <span>{label}</span>

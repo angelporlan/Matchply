@@ -6,15 +6,16 @@ import { personListColumns } from './people/service';
 import { columnDateRange, escapeIlikePattern, SELECT_ALL_ID_LIMIT } from './application-filter-bounds';
 import { crmColumns, normalizeCrmConfig, type ListEntity, type CrmConfig, type CrmRow, type CrmFilter, type CrmPage } from './crm-views';
 import type { ApplicationColumnFilter } from './application-views';
+import { cleanCompanyName, validCompanyName } from './company-name-query';
 
 function project(columns: Record<string, unknown>) {
   return sql.join(Object.entries(columns).map(([key, column]) => sql`${column} as ${sql.identifier(key)}`), sql`, `);
 }
 function dataset(entity: ListEntity, userId: string) {
-  if (entity === 'companies') return sql`select ${project(companyListColumns)}, ${userCompanies.isFavorite} as "isFavorite",
+  if (entity === 'companies') return sql`select ${project({ ...companyListColumns, name: cleanCompanyName(companies.name) })}, ${userCompanies.isFavorite} as "isFavorite",
     (select count(*)::int from ${jobOffers} where ${jobOffers.companyId} = ${companies.id} and ${jobOffers.userId} = ${userId}) as "applicationCount",
     (select count(*)::int from ${companyNotes} where ${companyNotes.companyId} = ${companies.id} and ${companyNotes.userId} = ${userId}) as "noteCount"
-    from ${userCompanies} inner join ${companies} on ${companies.id} = ${userCompanies.companyId} where ${userCompanies.userId} = ${userId}`;
+    from ${userCompanies} inner join ${companies} on ${companies.id} = ${userCompanies.companyId} where ${userCompanies.userId} = ${userId} and ${validCompanyName(companies.name)}`;
   const { role: _role, ...columns } = personListColumns;
   return sql`select ${project(columns)}, coalesce(nullif(${people.role}, ''), ${people.headline}) as role,
     (select max(coalesce(${personMessages.sentAt}, ${personMessages.createdAt})) from ${personMessages} where ${personMessages.personId} = ${people.id} and ${personMessages.userId} = ${userId}) as "lastContactAt",

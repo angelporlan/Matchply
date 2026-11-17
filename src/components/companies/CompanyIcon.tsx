@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,13 +30,14 @@ export default function CompanyIcon({
   className,
 }: CompanyIconProps) {
   const src = companyIconSrc(companyId, iconHash);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const dim = SIZE_CLASS[size];
 
-  if (!src) {
+  if (!src || failedSrc === src) {
     return (
       <Building2
         aria-hidden="true"
-        className={cn(dim, 'shrink-0 text-text-muted stroke-[1.75]', className)}
+        className={cn(dim, 'shrink-0 rounded-[4px] border border-subtle bg-surface-muted p-0.5 text-text-muted stroke-[1.75]', className)}
       />
     );
   }
@@ -43,6 +47,7 @@ export default function CompanyIcon({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
+      onError={() => setFailedSrc(src)}
       alt=""
       title={name}
       width={size === 'md' ? 32 : 20}

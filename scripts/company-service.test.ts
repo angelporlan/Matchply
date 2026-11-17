@@ -23,6 +23,16 @@ test('companyNameKey is case-insensitive for uniqueness', () => {
   assert.notEqual(companyNameKey('Stripe'), companyNameKey('Stripe Spain'));
 });
 
+test('company names reject LinkedIn contact indicators and clean residual separators', () => {
+  for (const name of ['15 contactos trabajan aquí', '2 contactos trabajan aqui', '1 contacto trabaja aquí', '1 connection works here', '2 connections work here', ', 15 contactos trabajan aquí']) {
+    assert.equal(normalizeCompanyName(name), null, name);
+  }
+  assert.equal(normalizeCompanyName(' ,Abalia'), 'Abalia');
+  assert.equal(normalizeCompanyName(' · , Abalia'), 'Abalia');
+  for (const name of ['3M', '&Other Stories', 'Contactos SL', 'Acme, Inc.', '123 Contact Center']) assert.equal(normalizeCompanyName(name), name);
+  assert.equal(normalizeCompanyName(' , · '), null);
+});
+
 test('missingCompanyFields lists empty shared profile data', () => {
   assert.deepEqual(
     missingCompanyFields({ website: null, location: null, sector: null, iconHash: null }),

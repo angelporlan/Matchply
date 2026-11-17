@@ -7,11 +7,13 @@ import { shouldResetAiOperation } from '@/lib/ai-operation-retry';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { filterCvLibrary } from '@/lib/cv-library';
 import { CvListItem, CvTargetSummary } from '@/lib/job-offer-queries';
 import {
   Sparkles, Plus, FileText, ArrowRight, Star, X,
   Briefcase, RefreshCw, AlertCircle,
-  Crown, Lock, Upload, Clipboard, Search
+  Crown, Lock, Upload, Clipboard, Search, LayoutGrid, List, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { createBaseCv, deleteCv, setPrincipalCv, renameCv, duplicateCv } from './actions';
 import OfferUrlImport from '@/components/ai/OfferUrlImport';
@@ -97,6 +99,22 @@ export default function DashboardClient({
   // Búsqueda y filtros del listado de CVs
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'base' | 'optimized'>('all');
+
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [libraryPage, setLibraryPage] = useState(1);
+  useEffect(() => {
+    try { if (localStorage.getItem('matchply:cv-view') === 'table') setViewMode('table'); } catch { /* Storage may be disabled. */ }
+  }, []);
+  const changeView = (view: 'cards' | 'table') => {
+    setViewMode(view);
+    try { localStorage.setItem('matchply:cv-view', view); } catch { /* The view remains usable without storage. */ }
+  };
+  const filterOptions = useMemo(() => ({
+    companies: Array.from(new Set(cvTargets.map(target => target.company).filter(Boolean))).sort((a, b) => a.localeCompare(b, language)),
+    roles: Array.from(new Set(cvTargets.filter(target => !companyFilter || target.company === companyFilter).map(target => target.title).filter(Boolean))).sort((a, b) => a.localeCompare(b, language)),
+  }), [cvTargets, companyFilter, language]);
 
   // Estados de IA
   const [aiLoading, setAiLoading] = useState(false);
@@ -316,21 +334,13 @@ export default function DashboardClient({
     });
   };
 
-  const filteredCvs = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return userCvs.filter((cv) => {
-      if (activeFilter === 'base' && !cv.isBase) return false;
-      if (activeFilter === 'optimized' && cv.isBase) return false;
-
-      if (!query) return true;
-      const target = targetByCvId.get(cv.id);
-      return [
-        cv.title,
-        target?.title,
-        target?.company,
-      ].some(value => value && value.toLowerCase().includes(query));
-    });
-  }, [userCvs, searchQuery, activeFilter, targetByCvId]);
+  const filteredCvs = useMemo(() => filterCvLibrary(userCvs, targetByCvId, {
+    search: searchQuery, type: activeFilter, company: companyFilter, role: roleFilter,
+  }), [userCvs, searchQuery, activeFilter, companyFilter, roleFilter, targetByCvId]);
+  const pageSize = 24;
+  const totalLibraryPages = Math.max(1, Math.ceil(filteredCvs.length / pageSize));
+  const currentLibraryPage = Math.min(libraryPage, totalLibraryPages);
+  const visibleCvs = filteredCvs.slice((currentLibraryPage - 1) * pageSize, currentLibraryPage * pageSize);
 
   // Manejar marcar principal
   const handleMarkAsPrincipal = (cvId: string) => {
@@ -472,12 +482,7 @@ export default function DashboardClient({
         <div>
           <h3 className="text-lg font-bold text-text flex items-center gap-2 font-display">
             {t('dashboard.cvs.title')}
-            {principalCv && (
-              <span className="text-[10px] py-0.5 px-2 bg-ai-surface text-ai-text border border-ai/20 rounded-full font-medium tracking-wide flex items-center gap-1 font-sans">
-                <Star className="w-2.5 h-2.5 fill-ai" />
-                {t('dashboard.cvs.primary', { title: principalCv.title })}
-              </span>
-            )}
+
           </h3>
           <p className="text-text-muted text-xs font-light font-sans">{t('dashboard.cvs.subtitle')}</p>
         </div>
@@ -511,37 +516,53 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* Búsqueda y filtros */}
-      {userCvs.length > 1 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted stroke-[1.75]" aria-hidden="true" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t('dashboard.cvs.search')}
-              className="w-full bg-canvas border border-control rounded-[8px] pl-9 pr-3 py-2 text-xs text-text placeholder-text-muted focus:outline-none focus:border-ai transition-colors"
-            />
+      {principalCv?.isBase && !returnOfferId && (
+        <section aria-labelledby="principal-base-title" className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-ai/30 bg-ai-surface p-4 sm:p-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="rounded-lg bg-surface p-3 text-ai-text"><Star className="h-6 w-6 fill-current" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <h2 id="principal-base-title" className="text-xs font-semibold text-ai-text">{language === 'es' ? 'CV Principal Base' : 'Primary base CV'}</h2>
+              <p className="mt-1 break-words font-display text-xl font-bold text-text">{principalCv.title}</p>
+              <p className="mt-1 text-sm text-text-muted">{language === 'es' ? 'Tu punto de partida para adaptar el currículum a cada oferta.' : 'Your starting point for tailoring your CV to each job.'}</p>
+            </div>
           </div>
+          <Link href={`/editor/${principalCv.id}`} className="btn-raised btn-raised--secondary">{language === 'es' ? 'Editar CV base' : 'Edit base CV'}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+        </section>
+      )}
 
-          <div className="flex items-center gap-1.5" role="group" aria-label={t('dashboard.cvs.filters.label')}>
-            {([
-              { key: 'all', label: t('dashboard.cvs.filters.all') },
-              { key: 'base', label: t('dashboard.cvs.filters.base') },
-              { key: 'optimized', label: t('dashboard.cvs.filters.optimized') },
-            ] as const).map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => setActiveFilter(filter.key)}
-                aria-pressed={activeFilter === filter.key}
-                className="pill-tab"
-              >
-                {filter.label}
-              </button>
-            ))}
+      {userCvs.length > 1 && (
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('dashboard.cvs.filters.label')}>
+              {([
+                { key: 'all', label: t('dashboard.cvs.filters.all') },
+                { key: 'base', label: t('dashboard.cvs.filters.base') },
+                { key: 'optimized', label: t('dashboard.cvs.filters.optimized') },
+              ] as const).map(filter => <button key={filter.key} type="button" onClick={() => { setActiveFilter(filter.key); setLibraryPage(1); }} aria-pressed={activeFilter === filter.key} className="pill-tab">{filter.label}</button>)}
+            </div>
+            <div className="segmented" role="group" aria-label={language === 'es' ? 'Vista de CVs' : 'CV view'}>
+              <button type="button" className="segmented__item" aria-pressed={viewMode === 'cards'} onClick={() => changeView('cards')}><LayoutGrid className="h-4 w-4" aria-hidden="true" />{language === 'es' ? 'Tarjetas' : 'Cards'}</button>
+              <button type="button" className="segmented__item" aria-pressed={viewMode === 'table'} onClick={() => changeView('table')}><List className="h-4 w-4" aria-hidden="true" />{language === 'es' ? 'Tabla compacta' : 'Compact table'}</button>
+            </div>
           </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="text-sm font-medium text-text">{language === 'es' ? 'Buscar CV' : 'Find a CV'}
+              <span className="relative mt-1.5 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <input type="search" value={searchQuery} onChange={event => { setSearchQuery(event.target.value); setLibraryPage(1); }} placeholder={t('dashboard.cvs.search')} className="min-h-11 w-full rounded-lg border border-control bg-surface pl-9 pr-3 text-base text-text focus-visible:ring-2 focus-visible:ring-focus" />
+              </span>
+            </label>
+            <label className="min-w-0 text-sm font-medium text-text"><span id="cv-company-label">{language === 'es' ? 'Empresa' : 'Company'}</span>
+              <select aria-labelledby="cv-company-label" value={companyFilter} onChange={event => { setCompanyFilter(event.target.value); setRoleFilter(''); setLibraryPage(1); }} className="mt-1.5 min-h-11 w-full rounded-lg border border-control bg-surface px-3 text-base text-text focus-visible:ring-2 focus-visible:ring-focus">
+                <option value="">{language === 'es' ? 'Todas las empresas' : 'All companies'}</option>{filterOptions.companies.map(company => <option key={company}>{company}</option>)}
+              </select>
+            </label>
+            <label className="min-w-0 text-sm font-medium text-text"><span id="cv-role-label">{language === 'es' ? 'Puesto' : 'Role'}</span>
+              <select aria-labelledby="cv-role-label" value={roleFilter} onChange={event => { setRoleFilter(event.target.value); setLibraryPage(1); }} className="mt-1.5 min-h-11 w-full rounded-lg border border-control bg-surface px-3 text-base text-text focus-visible:ring-2 focus-visible:ring-focus">
+                <option value="">{language === 'es' ? 'Todos los puestos' : 'All roles'}</option>{filterOptions.roles.map(role => <option key={role}>{role}</option>)}
+              </select>
+            </label>
+          </div>
+          {(searchQuery || companyFilter || roleFilter || activeFilter !== 'all') && <button type="button" className="btn-raised btn-raised--ghost" onClick={() => { setSearchQuery(''); setCompanyFilter(''); setRoleFilter(''); setActiveFilter('all'); setLibraryPage(1); }}>{language === 'es' ? 'Limpiar filtros' : 'Clear filters'}</button>}
         </div>
       )}
 
@@ -815,8 +836,9 @@ export default function DashboardClient({
           <p className="text-sm text-text-muted font-sans">{t('dashboard.cvs.noResults')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredCvs.map((cv) => (
+        <>
+        <div className={viewMode === 'cards' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'hidden'}>
+          {viewMode === 'cards' && visibleCvs.map((cv) => (
             <CvCard
               key={cv.id}
               cv={cv}
@@ -833,6 +855,18 @@ export default function DashboardClient({
             />
           ))}
         </div>
+        {viewMode === 'table' && <div role="region" aria-label={language === 'es' ? 'Tabla de CVs' : 'CV table'} tabIndex={0} className="overflow-x-auto rounded-xl border border-subtle bg-surface focus-visible:ring-2 focus-visible:ring-focus">
+          <table className="w-full min-w-[720px] table-fixed text-left text-sm">
+            <caption className="sr-only">{language === 'es' ? 'Biblioteca de currículums' : 'CV library'}</caption>
+            <thead className="bg-surface-muted text-text-muted"><tr>{(language === 'es' ? ['Currículum', 'Empresa / Puesto', 'Actualizado', 'Acciones'] : ['CV', 'Company / Role', 'Updated', 'Actions']).map((label, index) => <th key={label} scope="col" className={`px-4 py-3 font-semibold ${index < 2 ? 'w-[32%]' : 'w-[18%]'}`}>{label}</th>)}</tr></thead>
+            <tbody>{visibleCvs.map(cv => <CvCard key={cv.id} compact cv={cv} target={targetByCvId.get(cv.id)} isGuest={isGuest} guestCanDownload={guestCanDownload} onGuestDownloadConsumed={() => setGuestCanDownload(false)} isPending={isPending} onPreview={setPreviewCv} onSetPrincipal={handleMarkAsPrincipal} onRename={handleRename} onDuplicate={handleDuplicate} onDelete={triggerDelete} />)}</tbody>
+          </table>
+        </div>}
+        <nav aria-label={language === 'es' ? 'Páginas de CVs' : 'CV pages'} className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-text-muted">
+          <p role="status">{(currentLibraryPage - 1) * pageSize + 1}–{Math.min(currentLibraryPage * pageSize, filteredCvs.length)} {language === 'es' ? 'de' : 'of'} {filteredCvs.length} CVs</p>
+          <div className="flex items-center gap-2"><button type="button" className="btn-raised btn-raised--ghost" disabled={currentLibraryPage <= 1} onClick={() => setLibraryPage(currentLibraryPage - 1)} aria-label={language === 'es' ? 'Página anterior' : 'Previous page'}><ChevronLeft className="h-4 w-4" aria-hidden="true" /></button><span>{currentLibraryPage} / {totalLibraryPages}</span><button type="button" className="btn-raised btn-raised--ghost" disabled={currentLibraryPage >= totalLibraryPages} onClick={() => setLibraryPage(currentLibraryPage + 1)} aria-label={language === 'es' ? 'Página siguiente' : 'Next page'}><ChevronRight className="h-4 w-4" aria-hidden="true" /></button></div>
+        </nav>
+        </>
       )}
 
       {/* Cajón Lateral / Modal de Optimización por IA */}

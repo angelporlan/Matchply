@@ -14,7 +14,7 @@ import { setRowsFavoriteAction } from '@/app/dashboard/applications/crm-actions'
 import { CrmPagination } from '@/components/crm/CrmControls';
 import ApplicationColumnHeaderMenu from './ApplicationColumnHeaderMenu';
 import ApplicationColumnsMenu from './ApplicationColumnsMenu';
-import { ApplicationBulkStatusSelect } from './ApplicationStatusSelect';
+import { ApplicationBulkStatusSelect, APPLICATION_STATUS_STYLES, ApplicationStatusIcon } from './ApplicationStatusSelect';
 import AlertModal from '@/components/ui/AlertModal';
 import { Button } from '@/components/ui/Button';
 import { ModalScrim } from '@/components/ui/ModalScrim';
@@ -39,6 +39,7 @@ import {
   type ApplicationSortKey,
   type ApplicationSortState,
   type ApplicationStatus,
+  type ApplicationQuickCounts,
   type ApplicationViewConfig,
   type ApplicationViewFilters,
 } from '@/lib/application-views';
@@ -72,6 +73,7 @@ interface SavedApplicationView {
 interface ApplicationsClientProps {
   offers: ApplicationSummary[];
   filteredTotal: number;
+  quickCounts: ApplicationQuickCounts;
   userCvs: CvListItem[];
   companies: CompanyLookupItem[];
   savedViews: SavedApplicationView[];
@@ -83,6 +85,7 @@ interface ApplicationsClientProps {
 export default function ApplicationsClient({
   offers: rawOffers,
   filteredTotal: initialFilteredTotal,
+  quickCounts: initialQuickCounts,
   userCvs,
   companies,
   savedViews: initialSavedViews,
@@ -93,7 +96,7 @@ export default function ApplicationsClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { inspectOrExecutePrompt } = useAiPromptDebug();
   const offers = useMemo(() => {
     const icons = new Map(companies.map((company) => [company.id, company.iconHash]));
@@ -491,6 +494,7 @@ export default function ApplicationsClient({
       return;
     }
     showToast(t('applications.table.statusUpdated'));
+    setFavoriteReload(count => count + 1);
     router.refresh();
   };
 
@@ -506,6 +510,7 @@ export default function ApplicationsClient({
     setLocalOffers((prev) => prev.filter((item) => item.id !== offerToDelete.id));
     setOfferToDelete(null);
     showToast(t('applications.table.deleted'));
+    setFavoriteReload(count => count + 1);
   };
 
   const handleBulkStatusChange = async (status: string) => {
@@ -521,6 +526,7 @@ export default function ApplicationsClient({
     } else {
       showToast(t('applications.table.bulkStatusUpdated').replace('{count}', String(ids.length)));
     }
+    setFavoriteReload(count => count + 1);
     router.refresh();
     setSelectedIds(new Set());
   };
@@ -559,13 +565,15 @@ export default function ApplicationsClient({
 
   const [localOffers, setLocalOffers] = useState(() => hydrateOffers(offers));
   const [filteredTotal, setFilteredTotal] = useState(initialFilteredTotal);
+  const [quickCounts, setQuickCounts] = useState(initialQuickCounts);
   const [listLoading, setListLoading] = useState(false);
   const skipListFetch = useRef(true);
 
   useEffect(() => {
     setLocalOffers(hydrateOffers(offers));
     setFilteredTotal(initialFilteredTotal);
-  }, [offers, initialFilteredTotal]);
+    setQuickCounts(initialQuickCounts);
+  }, [offers, initialFilteredTotal, initialQuickCounts]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -618,6 +626,7 @@ export default function ApplicationsClient({
       if (!('error' in result)) {
         setLocalOffers(hydrateOffers(result.data.items));
         setFilteredTotal(result.data.total);
+        setQuickCounts(result.data.quickCounts);
         if (result.data.page !== page) setPage(result.data.page);
       }
       setListLoading(false);
@@ -625,7 +634,7 @@ export default function ApplicationsClient({
     return () => {
       cancelled = true;
     };
-  }, [viewFilters, sort, page, pageSize, favoriteReload]);
+  }, [viewFilters, sort, page, pageSize, favoriteReload, offers]);
 
   const handleFavoriteChange = async (ids: string[], value: boolean) => {
     if (!ids.length || favoriteBusy.current) return;
@@ -678,6 +687,7 @@ export default function ApplicationsClient({
       if (!('error' in refreshed)) {
         setLocalOffers(hydrateOffers(refreshed.data.items));
         setFilteredTotal(refreshed.data.total);
+        setQuickCounts(refreshed.data.quickCounts);
         setPage(1);
       }
       setIsModalOpen(false);
@@ -700,7 +710,7 @@ export default function ApplicationsClient({
               <Briefcase className="w-6 h-6 text-ai stroke-[1.75]" />
               {t('applications.title')}
             </h2>
-            <LinkedInExtensionGuide storeUrl={extensionStoreUrl} />
+            <LinkedInExtensionGuide storeUrl={extensionStoreUrl} label={language === 'es' ? 'Ayuda de LinkedIn' : 'LinkedIn help'} />
           </div>
           <p className="text-text-muted text-sm mt-1 font-sans">
             {t('applications.subtitle')}
@@ -717,6 +727,22 @@ export default function ApplicationsClient({
             {t('offerDiscovery.button')}
           </Button>
         </div>
+      </div>
+
+      <div role="group" aria-label={language === 'es' ? 'Filtros rápidos de candidaturas' : 'Quick application filters'} className="mb-5 flex flex-wrap gap-2">
+        {(['all', 'today', 'interested', 'applied', 'interview', 'offer', 'rejected'] as const).map(key => {
+          const selected = !columnFilters.some(filter => filter.column === 'status') && (key === 'today' ? dateFilter === 'today' && statusFilter === 'all' : dateFilter === 'all' && statusFilter === key);
+          const label = key === 'all' ? (language === 'es' ? 'Activas' : 'Active') : key === 'today' ? (language === 'es' ? 'Ofertas hoy' : 'Added today') : key === 'interested' ? (language === 'es' ? 'Guardadas' : 'Saved') : t(`applications.columns.${key}.title`);
+          const style = key === 'all' || key === 'today' ? 'bg-surface-muted text-text border-control' : `${APPLICATION_STATUS_STYLES[key].color} ${APPLICATION_STATUS_STYLES[key].border}`;
+          return <button key={key} type="button" aria-pressed={selected} onClick={() => {
+            setStatusFilter(key === 'today' ? 'all' : key); setDateFilter(key === 'today' ? 'today' : 'all');
+            setStartDate(''); setEndDate(''); setExcludedStatuses(['archived']);
+            setColumnFilters(previous => previous.filter(filter => filter.column !== 'status')); resetPageAndSelection();
+          }} className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${style} ${selected ? 'ring-2 ring-focus ring-offset-2 ring-offset-canvas' : 'hover:brightness-95 dark:hover:brightness-110'}`}>
+            {key === 'today' ? <CalendarClock className="h-4 w-4" aria-hidden="true" /> : key !== 'all' ? <span aria-hidden="true"><ApplicationStatusIcon status={key} className="h-4 w-4" /></span> : null}
+            {label}<span className="rounded-full bg-surface px-2 py-0.5 text-xs tabular-nums">{quickCounts[key]}</span>
+          </button>;
+        })}
       </div>
 
       <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-5">

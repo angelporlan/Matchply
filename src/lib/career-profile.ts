@@ -489,12 +489,21 @@ export function hasStructuredProfile(profile: { skills?: unknown; keyProjects?: 
 export function profileInformationChecklist(input: {
   bio?: string; masterDocument?: string; skills?: ProfileSkill[]; keyProjects?: KeyProject[];
   preferredLocations?: string; preferredWorkplaces?: string[]; salaryMin?: number | '' | null;
+  curationCriteria?: string; companyPreferences?: string;
 }) {
   return [
     { section: 'dump', present: Boolean(input.bio?.trim() || input.masterDocument?.trim()), optional: false },
     { section: 'skills', present: Boolean(input.skills?.some(skill => skill.name.trim() && skill.evidence?.trim()) || input.keyProjects?.some(project => project.description.trim())), optional: false },
-    { section: 'criteria', present: Boolean(input.preferredLocations?.trim() || input.preferredWorkplaces?.length || input.salaryMin), optional: true },
+    { section: 'criteria', present: Boolean(input.preferredLocations?.trim() || input.preferredWorkplaces?.length || input.salaryMin || input.curationCriteria?.trim() || input.companyPreferences?.trim()), optional: true },
   ];
+}
+
+/** Coverage of profile information, independent of optional job preferences. */
+export function profileInformationProgress(input: Parameters<typeof profileInformationChecklist>[0]) {
+  const items = profileInformationChecklist(input);
+  const core = items.filter(item => !item.optional);
+  const completed = core.filter(item => item.present).length;
+  return { items, completed, total: core.length, percent: core.length ? Math.round(completed / core.length * 100) : 0 };
 }
 
 function compactProjects(projects: KeyProject[], limit = 3) {
